@@ -1,0 +1,28 @@
+{
+  "name": "weather-station-app",
+  "version": "1.0.0",
+  "description": "A weather station application that integrates with research-grade weather stations and displays weather data including wind roses.",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "axios": "^0.21.1",
+    "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
+    "socket.io": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.1.2",
+    "ts-node": "^9.1.1",
+    "jest": "^26.6.3",
+    "@types/jest": "^26.0.0",
+    "@types/node": "^14.14.31",
+    "@types/express": "^4.17.8"
+  },
+  "author": "Frederick Le Roux",
+  "license": "MIT"
+}
