@@ -4,7 +4,7 @@
     "description": "A weather station application that integrates with research-grade weather stations and displays weather data including wind roses.",
     "main": "index.js",
     "scripts": {
-        "build:functions": "node ./node_modules/esbuild/bin/esbuild serverless-src/functions/*.ts --bundle --platform=node --target=node18 --outdir=netlify/functions",
+        "build:functions": "npx esbuild serverless-src/functions/*.ts --bundle --platform=node --target=node18 --outdir=netlify/functions",
         "build": "npm run build:functions && npm run build:client",
         "build:client": "vite build",
         "dev": "npx tsx server/index.ts",
