@@ -3,46 +3,6 @@ import { Cloud, LogIn } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
-function AnimatedCloud({ delay, duration, top, size, opacity }: { 
-  delay: number; 
-  duration: number; 
-  top: string; 
-  size: number;
-  opacity: number;
-}) {
-  const height = Math.round(size * 0.4);
-  return (
-    <div 
-      className="absolute"
-      style={{
-        top,
-        left: '-200px',
-        animation: `float-cloud ${duration}s linear ${delay}s infinite`,
-        opacity,
-      }}
-    >
-      <svg 
-        width={size} 
-        height={height} 
-        viewBox="0 0 200 80" 
-        className="drop-shadow-lg"
-      >
-        <defs>
-          <linearGradient id={`cloud-gradient-${delay}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
-            <stop offset="100%" stopColor="rgba(240,248,255,0.85)" />
-          </linearGradient>
-        </defs>
-        <ellipse cx="60" cy="50" rx="40" ry="25" fill={`url(#cloud-gradient-${delay})`} />
-        <ellipse cx="100" cy="45" rx="50" ry="30" fill={`url(#cloud-gradient-${delay})`} />
-        <ellipse cx="140" cy="50" rx="35" ry="22" fill={`url(#cloud-gradient-${delay})`} />
-        <ellipse cx="80" cy="35" rx="30" ry="20" fill={`url(#cloud-gradient-${delay})`} />
-        <ellipse cx="120" cy="35" rx="35" ry="22" fill={`url(#cloud-gradient-${delay})`} />
-      </svg>
-    </div>
-  );
-}
-
 export default function Landing() {
   const [mounted, setMounted] = useState(false);
   const { login } = useAuth();
@@ -52,17 +12,8 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col">
+    <div className="min-h-screen relative overflow-hidden flex flex-col bg-slate-900">
       <style>{`
-        @keyframes float-cloud {
-          0% {
-            transform: translateX(-200px);
-          }
-          100% {
-            transform: translateX(calc(100vw + 400px));
-          }
-        }
-        
         @keyframes fade-in {
           0% {
             opacity: 0;
@@ -89,21 +40,17 @@ export default function Landing() {
         }
       `}</style>
 
-      <div className="absolute inset-0 bg-gradient-to-b from-sky-400 via-sky-500 to-sky-400" />
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src="/videos/thunderstorm_clouds_over_horizon.mp4" type="video/mp4" />
+      </video>
 
-      {mounted && (
-        <div className="absolute inset-0 pointer-events-none">
-          <AnimatedCloud delay={0} duration={45} top="10%" size={180} opacity={0.95} />
-          <AnimatedCloud delay={8} duration={55} top="25%" size={220} opacity={0.9} />
-          <AnimatedCloud delay={15} duration={40} top="15%" size={150} opacity={0.85} />
-          <AnimatedCloud delay={25} duration={50} top="35%" size={200} opacity={0.88} />
-          <AnimatedCloud delay={35} duration={48} top="20%" size={170} opacity={0.92} />
-          <AnimatedCloud delay={5} duration={60} top="45%" size={140} opacity={0.75} />
-          <AnimatedCloud delay={20} duration={52} top="8%" size={160} opacity={0.8} />
-          <AnimatedCloud delay={40} duration={50} top="55%" size={190} opacity={0.82} />
-          <AnimatedCloud delay={12} duration={48} top="65%" size={165} opacity={0.78} />
-        </div>
-      )}
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-900/30 to-slate-900/60" />
 
       <header className="relative z-10">
         <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">

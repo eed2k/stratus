@@ -11,12 +11,21 @@ export interface AuthUser {
   profileImageUrl?: string | null;
 }
 
+const NETLIFY_SITE_URL = import.meta.env.VITE_NETLIFY_SITE_URL;
+
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    netlifyIdentity.init();
+    if (NETLIFY_SITE_URL) {
+      netlifyIdentity.init({
+        APIUrl: `${NETLIFY_SITE_URL}/.netlify/identity`
+      });
+    } else {
+      netlifyIdentity.init();
+    }
     
     const mapUser = (netlifyUser: NetlifyUser): AuthUser | null => {
       if (!netlifyUser) return null;
@@ -47,19 +56,40 @@ export function useAuth() {
       setUser(null);
     };
 
+    const handleError = (err: Error) => {
+      console.error('Netlify Identity error:', err);
+      setError(err.message);
+    };
+
     netlifyIdentity.on('init', handleInit);
     netlifyIdentity.on('login', handleLogin);
     netlifyIdentity.on('logout', handleLogout);
+    netlifyIdentity.on('error', handleError);
 
     return () => {
       netlifyIdentity.off('init', handleInit);
       netlifyIdentity.off('login', handleLogin);
       netlifyIdentity.off('logout', handleLogout);
+      netlifyIdentity.off('error', handleError);
     };
   }, []);
 
-  const login = () => netlifyIdentity.open('login');
-  const signup = () => netlifyIdentity.open('signup');
+  const login = () => {
+    if (!NETLIFY_SITE_URL) {
+      alert('Netlify Identity is not configured. Please set VITE_NETLIFY_SITE_URL environment variable with your Netlify site URL.');
+      return;
+    }
+    netlifyIdentity.open('login');
+  };
+  
+  const signup = () => {
+    if (!NETLIFY_SITE_URL) {
+      alert('Netlify Identity is not configured. Please set VITE_NETLIFY_SITE_URL environment variable with your Netlify site URL.');
+      return;
+    }
+    netlifyIdentity.open('signup');
+  };
+  
   const logout = () => netlifyIdentity.logout();
 
   return {
@@ -69,5 +99,6 @@ export function useAuth() {
     login,
     signup,
     logout,
+    error,
   };
 }
