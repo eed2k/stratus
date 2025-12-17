@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Cloud, LogIn } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -64,15 +63,6 @@ export default function Landing() {
           }
         }
         
-        @keyframes sway-grass {
-          0%, 100% {
-            transform: skewX(-2deg);
-          }
-          50% {
-            transform: skewX(2deg);
-          }
-        }
-        
         @keyframes fade-in {
           0% {
             opacity: 0;
@@ -99,38 +89,23 @@ export default function Landing() {
         }
       `}</style>
 
-      <div className="absolute inset-0 bg-gradient-to-b from-sky-300 via-sky-400 to-sky-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-600" />
-      
-      <div className="absolute bottom-0 left-0 right-0 h-[40%] bg-gradient-to-t from-green-500 via-green-400 to-emerald-300 dark:from-green-900 dark:via-green-800 dark:to-emerald-700">
-        <div className="absolute inset-0 overflow-hidden">
-          {mounted && [...Array(50)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute bottom-0 w-1 bg-gradient-to-t from-green-600 to-green-400 dark:from-green-700 dark:to-green-500 rounded-t-full"
-              style={{
-                left: `${(i * 2) + Math.random() * 2}%`,
-                height: `${20 + Math.random() * 40}px`,
-                animation: `sway-grass ${2 + Math.random() * 2}s ease-in-out ${Math.random() * 2}s infinite`,
-              }}
-            />
-          ))}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-green-600/30 dark:to-green-900/50" />
-      </div>
+      <div className="absolute inset-0 bg-gradient-to-b from-sky-400 via-sky-500 to-sky-400" />
 
       {mounted && (
         <div className="absolute inset-0 pointer-events-none">
-          <AnimatedCloud delay={0} duration={45} top="5%" size={180} opacity={0.95} />
-          <AnimatedCloud delay={8} duration={55} top="15%" size={220} opacity={0.9} />
-          <AnimatedCloud delay={15} duration={40} top="8%" size={150} opacity={0.85} />
-          <AnimatedCloud delay={25} duration={50} top="20%" size={200} opacity={0.88} />
-          <AnimatedCloud delay={35} duration={48} top="12%" size={170} opacity={0.92} />
-          <AnimatedCloud delay={5} duration={60} top="25%" size={140} opacity={0.75} />
-          <AnimatedCloud delay={20} duration={52} top="3%" size={160} opacity={0.8} />
+          <AnimatedCloud delay={0} duration={45} top="10%" size={180} opacity={0.95} />
+          <AnimatedCloud delay={8} duration={55} top="25%" size={220} opacity={0.9} />
+          <AnimatedCloud delay={15} duration={40} top="15%" size={150} opacity={0.85} />
+          <AnimatedCloud delay={25} duration={50} top="35%" size={200} opacity={0.88} />
+          <AnimatedCloud delay={35} duration={48} top="20%" size={170} opacity={0.92} />
+          <AnimatedCloud delay={5} duration={60} top="45%" size={140} opacity={0.75} />
+          <AnimatedCloud delay={20} duration={52} top="8%" size={160} opacity={0.8} />
+          <AnimatedCloud delay={40} duration={50} top="55%" size={190} opacity={0.82} />
+          <AnimatedCloud delay={12} duration={48} top="65%" size={165} opacity={0.78} />
         </div>
       )}
 
-      <header className="relative z-10 border-b border-white/20 backdrop-blur-md bg-white/10 dark:bg-slate-900/30">
+      <header className="relative z-10">
         <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
           <div className="flex items-center gap-3">
             <Cloud className="h-8 w-8 text-white drop-shadow-lg" />
@@ -138,18 +113,15 @@ export default function Landing() {
               STRATUS
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <Button 
-              onClick={login} 
-              variant="secondary"
-              className="bg-white/90 hover:bg-white text-sky-700 font-semibold shadow-lg"
-              data-testid="button-login"
-            >
-              <LogIn className="h-4 w-4 mr-2" />
-              Sign In
-            </Button>
-          </div>
+          <Button 
+            onClick={login} 
+            variant="secondary"
+            className="bg-white hover:bg-white/90 text-blue-900 font-semibold shadow-lg"
+            data-testid="button-login"
+          >
+            <LogIn className="h-4 w-4 mr-2" />
+            Sign In
+          </Button>
         </div>
       </header>
 
@@ -169,7 +141,7 @@ export default function Landing() {
             <Button 
               size="lg" 
               onClick={login} 
-              className="bg-white text-sky-700 hover:bg-white/90 font-bold text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              className="bg-white text-blue-900 hover:bg-white/90 font-bold text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
               data-testid="button-get-started"
             >
               Get Started
