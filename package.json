@@ -9,19 +9,24 @@
                     "build:client":  "cd client \u0026\u0026 npm ci \u0026\u0026 npm run build"
                 },
     "dependencies":  {
-                         "express":  "^4.17.1",
+                         "@netlify/functions":  "^5.1.1",
                          "axios":  "^0.21.1",
+                         "bcryptjs":  "^3.0.3",
                          "cors":  "^2.8.5",
                          "dotenv":  "^8.2.0",
+                         "esbuild":  "^0.27.1",
+                         "express":  "^4.17.1",
+                         "jsonwebtoken":  "^9.0.3",
+                         "pg":  "^8.16.3",
                          "socket.io":  "^4.0.0"
                      },
     "devDependencies":  {
-                            "typescript":  "^4.1.2",
-                            "ts-node":  "^9.1.1",
-                            "jest":  "^26.6.3",
+                            "@types/express":  "^4.17.8",
                             "@types/jest":  "^26.0.0",
                             "@types/node":  "^14.14.31",
-                            "@types/express":  "^4.17.8"
+                            "jest":  "^26.6.3",
+                            "ts-node":  "^9.1.1",
+                            "typescript":  "^4.1.2"
                         },
     "author":  "Frederick Le Roux",
     "license":  "MIT"

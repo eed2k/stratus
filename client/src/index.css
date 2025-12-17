@@ -23,3 +23,28 @@
 
 /* Slightly dim headers for atmospheric look */
 header { background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.3)); backdrop-filter: blur(6px); }
+
+/* Atmospheric theme */
+:root {
+  --atmospheric-bg: #f6fbff;
+  --atmospheric-foreground: #0f1724;
+  --atmospheric-primary: #2b6cb0;
+  --atmospheric-muted: #6b7280;
+}
+
+/* Utility aliases */
+.bg-atmospheric-bg { background-color: var(--atmospheric-bg); }
+.text-atmospheric-foreground { color: var(--atmospheric-foreground); }
+.text-atmospheric-primary { color: var(--atmospheric-primary); }
+
+/* Cloud animation */
+.clouds { overflow: hidden; }
+.cloud { position: absolute; top: 10%; left: -40%; width: 40%; opacity: 0.95; animation: floatCloud 40s linear infinite; }
+.cloud.cloud-2 { top: 30%; width: 25%; animation-duration: 60s; opacity: 0.85; transform: translateX(-10%); }
+@keyframes floatCloud {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+
+/* Slightly dim headers for atmospheric look */
+header { background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.3)); backdrop-filter: blur(6px); }
