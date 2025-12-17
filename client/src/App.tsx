@@ -59,7 +59,7 @@ function AuthenticatedApp({ user, logout }: {
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex h-screen w-full bg-slate-900">
+      <div className="dark flex h-screen w-full bg-background">
         <AppSidebar
           user={{
             name: displayName,
@@ -68,11 +68,11 @@ function AuthenticatedApp({ user, logout }: {
           }}
           onLogout={logout}
         />
-        <div className="flex flex-1 flex-col overflow-hidden bg-slate-900">
-          <header className="flex h-14 items-center gap-4 border-b border-slate-700 px-4 bg-slate-800">
+        <div className="flex flex-1 flex-col overflow-hidden bg-background">
+          <header className="flex h-14 items-center gap-4 border-b border-border px-4 bg-card">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
           </header>
-          <main className="flex-1 overflow-auto bg-slate-900">
+          <main className="flex-1 overflow-auto bg-background">
             <Switch>
               <Route path="/" component={Dashboard} />
               <Route path="/stations" component={Stations} />
