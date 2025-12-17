@@ -62,8 +62,8 @@ export default function Landing() {
           </div>
           <Button 
             onClick={login} 
-            variant="secondary"
-            className="bg-white hover:bg-white/90 text-blue-900 font-semibold shadow-lg"
+            variant="outline"
+            className="bg-transparent border-2 border-white text-white hover:bg-white/10 font-semibold rounded-full"
             data-testid="button-login"
           >
             <LogIn className="h-4 w-4 mr-2" />
@@ -78,17 +78,13 @@ export default function Landing() {
             <h1 className={`mb-4 text-6xl md:text-8xl font-bold tracking-tight text-white drop-shadow-2xl ${mounted ? 'animate-fade-in' : ''}`}>
               STRATUS
             </h1>
-            <p className={`text-xl md:text-2xl text-white/90 font-medium drop-shadow-lg mb-2 ${mounted ? 'animate-fade-in-delay-1' : ''}`}>
+            <p className={`text-xl md:text-2xl text-white/90 font-medium drop-shadow-lg mb-10 ${mounted ? 'animate-fade-in-delay-1' : ''}`}>
               Professional Weather Station Monitoring
-            </p>
-            <p className={`mx-auto mb-10 max-w-2xl text-lg text-white/80 drop-shadow ${mounted ? 'animate-fade-in-delay-2' : ''}`}>
-              Monitor your weather stations in real-time, analyze historical data, 
-              and get actionable insights for agriculture, research, and more.
             </p>
             <Button 
               size="lg" 
               onClick={login} 
-              className="bg-white text-blue-900 hover:bg-white/90 font-bold text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              className="bg-transparent border-2 border-white text-white hover:bg-white/10 font-bold text-lg px-8 py-6 rounded-full transition-all duration-300 hover:scale-105"
               data-testid="button-get-started"
             >
               Get Started
