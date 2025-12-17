@@ -1,0 +1,98 @@
+Your project uses Netlify Identity (Deprecated)
+Your project is currently using Netlify Identity, which is now deprecated. Existing implementations will continue to function, but we no longer provide support for Identity-related issues.
+
+We recommend exploring the Auth0 extension for more features and future support. If you would like to migrate, you can contact support to receive a secure export of your Identity data, including hashed passwords.
+
+Contact Support
+
+Learn more about this change
+
+Install Auth0
+Overview
+API endpoint: https://stratusweather1.netlify.app/.netlify/identity
+
+Learn more about Identity in the docs
+
+Identity audit log
+Users
+Manage and invite users
+
+Registered users
+Search users
+Search users
+
+Invite users
+L
+Lukas Esterhuizen
+esterhuizen2k@proton.me
+No role set
+Created at 3:24 PM (10 minutes ago)
+Registration
+Configure how visitors can register and log in to your project or app
+
+Registration preferences
+Registration is open.
+
+Learn more about registration preferences in the docs
+
+Configure
+External providers
+Allow users to register and log in with external OAuth providers.
+Add provider
+Emails
+Customize the emails sent during user registration and other actions
+
+Outgoing email address
+Connect your third-party email provider to send invitations, confirmations, and password reset emails from a custom address.
+Sender email address
+Using default address: no-reply@netlify.com
+SMTP server host
+Not set
+SMTP server port
+Using default port: 587
+Server login username
+Not set
+Server login password
+Not set
+Learn more about custom email configuration in the docs
+
+Configure
+Invitation template
+The email sent to invite a user to sign up.
+Subject
+You've been invited to join stratusweather1.netlify.app
+Path to template
+Using built-in Invitation template
+Configure
+Confirmation template
+The email sent to verify an account’s email address when a new user signs up.
+Subject
+Verify your email for stratusweather1.netlify.app
+Path to template
+Using built-in Confirmation template
+Autoconfirm
+No
+Configure
+Recovery template
+The email sent when a user forgets their password to help them set up a new one.
+Subject
+Reset your password for stratusweather1.netlify.app
+Path to template
+Using built-in Recovery template
+Configure
+Email change template
+The email sent to verify an account’s new email address when a user changes their email.
+Subject
+Verify your new sign-in email for stratusweather1.netlify.app
+Path to template
+Using built-in Email change template
+Configure
+Services
+Add functionality to your project or project by enabling these services
+
+Git Gateway
+Netlify’s Git Gateway connects your project to GitHub’s API. This allows users of tools like Decap CMS to work with content, branches, and pull requests without needing a GitHub account.
+
+Learn more about Git Gateway in the docs
+
+Enable Git Gateway
