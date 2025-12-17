@@ -1,10 +1,19 @@
 ﻿[build]
+  base = ""
   command = "npm run build"
   publish = "client/dist"
   functions = "netlify/functions"
+
+[build.environment]
+  NPM_VERSION = "10"
 
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
