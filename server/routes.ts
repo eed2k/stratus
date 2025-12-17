@@ -49,6 +49,24 @@ export async function registerRoutes(
     console.error('Failed to initialize data collection service:', error);
   }
 
+  // Demo station initialization endpoint
+  app.post("/api/demo/initialize", isAuthenticated, async (req, res) => {
+    try {
+      const { initializeDemoStation } = await import("./demo/generateDemoData");
+      const station = await initializeDemoStation();
+      res.json({ 
+        message: "Demo station created successfully", 
+        station 
+      });
+    } catch (error: any) {
+      console.error("Error initializing demo station:", error);
+      res.status(500).json({ 
+        message: "Failed to initialize demo station", 
+        error: error.message 
+      });
+    }
+  });
+
   // Setup WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
