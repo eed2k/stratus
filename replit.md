@@ -1,8 +1,15 @@
-# WeatherView Pro
+# STRATUS (WeatherView Pro)
 
 ## Overview
 
-WeatherView Pro is a professional weather station monitoring platform designed for real-time data visualization and analytics. The application enables users to manage weather stations, view current conditions, analyze historical data through interactive charts (including wind roses), and generate reports. It's built for agriculture, research, and professional weather monitoring use cases.
+STRATUS is a professional weather station monitoring platform designed for real-time data visualization and analytics. The application enables users to manage Campbell Scientific and Rika weather stations, view current conditions, analyze historical data through interactive charts (including wind roses), and generate reports. It's built for agriculture, research, and professional weather monitoring use cases.
+
+## Recent Changes (December 2025)
+- Fixed React version compatibility (downgraded to React 18.3.1)
+- Configured Tailwind CSS processing in Vite for proper styling
+- Landing page features animated clouds floating over a sky-blue gradient with grass field
+- Added Campbell Scientific station configuration (Serial RS232, LoRa, GSM connections)
+- Added Rika station configuration (IP-based HTTP/REST API)
 
 The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Replit's authentication system for user management.
 
