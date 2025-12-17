@@ -14,14 +14,30 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/components/ThemeProvider";
+import { useToast } from "@/hooks/use-toast";
 import { User, Bell, Palette, Globe, Shield, Save } from "lucide-react";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
   const [units, setUnits] = useState("metric");
   const [timezone, setTimezone] = useState("auto");
+
+  const showComingSoon = (feature: string) => {
+    toast({
+      title: "Coming Soon",
+      description: `${feature} will be available in a future update.`,
+    });
+  };
+
+  const handleSaveProfile = () => {
+    toast({
+      title: "Profile Saved",
+      description: "Your profile changes have been saved.",
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -47,7 +63,7 @@ export default function Settings() {
                 <AvatarImage />
                 <AvatarFallback className="text-lg">JD</AvatarFallback>
               </Avatar>
-              <Button variant="outline" size="sm" data-testid="button-change-avatar">
+              <Button variant="outline" size="sm" data-testid="button-change-avatar" onClick={() => showComingSoon("Avatar upload")}>
                 Change Avatar
               </Button>
             </div>
@@ -65,7 +81,7 @@ export default function Settings() {
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" defaultValue="john@example.com" data-testid="input-settings-email" />
             </div>
-            <Button data-testid="button-save-profile">
+            <Button data-testid="button-save-profile" onClick={handleSaveProfile}>
               <Save className="mr-2 h-4 w-4" />
               Save Changes
             </Button>
@@ -197,7 +213,7 @@ export default function Settings() {
                 <p className="font-medium">Password</p>
                 <p className="text-sm text-muted-foreground">Last changed 30 days ago</p>
               </div>
-              <Button variant="outline" data-testid="button-change-password">
+              <Button variant="outline" data-testid="button-change-password" onClick={() => showComingSoon("Password change")}>
                 Change Password
               </Button>
             </div>
@@ -207,7 +223,7 @@ export default function Settings() {
                 <p className="font-medium">Two-Factor Authentication</p>
                 <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
               </div>
-              <Button variant="outline" data-testid="button-enable-2fa">
+              <Button variant="outline" data-testid="button-enable-2fa" onClick={() => showComingSoon("Two-Factor Authentication")}>
                 Enable 2FA
               </Button>
             </div>
@@ -217,7 +233,7 @@ export default function Settings() {
                 <p className="font-medium text-destructive">Delete Account</p>
                 <p className="text-sm text-muted-foreground">Permanently delete your account and data</p>
               </div>
-              <Button variant="destructive" data-testid="button-delete-account">
+              <Button variant="destructive" data-testid="button-delete-account" onClick={() => showComingSoon("Account deletion")}>
                 Delete Account
               </Button>
             </div>
