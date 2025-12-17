@@ -7,14 +7,18 @@ STRATUS is a professional weather station monitoring platform designed for real-
 ## Recent Changes (December 2025)
 - Fixed React version compatibility (downgraded to React 18.3.1)
 - Configured Tailwind CSS processing in Vite for proper styling
-- Landing page features dark blue theme with clean professional design
+- Landing page features dark blue theme with animated thunderstorm video background
 - Simplified landing page to show only hero section with "Credit: Lukas Esterhuizen 2025" footer
 - Switched from Replit Auth to Netlify Identity authentication
 - Added Campbell Scientific station configuration (Serial RS232, LoRa, GSM, HTTP connections)
 - Added Rika station configuration (IP-based HTTP/REST API)
 - Updated database schema to support multiple station types with connection configuration
 - Created serverless functions for weather data fetching from Campbell Scientific and Rika stations
-- Dark blue theme applied throughout the authenticated app interior
+- Dark blue/slate theme applied throughout the authenticated app interior
+- Added 2D and 3D Wind Rose components with interactive toggle
+- Created example "Elsa" station with sample weather data
+- Removed Reports page (keeping Dashboard, Stations, History, Settings)
+- Added demo mode for development (VITE_DEMO_MODE=true bypasses Netlify Identity)
 
 The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Netlify Identity for user management.
 
