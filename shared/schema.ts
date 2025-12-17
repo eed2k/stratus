@@ -47,17 +47,36 @@ export const weatherStations = pgTable("weather_stations", {
   latitude: real("latitude"),
   longitude: real("longitude"),
   altitude: real("altitude"),
+  timezone: text("timezone").default("UTC"),
+  siteDescription: text("site_description"),
+  installationDate: timestamp("installation_date"),
   stationType: varchar("station_type", { length: 50 }).default("campbell_scientific"),
+  dataloggerModel: varchar("datalogger_model", { length: 50 }),
+  dataloggerSerialNumber: text("datalogger_serial_number"),
+  dataloggerFirmwareVersion: text("datalogger_firmware_version"),
+  dataloggerProgramName: text("datalogger_program_name"),
+  dataloggerProgramSignature: text("datalogger_program_signature"),
   connectionType: varchar("connection_type", { length: 50 }).default("http"),
+  protocol: varchar("protocol", { length: 50 }).default("pakbus"),
   ipAddress: text("ip_address"),
-  port: integer("port").default(80),
+  port: integer("port").default(6785),
+  serialPort: text("serial_port"),
+  baudRate: integer("baud_rate").default(115200),
+  pakbusAddress: integer("pakbus_address").default(1),
+  securityCode: integer("security_code").default(0),
   username: text("username"),
   password: text("password"),
   apiKey: text("api_key"),
   apiEndpoint: text("api_endpoint"),
   dataTable: text("data_table").default("OneMin"),
   pollInterval: integer("poll_interval").default(60),
+  connectionConfig: jsonb("connection_config"),
   isActive: boolean("is_active").default(true),
+  isConnected: boolean("is_connected").default(false),
+  lastConnectionTime: timestamp("last_connection_time"),
+  lastDataTime: timestamp("last_data_time"),
+  batteryVoltage: real("battery_voltage"),
+  panelTemperature: real("panel_temperature"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -145,3 +164,274 @@ export const insertUserPreferencesSchema = createInsertSchema(userPreferences).o
 
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 export type UserPreferences = typeof userPreferences.$inferSelect;
+
+// Sensors table - Track individual sensors at each station
+export const sensors = pgTable("sensors", {
+  id: serial("id").primaryKey(),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  sensorType: varchar("sensor_type", { length: 100 }).notNull(),
+  manufacturer: text("manufacturer"),
+  model: text("model"),
+  serialNumber: text("serial_number"),
+  measurementType: varchar("measurement_type", { length: 50 }).notNull(),
+  installationDate: timestamp("installation_date"),
+  installationHeight: real("installation_height"),
+  installationDepth: real("installation_depth"),
+  orientation: text("orientation"),
+  boomPosition: text("boom_position"),
+  wiringDiagram: text("wiring_diagram"),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSensorSchema = createInsertSchema(sensors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSensor = z.infer<typeof insertSensorSchema>;
+export type Sensor = typeof sensors.$inferSelect;
+
+// Calibration Records table
+export const calibrationRecords = pgTable("calibration_records", {
+  id: serial("id").primaryKey(),
+  sensorId: integer("sensor_id").notNull().references(() => sensors.id, { onDelete: "cascade" }),
+  calibrationDate: timestamp("calibration_date").notNull(),
+  nextCalibrationDue: timestamp("next_calibration_due"),
+  calibratingInstitution: text("calibrating_institution"),
+  certificateNumber: text("certificate_number"),
+  certificateFileUrl: text("certificate_file_url"),
+  calibrationStandard: text("calibration_standard"),
+  uncertaintyValue: real("uncertainty_value"),
+  uncertaintyUnit: text("uncertainty_unit"),
+  temperatureCoefficient: real("temperature_coefficient"),
+  preCalibrationReading: real("pre_calibration_reading"),
+  postCalibrationReading: real("post_calibration_reading"),
+  adjustmentFactor: real("adjustment_factor"),
+  calibrationStatus: varchar("calibration_status", { length: 50 }).default("valid"),
+  notes: text("notes"),
+  performedBy: text("performed_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_calibration_sensor_date").on(table.sensorId, table.calibrationDate),
+  index("IDX_calibration_due_date").on(table.nextCalibrationDue),
+]);
+
+export const insertCalibrationRecordSchema = createInsertSchema(calibrationRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCalibrationRecord = z.infer<typeof insertCalibrationRecordSchema>;
+export type CalibrationRecord = typeof calibrationRecords.$inferSelect;
+
+// Maintenance Events table
+export const maintenanceEvents = pgTable("maintenance_events", {
+  id: serial("id").primaryKey(),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  sensorId: integer("sensor_id").references(() => sensors.id, { onDelete: "set null" }),
+  eventDate: timestamp("event_date").notNull(),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  description: text("description").notNull(),
+  performedBy: text("performed_by"),
+  partsReplaced: text("parts_replaced"),
+  oldSerialNumber: text("old_serial_number"),
+  newSerialNumber: text("new_serial_number"),
+  downtimeMinutes: integer("downtime_minutes"),
+  beforePhotos: jsonb("before_photos"),
+  afterPhotos: jsonb("after_photos"),
+  dataQualityImpact: boolean("data_quality_impact").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_maintenance_station_date").on(table.stationId, table.eventDate),
+]);
+
+export const insertMaintenanceEventSchema = createInsertSchema(maintenanceEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMaintenanceEvent = z.infer<typeof insertMaintenanceEventSchema>;
+export type MaintenanceEvent = typeof maintenanceEvents.$inferSelect;
+
+// Configuration Changes table - Audit trail
+export const configurationChanges = pgTable("configuration_changes", {
+  id: serial("id").primaryKey(),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  changeDate: timestamp("change_date").notNull().defaultNow(),
+  changeType: varchar("change_type", { length: 50 }).notNull(),
+  fieldChanged: text("field_changed"),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  reason: text("reason"),
+  changedBy: text("changed_by"),
+  approvedBy: text("approved_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_config_changes_station_date").on(table.stationId, table.changeDate),
+]);
+
+export const insertConfigurationChangeSchema = createInsertSchema(configurationChanges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertConfigurationChange = z.infer<typeof insertConfigurationChangeSchema>;
+export type ConfigurationChange = typeof configurationChanges.$inferSelect;
+
+// Data Quality Flags table
+export const dataQualityFlags = pgTable("data_quality_flags", {
+  id: serial("id").primaryKey(),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  flagType: varchar("flag_type", { length: 50 }).notNull(),
+  severity: varchar("severity", { length: 20 }).default("warning"),
+  affectedParameters: jsonb("affected_parameters"),
+  reason: text("reason"),
+  relatedMaintenanceId: integer("related_maintenance_id").references(() => maintenanceEvents.id),
+  relatedCalibrationId: integer("related_calibration_id").references(() => calibrationRecords.id),
+  flaggedBy: text("flagged_by"),
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_quality_flags_station_time").on(table.stationId, table.startTime, table.endTime),
+]);
+
+export const insertDataQualityFlagSchema = createInsertSchema(dataQualityFlags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDataQualityFlag = z.infer<typeof insertDataQualityFlagSchema>;
+export type DataQualityFlag = typeof dataQualityFlags.$inferSelect;
+
+// Alarms table
+export const alarms = pgTable("alarms", {
+  id: serial("id").primaryKey(),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  alarmName: text("alarm_name").notNull(),
+  alarmType: varchar("alarm_type", { length: 50 }).notNull(),
+  parameter: varchar("parameter", { length: 50 }).notNull(),
+  condition: varchar("condition", { length: 50 }).notNull(),
+  thresholdValue: real("threshold_value"),
+  thresholdValueHigh: real("threshold_value_high"),
+  hysteresis: real("hysteresis"),
+  duration: integer("duration"),
+  severity: varchar("severity", { length: 20 }).default("warning"),
+  isEnabled: boolean("is_enabled").default(true),
+  notificationEmail: text("notification_email"),
+  notificationSms: text("notification_sms"),
+  notificationWebhook: text("notification_webhook"),
+  escalationLevel: integer("escalation_level").default(1),
+  escalationDelay: integer("escalation_delay"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_alarms_station").on(table.stationId),
+]);
+
+export const insertAlarmSchema = createInsertSchema(alarms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAlarm = z.infer<typeof insertAlarmSchema>;
+export type Alarm = typeof alarms.$inferSelect;
+
+// Alarm Events table - Log of triggered alarms
+export const alarmEvents = pgTable("alarm_events", {
+  id: serial("id").primaryKey(),
+  alarmId: integer("alarm_id").notNull().references(() => alarms.id, { onDelete: "cascade" }),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  triggeredAt: timestamp("triggered_at").notNull().defaultNow(),
+  clearedAt: timestamp("cleared_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: text("acknowledged_by"),
+  triggerValue: real("trigger_value"),
+  status: varchar("status", { length: 20 }).default("active"),
+  notificationsSent: jsonb("notifications_sent"),
+  notes: text("notes"),
+}, (table) => [
+  index("IDX_alarm_events_station_time").on(table.stationId, table.triggeredAt),
+  index("IDX_alarm_events_status").on(table.status),
+]);
+
+export const insertAlarmEventSchema = createInsertSchema(alarmEvents).omit({
+  id: true,
+});
+
+export type InsertAlarmEvent = z.infer<typeof insertAlarmEventSchema>;
+export type AlarmEvent = typeof alarmEvents.$inferSelect;
+
+// Datalogger Programs table - Store program versions
+export const dataloggerPrograms = pgTable("datalogger_programs", {
+  id: serial("id").primaryKey(),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  programName: text("program_name").notNull(),
+  programVersion: text("program_version"),
+  programSignature: text("program_signature"),
+  programContent: text("program_content"),
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
+  uploadedBy: text("uploaded_by"),
+  compileStatus: varchar("compile_status", { length: 50 }),
+  compileErrors: text("compile_errors"),
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+}, (table) => [
+  index("IDX_programs_station").on(table.stationId),
+]);
+
+export const insertDataloggerProgramSchema = createInsertSchema(dataloggerPrograms).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export type InsertDataloggerProgram = z.infer<typeof insertDataloggerProgramSchema>;
+export type DataloggerProgram = typeof dataloggerPrograms.$inferSelect;
+
+// Station Groups table - Organize multiple stations
+export const stationGroups = pgTable("station_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertStationGroupSchema = createInsertSchema(stationGroups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertStationGroup = z.infer<typeof insertStationGroupSchema>;
+export type StationGroup = typeof stationGroups.$inferSelect;
+
+// Station Group Members table
+export const stationGroupMembers = pgTable("station_group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => stationGroups.id, { onDelete: "cascade" }),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStationGroupMemberSchema = createInsertSchema(stationGroupMembers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStationGroupMember = z.infer<typeof insertStationGroupMemberSchema>;
+export type StationGroupMember = typeof stationGroupMembers.$inferSelect;

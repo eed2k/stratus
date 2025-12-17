@@ -4,6 +4,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, getUserId } from "./netlifyAuth";
 import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, type WeatherData } from "@shared/schema";
+import { registerCampbellRoutes } from "./campbell/routes";
+import { dataCollectionService } from "./campbell/dataCollectionService";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -35,6 +37,17 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Setup authentication
   await setupAuth(app);
+
+  // Register Campbell Scientific routes
+  registerCampbellRoutes(app);
+
+  // Initialize data collection service
+  try {
+    await dataCollectionService.initialize();
+    console.log('Campbell Scientific data collection service initialized');
+  } catch (error) {
+    console.error('Failed to initialize data collection service:', error);
+  }
 
   // Setup WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
