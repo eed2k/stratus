@@ -20,7 +20,9 @@ export const handler: Handler = async (event) => {
     );
     const user = r.rows[0];
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET as string, { expiresIn: "7d" });
-    const cookie = 	oken=${token};HttpOnly;Path=/;Max-Age=${7*24*60*60};SameSite=Lax${process.env.COOKIE_DOMAIN ? ;Domain=${process.env.COOKIE_DOMAIN} : ""};
+    const maxAge = 7 * 24 * 60 * 60;
+    const cookieDomain = process.env.COOKIE_DOMAIN ? `; Domain=${process.env.COOKIE_DOMAIN}` : '';
+    const cookie = `token=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=Lax${cookieDomain}`;
     return { statusCode: 200, headers: { "Set-Cookie": cookie, "Content-Type": "application/json" }, body: JSON.stringify({ user }) };
   } catch (e) {
     return { statusCode: 500, body: JSON.stringify({ error: "server_error" }) };
