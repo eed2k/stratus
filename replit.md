@@ -6,6 +6,12 @@ WeatherView Pro is a professional weather station monitoring platform designed f
 
 The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Replit's authentication system for user management.
 
+## Development
+
+- Run the app: The workflow "Start application" runs `npx tsx server/index.ts` which starts the Express server on port 5000
+- The server handles both the API and serves the Vite dev server in development mode
+- Database: PostgreSQL with Drizzle ORM. Push schema changes with `npx drizzle-kit push --dialect=postgresql --schema=shared/schema.ts --url="$DATABASE_URL"`
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

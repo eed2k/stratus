@@ -1,36 +1,30 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
-// Vite config for building Stratus client
-// This is called from root but points to client folder
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 export default defineConfig({
   root: 'client',
   plugins: [react()],
   server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
-      '/ws': {
-        target: 'ws://localhost:3000',
-        ws: true,
-      },
+    host: '0.0.0.0',
+    allowedHosts: true,
+    hmr: {
+      clientPort: 443,
     },
   },
   build: {
-    outDir: path.resolve(__dirname, 'client/dist'),
+    outDir: 'dist',
+    emptyOutDir: true,
     sourcemap: false,
-    minify: 'terser',
-    rollupOptions: {
-      input: path.resolve(__dirname, 'client/src/index.html'),
-    },
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './client/src'),
+      '@shared': path.resolve(__dirname, './shared'),
     },
   },
 })
