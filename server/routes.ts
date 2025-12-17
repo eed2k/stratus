@@ -1,9 +1,18 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, getUserId } from "./netlifyAuth";
 import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, type WeatherData } from "@shared/schema";
+
+const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
+
+const optionalAuth: RequestHandler = (req, res, next) => {
+  if (DEMO_MODE) {
+    return next();
+  }
+  return isAuthenticated(req, res, next);
+};
 
 // Store connected WebSocket clients by station ID
 const stationClients = new Map<number, Set<WebSocket>>();
@@ -92,8 +101,8 @@ export async function registerRoutes(
     }
   });
 
-  // Weather Stations routes (no auth required for listing - demo mode)
-  app.get("/api/stations", async (req, res) => {
+  // Weather Stations routes (demo mode bypasses auth)
+  app.get("/api/stations", optionalAuth, async (req, res) => {
     try {
       const stations = await storage.getStations();
       res.json(stations);
@@ -103,7 +112,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stations/:id", async (req, res) => {
+  app.get("/api/stations/:id", optionalAuth, async (req, res) => {
     try {
       const station = await storage.getStation(parseInt(req.params.id));
       if (!station) {
@@ -214,8 +223,8 @@ export async function registerRoutes(
     }
   });
 
-  // Weather Data routes (no auth required for reading - demo mode)
-  app.get("/api/stations/:stationId/data/latest", async (req, res) => {
+  // Weather Data routes (demo mode bypasses auth)
+  app.get("/api/stations/:stationId/data/latest", optionalAuth, async (req, res) => {
     try {
       const stationId = parseInt(req.params.stationId);
       const data = await storage.getLatestWeatherData(stationId);
@@ -229,7 +238,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stations/:stationId/data", async (req, res) => {
+  app.get("/api/stations/:stationId/data", optionalAuth, async (req, res) => {
     try {
       const stationId = parseInt(req.params.stationId);
       const { startTime, endTime } = req.query;
