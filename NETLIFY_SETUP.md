@@ -1,41 +1,67 @@
-# Netlify Deployment Setup
+# Netlify Deployment Setup for STRATUS
 
-## Required Settings in Netlify Dashboard
+## Step 1: Connect GitHub Repository
 
-Go to: **Site settings → Build & deploy → Build command**
+1. Go to [Netlify Dashboard](https://app.netlify.com)
+2. Click **Add new site** → **Import an existing project**
+3. Choose **GitHub** and select your repository: `reuxnergy-admin1/stratus`
 
-### Build Settings
+## Step 2: Configure Build Settings
+
 | Setting | Value |
 |---------|-------|
-| **Base directory** | (empty or /) |
+| **Base directory** | (leave empty) |
 | **Build command** | `npm run build` |
 | **Publish directory** | `client/dist` |
 | **Functions directory** | `netlify/functions` |
 
-⚠️ **IMPORTANT**: These UI settings will override `netlify.toml` if they are configured. Make sure they match exactly.
+## Step 3: Environment Variables
 
-### Environment Variables
-Go to: **Site settings → Build & deploy → Environment**
+Go to: **Site settings → Environment variables**
 
-Add these environment variables:
-```
-DATABASE_URL = postgresql://user:password@host:5432/dbname
-JWT_SECRET = [random 32-character secret]
-```
+Add this environment variable:
 
-To generate JWT_SECRET on Windows PowerShell:
-```powershell
-[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
-```
+| Key | Value |
+|-----|-------|
+| `DATABASE_URL` | Your PostgreSQL connection string |
 
-## Verify Before Deploying
-1. ✅ `netlify.toml` is committed to GitHub
-2. ✅ `package.json` has `build` script: `npm run build:functions && npm run build:client`
-3. ✅ `client/package.json` has build script
-4. ✅ `serverless-src/functions/` has TypeScript files
-5. ✅ UI settings match values above
+**Note:** You'll need a production PostgreSQL database. Options:
+- [Neon](https://neon.tech) (free tier available)
+- [Supabase](https://supabase.com) (free tier available)
+- [Railway](https://railway.app)
 
-## If Build Still Fails
-1. Clear build cache: Site settings → Build & deploy → Trigger deploy → Clear cache and retry
-2. Check build logs for exact error
-3. Verify `netlify.toml` is present in repository root
+## Step 4: Enable Identity (Already Done)
+
+Your site already has Netlify Identity enabled. Users registered in Identity will be able to log in.
+
+## Step 5: Deploy
+
+1. Click **Deploy site**
+2. Wait for the build to complete
+3. Visit your site URL
+
+## Verify Deployment
+
+After deploying:
+1. Visit your Netlify site URL
+2. Click **Sign In**
+3. The Netlify Identity widget should appear
+4. Log in with your verified email
+5. After login, you should see the dashboard
+
+## Troubleshooting
+
+### Build fails
+1. Check the build logs in Netlify
+2. Ensure `netlify.toml` is committed to your repository
+3. Clear cache: **Deploys** → **Trigger deploy** → **Clear cache and deploy site**
+
+### Identity not working
+1. Verify Identity is enabled: **Site settings** → **Identity**
+2. Check that your user email is verified
+3. Ensure Registration is set to **Open** or **Invite only**
+
+### Database connection fails
+1. Verify `DATABASE_URL` is set correctly in environment variables
+2. Ensure the database allows connections from Netlify's IP addresses
+3. Check if the database requires SSL (add `?sslmode=require` to the URL)
