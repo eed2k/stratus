@@ -26,7 +26,7 @@ function LoadingScreen() {
 }
 
 function Router() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, logout } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -42,11 +42,14 @@ function Router() {
   }
 
   return (
-    <AuthenticatedApp user={user!} />
+    <AuthenticatedApp user={user!} logout={logout} />
   );
 }
 
-function AuthenticatedApp({ user }: { user: { firstName?: string | null; lastName?: string | null; email?: string | null; profileImageUrl?: string | null } }) {
+function AuthenticatedApp({ user, logout }: { 
+  user: { firstName?: string | null; lastName?: string | null; email?: string | null; profileImageUrl?: string | null };
+  logout: () => void;
+}) {
   const sidebarStyle = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -55,10 +58,6 @@ function AuthenticatedApp({ user }: { user: { firstName?: string | null; lastNam
   const displayName = user.firstName && user.lastName 
     ? `${user.firstName} ${user.lastName}`
     : user.firstName || user.email || "User";
-
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
-  };
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
@@ -69,7 +68,7 @@ function AuthenticatedApp({ user }: { user: { firstName?: string | null; lastNam
             email: user.email || "",
             avatar: user.profileImageUrl || undefined,
           }}
-          onLogout={handleLogout}
+          onLogout={logout}
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <header className="flex h-14 items-center justify-between gap-4 border-b px-4">

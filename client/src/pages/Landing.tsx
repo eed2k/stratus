@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Cloud, BarChart3, Gauge, Wind, Droplets, Sun, LogIn } from "lucide-react";
+import { Cloud, LogIn } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 function AnimatedCloud({ delay, duration, top, size, opacity }: { 
   delay: number; 
@@ -46,17 +46,14 @@ function AnimatedCloud({ delay, duration, top, size, opacity }: {
 
 export default function Landing() {
   const [mounted, setMounted] = useState(false);
+  const { login } = useAuth();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleLogin = () => {
-    window.location.href = "/api/login";
-  };
-
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden flex flex-col">
       <style>{`
         @keyframes float-cloud {
           0% {
@@ -144,7 +141,7 @@ export default function Landing() {
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <Button 
-              onClick={handleLogin} 
+              onClick={login} 
               variant="secondary"
               className="bg-white/90 hover:bg-white text-sky-700 font-semibold shadow-lg"
               data-testid="button-login"
@@ -156,7 +153,7 @@ export default function Landing() {
         </div>
       </header>
 
-      <main className="relative z-10">
+      <main className="relative z-10 flex-1 flex items-center justify-center">
         <section className="py-20 md:py-32">
           <div className="container mx-auto px-4 text-center">
             <h1 className={`mb-4 text-6xl md:text-8xl font-bold tracking-tight text-white drop-shadow-2xl ${mounted ? 'animate-fade-in' : ''}`}>
@@ -171,7 +168,7 @@ export default function Landing() {
             </p>
             <Button 
               size="lg" 
-              onClick={handleLogin} 
+              onClick={login} 
               className="bg-white text-sky-700 hover:bg-white/90 font-bold text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
               data-testid="button-get-started"
             >
@@ -179,95 +176,11 @@ export default function Landing() {
             </Button>
           </div>
         </section>
-
-        <section className="py-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg">
-          <div className="container mx-auto px-4">
-            <h2 className="mb-12 text-center text-3xl font-bold text-slate-800 dark:text-white">Key Features</h2>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                <CardHeader>
-                  <Gauge className="h-10 w-10 text-sky-600 dark:text-sky-400 mb-2" />
-                  <CardTitle className="text-slate-800 dark:text-white">Real-Time Monitoring</CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-300">
-                    Live weather data updates with temperature, humidity, pressure, and more
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                <CardHeader>
-                  <BarChart3 className="h-10 w-10 text-sky-600 dark:text-sky-400 mb-2" />
-                  <CardTitle className="text-slate-800 dark:text-white">Historical Analysis</CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-300">
-                    View trends over time with interactive charts and data export capabilities
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                <CardHeader>
-                  <Wind className="h-10 w-10 text-sky-600 dark:text-sky-400 mb-2" />
-                  <CardTitle className="text-slate-800 dark:text-white">Wind Analysis</CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-300">
-                    Wind rose diagrams and wind power calculations for detailed analysis
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                <CardHeader>
-                  <Droplets className="h-10 w-10 text-sky-600 dark:text-sky-400 mb-2" />
-                  <CardTitle className="text-slate-800 dark:text-white">ETo Calculation</CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-300">
-                    Evapotranspiration calculations for agricultural applications
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                <CardHeader>
-                  <Sun className="h-10 w-10 text-sky-600 dark:text-sky-400 mb-2" />
-                  <CardTitle className="text-slate-800 dark:text-white">Solar Radiation</CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-300">
-                    Track solar radiation and UV index for comprehensive weather data
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                <CardHeader>
-                  <Cloud className="h-10 w-10 text-sky-600 dark:text-sky-400 mb-2" />
-                  <CardTitle className="text-slate-800 dark:text-white">Multiple Stations</CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-300">
-                    Connect Campbell Scientific and Rika weather stations from a single dashboard
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-16 relative">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="mb-4 text-3xl font-bold text-white drop-shadow-lg">Ready to Get Started?</h2>
-            <p className="mb-8 text-white/80 drop-shadow">
-              Sign in to connect your Campbell Scientific or Rika weather stations and start monitoring.
-            </p>
-            <Button 
-              size="lg" 
-              onClick={handleLogin}
-              className="bg-white text-sky-700 hover:bg-white/90 font-bold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
-              data-testid="button-sign-in-cta"
-            >
-              Sign In Now
-            </Button>
-          </div>
-        </section>
       </main>
 
-      <footer className="relative z-10 border-t border-white/20 py-8 backdrop-blur-md bg-white/10 dark:bg-slate-900/30">
-        <div className="container mx-auto px-4 text-center text-sm text-white/80">
-          STRATUS - Professional Weather Station Monitoring Platform
+      <footer className="relative z-10 py-4">
+        <div className="container mx-auto px-4 text-center text-sm text-white/70">
+          Credit: Lukas Esterhuizen 2025
         </div>
       </footer>
     </div>

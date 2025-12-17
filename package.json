@@ -70,6 +70,7 @@
         "lucide-react": "^0.561.0",
         "memoizee": "^0.4.17",
         "nanoid": "^5.1.6",
+        "netlify-identity-widget": "^1.9.2",
         "openid-client": "^6.8.1",
         "passport": "^0.7.0",
         "pg": "^8.16.3",

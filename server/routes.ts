@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, getUserId } from "./netlifyAuth";
 import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, type WeatherData } from "@shared/schema";
 
 // Store connected WebSocket clients by station ID
@@ -81,9 +81,9 @@ export async function registerRoutes(
   });
 
   // Auth routes
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/user", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -157,9 +157,9 @@ export async function registerRoutes(
   });
 
   // User-Station routes
-  app.get("/api/user/stations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/user/stations", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const stations = await storage.getUserStations(userId);
       res.json(stations);
     } catch (error) {
@@ -168,9 +168,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/user/stations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/user/stations", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { stationId, isDefault } = req.body;
       const result = await storage.addUserStation({
         userId,
@@ -184,9 +184,9 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/user/stations/:stationId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/user/stations/:stationId", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const stationId = parseInt(req.params.stationId);
       const deleted = await storage.removeUserStation(userId, stationId);
       if (!deleted) {
@@ -199,9 +199,9 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/user/stations/:stationId/default", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/user/stations/:stationId/default", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const stationId = parseInt(req.params.stationId);
       const success = await storage.setDefaultStation(userId, stationId);
       if (!success) {
@@ -276,9 +276,9 @@ export async function registerRoutes(
   });
 
   // User Preferences routes
-  app.get("/api/user/preferences", isAuthenticated, async (req: any, res) => {
+  app.get("/api/user/preferences", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const prefs = await storage.getUserPreferences(userId);
       res.json(prefs || {});
     } catch (error) {
@@ -287,9 +287,9 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/user/preferences", isAuthenticated, async (req: any, res) => {
+  app.put("/api/user/preferences", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const parsed = insertUserPreferencesSchema.safeParse({
         ...req.body,
         userId,

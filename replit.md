@@ -8,10 +8,12 @@ STRATUS is a professional weather station monitoring platform designed for real-
 - Fixed React version compatibility (downgraded to React 18.3.1)
 - Configured Tailwind CSS processing in Vite for proper styling
 - Landing page features animated clouds floating over a sky-blue gradient with grass field
+- Simplified landing page to show only hero section with "Credit: Lukas Esterhuizen 2025" footer
+- Switched from Replit Auth to Netlify Identity authentication
 - Added Campbell Scientific station configuration (Serial RS232, LoRa, GSM connections)
 - Added Rika station configuration (IP-based HTTP/REST API)
 
-The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Replit's authentication system for user management.
+The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Netlify Identity for user management.
 
 ## Development
 
@@ -39,8 +41,13 @@ Preferred communication style: Simple, everyday language.
 - **Language**: TypeScript (ESM modules)
 - **API Style**: RESTful endpoints under `/api/*`
 - **Real-time Updates**: WebSocket server for live weather data streaming
-- **Authentication**: Replit OpenID Connect (OIDC) integration with Passport.js
+- **Authentication**: Netlify Identity with JWT tokens (see note below)
 - **Session Management**: express-session with PostgreSQL store (connect-pg-simple)
+
+**Authentication Note**: Netlify Identity does not expose JWT signing keys on free plans. For production, consider:
+1. Deploying to Netlify and using Netlify Functions (auto-verifies tokens)
+2. Upgrading to Netlify Business plan for custom JWT secret
+3. Using an alternative auth provider (Auth0, Clerk, Firebase)
 
 ### Data Storage
 - **Database**: PostgreSQL via Drizzle ORM
