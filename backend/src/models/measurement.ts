@@ -1,31 +1,42 @@
 export class Measurement {
-    temperature: number;
-    humidity: number;
-    windSpeed: number;
-    windDirection: number;
-    solarRadiation: number;
-    barometricPressure: number;
-    rainfall: number;
-    timestamp: Date;
+    stationId?: string;
+    stationType?: 'campbell' | 'rika';
+    temperature: number = 0;
+    humidity: number = 0;
+    windSpeed: number = 0;
+    windDirection: number = 0;
+    windGust?: number;
+    solarRadiation: number = 0;
+    pressure: number = 0;
+    barometricPressure?: number;
+    rainfall: number = 0;
+    dewPoint?: number;
+    uvIndex?: number;
+    timestamp: Date = new Date();
 
     constructor(
-        temperature: number,
-        humidity: number,
-        windSpeed: number,
-        windDirection: number,
-        solarRadiation: number,
-        barometricPressure: number,
-        rainfall: number,
-        timestamp: Date
+        temperature?: number,
+        humidity?: number,
+        windSpeed?: number,
+        windDirection?: number,
+        solarRadiation?: number,
+        barometricPressure?: number,
+        rainfall?: number,
+        timestamp?: Date,
+        stationId?: string,
+        stationType?: 'campbell' | 'rika'
     ) {
-        this.temperature = temperature;
-        this.humidity = humidity;
-        this.windSpeed = windSpeed;
-        this.windDirection = windDirection;
-        this.solarRadiation = solarRadiation;
-        this.barometricPressure = barometricPressure;
-        this.rainfall = rainfall;
-        this.timestamp = timestamp;
+        this.temperature = temperature || 0;
+        this.humidity = humidity || 0;
+        this.windSpeed = windSpeed || 0;
+        this.windDirection = windDirection || 0;
+        this.solarRadiation = solarRadiation || 0;
+        this.barometricPressure = barometricPressure || 0;
+        this.pressure = barometricPressure || 0;
+        this.rainfall = rainfall || 0;
+        this.timestamp = timestamp || new Date();
+        this.stationId = stationId;
+        this.stationType = stationType;
     }
 
     validate(): boolean {
