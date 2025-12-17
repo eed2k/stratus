@@ -80,27 +80,31 @@ export default function Stations() {
 
   const createMutation = useMutation({
     mutationFn: async (data: StationFormData) => {
+      const stationType = data.type === "campbell" ? "campbell_scientific" : data.type;
       const payload: any = {
         name: data.name,
         location: data.location || null,
         latitude: data.latitude ? parseFloat(data.latitude) : null,
         longitude: data.longitude ? parseFloat(data.longitude) : null,
         altitude: data.altitude ? parseFloat(data.altitude) : null,
+        stationType: stationType,
+        connectionType: data.connectionType,
+        ipAddress: data.ipAddress || null,
+        port: data.port ? parseInt(data.port) : 80,
         apiKey: data.apiKey || null,
         apiEndpoint: data.apiEndpoint || null,
+        pollInterval: data.pollInterval ? parseInt(data.pollInterval) : 60,
+        dataTable: "OneMin",
       };
 
       if (data.type === "rika") {
-        payload.apiEndpoint = `http://${data.ipAddress}:${data.port}`;
+        payload.apiEndpoint = data.ipAddress ? `http://${data.ipAddress}:${data.port}/api/v1/data` : data.apiEndpoint;
+        payload.connectionType = "http";
       } else if (data.type === "campbell") {
-        const configNote = data.connectionType === "serial" 
-          ? `Serial: ${data.serialPort} @ ${data.baudRate} baud`
-          : data.connectionType === "lora"
-          ? `LoRa: ${data.loraFrequency} Hz`
-          : data.connectionType === "gsm"
-          ? `GSM: ${data.gsmApn}`
-          : `IP: ${data.ipAddress}:${data.port}`;
-        payload.location = `${data.location || ""} [${configNote}]`.trim();
+        payload.connectionType = data.connectionType;
+        if (data.connectionType === "ip") {
+          payload.connectionType = "http";
+        }
       }
 
       return await apiRequest("POST", "/api/stations", payload);
