@@ -12,13 +12,26 @@ export interface AuthUser {
 }
 
 const NETLIFY_SITE_URL = import.meta.env.VITE_NETLIFY_SITE_URL;
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true' || !NETLIFY_SITE_URL;
+
+const DEMO_USER: AuthUser = {
+  id: 'demo-user',
+  email: 'demo@stratus.app',
+  firstName: 'Demo',
+  lastName: 'User',
+  profileImageUrl: null,
+};
 
 export function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(DEMO_MODE ? DEMO_USER : null);
+  const [isLoading, setIsLoading] = useState(!DEMO_MODE);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (DEMO_MODE) {
+      return;
+    }
+    
     if (NETLIFY_SITE_URL) {
       netlifyIdentity.init({
         APIUrl: `${NETLIFY_SITE_URL}/.netlify/identity`
@@ -75,6 +88,10 @@ export function useAuth() {
   }, []);
 
   const login = () => {
+    if (DEMO_MODE) {
+      setUser(DEMO_USER);
+      return;
+    }
     if (!NETLIFY_SITE_URL) {
       alert('Netlify Identity is not configured. Please set VITE_NETLIFY_SITE_URL environment variable with your Netlify site URL.');
       return;
@@ -83,6 +100,10 @@ export function useAuth() {
   };
   
   const signup = () => {
+    if (DEMO_MODE) {
+      setUser(DEMO_USER);
+      return;
+    }
     if (!NETLIFY_SITE_URL) {
       alert('Netlify Identity is not configured. Please set VITE_NETLIFY_SITE_URL environment variable with your Netlify site URL.');
       return;
@@ -90,7 +111,13 @@ export function useAuth() {
     netlifyIdentity.open('signup');
   };
   
-  const logout = () => netlifyIdentity.logout();
+  const logout = () => {
+    if (DEMO_MODE) {
+      setUser(null);
+      return;
+    }
+    netlifyIdentity.logout();
+  };
 
   return {
     user,

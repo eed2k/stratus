@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindRose } from "@/components/charts/WindRose";
+import { WindRose3D } from "@/components/charts/WindRose3D";
 import { WeatherChart } from "@/components/charts/WeatherChart";
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { WindPowerCard } from "@/components/dashboard/WindPowerCard";
@@ -12,6 +13,7 @@ import { RefreshIndicator } from "@/components/dashboard/RefreshIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Link } from "wouter";
 import {
   Thermometer,
@@ -67,6 +69,7 @@ export default function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [interval, setIntervalValue] = useState(60);
+  const [windRoseView, setWindRoseView] = useState<"2d" | "3d">("2d");
   
   const chartData = useMemo(() => generateChartData(24), []);
   const windRoseData = useMemo(() => generateWindRoseData(), []);
@@ -276,7 +279,20 @@ export default function Dashboard() {
       </Tabs>
 
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        <WindRose data={windRoseData} title="Wind Rose (24h)" />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">View Mode</span>
+            <ToggleGroup type="single" value={windRoseView} onValueChange={(v) => v && setWindRoseView(v as "2d" | "3d")}>
+              <ToggleGroupItem value="2d" size="sm" className="text-xs">2D</ToggleGroupItem>
+              <ToggleGroupItem value="3d" size="sm" className="text-xs">3D</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          {windRoseView === "2d" ? (
+            <WindRose data={windRoseData} title="Wind Rose (24h)" />
+          ) : (
+            <WindRose3D data={windRoseData} title="Wind Rose 3D (24h)" />
+          )}
+        </div>
         <div className="space-y-4">
           <WindPowerCard
             currentPower={45.2}

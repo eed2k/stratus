@@ -92,8 +92,8 @@ export async function registerRoutes(
     }
   });
 
-  // Weather Stations routes
-  app.get("/api/stations", isAuthenticated, async (req, res) => {
+  // Weather Stations routes (no auth required for listing - demo mode)
+  app.get("/api/stations", async (req, res) => {
     try {
       const stations = await storage.getStations();
       res.json(stations);
@@ -103,7 +103,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stations/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/stations/:id", async (req, res) => {
     try {
       const station = await storage.getStation(parseInt(req.params.id));
       if (!station) {
@@ -214,8 +214,8 @@ export async function registerRoutes(
     }
   });
 
-  // Weather Data routes
-  app.get("/api/stations/:stationId/data/latest", isAuthenticated, async (req, res) => {
+  // Weather Data routes (no auth required for reading - demo mode)
+  app.get("/api/stations/:stationId/data/latest", async (req, res) => {
     try {
       const stationId = parseInt(req.params.stationId);
       const data = await storage.getLatestWeatherData(stationId);
@@ -229,7 +229,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stations/:stationId/data", isAuthenticated, async (req, res) => {
+  app.get("/api/stations/:stationId/data", async (req, res) => {
     try {
       const stationId = parseInt(req.params.stationId);
       const { startTime, endTime } = req.query;

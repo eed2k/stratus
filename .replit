@@ -46,3 +46,4 @@ build = ["npm", "run", "build:client"]
 
 [userenv.shared]
 VITE_NETLIFY_SITE_URL = "https://stratusweather1.netlify.app"
+VITE_DEMO_MODE = "true"
