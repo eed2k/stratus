@@ -41,3 +41,8 @@ externalPort = 3001
 deploymentTarget = "autoscale"
 run = ["npx", "tsx", "server/index.ts"]
 build = ["npm", "run", "build:client"]
+
+[userenv]
+
+[userenv.shared]
+VITE_NETLIFY_SITE_URL = "https://stratusweather1.netlify.app"
