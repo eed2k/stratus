@@ -20,6 +20,7 @@ import {
   Settings,
   LogOut,
   Cloud,
+  Activity,
 } from "lucide-react";
 
 interface AppSidebarProps {
@@ -33,6 +34,7 @@ interface AppSidebarProps {
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Campbell Scientific", url: "/campbell", icon: Activity },
   { title: "Stations", url: "/stations", icon: Radio },
   { title: "History", url: "/history", icon: History },
   { title: "Settings", url: "/settings", icon: Settings },
@@ -42,22 +44,22 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
   const [location] = useLocation();
 
   return (
-    <Sidebar className="bg-slate-800 border-r border-slate-700">
-      <SidebarHeader className="border-b border-slate-700 p-4">
+    <Sidebar className="bg-sidebar-background border-r border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-600">
-            <Cloud className="h-5 w-5 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
+            <Cloud className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="font-semibold text-white">STRATUS</h2>
-            <p className="text-xs text-slate-400">Weather Monitoring</p>
+            <h2 className="font-semibold text-sidebar-foreground">STRATUS</h2>
+            <p className="text-xs text-muted-foreground">Weather Monitoring</p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-slate-800">
+      <SidebarContent className="bg-sidebar-background">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-slate-400">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -79,18 +81,18 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-slate-700 p-4">
+      <SidebarFooter className="border-t border-sidebar-border p-4">
         {user && (
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
               <AvatarImage src={user.avatar} />
-              <AvatarFallback className="text-xs bg-slate-600 text-white">
+              <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
                 {user.name.split(" ").map(n => n[0]).join("").toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 overflow-hidden">
-              <p className="truncate text-sm font-medium text-white" data-testid="text-user-name">{user.name}</p>
-              <p className="truncate text-xs text-slate-400">{user.email}</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground" data-testid="text-user-name">{user.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             </div>
             <Button
               variant="ghost"

@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
+import CampbellDashboard from "@/pages/CampbellDashboard";
 import Landing from "@/pages/Landing";
 import Stations from "@/pages/Stations";
 import History from "@/pages/History";
@@ -75,6 +76,7 @@ function AuthenticatedApp({ user, logout }: {
           <main className="flex-1 overflow-auto bg-background">
             <Switch>
               <Route path="/" component={Dashboard} />
+              <Route path="/campbell" component={CampbellDashboard} />
               <Route path="/stations" component={Stations} />
               <Route path="/history" component={History} />
               <Route path="/settings" component={Settings} />
