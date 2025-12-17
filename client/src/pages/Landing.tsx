@@ -82,9 +82,8 @@ export default function Landing() {
               Professional Weather Station Monitoring
             </p>
             <Button 
-              size="lg" 
               onClick={login} 
-              className="bg-transparent border-2 border-white text-white hover:bg-white/10 font-bold text-lg px-8 py-6 rounded-full transition-all duration-300 hover:scale-105"
+              className="bg-transparent border border-white text-white hover:bg-white/10 font-semibold px-6 py-2 rounded-full transition-all duration-300 hover:scale-105"
               data-testid="button-get-started"
             >
               Get Started
