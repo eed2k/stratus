@@ -235,6 +235,12 @@ export default function Stations() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="ip">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                HTTP/IP (Web API)
+                              </div>
+                            </SelectItem>
                             <SelectItem value="serial">
                               <div className="flex items-center gap-2">
                                 <Cable className="h-4 w-4" />
@@ -256,6 +262,27 @@ export default function Stations() {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {formData.connectionType === "ip" && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Datalogger IP Address</Label>
+                            <Input
+                              placeholder="192.168.4.14"
+                              value={formData.ipAddress}
+                              onChange={(e) => updateForm({ ipAddress: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Port</Label>
+                            <Input
+                              placeholder="80"
+                              value={formData.port}
+                              onChange={(e) => updateForm({ port: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       {formData.connectionType === "serial" && (
                         <div className="grid grid-cols-2 gap-4">
