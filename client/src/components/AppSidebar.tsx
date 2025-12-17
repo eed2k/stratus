@@ -44,22 +44,22 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
   const [location] = useLocation();
 
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b p-4">
+    <Sidebar className="bg-slate-800 border-r border-slate-700">
+      <SidebarHeader className="border-b border-slate-700 p-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
-            <Cloud className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-600">
+            <Cloud className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="font-semibold">WeatherView</h2>
-            <p className="text-xs text-muted-foreground">Pro Edition</p>
+            <h2 className="font-semibold text-white">STRATUS</h2>
+            <p className="text-xs text-slate-400">Weather Monitoring</p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="bg-slate-800">
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-slate-400">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -81,18 +81,18 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t p-4">
+      <SidebarFooter className="border-t border-slate-700 p-4">
         {user && (
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
               <AvatarImage src={user.avatar} />
-              <AvatarFallback className="text-xs">
+              <AvatarFallback className="text-xs bg-slate-600 text-white">
                 {user.name.split(" ").map(n => n[0]).join("").toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 overflow-hidden">
-              <p className="truncate text-sm font-medium" data-testid="text-user-name">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              <p className="truncate text-sm font-medium text-white" data-testid="text-user-name">{user.name}</p>
+              <p className="truncate text-xs text-slate-400">{user.email}</p>
             </div>
             <Button
               variant="ghost"

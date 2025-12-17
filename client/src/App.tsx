@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
@@ -61,7 +60,7 @@ function AuthenticatedApp({ user, logout }: {
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+      <div className="flex h-screen w-full bg-slate-900">
         <AppSidebar
           user={{
             name: displayName,
@@ -70,12 +69,11 @@ function AuthenticatedApp({ user, logout }: {
           }}
           onLogout={logout}
         />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <header className="flex h-14 items-center justify-between gap-4 border-b px-4">
+        <div className="flex flex-1 flex-col overflow-hidden bg-slate-900">
+          <header className="flex h-14 items-center gap-4 border-b border-slate-700 px-4 bg-slate-800">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto bg-slate-900">
             <Switch>
               <Route path="/" component={Dashboard} />
               <Route path="/stations" component={Stations} />
