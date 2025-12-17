@@ -37,7 +37,7 @@ export function LoginForm({ onLogin, onSocialLogin, onSignUp }: LoginFormProps) 
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
           <Cloud className="h-8 w-8 text-primary" />
         </div>
-        <CardTitle className="text-2xl font-semibold">WeatherView Pro</CardTitle>
+        <CardTitle className="text-2xl font-semibold">STRATUS</CardTitle>
         <CardDescription>Sign in to access your weather stations</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

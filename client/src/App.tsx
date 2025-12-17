@@ -12,7 +12,6 @@ import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
 import Stations from "@/pages/Stations";
 import History from "@/pages/History";
-import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
 import { Loader2 } from "lucide-react";
 
@@ -78,7 +77,6 @@ function AuthenticatedApp({ user, logout }: {
               <Route path="/" component={Dashboard} />
               <Route path="/stations" component={Stations} />
               <Route path="/history" component={History} />
-              <Route path="/reports" component={Reports} />
               <Route path="/settings" component={Settings} />
               <Route component={NotFound} />
             </Switch>

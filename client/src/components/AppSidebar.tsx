@@ -17,7 +17,6 @@ import {
   LayoutDashboard,
   Radio,
   History,
-  FileText,
   Settings,
   LogOut,
   Cloud,
@@ -36,7 +35,6 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Stations", url: "/stations", icon: Radio },
   { title: "History", url: "/history", icon: History },
-  { title: "Reports", url: "/reports", icon: FileText },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
