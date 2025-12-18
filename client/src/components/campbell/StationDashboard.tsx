@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Thermometer, Droplets, Wind, Gauge, Sun, CloudRain, Activity } from "lucide-react";
 import { StationLogs } from "@/components/station/StationLogs";
+import { StationHardware } from "@/components/station/StationHardware";
 
 interface WeatherData {
   temperature: number;
@@ -299,6 +300,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Hardware & Personnel */}
+      <StationHardware stationId={stationId} />
 
       {/* Station Logs */}
       <StationLogs stationId={stationId} />

@@ -347,6 +347,48 @@ export async function registerRoutes(
     }
   });
 
+  // Update station (for personnel, etc.)
+  app.patch("/api/stations/:id", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.id);
+      const station = await storage.getStation(stationId);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      const updated = await storage.updateStation(stationId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating station:", error);
+      res.status(500).json({ message: "Failed to update station" });
+    }
+  });
+
+  // Sensors routes
+  app.get("/api/stations/:stationId/sensors", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      const sensors = await storage.getSensors(stationId);
+      res.json(sensors);
+    } catch (error) {
+      console.error("Error fetching sensors:", error);
+      res.status(500).json({ message: "Failed to fetch sensors" });
+    }
+  });
+
+  app.post("/api/stations/:stationId/sensors", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      const sensor = await storage.createSensor({
+        ...req.body,
+        stationId,
+      });
+      res.status(201).json(sensor);
+    } catch (error) {
+      console.error("Error creating sensor:", error);
+      res.status(500).json({ message: "Failed to create sensor" });
+    }
+  });
+
   // Station Logs routes
   app.get("/api/stations/:stationId/logs", optionalAuth, async (req, res) => {
     try {

@@ -77,6 +77,10 @@ export const weatherStations = pgTable("weather_stations", {
   lastDataTime: timestamp("last_data_time"),
   batteryVoltage: real("battery_voltage"),
   panelTemperature: real("panel_temperature"),
+  installationTeam: text("installation_team"),
+  stationAdmin: text("station_admin"),
+  stationAdminEmail: text("station_admin_email"),
+  stationAdminPhone: text("station_admin_phone"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

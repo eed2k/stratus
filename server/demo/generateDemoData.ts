@@ -38,7 +38,11 @@ export async function generateDemoStation() {
     batteryVoltage: 12.8,
     panelTemperature: 25.5,
     siteDescription: "Urban meteorological research site with clear exposure on 10-meter tower",
-    installationDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000), // 6 months ago
+    installationDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+    installationTeam: "Weather Systems SA (Pty) Ltd",
+    stationAdmin: "Dr. Sarah van der Berg",
+    stationAdminEmail: "sarah.vdberg@weathersystems.co.za",
+    stationAdminPhone: "+27 12 345 6789",
   }).returning();
 
   console.log(`Created demo station: ${station.name} (ID: ${station.id})`);
