@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, getUserId } from "./netlifyAuth";
-import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, insertStationLogSchema, type WeatherData } from "@shared/schema";
+import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, insertStationLogSchema, insertOrganizationSchema, insertOrganizationMemberSchema, insertOrganizationInvitationSchema, type WeatherData } from "@shared/schema";
+import { nanoid } from "nanoid";
 import { registerCampbellRoutes } from "./campbell/routes";
 import { dataCollectionService } from "./campbell/dataCollectionService";
 
@@ -419,6 +420,341 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error creating station log:", error);
       res.status(500).json({ message: "Failed to create station log" });
+    }
+  });
+
+  // Helper to check if user is admin of an organization
+  async function isOrgAdmin(orgId: number, userId: string): Promise<boolean> {
+    return await storage.isOrganizationAdmin(orgId, userId);
+  }
+
+  // Helper to check if user is member of an organization
+  async function isOrgMember(orgId: number, userId: string): Promise<boolean> {
+    return await storage.isOrganizationMember(orgId, userId);
+  }
+
+  // Organization routes
+  app.get("/api/organizations", optionalAuth, async (req, res) => {
+    try {
+      if (DEMO_MODE) {
+        const orgs = await storage.getOrganizations();
+        return res.json(orgs);
+      }
+      const userId = getUserId(req);
+      const orgs = await storage.getUserOrganizations(userId);
+      res.json(orgs);
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  app.get("/api/organizations/:id", optionalAuth, async (req, res) => {
+    try {
+      const orgId = parseInt(req.params.id);
+      const org = await storage.getOrganization(orgId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      // Check membership unless demo mode
+      if (!DEMO_MODE) {
+        const userId = getUserId(req);
+        if (!(await isOrgMember(orgId, userId))) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
+      res.json(org);
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+      res.status(500).json({ message: "Failed to fetch organization" });
+    }
+  });
+
+  app.post("/api/organizations", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { name, description } = req.body;
+      
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ message: "Organization name is required" });
+      }
+      
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      
+      const parsed = insertOrganizationSchema.safeParse({
+        name: name.trim(),
+        description: description?.trim() || null,
+        ownerId: userId,
+        slug,
+      });
+      
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid organization data", errors: parsed.error.errors });
+      }
+      
+      const org = await storage.createOrganization(parsed.data);
+      
+      // Add owner as admin member
+      await storage.addOrganizationMember({
+        organizationId: org.id,
+        userId,
+        role: "admin",
+        status: "active",
+      });
+      
+      res.status(201).json(org);
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      res.status(500).json({ message: "Failed to create organization" });
+    }
+  });
+
+  app.patch("/api/organizations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const orgId = parseInt(req.params.id);
+      
+      // Only admins can update organization
+      if (!(await isOrgAdmin(orgId, userId))) {
+        return res.status(403).json({ message: "Only organization admins can update organization" });
+      }
+      
+      // Only allow updating specific fields
+      const { name, description } = req.body;
+      const updateData: { name?: string; description?: string } = {};
+      if (name) updateData.name = name.trim();
+      if (description !== undefined) updateData.description = description?.trim() || null;
+      
+      const org = await storage.updateOrganization(orgId, updateData);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      res.json(org);
+    } catch (error) {
+      console.error("Error updating organization:", error);
+      res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
+  app.delete("/api/organizations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const orgId = parseInt(req.params.id);
+      
+      // Only owner can delete organization
+      const org = await storage.getOrganization(orgId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      if (org.ownerId !== userId) {
+        return res.status(403).json({ message: "Only the organization owner can delete it" });
+      }
+      
+      await storage.deleteOrganization(orgId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+      res.status(500).json({ message: "Failed to delete organization" });
+    }
+  });
+
+  // Organization Members routes
+  app.get("/api/organizations/:orgId/members", optionalAuth, async (req, res) => {
+    try {
+      const orgId = parseInt(req.params.orgId);
+      
+      // Check membership unless demo mode
+      if (!DEMO_MODE) {
+        const userId = getUserId(req);
+        if (!(await isOrgMember(orgId, userId))) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
+      const members = await storage.getOrganizationMembers(orgId);
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching organization members:", error);
+      res.status(500).json({ message: "Failed to fetch members" });
+    }
+  });
+
+  app.post("/api/organizations/:orgId/members", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const orgId = parseInt(req.params.orgId);
+      
+      // Only admins can add members directly
+      if (!(await isOrgAdmin(orgId, userId))) {
+        return res.status(403).json({ message: "Only organization admins can add members" });
+      }
+      
+      const { userId: targetUserId, role } = req.body;
+      if (!targetUserId || !['admin', 'member', 'viewer'].includes(role)) {
+        return res.status(400).json({ message: "Invalid member data" });
+      }
+      
+      const member = await storage.addOrganizationMember({
+        organizationId: orgId,
+        userId: targetUserId,
+        role,
+        status: "active",
+        invitedBy: userId,
+      });
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error adding organization member:", error);
+      res.status(500).json({ message: "Failed to add member" });
+    }
+  });
+
+  app.patch("/api/organizations/:orgId/members/:userId/role", isAuthenticated, async (req, res) => {
+    try {
+      const currentUserId = getUserId(req);
+      const orgId = parseInt(req.params.orgId);
+      const targetUserId = req.params.userId;
+      
+      // Only admins can update roles
+      if (!(await isOrgAdmin(orgId, currentUserId))) {
+        return res.status(403).json({ message: "Only organization admins can update roles" });
+      }
+      
+      const { role } = req.body;
+      if (!['admin', 'member', 'viewer'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role. Must be admin, member, or viewer" });
+      }
+      
+      const member = await storage.updateMemberRole(orgId, targetUserId, role);
+      if (!member) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+      res.json(member);
+    } catch (error) {
+      console.error("Error updating member role:", error);
+      res.status(500).json({ message: "Failed to update member role" });
+    }
+  });
+
+  app.delete("/api/organizations/:orgId/members/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const currentUserId = getUserId(req);
+      const orgId = parseInt(req.params.orgId);
+      const targetUserId = req.params.userId;
+      
+      // Only admins can remove members (or user can remove themselves)
+      if (targetUserId !== currentUserId && !(await isOrgAdmin(orgId, currentUserId))) {
+        return res.status(403).json({ message: "Only organization admins can remove members" });
+      }
+      
+      // Prevent owner from being removed
+      const org = await storage.getOrganization(orgId);
+      if (org && org.ownerId === targetUserId) {
+        return res.status(400).json({ message: "Cannot remove the organization owner" });
+      }
+      
+      const removed = await storage.removeOrganizationMember(orgId, targetUserId);
+      if (!removed) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing organization member:", error);
+      res.status(500).json({ message: "Failed to remove member" });
+    }
+  });
+
+  // Organization Invitations routes
+  app.get("/api/organizations/:orgId/invitations", optionalAuth, async (req, res) => {
+    try {
+      const orgId = parseInt(req.params.orgId);
+      
+      // Check membership unless demo mode
+      if (!DEMO_MODE) {
+        const userId = getUserId(req);
+        if (!(await isOrgMember(orgId, userId))) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
+      const invitations = await storage.getOrganizationInvitations(orgId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  app.post("/api/organizations/:orgId/invitations", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const orgId = parseInt(req.params.orgId);
+      
+      // Only admins can create invitations
+      if (!(await isOrgAdmin(orgId, userId))) {
+        return res.status(403).json({ message: "Only organization admins can send invitations" });
+      }
+      
+      const { email, role } = req.body;
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        return res.status(400).json({ message: "Valid email address is required" });
+      }
+      
+      const validRole = ['admin', 'member', 'viewer'].includes(role) ? role : 'member';
+      
+      const token = nanoid(32);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
+      
+      const invitation = await storage.createInvitation({
+        organizationId: orgId,
+        email: email.toLowerCase().trim(),
+        role: validRole,
+        token,
+        invitedBy: userId,
+        expiresAt,
+      });
+      
+      res.status(201).json(invitation);
+    } catch (error) {
+      console.error("Error creating invitation:", error);
+      res.status(500).json({ message: "Failed to create invitation" });
+    }
+  });
+
+  app.get("/api/invitations/:token", async (req, res) => {
+    try {
+      const invitation = await storage.getInvitationByToken(req.params.token);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      if (invitation.acceptedAt) {
+        return res.status(400).json({ message: "Invitation already accepted" });
+      }
+      if (new Date() > invitation.expiresAt) {
+        return res.status(400).json({ message: "Invitation expired" });
+      }
+      
+      const org = await storage.getOrganization(invitation.organizationId);
+      res.json({ invitation, organization: org });
+    } catch (error) {
+      console.error("Error fetching invitation:", error);
+      res.status(500).json({ message: "Failed to fetch invitation" });
+    }
+  });
+
+  app.post("/api/invitations/:token/accept", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const accepted = await storage.acceptInvitation(req.params.token, userId);
+      if (!accepted) {
+        return res.status(400).json({ message: "Failed to accept invitation" });
+      }
+      res.json({ message: "Invitation accepted successfully" });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
     }
   });
 

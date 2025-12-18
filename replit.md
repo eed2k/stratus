@@ -42,6 +42,14 @@ STRATUS is a professional weather station monitoring platform designed for real-
   - System: Battery Voltage, Panel Temperature
 - Removed "Campbell Scientific" from navigation sidebar
 - Added credit footer: "Credit: Lukas Esterhuizen 2025" with email esterhuizen2k@proton.me
+- **Added Organization Management feature:**
+  - Create organizations to manage weather stations as a team
+  - Invite staff members via email with role-based permissions (admin/member/viewer)
+  - Token-based invitation system with 7-day expiry
+  - Admin authorization checks on all organization mutation endpoints
+  - Organizations page added to sidebar navigation
+  - Database tables: organizations, organization_members, organization_invitations
+  - Stations can be linked to organizations via organizationId field
 
 The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Netlify Identity for user management.
 

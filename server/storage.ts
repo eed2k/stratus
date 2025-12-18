@@ -15,6 +15,9 @@ import {
   stationGroups,
   stationGroupMembers,
   stationLogs,
+  organizations,
+  organizationMembers,
+  organizationInvitations,
   type User,
   type UpsertUser,
   type WeatherStation,
@@ -47,6 +50,12 @@ import {
   type InsertStationGroupMember,
   type StationLog,
   type InsertStationLog,
+  type Organization,
+  type InsertOrganization,
+  type OrganizationMember,
+  type InsertOrganizationMember,
+  type OrganizationInvitation,
+  type InsertOrganizationInvitation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
@@ -81,6 +90,28 @@ export interface IStorage {
   // Station Logs operations
   getStationLogs(stationId: number, limit?: number): Promise<StationLog[]>;
   createStationLog(log: InsertStationLog): Promise<StationLog>;
+
+  // Organization operations
+  getOrganization(id: number): Promise<Organization | undefined>;
+  getOrganizations(): Promise<Organization[]>;
+  getUserOrganizations(userId: string): Promise<Organization[]>;
+  createOrganization(org: InsertOrganization): Promise<Organization>;
+  updateOrganization(id: number, org: Partial<InsertOrganization>): Promise<Organization | undefined>;
+  deleteOrganization(id: number): Promise<boolean>;
+
+  // Organization Members operations
+  getOrganizationMembers(orgId: number): Promise<(OrganizationMember & { user: User })[]>;
+  isOrganizationAdmin(orgId: number, userId: string): Promise<boolean>;
+  isOrganizationMember(orgId: number, userId: string): Promise<boolean>;
+  addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
+  updateMemberRole(orgId: number, userId: string, role: string): Promise<OrganizationMember | undefined>;
+  removeOrganizationMember(orgId: number, userId: string): Promise<boolean>;
+
+  // Organization Invitations operations
+  getOrganizationInvitations(orgId: number): Promise<OrganizationInvitation[]>;
+  createInvitation(invitation: InsertOrganizationInvitation): Promise<OrganizationInvitation>;
+  getInvitationByToken(token: string): Promise<OrganizationInvitation | undefined>;
+  acceptInvitation(token: string, userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -569,6 +600,145 @@ export class DatabaseStorage implements IStorage {
       .where(eq(stationGroupMembers.groupId, groupId));
     
     return results.map(r => r.weather_stations);
+  }
+
+  // Organization operations
+  async getOrganization(id: number): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, id));
+    return org;
+  }
+
+  async getOrganizations(): Promise<Organization[]> {
+    return await db.select().from(organizations).orderBy(organizations.name);
+  }
+
+  async getUserOrganizations(userId: string): Promise<Organization[]> {
+    const memberOrgs = await db
+      .select()
+      .from(organizationMembers)
+      .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
+      .where(eq(organizationMembers.userId, userId));
+    
+    return memberOrgs.map(r => r.organizations);
+  }
+
+  async createOrganization(org: InsertOrganization): Promise<Organization> {
+    const [newOrg] = await db.insert(organizations).values(org).returning();
+    return newOrg;
+  }
+
+  async updateOrganization(id: number, org: Partial<InsertOrganization>): Promise<Organization | undefined> {
+    const [updated] = await db
+      .update(organizations)
+      .set({ ...org, updatedAt: new Date() })
+      .where(eq(organizations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteOrganization(id: number): Promise<boolean> {
+    const result = await db.delete(organizations).where(eq(organizations.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Organization Members operations
+  async getOrganizationMembers(orgId: number): Promise<(OrganizationMember & { user: User })[]> {
+    const results = await db
+      .select()
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .where(eq(organizationMembers.organizationId, orgId));
+    
+    return results.map(r => ({ ...r.organization_members, user: r.users }));
+  }
+
+  async isOrganizationAdmin(orgId: number, userId: string): Promise<boolean> {
+    const [member] = await db
+      .select()
+      .from(organizationMembers)
+      .where(and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.userId, userId),
+        eq(organizationMembers.role, "admin")
+      ));
+    return !!member;
+  }
+
+  async isOrganizationMember(orgId: number, userId: string): Promise<boolean> {
+    const [member] = await db
+      .select()
+      .from(organizationMembers)
+      .where(and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.userId, userId)
+      ));
+    return !!member;
+  }
+
+  async addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember> {
+    const [newMember] = await db.insert(organizationMembers).values(member).returning();
+    return newMember;
+  }
+
+  async updateMemberRole(orgId: number, userId: string, role: string): Promise<OrganizationMember | undefined> {
+    const [updated] = await db
+      .update(organizationMembers)
+      .set({ role })
+      .where(and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async removeOrganizationMember(orgId: number, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(organizationMembers)
+      .where(and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, userId)))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Organization Invitations operations
+  async getOrganizationInvitations(orgId: number): Promise<OrganizationInvitation[]> {
+    return await db
+      .select()
+      .from(organizationInvitations)
+      .where(eq(organizationInvitations.organizationId, orgId))
+      .orderBy(desc(organizationInvitations.createdAt));
+  }
+
+  async createInvitation(invitation: InsertOrganizationInvitation): Promise<OrganizationInvitation> {
+    const [newInvitation] = await db.insert(organizationInvitations).values(invitation).returning();
+    return newInvitation;
+  }
+
+  async getInvitationByToken(token: string): Promise<OrganizationInvitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(organizationInvitations)
+      .where(eq(organizationInvitations.token, token));
+    return invitation;
+  }
+
+  async acceptInvitation(token: string, userId: string): Promise<boolean> {
+    const invitation = await this.getInvitationByToken(token);
+    if (!invitation || invitation.acceptedAt || new Date() > invitation.expiresAt) {
+      return false;
+    }
+    
+    await db
+      .update(organizationInvitations)
+      .set({ acceptedAt: new Date() })
+      .where(eq(organizationInvitations.token, token));
+    
+    await this.addOrganizationMember({
+      organizationId: invitation.organizationId,
+      userId,
+      role: invitation.role,
+      status: "active",
+      invitedBy: invitation.invitedBy,
+    });
+    
+    return true;
   }
 }
 

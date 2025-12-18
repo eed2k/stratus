@@ -20,6 +20,7 @@ import {
   Settings,
   LogOut,
   Activity,
+  Building2,
 } from "lucide-react";
 
 interface AppSidebarProps {
@@ -34,6 +35,7 @@ interface AppSidebarProps {
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Stations", url: "/stations", icon: Radio },
+  { title: "Organizations", url: "/organizations", icon: Building2 },
   { title: "History", url: "/history", icon: History },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

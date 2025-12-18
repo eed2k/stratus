@@ -14,6 +14,7 @@ import Landing from "@/pages/Landing";
 import Stations from "@/pages/Stations";
 import History from "@/pages/History";
 import Settings from "@/pages/Settings";
+import Organizations from "@/pages/Organizations";
 import { Loader2 } from "lucide-react";
 
 function LoadingScreen() {
@@ -78,6 +79,7 @@ function AuthenticatedApp({ user, logout }: {
               <Route path="/" component={Dashboard} />
               <Route path="/campbell" component={CampbellDashboard} />
               <Route path="/stations" component={Stations} />
+              <Route path="/organizations" component={Organizations} />
               <Route path="/history" component={History} />
               <Route path="/settings" component={Settings} />
               <Route component={NotFound} />
