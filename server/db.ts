@@ -4,7 +4,8 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-// Use DATABASE_URL (local) or SUPABASE_DATABASE_URL (production)
+// Use DATABASE_URL for local dev, or SUPABASE_DATABASE_URL for Supabase
+// Note: Set SUPABASE_DATABASE_URL when ready to use Supabase
 const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL;
 
 if (!connectionString) {
