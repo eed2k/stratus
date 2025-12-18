@@ -827,5 +827,85 @@ export async function registerRoutes(
     }
   });
 
+  // In-memory alarms storage (for demo - would use database in production)
+  const alarms: Map<number, any> = new Map();
+  let alarmIdCounter = 1;
+
+  // Alarms routes
+  app.get("/api/alarms", optionalAuth, async (req, res) => {
+    try {
+      const userId = DEMO_MODE ? "demo" : getUserId(req);
+      const userAlarms = Array.from(alarms.values()).filter(
+        (a) => a.userId === userId
+      );
+      res.json(userAlarms);
+    } catch (error) {
+      console.error("Error fetching alarms:", error);
+      res.status(500).json({ message: "Failed to fetch alarms" });
+    }
+  });
+
+  app.post("/api/alarms", optionalAuth, async (req, res) => {
+    try {
+      const userId = DEMO_MODE ? "demo" : getUserId(req);
+      const { stationId, name, parameter, condition, threshold, unit, enabled, notifyEmail, notifyPush } = req.body;
+      
+      const alarm = {
+        id: alarmIdCounter++,
+        userId,
+        stationId,
+        name,
+        parameter,
+        condition,
+        threshold,
+        unit,
+        enabled: enabled !== false,
+        notifyEmail: notifyEmail !== false,
+        notifyPush: notifyPush === true,
+        lastTriggered: null,
+        triggerCount: 0,
+        createdAt: new Date().toISOString(),
+      };
+      
+      alarms.set(alarm.id, alarm);
+      res.status(201).json(alarm);
+    } catch (error) {
+      console.error("Error creating alarm:", error);
+      res.status(500).json({ message: "Failed to create alarm" });
+    }
+  });
+
+  app.patch("/api/alarms/:id", optionalAuth, async (req, res) => {
+    try {
+      const alarmId = parseInt(req.params.id);
+      const alarm = alarms.get(alarmId);
+      
+      if (!alarm) {
+        return res.status(404).json({ message: "Alarm not found" });
+      }
+      
+      const updated = { ...alarm, ...req.body };
+      alarms.set(alarmId, updated);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating alarm:", error);
+      res.status(500).json({ message: "Failed to update alarm" });
+    }
+  });
+
+  app.delete("/api/alarms/:id", optionalAuth, async (req, res) => {
+    try {
+      const alarmId = parseInt(req.params.id);
+      if (!alarms.has(alarmId)) {
+        return res.status(404).json({ message: "Alarm not found" });
+      }
+      alarms.delete(alarmId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting alarm:", error);
+      res.status(500).json({ message: "Failed to delete alarm" });
+    }
+  });
+
   return httpServer;
 }

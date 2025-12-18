@@ -15,6 +15,8 @@ import Stations from "@/pages/Stations";
 import History from "@/pages/History";
 import Settings from "@/pages/Settings";
 import Organizations from "@/pages/Organizations";
+import Alarms from "@/pages/Alarms";
+import Reports from "@/pages/Reports";
 import { Loader2 } from "lucide-react";
 
 function LoadingScreen() {
@@ -81,6 +83,8 @@ function AuthenticatedApp({ user, logout }: {
               <Route path="/stations" component={Stations} />
               <Route path="/organizations" component={Organizations} />
               <Route path="/history" component={History} />
+              <Route path="/alarms" component={Alarms} />
+              <Route path="/reports" component={Reports} />
               <Route path="/settings" component={Settings} />
               <Route component={NotFound} />
             </Switch>

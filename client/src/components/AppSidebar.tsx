@@ -29,6 +29,8 @@ const navItems = [
   { title: "Stations", url: "/stations" },
   { title: "Organizations", url: "/organizations" },
   { title: "History", url: "/history" },
+  { title: "Alarms", url: "/alarms" },
+  { title: "Reports", url: "/reports" },
   { title: "Settings", url: "/settings" },
 ];
 
