@@ -9,6 +9,8 @@ import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
 import { EToCard } from "@/components/dashboard/EToCard";
 import { StationSelector } from "@/components/dashboard/StationSelector";
+import { ExportTools } from "@/components/dashboard/ExportTools";
+import { DataImport } from "@/components/dashboard/DataImport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -157,14 +159,27 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between no-print">
         <StationSelector
           stations={stationOptions}
           selectedId={String(activeStationId)}
           onSelect={(id) => setSelectedStationId(parseInt(id))}
         />
+        <div className="flex items-center gap-2">
+          {activeStationId && (
+            <DataImport 
+              stationId={activeStationId} 
+              stationName={selectedStation?.name || "Weather Station"} 
+            />
+          )}
+          <ExportTools 
+            targetId="dashboard-content" 
+            stationName={selectedStation?.name || "Weather Station"} 
+          />
+        </div>
       </div>
 
+      <div id="dashboard-content">
       <CurrentConditions
         stationName={selectedStation?.name || "Weather Station"}
         lastUpdate={latestData?.timestamp ? new Date(latestData.timestamp).toLocaleString() : "No data"}
@@ -361,6 +376,7 @@ export default function Dashboard() {
             },
           ]}
         />
+      </div>
       </div>
     </div>
   );

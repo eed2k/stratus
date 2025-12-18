@@ -316,6 +316,75 @@ export async function registerRoutes(
     }
   });
 
+  // File import endpoint for Campbell Scientific data files
+  app.post("/api/stations/:stationId/import", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      const { content, filename } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ message: "File content is required" });
+      }
+
+      const { parseDataFile, mapToWeatherData } = await import("./parsers/campbellScientific");
+      const parsed = parseDataFile(content);
+
+      if (parsed.errors.length > 0 && parsed.records.length === 0) {
+        return res.status(400).json({ 
+          message: "Failed to parse file", 
+          errors: parsed.errors 
+        });
+      }
+
+      // Import records into the database
+      let importedCount = 0;
+      const importErrors: string[] = [];
+
+      for (const record of parsed.records) {
+        try {
+          const weatherData = mapToWeatherData(record);
+          
+          // Only insert if we have some valid data
+          if (Object.values(weatherData).some(v => v !== null)) {
+            await storage.insertWeatherData({
+              stationId,
+              timestamp: record.timestamp,
+              temperature: weatherData.temperature ?? undefined,
+              humidity: weatherData.humidity ?? undefined,
+              pressure: weatherData.pressure ?? undefined,
+              windSpeed: weatherData.windSpeed ?? undefined,
+              windDirection: weatherData.windDirection ?? undefined,
+              windGust: weatherData.windGust ?? undefined,
+              solarRadiation: weatherData.solarRadiation ?? undefined,
+              rainfall: weatherData.rainfall ?? undefined,
+              dewPoint: weatherData.dewPoint ?? undefined,
+              soilTemperature: weatherData.soilTemperature ?? undefined,
+              soilMoisture: weatherData.soilMoisture ?? undefined,
+              batteryVoltage: weatherData.batteryVoltage ?? undefined,
+              panelTemperature: weatherData.panelTemperature ?? undefined,
+            });
+            importedCount++;
+          }
+        } catch (err: any) {
+          importErrors.push(`Record ${record.recordNumber}: ${err.message}`);
+        }
+      }
+
+      res.json({
+        message: "File imported successfully",
+        format: parsed.format,
+        stationName: parsed.stationName,
+        tableName: parsed.tableName,
+        totalRecords: parsed.records.length,
+        importedRecords: importedCount,
+        errors: [...parsed.errors, ...importErrors],
+      });
+    } catch (error: any) {
+      console.error("Error importing data file:", error);
+      res.status(500).json({ message: "Failed to import file", error: error.message });
+    }
+  });
+
   // User Preferences routes
   app.get("/api/user/preferences", isAuthenticated, async (req, res) => {
     try {
