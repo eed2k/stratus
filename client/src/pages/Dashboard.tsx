@@ -154,6 +154,11 @@ export default function Dashboard() {
     dewPoint: 16.8,
     airDensity: 1.225,
     eto: 4.85,
+    batteryVoltage: 12.8,
+    particulateCount: 42,
+    pm25: 12.5,
+    atmosphericVisibility: 18.5,
+    panelTemperature: 28.5,
   };
 
   const sparkline = chartData.slice(-12).map(d => d.temperature);
@@ -236,6 +241,35 @@ export default function Dashboard() {
             { label: "7d Total", value: "12.8 mm" },
             { label: "30d Total", value: "45.2 mm" },
           ]}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Battery Voltage"
+          value={currentData.batteryVoltage || 0}
+          unit="V"
+          subMetrics={[
+            { label: "Panel Temp", value: `${currentData.panelTemperature || 0}°C` },
+          ]}
+        />
+        <MetricCard
+          title="PM2.5"
+          value={currentData.pm25 || 0}
+          unit="µg/m³"
+          subMetrics={[
+            { label: "AQI", value: currentData.pm25 ? (currentData.pm25 < 12 ? "Good" : currentData.pm25 < 35 ? "Moderate" : "Unhealthy") : "N/A" },
+          ]}
+        />
+        <MetricCard
+          title="Particulate Count"
+          value={currentData.particulateCount || 0}
+          unit="per L"
+        />
+        <MetricCard
+          title="Visibility"
+          value={currentData.atmosphericVisibility || 0}
+          unit="km"
         />
       </div>
 

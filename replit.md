@@ -5,6 +5,11 @@
 STRATUS is a professional weather station monitoring platform designed for real-time data visualization and analytics. The application enables users to manage Campbell Scientific and Rika weather stations, view current conditions, analyze historical data through interactive charts (including wind roses), and generate reports. It's built for agriculture, research, and professional weather monitoring use cases.
 
 ## Recent Changes (December 2025)
+- **Added Davis Instruments support** with 6 connection types:
+  - WeatherLink Cloud API v2, WeatherLink Live (Local API), Serial/USB, IP Data Logger, RF Receiver, MQTT
+  - Supported models: Vantage Pro2, Vantage Pro2 Plus, Vantage Vue, WeatherLink Live, AirLink
+- **Added new dashboard metrics**: Battery Voltage, PM2.5, Particulate Count, Atmospheric Visibility
+- **Extended weather data schema** with air quality (PM1, PM2.5, PM10, AQI, CO2, TVOC) and Davis-specific fields
 - Fixed React version compatibility (downgraded to React 18.3.1)
 - Configured Tailwind CSS processing in Vite for proper styling
 - Landing page features dark blue theme with animated thunderstorm video background

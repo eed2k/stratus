@@ -8,11 +8,12 @@ This guide covers how to configure weather stations with different manufacturers
 
 1. [Supported Manufacturers](#supported-manufacturers)
 2. [Campbell Scientific Stations](#campbell-scientific-stations)
-3. [Rika Weather Stations](#rika-weather-stations)
-4. [Generic/IoT Platforms](#genericiiot-platforms)
-5. [Connection Types Reference](#connection-types-reference)
-6. [Step-by-Step Setup Guide](#step-by-step-setup-guide)
-7. [Troubleshooting](#troubleshooting)
+3. [Davis Instruments Stations](#davis-instruments-stations)
+4. [Rika Weather Stations](#rika-weather-stations)
+5. [Generic/IoT Platforms](#genericiiot-platforms)
+6. [Connection Types Reference](#connection-types-reference)
+7. [Step-by-Step Setup Guide](#step-by-step-setup-guide)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -23,8 +24,9 @@ STRATUS supports three main categories of weather stations:
 | Manufacturer | Datalogger Models | Connection Types |
 |--------------|-------------------|------------------|
 | **Campbell Scientific** | CR1000X, CR1000XE, CR6, CR300, CR310, CR350, CR800, CR850, CR3000, Aspen 10 | 9 protocols |
+| **Davis Instruments** | Vantage Pro2, Vantage Pro2 Plus, Vantage Vue, WeatherLink Live, AirLink | 6 protocols |
 | **Rika** | RK900-01, RK600-02, RK500-01 | 3 protocols |
-| **Generic/IoT** | ESP32, ESP8266, Arduino, Raspberry Pi, Davis, Custom | 7 protocols |
+| **Generic/IoT** | ESP32, ESP8266, Arduino, Raspberry Pi, Custom | 7 protocols |
 
 ---
 
@@ -192,6 +194,171 @@ Username: mqtt-user
 Password: mqtt-password
 QoS: 1
 ```
+
+---
+
+## Davis Instruments Stations
+
+### Supported Models
+
+| Model | Description | Sensors | Wireless |
+|-------|-------------|---------|----------|
+| **Vantage Pro2** | Professional-grade AWS | 8+ parameters | 900MHz |
+| **Vantage Pro2 Plus** | With UV and Solar sensors | 10+ parameters | 900MHz |
+| **Vantage Vue** | Consumer-grade compact | 6 parameters | 900MHz |
+| **WeatherLink Live** | WiFi/Ethernet hub | Data aggregator | WiFi/LAN |
+| **AirLink** | Air quality sensor | PM1, PM2.5, PM10, AQI | WiFi |
+
+### Connection Types for Davis Instruments
+
+#### 1. WeatherLink Cloud API v2
+**Best for:** Modern Davis stations with WeatherLink Live or Console
+
+**Configuration:**
+- API Key: From weatherlink.com developer portal
+- API Secret: For authentication
+- Station ID: Registered station ID
+
+```
+Connection Type: weatherlink_cloud
+API Key: your-api-key
+API Secret: your-api-secret
+Station ID: 123456
+API Endpoint: https://api.weatherlink.com/v2
+Poll Interval: 60 seconds
+```
+
+#### 2. WeatherLink Live (Local API)
+**Best for:** Direct LAN access to WeatherLink Live device
+
+**Configuration:**
+- IP Address: WeatherLink Live device IP
+- Port: 80 (HTTP)
+- No authentication required locally
+
+```
+Connection Type: weatherlink_local
+IP Address: 192.168.1.50
+Port: 80
+Poll Interval: 10 seconds
+```
+
+**Local API Endpoints:**
+- Real-time: `http://{ip}/v1/current_conditions`
+- Real-time broadcast: UDP port 22222
+
+#### 3. Serial/USB (WeatherLink Cable)
+**Best for:** Direct connection to Vantage console via serial cable
+
+**Configuration:**
+- Serial Port: COM port or /dev/ttyUSB0
+- Baud Rate: 19200 (Davis default)
+- Protocol: LOOP/LOOP2 packets
+
+```
+Connection Type: serial
+Serial Port: /dev/ttyUSB0
+Baud Rate: 19200
+Protocol: davis_loop2
+```
+
+**Serial Commands:**
+- `LOOP n`: Request n LOOP packets
+- `LPS 2 n`: Request n LOOP2 packets
+- `GETTIME`: Get console time
+- `RXCHECK`: Radio diagnostics
+
+#### 4. IP Data Logger (6555)
+**Best for:** Vantage stations with IP Data Logger accessory
+
+**Configuration:**
+- IP Address: Data logger IP
+- Port: 22222 (default)
+- Protocol: TCP streaming
+
+```
+Connection Type: tcp_ip
+IP Address: 192.168.1.60
+Port: 22222
+Protocol: davis_tcp
+```
+
+#### 5. RF Receiver (900MHz Wireless)
+**Best for:** Receiving data directly from Davis ISS sensors
+
+**Configuration:**
+- Receiver: rtl_433 compatible SDR or Davis Envoy
+- Frequency: 902-928 MHz (US) or 868 MHz (EU)
+- Transmitter ID: ISS sensor suite ID
+
+```
+Connection Type: rf_receiver
+Receiver Type: rtl_433
+Frequency: 902.4 MHz
+Transmitter ID: 1
+```
+
+**Supported Sensors via RF:**
+- Temperature/Humidity (ISS)
+- Wind speed/direction
+- Rain collector
+- UV/Solar (if equipped)
+
+#### 6. MQTT (via WeatherLink Live)
+**Best for:** IoT integration with home automation
+
+**Configuration:**
+- Broker: MQTT broker address
+- Topic: Custom topic structure
+- Data format: JSON
+
+```
+Connection Type: mqtt
+Broker URL: mqtt://broker.example.com:1883
+Topic: weather/davis/+/data
+Client ID: stratus-davis-001
+Data Format: json
+```
+
+### Davis Data Fields Reference
+
+| Parameter | LOOP2 Field | Units | Description |
+|-----------|-------------|-------|-------------|
+| Temperature | OutsideTemp | °F (convert to °C) | Outside temperature |
+| Humidity | OutsideHum | % | Outside humidity |
+| Pressure | Barometer | inHg (convert to hPa) | Barometric pressure |
+| Wind Speed | WindSpeed | mph (convert to km/h) | Current wind |
+| Wind Direction | WindDir | degrees | Wind direction 0-359 |
+| Wind Gust | WindGust10 | mph | 10-minute gust |
+| Rain Rate | RainRate | in/hr | Current rain rate |
+| Daily Rain | DayRain | in | Rain since midnight |
+| Solar Radiation | SolarRad | W/m² | Solar radiation |
+| UV Index | UV | index | UV index |
+| Dew Point | DewPoint | °F | Calculated dew point |
+| Battery Status | TxBatteryStatus | bitmap | Transmitter battery |
+| Console Battery | ConsoleBatteryVolt | volts | Console battery |
+
+### AirLink Air Quality Integration
+
+Davis AirLink provides PM1, PM2.5, PM10, and AQI data.
+
+**Configuration:**
+```
+Connection Type: weatherlink_cloud
+Device Type: airlink
+API Key: your-api-key
+Station ID: airlink-device-id
+```
+
+**AirLink Data Fields:**
+| Parameter | Field | Units | Description |
+|-----------|-------|-------|-------------|
+| PM1 | pm_1 | µg/m³ | Particulate < 1µm |
+| PM2.5 | pm_2p5 | µg/m³ | Particulate < 2.5µm |
+| PM10 | pm_10 | µg/m³ | Particulate < 10µm |
+| AQI | aqi | index | Air Quality Index |
+| Temperature | temp | °F | Sensor temperature |
+| Humidity | hum | % | Sensor humidity |
 
 ---
 
