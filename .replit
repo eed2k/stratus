@@ -47,3 +47,4 @@ build = ["npm", "run", "build"]
 [userenv.shared]
 VITE_NETLIFY_SITE_URL = "https://stratusweather1.netlify.app"
 VITE_DEMO_MODE = "true"
+SUPABASE_DATABASE_URL = "postgresql://postgres:0MfjpRaPvgz15C0vHaq%26@db.ilzdrszvkhbjhnwrnhjp.supabase.co:5432/postgres"
