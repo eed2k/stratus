@@ -183,14 +183,14 @@ export default function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           title="Temperature"
-          value={currentData.temperature || 0}
+          value={(currentData.temperature || 0).toFixed(1)}
           unit="°C"
           trend={{ value: 1.2, label: "vs yesterday" }}
           sparklineData={sparkline}
         />
         <MetricCard
           title="Humidity"
-          value={currentData.humidity || 0}
+          value={(currentData.humidity || 0).toFixed(1)}
           unit="%"
           trend={{ value: -5, label: "vs yesterday" }}
           sparklineData={chartData.slice(-12).map(d => d.humidity)}
