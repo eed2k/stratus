@@ -27,8 +27,8 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { WeatherStation } from "@shared/schema";
 
-type StationType = "campbell" | "rika" | "generic" | "arduino" | "esp";
-type ConnectionType = "serial" | "lora" | "gsm" | "ip" | "wifi" | "ble" | "mqtt" | "4g" | "campbellcloud" | "rikacloud" | "arduino_iot" | "blynk";
+type StationType = "campbell" | "davis" | "rika" | "generic" | "arduino" | "esp";
+type ConnectionType = "serial" | "lora" | "gsm" | "ip" | "wifi" | "ble" | "mqtt" | "4g" | "campbellcloud" | "rikacloud" | "arduino_iot" | "blynk" | "weatherlink_cloud" | "weatherlink_local" | "rf_receiver" | "tcp_ip";
 
 interface StationFormData {
   name: string;
@@ -184,9 +184,6 @@ export default function Stations() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Weather Stations</h1>
-          <p className="text-sm text-muted-foreground">
-            Configure and manage Campbell Scientific and Rika weather stations
-          </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -199,22 +196,22 @@ export default function Stations() {
             <DialogHeader>
               <DialogTitle>Add New Weather Station</DialogTitle>
               <DialogDescription>
-                Configure a Campbell Scientific or Rika weather station
+                Configure your weather station connection
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6 py-4">
               <Tabs value={formData.type} onValueChange={(v) => updateForm({ type: v as StationType })}>
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="campbell" className="flex items-center gap-2">
-                    <Server className="h-4 w-4" />
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="campbell" data-testid="tab-campbell">
                     Campbell
                   </TabsTrigger>
-                  <TabsTrigger value="rika" className="flex items-center gap-2">
-                    <Wifi className="h-4 w-4" />
+                  <TabsTrigger value="davis" data-testid="tab-davis">
+                    Davis
+                  </TabsTrigger>
+                  <TabsTrigger value="rika" data-testid="tab-rika">
                     Rika
                   </TabsTrigger>
-                  <TabsTrigger value="generic" className="flex items-center gap-2">
-                    <Radio className="h-4 w-4" />
+                  <TabsTrigger value="generic" data-testid="tab-generic">
                     Generic
                   </TabsTrigger>
                 </TabsList>
@@ -245,18 +242,6 @@ export default function Stations() {
                               <div className="flex items-center gap-2">
                                 <Wifi className="h-4 w-4" />
                                 HTTP/IP (Web API)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="wifi">
-                              <div className="flex items-center gap-2">
-                                <Wifi className="h-4 w-4" />
-                                WiFi Direct (CR6, Aspen)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="ble">
-                              <div className="flex items-center gap-2">
-                                <Signal className="h-4 w-4" />
-                                Bluetooth LE (NFC/BLE)
                               </div>
                             </SelectItem>
                             <SelectItem value="serial">
@@ -368,6 +353,167 @@ export default function Stations() {
                           />
                         </div>
                       )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="davis" className="space-y-4 mt-4">
+                  <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Davis Instruments Configuration</CardTitle>
+                      <CardDescription>
+                        Supports Vantage Pro2, Vantage Vue, WeatherLink Live, and AirLink
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Connection Type</Label>
+                        <Select value={formData.connectionType} onValueChange={(v) => updateForm({ connectionType: v as ConnectionType })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="weatherlink_cloud">
+                              <div className="flex items-center gap-2">
+                                <Server className="h-4 w-4" />
+                                WeatherLink Cloud API v2
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="weatherlink_local">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                WeatherLink Live (Local API)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="serial">
+                              <div className="flex items-center gap-2">
+                                <Cable className="h-4 w-4" />
+                                Serial/USB (WeatherLink Cable)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="tcp_ip">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                IP Data Logger (6555)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="rf_receiver">
+                              <div className="flex items-center gap-2">
+                                <Signal className="h-4 w-4" />
+                                RF Receiver (900MHz)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="mqtt">
+                              <div className="flex items-center gap-2">
+                                <Radio className="h-4 w-4" />
+                                MQTT Protocol
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {formData.connectionType === "weatherlink_cloud" && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>WeatherLink Station ID</Label>
+                            <Input
+                              placeholder="123456"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>API Key</Label>
+                            <Input
+                              placeholder="Your WeatherLink API key"
+                              value={formData.apiKey}
+                              onChange={(e) => updateForm({ apiKey: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {(formData.connectionType === "weatherlink_local" || formData.connectionType === "tcp_ip") && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Device IP Address</Label>
+                            <Input
+                              placeholder="192.168.1.50"
+                              value={formData.ipAddress}
+                              onChange={(e) => updateForm({ ipAddress: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Port</Label>
+                            <Input
+                              placeholder={formData.connectionType === "tcp_ip" ? "22222" : "80"}
+                              value={formData.port}
+                              onChange={(e) => updateForm({ port: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.connectionType === "serial" && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Serial Port</Label>
+                            <Input
+                              placeholder="COM3 or /dev/ttyUSB0"
+                              value={formData.serialPort}
+                              onChange={(e) => updateForm({ serialPort: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Baud Rate</Label>
+                            <Select value={formData.baudRate} onValueChange={(v) => updateForm({ baudRate: v })}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="19200">19200 (Davis default)</SelectItem>
+                                <SelectItem value="9600">9600</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.connectionType === "rf_receiver" && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Receiver Type</Label>
+                            <Select defaultValue="rtl_433">
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="rtl_433">rtl_433 (SDR)</SelectItem>
+                                <SelectItem value="envoy">Davis Envoy</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Transmitter ID</Label>
+                            <Input
+                              placeholder="1"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label>Poll Interval (seconds)</Label>
+                        <Input
+                          type="number"
+                          placeholder="60"
+                          value={formData.pollInterval}
+                          onChange={(e) => updateForm({ pollInterval: e.target.value })}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
