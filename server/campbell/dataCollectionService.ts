@@ -354,6 +354,12 @@ export class DataCollectionService extends EventEmitter {
       const stations = await storage.getStations();
       
       for (const station of stations) {
+        // Skip demo stations - they don't need real connections
+        if (station.stationType === 'demo' || station.connectionType === 'demo') {
+          console.log(`Skipping demo station: ${station.name}`);
+          continue;
+        }
+        
         if (station.isActive) {
           const connectionConfig: ConnectionConfig = {
             stationId: station.id,

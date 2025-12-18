@@ -11,26 +11,26 @@ export async function generateDemoStation() {
 
   // 1. Create demo station
   const [station] = await db.insert(weatherStations).values({
-    name: "Demo Weather Station - Pretoria",
+    name: "Elsa",
     location: "Pretoria, Gauteng, South Africa",
     latitude: -25.7479,
     longitude: 28.2293,
     altitude: 1339,
     timezone: "Africa/Johannesburg",
-    stationType: "campbell_scientific",
+    stationType: "demo",
     dataloggerModel: "CR1000X",
     dataloggerSerialNumber: "DEMO-CR1000X-00123",
     dataloggerFirmwareVersion: "CR1000X.Std.03.02",
     dataloggerProgramName: "WeatherStation_v2.1.CR1X",
     dataloggerProgramSignature: "12345",
-    connectionType: "tcp",
-    protocol: "pakbus",
-    ipAddress: "demo.station.local",
-    port: 6785,
+    connectionType: "demo",
+    protocol: "demo",
+    ipAddress: null,
+    port: null,
     pakbusAddress: 1,
     securityCode: 0,
     dataTable: "OneMin",
-    pollInterval: 60,
+    pollInterval: 900,
     isActive: true,
     isConnected: true,
     lastConnectionTime: new Date(),
@@ -403,12 +403,31 @@ function generateRealisticWeatherData(stationId: number, days: number) {
 // Export function to be called from API or script
 export async function initializeDemoStation() {
   try {
-    // Check if demo station already exists
-    const existing = await db.select().from(weatherStations).where(eq(weatherStations.name, "Demo Weather Station - Pretoria"));
+    // Check if demo station already exists (check for both old and new names)
+    const existing = await db.select().from(weatherStations).where(eq(weatherStations.name, "Elsa"));
+    const oldExisting = await db.select().from(weatherStations).where(eq(weatherStations.name, "Demo Weather Station - Pretoria"));
     
     if (existing.length > 0) {
-      console.log("Demo station already exists");
+      console.log("Demo station 'Elsa' already exists");
       return existing[0];
+    }
+    
+    // If old demo station exists, update it to new name
+    if (oldExisting.length > 0) {
+      console.log("Updating old demo station to 'Elsa'...");
+      const [updated] = await db.update(weatherStations)
+        .set({ 
+          name: "Elsa", 
+          stationType: "demo",
+          connectionType: "demo",
+          protocol: "demo",
+          ipAddress: null,
+          port: null,
+          pollInterval: 900
+        })
+        .where(eq(weatherStations.name, "Demo Weather Station - Pretoria"))
+        .returning();
+      return updated;
     }
 
     return await generateDemoStation();
