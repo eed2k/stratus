@@ -37,10 +37,41 @@ export default function History() {
 
   const activeStationId = selectedStation || (stations.length > 0 ? String(stations[0].id) : "");
 
-  const { data: weatherData = [], isLoading: dataLoading } = useQuery<WeatherData[]>({
+  const { data: weatherData = [], isLoading: dataLoading, refetch } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", { startTime: startDate, endTime: endDate }],
-    enabled: !!activeStationId,
+    enabled: !!activeStationId && !!startDate && !!endDate,
   });
+
+  const handleApplyFilters = () => {
+    if (!startDate || !endDate) {
+      return;
+    }
+    refetch();
+  };
+
+  const handleExportCSV = () => {
+    if (weatherData.length === 0) return;
+    
+    const headers = ["Timestamp", "Temperature", "Humidity", "Pressure", "Wind Speed", "Wind Direction", "Rainfall"];
+    const rows = weatherData.map(d => [
+      new Date(d.timestamp).toISOString(),
+      d.temperature?.toString() || "",
+      d.humidity?.toString() || "",
+      d.pressure?.toString() || "",
+      d.windSpeed?.toString() || "",
+      d.windDirection?.toString() || "",
+      d.rainfall?.toString() || "",
+    ]);
+    
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `weather_data_${activeStationId}_${startDate}_${endDate}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (stationsLoading) {
     return (
@@ -89,7 +120,7 @@ export default function History() {
             View and export historical weather records
           </p>
         </div>
-        <Button variant="outline" data-testid="button-export-data" disabled={weatherData.length === 0}>
+        <Button variant="outline" data-testid="button-export-data" disabled={weatherData.length === 0} onClick={handleExportCSV}>
           <Download className="mr-2 h-4 w-4" />
           Export CSV
         </Button>
@@ -146,7 +177,7 @@ export default function History() {
               </div>
             </div>
             <div className="flex items-end">
-              <Button className="w-full" data-testid="button-apply-filters">
+              <Button className="w-full" data-testid="button-apply-filters" onClick={handleApplyFilters}>
                 Apply Filters
               </Button>
             </div>

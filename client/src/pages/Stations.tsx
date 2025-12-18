@@ -955,7 +955,13 @@ export default function Stations() {
                   </div>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1" data-testid={`button-view-${station.id}`}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1" 
+                    data-testid={`button-view-${station.id}`}
+                    onClick={() => window.location.href = `/?station=${station.id}`}
+                  >
                     View Data
                   </Button>
                   <Button

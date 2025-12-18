@@ -55,6 +55,12 @@ STRATUS is a professional weather station monitoring platform designed for real-
   - Organizations page added to sidebar navigation
   - Database tables: organizations, organization_members, organization_invitations
   - Stations can be linked to organizations via organizationId field
+- **Added Alarms page** with full CRUD operations for configuring weather alerts
+- **Added Reports page** with custom report generation (PDF/CSV export)
+- **Fixed button handlers:**
+  - Stations "View Data" navigates to Dashboard with selected station
+  - History "Apply Filters" triggers data refetch with date range
+  - History "Export CSV" exports weather data to CSV file
 
 The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Netlify Identity for user management.
 
