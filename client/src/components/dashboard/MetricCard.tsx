@@ -27,7 +27,7 @@ export function MetricCard({
   sparklineData,
 }: MetricCardProps) {
   return (
-    <Card className="hover-elevate transition-shadow duration-200" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card className="hover-elevate transition-shadow duration-200 border-white/50" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
@@ -58,7 +58,7 @@ export function MetricCard({
               return (
                 <div
                   key={i}
-                  className="flex-1 bg-primary/30 rounded-t-sm"
+                  className="flex-1 bg-white rounded-t-sm"
                   style={{ height: `${Math.max(height, 5)}%` }}
                 />
               );
