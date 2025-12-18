@@ -73,9 +73,6 @@ export function CurrentConditions({
                 {temperature.toFixed(1)}
                 <span className="text-2xl text-muted-foreground">°C</span>
               </p>
-              <p className="text-sm text-muted-foreground">
-                Feels like {(temperature - 1.5).toFixed(1)}°C
-              </p>
             </div>
           </div>
 

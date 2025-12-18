@@ -1,14 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Droplet, Clock } from "lucide-react";
+import { Droplet } from "lucide-react";
 
 interface EToCardProps {
   dailyETo: number;
   weeklyETo: number;
   monthlyETo: number;
-  irrigationTime: number;
 }
 
-export function EToCard({ dailyETo, weeklyETo, monthlyETo, irrigationTime }: EToCardProps) {
+export function EToCard({ dailyETo, weeklyETo, monthlyETo }: EToCardProps) {
   return (
     <Card data-testid="card-eto">
       <CardHeader className="flex flex-row items-center gap-2 pb-2">
@@ -36,14 +35,6 @@ export function EToCard({ dailyETo, weeklyETo, monthlyETo, irrigationTime }: ETo
             <div className="rounded-lg bg-muted/50 p-3 text-center">
               <p className="text-xs text-muted-foreground">30d ETo</p>
               <p className="font-mono text-lg font-semibold">{monthlyETo.toFixed(1)} mm</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-lg bg-primary/10 p-3">
-            <Clock className="h-4 w-4 text-primary" />
-            <div>
-              <p className="text-xs text-muted-foreground">Recommended Irrigation</p>
-              <p className="font-mono text-lg font-semibold text-primary">{irrigationTime} min</p>
             </div>
           </div>
         </div>

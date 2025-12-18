@@ -305,7 +305,6 @@ export default function Dashboard() {
             dailyETo={currentData.eto || 4.85}
             weeklyETo={32.4}
             monthlyETo={128.5}
-            irrigationTime={25}
           />
         </div>
         <StatisticsCard
