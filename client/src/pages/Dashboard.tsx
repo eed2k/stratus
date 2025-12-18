@@ -16,12 +16,6 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Link } from "wouter";
 import {
-  Thermometer,
-  Droplets,
-  Gauge,
-  Wind,
-  Sun,
-  CloudRain,
   Radio,
   Plus,
   Loader2,
@@ -183,7 +177,6 @@ export default function Dashboard() {
           title="Temperature"
           value={currentData.temperature || 0}
           unit="°C"
-          icon={Thermometer}
           trend={{ value: 1.2, label: "vs yesterday" }}
           sparklineData={sparkline}
         />
@@ -191,7 +184,6 @@ export default function Dashboard() {
           title="Humidity"
           value={currentData.humidity || 0}
           unit="%"
-          icon={Droplets}
           trend={{ value: -5, label: "vs yesterday" }}
           sparklineData={chartData.slice(-12).map(d => d.humidity)}
         />
@@ -199,7 +191,6 @@ export default function Dashboard() {
           title="Pressure"
           value={currentData.pressure || 0}
           unit="hPa"
-          icon={Gauge}
           trend={{ value: 2.1, label: "vs yesterday" }}
           sparklineData={chartData.slice(-12).map(d => d.pressure)}
         />
@@ -207,7 +198,6 @@ export default function Dashboard() {
           title="Wind Speed"
           value={currentData.windSpeed || 0}
           unit="km/h"
-          icon={Wind}
           subMetrics={[
             { label: "Gust", value: `${currentData.windGust || 0} km/h` },
             { label: "Dir", value: `${currentData.windDirection || 0}°` },
@@ -217,14 +207,12 @@ export default function Dashboard() {
           title="Solar Radiation"
           value={currentData.solarRadiation || 0}
           unit="W/m²"
-          icon={Sun}
           sparklineData={chartData.slice(-12).map(d => d.solar)}
         />
         <MetricCard
           title="Rainfall (24h)"
           value={currentData.rainfall || 0}
           unit="mm"
-          icon={CloudRain}
           subMetrics={[
             { label: "7d Total", value: "12.8 mm" },
             { label: "30d Total", value: "45.2 mm" },

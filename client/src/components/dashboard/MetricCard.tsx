@@ -1,11 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { LucideIcon } from "lucide-react";
 
 interface MetricCardProps {
   title: string;
   value: string | number;
   unit: string;
-  icon: LucideIcon;
   trend?: {
     value: number;
     label: string;
@@ -21,18 +19,16 @@ export function MetricCard({
   title,
   value,
   unit,
-  icon: Icon,
   trend,
   subMetrics,
   sparklineData,
 }: MetricCardProps) {
   return (
     <Card className="hover-elevate transition-shadow duration-200 border-white/50" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+      <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <Icon className="h-5 w-5 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-1">

@@ -13,15 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  LayoutDashboard,
-  Radio,
-  History,
-  Settings,
-  LogOut,
-  Activity,
-  Building2,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
@@ -33,11 +25,11 @@ interface AppSidebarProps {
 }
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Stations", url: "/stations", icon: Radio },
-  { title: "Organizations", url: "/organizations", icon: Building2 },
-  { title: "History", url: "/history", icon: History },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Dashboard", url: "/" },
+  { title: "Stations", url: "/stations" },
+  { title: "Organizations", url: "/organizations" },
+  { title: "History", url: "/history" },
+  { title: "Settings", url: "/settings" },
 ];
 
 export function AppSidebar({ user, onLogout }: AppSidebarProps) {
@@ -46,14 +38,9 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
   return (
     <Sidebar className="bg-sidebar-background border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
-            <Activity className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="font-semibold text-sidebar-foreground">STRATUS</h2>
-            <p className="text-xs text-muted-foreground">Weather Monitoring</p>
-          </div>
+        <div>
+          <h2 className="font-semibold text-sidebar-foreground">STRATUS</h2>
+          <p className="text-xs text-muted-foreground">Weather Monitoring</p>
         </div>
       </SidebarHeader>
 
@@ -70,7 +57,6 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
                     data-testid={`nav-${item.title.toLowerCase()}`}
                   >
                     <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>

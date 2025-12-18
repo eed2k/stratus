@@ -1,14 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Thermometer,
-  Droplets,
-  Wind,
-  Gauge,
-  Sun,
-  CloudRain,
-  Navigation,
-} from "lucide-react";
 
 interface CurrentConditionsProps {
   stationName: string;
@@ -66,77 +57,50 @@ export function CurrentConditions({
       </CardHeader>
       <CardContent>
         <div className="grid gap-6">
-          <div className="flex items-center gap-4">
-            <Thermometer className="h-12 w-12 text-primary" />
-            <div>
-              <p className="font-mono text-5xl font-bold tracking-tight" data-testid="value-temperature">
-                {temperature.toFixed(1)}
-                <span className="text-2xl text-muted-foreground">°C</span>
-              </p>
-            </div>
+          <div>
+            <p className="font-mono text-5xl font-bold tracking-tight" data-testid="value-temperature">
+              {temperature.toFixed(1)}
+              <span className="text-2xl text-muted-foreground">°C</span>
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
-              <Droplets className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Humidity</p>
-                <p className="font-mono text-lg font-semibold" data-testid="value-humidity">{humidity}%</p>
-              </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Humidity</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-humidity">{humidity}%</p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
-              <Gauge className="h-5 w-5 text-purple-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Pressure</p>
-                <p className="font-mono text-lg font-semibold" data-testid="value-pressure">{pressure} hPa</p>
-              </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Pressure</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-pressure">{pressure} hPa</p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
-              <Wind className="h-5 w-5 text-teal-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Wind</p>
-                <p className="font-mono text-lg font-semibold" data-testid="value-wind">{windSpeed} km/h</p>
-                <p className="text-xs text-muted-foreground">Gust: {windGust} km/h</p>
-              </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Wind</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-wind">{windSpeed} km/h</p>
+              <p className="text-xs text-muted-foreground">Gust: {windGust} km/h</p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
-              <Navigation
-                className="h-5 w-5 text-orange-500"
-                style={{ transform: `rotate(${windDirection}deg)` }}
-              />
-              <div>
-                <p className="text-xs text-muted-foreground">Direction</p>
-                <p className="font-mono text-lg font-semibold" data-testid="value-direction">
-                  {getWindDirectionLabel(windDirection)} ({windDirection}°)
-                </p>
-              </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Direction</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-direction">
+                {getWindDirectionLabel(windDirection)} ({windDirection}°)
+              </p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
-              <Sun className="h-5 w-5 text-yellow-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Solar</p>
-                <p className="font-mono text-lg font-semibold" data-testid="value-solar">{solarRadiation} W/m²</p>
-              </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Solar</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-solar">{solarRadiation} W/m²</p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
-              <CloudRain className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="text-xs text-muted-foreground">Rain (24h)</p>
-                <p className="font-mono text-lg font-semibold" data-testid="value-rain">{rainfall} mm</p>
-              </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Rain (24h)</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-rain">{rainfall} mm</p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
-              <Droplets className="h-5 w-5 text-cyan-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Dew Point</p>
-                <p className="font-mono text-lg font-semibold" data-testid="value-dewpoint">{dewPoint.toFixed(1)}°C</p>
-              </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Dew Point</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-dewpoint">{dewPoint.toFixed(1)}°C</p>
             </div>
           </div>
         </div>
