@@ -9,7 +9,6 @@ import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
 import { EToCard } from "@/components/dashboard/EToCard";
 import { StationSelector } from "@/components/dashboard/StationSelector";
-import { RefreshIndicator } from "@/components/dashboard/RefreshIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,9 +77,6 @@ const generateYesterdayWindRoseData = () => {
 
 export default function Dashboard() {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [interval, setIntervalValue] = useState(60);
   const [windRoseView, setWindRoseView] = useState<"2d" | "3d">("2d");
   
   const chartData = useMemo(() => generateChartData(24), []);
@@ -100,10 +96,6 @@ export default function Dashboard() {
 
   const selectedStation = stations.find(s => s.id === activeStationId);
 
-  const handleRefresh = () => {
-    refetch();
-    setLastUpdate(new Date());
-  };
 
   const stationOptions = stations.map(s => ({
     id: String(s.id),
@@ -171,14 +163,6 @@ export default function Dashboard() {
           selectedId={String(activeStationId)}
           onSelect={(id) => setSelectedStationId(parseInt(id))}
         />
-        <RefreshIndicator
-          lastUpdate={lastUpdate}
-          autoRefresh={autoRefresh}
-          interval={interval}
-          onRefresh={handleRefresh}
-          onIntervalChange={setIntervalValue}
-          onAutoRefreshChange={setAutoRefresh}
-        />
       </div>
 
       <CurrentConditions
@@ -244,14 +228,11 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <MetricCard
           title="Battery Voltage"
           value={currentData.batteryVoltage || 0}
           unit="V"
-          subMetrics={[
-            { label: "Panel Temp", value: `${currentData.panelTemperature || 0}°C` },
-          ]}
         />
         <MetricCard
           title="PM2.5"
@@ -260,16 +241,6 @@ export default function Dashboard() {
           subMetrics={[
             { label: "AQI", value: currentData.pm25 ? (currentData.pm25 < 12 ? "Good" : currentData.pm25 < 35 ? "Moderate" : "Unhealthy") : "N/A" },
           ]}
-        />
-        <MetricCard
-          title="Particulate Count"
-          value={currentData.particulateCount || 0}
-          unit="per L"
-        />
-        <MetricCard
-          title="Visibility"
-          value={currentData.atmosphericVisibility || 0}
-          unit="km"
         />
       </div>
 
