@@ -13,12 +13,12 @@ interface WindRoseProps {
 }
 
 const DEFAULT_SPEED_CLASSES = [
-  { min: 0, max: 2, color: "#93c5fd", label: "0-2 km/h" },
-  { min: 2, max: 5, color: "#60a5fa", label: "2-5 km/h" },
-  { min: 5, max: 10, color: "#3b82f6", label: "5-10 km/h" },
-  { min: 10, max: 20, color: "#2563eb", label: "10-20 km/h" },
-  { min: 20, max: 35, color: "#1d4ed8", label: "20-35 km/h" },
-  { min: 35, max: Infinity, color: "#1e40af", label: ">35 km/h" },
+  { min: 0, max: 2, color: "#bfdbfe", label: "0-2 km/h" },
+  { min: 2, max: 10, color: "#60a5fa", label: "2-10 km/h" },
+  { min: 10, max: 25, color: "#22c55e", label: "10-25 km/h" },
+  { min: 25, max: 50, color: "#facc15", label: "25-50 km/h" },
+  { min: 50, max: 100, color: "#f97316", label: "50-100 km/h" },
+  { min: 100, max: Infinity, color: "#dc2626", label: ">100 km/h" },
 ];
 
 const DIRECTIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
