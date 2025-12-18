@@ -49,8 +49,8 @@ export async function registerRoutes(
     console.error('Failed to initialize data collection service:', error);
   }
 
-  // Demo station initialization endpoint
-  app.post("/api/demo/initialize", isAuthenticated, async (req, res) => {
+  // Demo station initialization endpoint (no auth required for easy setup)
+  app.post("/api/demo/initialize", async (req, res) => {
     try {
       const { initializeDemoStation } = await import("./demo/generateDemoData");
       const station = await initializeDemoStation();
