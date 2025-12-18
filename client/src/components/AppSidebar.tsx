@@ -20,7 +20,6 @@ import {
   Settings,
   LogOut,
   Cloud,
-  Activity,
 } from "lucide-react";
 
 interface AppSidebarProps {
@@ -34,7 +33,6 @@ interface AppSidebarProps {
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Campbell Scientific", url: "/campbell", icon: Activity },
   { title: "Stations", url: "/stations", icon: Radio },
   { title: "History", url: "/history", icon: History },
   { title: "Settings", url: "/settings", icon: Settings },
@@ -81,7 +79,7 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-4">
+      <SidebarFooter className="border-t border-sidebar-border p-4 space-y-3">
         {user && (
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
@@ -105,6 +103,15 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
             </Button>
           </div>
         )}
+        <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">
+          <p>Credit: Lukas Esterhuizen 2025</p>
+          <a 
+            href="mailto:esterhuizen2k@proton.me" 
+            className="hover:underline"
+          >
+            esterhuizen2k@proton.me
+          </a>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
