@@ -10,8 +10,18 @@ STRATUS is a professional weather station monitoring platform designed for real-
 - Landing page features dark blue theme with animated thunderstorm video background
 - Simplified landing page to show only hero section with "Credit: Lukas Esterhuizen 2025" footer
 - Switched from Replit Auth to Netlify Identity authentication
-- Added Campbell Scientific station configuration (Serial RS232, LoRa, GSM, HTTP connections)
-- Added Rika station configuration (IP-based HTTP/REST API)
+- Added Campbell Scientific station configuration with 9 connection types:
+  - CampbellCloud API, HTTP/IP, WiFi Direct (CR6/Aspen), BLE/NFC, Serial RS232, LoRa, GSM/GPRS, 4G/LTE, MQTT
+- Added Rika station configuration with 3 connection types:
+  - RikaCloud API, HTTP/IP Direct, MQTT
+- Added Generic/IoT platform support with 7 connection types:
+  - Arduino IoT Cloud, Blynk IoT, HTTP/IP, WiFi Direct (ESP32/ESP8266), BLE, MQTT, LoRa/LoRaWAN
+- Logger support expanded to 26+ types:
+  - Campbell Scientific: CR1000X/XE, CR6, CR300/310/350, CR800/850, CR3000, Aspen 10
+  - Rika: RK900-01, RK600-02, RK500-01
+  - Davis: Vantage Pro2, Vantage Vue
+  - Arduino: MKR WiFi 1010, Nano 33 IoT, Portenta H7
+  - Generic: ESP32, ESP8266, Raspberry Pi Pico W, Custom GSM/4G/LoRa/Sigfox/NB-IoT
 - Updated database schema to support multiple station types with connection configuration
 - Created serverless functions for weather data fetching from Campbell Scientific and Rika stations
 - Dark blue/slate theme applied throughout the authenticated app interior

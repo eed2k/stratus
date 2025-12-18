@@ -27,8 +27,8 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { WeatherStation } from "@shared/schema";
 
-type StationType = "campbell" | "rika" | "generic";
-type ConnectionType = "serial" | "lora" | "gsm" | "ip";
+type StationType = "campbell" | "rika" | "generic" | "arduino" | "esp";
+type ConnectionType = "serial" | "lora" | "gsm" | "ip" | "wifi" | "ble" | "mqtt" | "4g" | "campbellcloud" | "rikacloud" | "arduino_iot" | "blynk";
 
 interface StationFormData {
   name: string;
@@ -235,10 +235,28 @@ export default function Stations() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="campbellcloud">
+                              <div className="flex items-center gap-2">
+                                <Server className="h-4 w-4" />
+                                CampbellCloud API
+                              </div>
+                            </SelectItem>
                             <SelectItem value="ip">
                               <div className="flex items-center gap-2">
                                 <Wifi className="h-4 w-4" />
                                 HTTP/IP (Web API)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="wifi">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                WiFi Direct (CR6, Aspen)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="ble">
+                              <div className="flex items-center gap-2">
+                                <Signal className="h-4 w-4" />
+                                Bluetooth LE (NFC/BLE)
                               </div>
                             </SelectItem>
                             <SelectItem value="serial">
@@ -257,6 +275,18 @@ export default function Stations() {
                               <div className="flex items-center gap-2">
                                 <Smartphone className="h-4 w-4" />
                                 GSM/GPRS
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="4g">
+                              <div className="flex items-center gap-2">
+                                <Smartphone className="h-4 w-4" />
+                                4G/LTE Cellular
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="mqtt">
+                              <div className="flex items-center gap-2">
+                                <Radio className="h-4 w-4" />
+                                MQTT Protocol
                               </div>
                             </SelectItem>
                           </SelectContent>
@@ -347,28 +377,80 @@ export default function Stations() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">Rika Station Configuration</CardTitle>
                       <CardDescription>
-                        Connects via IP-based HTTP/REST API communication
+                        Supports RikaCloud IoT platform or direct IP connection
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Station IP Address</Label>
-                          <Input
-                            placeholder="192.168.1.100"
-                            value={formData.ipAddress}
-                            onChange={(e) => updateForm({ ipAddress: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Port</Label>
-                          <Input
-                            placeholder="8080"
-                            value={formData.port}
-                            onChange={(e) => updateForm({ port: e.target.value })}
-                          />
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Connection Type</Label>
+                        <Select value={formData.connectionType} onValueChange={(v) => updateForm({ connectionType: v as ConnectionType })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="rikacloud">
+                              <div className="flex items-center gap-2">
+                                <Server className="h-4 w-4" />
+                                RikaCloud API
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="ip">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                HTTP/IP Direct
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="mqtt">
+                              <div className="flex items-center gap-2">
+                                <Radio className="h-4 w-4" />
+                                MQTT Protocol
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
+
+                      {formData.connectionType === "rikacloud" && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>RikaCloud Device ID</Label>
+                            <Input
+                              placeholder="device-id-12345"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>API Key</Label>
+                            <Input
+                              placeholder="Your RikaCloud API key"
+                              value={formData.apiKey}
+                              onChange={(e) => updateForm({ apiKey: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {(formData.connectionType === "ip" || !formData.connectionType || formData.connectionType === "mqtt") && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Station IP Address</Label>
+                            <Input
+                              placeholder="192.168.1.100"
+                              value={formData.ipAddress}
+                              onChange={(e) => updateForm({ ipAddress: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Port</Label>
+                            <Input
+                              placeholder="8080"
+                              value={formData.port}
+                              onChange={(e) => updateForm({ port: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
                       <div className="space-y-2">
                         <Label>API Key (optional)</Label>
                         <Input
@@ -393,26 +475,177 @@ export default function Stations() {
                 <TabsContent value="generic" className="space-y-4 mt-4">
                   <Card className="border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/20">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Generic Station Configuration</CardTitle>
+                      <CardTitle className="text-base">Generic / IoT Platform Configuration</CardTitle>
                       <CardDescription>
-                        Configure a custom weather station with API endpoint
+                        Supports Arduino IoT Cloud, Blynk IoT, ESP32/ESP8266, and custom stations
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        <Label>API Endpoint</Label>
-                        <Input
-                          placeholder="https://api.weatherstation.com/data"
-                          value={formData.apiEndpoint}
-                          onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                        />
+                        <Label>Connection / Platform Type</Label>
+                        <Select value={formData.connectionType} onValueChange={(v) => updateForm({ connectionType: v as ConnectionType })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="arduino_iot">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                Arduino IoT Cloud
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="blynk">
+                              <div className="flex items-center gap-2">
+                                <Smartphone className="h-4 w-4" />
+                                Blynk IoT Platform
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="ip">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                HTTP/IP (REST API)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="wifi">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                WiFi Direct (ESP32/ESP8266)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="ble">
+                              <div className="flex items-center gap-2">
+                                <Signal className="h-4 w-4" />
+                                Bluetooth LE (BLE)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="mqtt">
+                              <div className="flex items-center gap-2">
+                                <Radio className="h-4 w-4" />
+                                MQTT Broker
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="lora">
+                              <div className="flex items-center gap-2">
+                                <Signal className="h-4 w-4" />
+                                LoRa/LoRaWAN
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
+
+                      {formData.connectionType === "arduino_iot" && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Arduino IoT Cloud Thing ID</Label>
+                            <Input
+                              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>API Key (Client ID:Secret)</Label>
+                            <Input
+                              placeholder="client_id:client_secret"
+                              value={formData.apiKey}
+                              onChange={(e) => updateForm({ apiKey: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.connectionType === "blynk" && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Blynk Device Token</Label>
+                            <Input
+                              placeholder="Your Blynk device token"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Blynk Server (optional)</Label>
+                            <Input
+                              placeholder="blynk.cloud (default)"
+                              value={formData.apiKey}
+                              onChange={(e) => updateForm({ apiKey: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {(formData.connectionType === "ip" || formData.connectionType === "wifi" || formData.connectionType === "mqtt") && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>API Endpoint / IP Address</Label>
+                            <Input
+                              placeholder="https://api.weatherstation.com/data or 192.168.1.100"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>API Key (optional)</Label>
+                            <Input
+                              placeholder="Your API key"
+                              value={formData.apiKey}
+                              onChange={(e) => updateForm({ apiKey: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.connectionType === "ble" && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Device MAC Address</Label>
+                            <Input
+                              placeholder="AA:BB:CC:DD:EE:FF"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Service UUID</Label>
+                            <Input
+                              placeholder="00001101-0000-1000-8000-00805f9b34fb"
+                              value={formData.apiKey}
+                              onChange={(e) => updateForm({ apiKey: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.connectionType === "lora" && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>LoRaWAN Device EUI</Label>
+                            <Input
+                              placeholder="0011223344556677"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Application Key</Label>
+                            <Input
+                              placeholder="Your LoRaWAN app key"
+                              value={formData.apiKey}
+                              onChange={(e) => updateForm({ apiKey: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <div className="space-y-2">
-                        <Label>API Key (optional)</Label>
+                        <Label>Poll Interval (seconds)</Label>
                         <Input
-                          placeholder="Your API key"
-                          value={formData.apiKey}
-                          onChange={(e) => updateForm({ apiKey: e.target.value })}
+                          type="number"
+                          placeholder="60"
+                          value={formData.pollInterval}
+                          onChange={(e) => updateForm({ pollInterval: e.target.value })}
                         />
                       </div>
                     </CardContent>

@@ -19,7 +19,7 @@ import {
   History,
   Settings,
   LogOut,
-  Cloud,
+  Activity,
 } from "lucide-react";
 
 interface AppSidebarProps {
@@ -46,7 +46,7 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
-            <Cloud className="h-5 w-5 text-primary-foreground" />
+            <Activity className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
             <h2 className="font-semibold text-sidebar-foreground">STRATUS</h2>
