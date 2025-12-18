@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Wind } from "lucide-react";
 
 interface WindPowerCardProps {
   currentPower: number;
@@ -18,23 +17,19 @@ export function WindPowerCard({
 }: WindPowerCardProps) {
   return (
     <Card data-testid="card-wind-power">
-      <CardHeader className="flex flex-row items-center gap-2 pb-2">
-        <Zap className="h-5 w-5 text-yellow-500" />
-        <CardTitle className="text-lg font-medium">Wind Power</CardTitle>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Wind Power</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono text-4xl font-bold">{currentPower.toFixed(1)}</span>
+            <span className="font-mono text-3xl font-bold">{currentPower.toFixed(1)}</span>
             <span className="text-sm text-muted-foreground">W/m²</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg bg-muted/50 p-3">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Wind className="h-3 w-3" />
-                <span>Gust Power</span>
-              </div>
+              <p className="text-xs text-muted-foreground">Gust Power</p>
               <p className="font-mono text-lg font-semibold">{gustPower.toFixed(1)} W/m²</p>
             </div>
 

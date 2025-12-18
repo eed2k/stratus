@@ -19,7 +19,7 @@ export function StatisticsCard({ title, periods }: StatisticsCardProps) {
   return (
     <Card data-testid={`card-statistics-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-medium">{title}</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue={periods[0]?.period} className="w-full">

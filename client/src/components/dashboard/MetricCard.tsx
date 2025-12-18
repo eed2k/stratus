@@ -13,6 +13,7 @@ interface MetricCardProps {
     value: string | number;
   }[];
   sparklineData?: number[];
+  isFaulty?: boolean;
 }
 
 export function MetricCard({
@@ -22,7 +23,28 @@ export function MetricCard({
   trend,
   subMetrics,
   sparklineData,
+  isFaulty = false,
 }: MetricCardProps) {
+  if (isFaulty) {
+    return (
+      <Card 
+        className="bg-yellow-500 border-yellow-600" 
+        data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}
+      >
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-white">
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-4">
+            <span className="text-xl font-bold text-white">SENSOR FAULTY</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="hover-elevate transition-shadow duration-200 border-white/50" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <CardHeader className="pb-2">
