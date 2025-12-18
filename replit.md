@@ -19,6 +19,19 @@ STRATUS is a professional weather station monitoring platform designed for real-
 - Created example "Elsa" station with sample weather data
 - Removed Reports page (keeping Dashboard, Stations, History, Settings)
 - Added demo mode for development (VITE_DEMO_MODE=true bypasses Netlify Identity)
+- **Updated to match WeatherAfrica (weatherafrica.dyndns.org:8091/) parameters:**
+  - Temperature: Current, Min, Max, Dew Point
+  - Humidity: Relative Humidity, Air Density (kg/m³)
+  - Pressure: Station Pressure, Sea Level Pressure (calibrated)
+  - Wind: Speed, Direction, Gust, 10-min Gust, Wind Power (W/m²)
+  - Rainfall: Current, 10-min, 24h, 7d, 30d, Yearly totals
+  - Solar Radiation: Current, Max, UV Index
+  - ETo (Evapotranspiration): Current, 24h, 7d, 30d
+  - Sun Position: Azimuth, Elevation, Sunrise, Sunset times
+  - Soil: Temperature, Moisture
+  - System: Battery Voltage, Panel Temperature
+- Removed "Campbell Scientific" from navigation sidebar
+- Added credit footer: "Credit: Lukas Esterhuizen 2025" with email esterhuizen2k@proton.me
 
 The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Netlify Identity for user management.
 

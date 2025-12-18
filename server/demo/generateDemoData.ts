@@ -383,6 +383,70 @@ function generateRealisticWeatherData(stationId: number, days: number) {
     // Calculate dew point
     const dewPoint = temperature - ((100 - humidity) / 5);
 
+    // Calculate air density (kg/m³) using barometric formula
+    // ρ = P / (R * T) where R = 287.05 J/(kg·K)
+    const tempKelvin = temperature + 273.15;
+    const airDensity = (pressure * 100) / (287.05 * tempKelvin);
+
+    // Calculate wind power (W/m²) = 0.5 * ρ * v³
+    const windSpeedMs = windSpeed / 3.6; // Convert km/h to m/s
+    const windPower = 0.5 * airDensity * Math.pow(windSpeedMs, 3);
+
+    // Calculate 10-minute gust
+    const windGust10min = windGust * (1.1 + Math.random() * 0.2);
+
+    // Sea level pressure correction (altitude = 1339m)
+    const altitude = 1339;
+    const pressureSeaLevel = pressure * Math.pow(1 - (0.0065 * altitude) / (tempKelvin + 0.0065 * altitude), -5.257);
+
+    // Calculate ETo using simplified Penman-Monteith (mm/day)
+    let eto = 0;
+    if (solarRadiation > 0) {
+      const gamma = 0.665e-3 * pressure; // Psychrometric constant
+      const delta = 4098 * (0.6108 * Math.exp((17.27 * temperature) / (temperature + 237.3))) / Math.pow(temperature + 237.3, 2);
+      const Rn = solarRadiation * 0.0036; // Convert W/m² to MJ/m²/h
+      eto = (0.408 * delta * Rn + gamma * (37 / tempKelvin) * windSpeedMs * (6.11 * Math.exp(17.27 * temperature / (temperature + 237.3)) * (1 - humidity / 100))) / 
+            (delta + gamma * (1 + 0.34 * windSpeedMs));
+      eto = Math.max(0, eto * 0.1); // Scale to reasonable daily values
+    }
+
+    // Sun position calculation (simplified)
+    const dayAngle = (2 * Math.PI / 365) * (dayOfYear - 1);
+    const solarDeclination = 0.006918 - 0.399912 * Math.cos(dayAngle) + 0.070257 * Math.sin(dayAngle);
+    const latitude = -25.7479 * Math.PI / 180; // Pretoria latitude in radians
+    const hourAngle = ((hour - 12) * 15) * Math.PI / 180;
+    
+    const sinElevation = Math.sin(latitude) * Math.sin(solarDeclination) + 
+                         Math.cos(latitude) * Math.cos(solarDeclination) * Math.cos(hourAngle);
+    const sunElevation = Math.asin(Math.max(-1, Math.min(1, sinElevation))) * 180 / Math.PI;
+    
+    const cosAzimuth = (Math.sin(solarDeclination) - Math.sin(latitude) * sinElevation) / 
+                       (Math.cos(latitude) * Math.cos(sunElevation * Math.PI / 180));
+    let sunAzimuth = Math.acos(Math.max(-1, Math.min(1, cosAzimuth))) * 180 / Math.PI;
+    if (hour > 12) sunAzimuth = 360 - sunAzimuth;
+
+    // Calculate sunrise/sunset
+    const cosHourAngleSunrise = -Math.tan(latitude) * Math.tan(solarDeclination);
+    let sunriseHour = 12 - (Math.acos(Math.max(-1, Math.min(1, cosHourAngleSunrise))) * 12 / Math.PI);
+    let sunsetHour = 12 + (Math.acos(Math.max(-1, Math.min(1, cosHourAngleSunrise))) * 12 / Math.PI);
+    
+    const sunrise = new Date(timestamp);
+    sunrise.setHours(Math.floor(sunriseHour), Math.round((sunriseHour % 1) * 60), 0, 0);
+    const sunset = new Date(timestamp);
+    sunset.setHours(Math.floor(sunsetHour), Math.round((sunsetHour % 1) * 60), 0, 0);
+
+    // Soil temperature (lags air temp by a few hours)
+    const soilTemp = temperature * 0.8 + 5 + Math.sin((hour - 10) * Math.PI / 12) * 3;
+
+    // UV Index (correlated with solar radiation)
+    const uvIndex = solarRadiation > 0 ? Math.min(12, (solarRadiation / 100) * (1 + Math.random() * 0.3)) : 0;
+
+    // Battery voltage variation
+    const batteryVoltage = 12.2 + solarRadiation / 300 + (Math.random() - 0.5) * 0.3;
+
+    // Panel temperature
+    const panelTemperature = temperature + solarRadiation / 40;
+
     // Occasional missing data (simulate communication issues)
     if (Math.random() > 0.998) continue; // Skip ~0.2% of records
 
@@ -390,14 +454,31 @@ function generateRealisticWeatherData(stationId: number, days: number) {
       stationId,
       timestamp,
       temperature: parseFloat(temperature.toFixed(2)),
+      temperatureMin: parseFloat((temperature - 2 - Math.random() * 2).toFixed(2)),
+      temperatureMax: parseFloat((temperature + 2 + Math.random() * 2).toFixed(2)),
       humidity: parseFloat(humidity.toFixed(1)),
       pressure: parseFloat(pressure.toFixed(1)),
+      pressureSeaLevel: parseFloat(pressureSeaLevel.toFixed(1)),
       windSpeed: parseFloat(windSpeed.toFixed(2)),
       windDirection: parseFloat(windDirection.toFixed(0)),
       windGust: parseFloat(windGust.toFixed(2)),
+      windGust10min: parseFloat(windGust10min.toFixed(2)),
+      windPower: parseFloat(windPower.toFixed(2)),
       rainfall: parseFloat(rainfall.toFixed(2)),
+      rainfall10min: parseFloat((rainfall * 0.7).toFixed(2)),
       solarRadiation: parseFloat(solarRadiation.toFixed(1)),
+      solarRadiationMax: parseFloat((solarRadiation * 1.1).toFixed(1)),
+      uvIndex: parseFloat(uvIndex.toFixed(1)),
       dewPoint: parseFloat(dewPoint.toFixed(2)),
+      airDensity: parseFloat(airDensity.toFixed(4)),
+      eto: parseFloat(eto.toFixed(3)),
+      sunAzimuth: sunElevation > 0 ? parseFloat(sunAzimuth.toFixed(1)) : null,
+      sunElevation: parseFloat(sunElevation.toFixed(1)),
+      sunrise,
+      sunset,
+      soilTemperature: parseFloat(soilTemp.toFixed(2)),
+      batteryVoltage: parseFloat(batteryVoltage.toFixed(2)),
+      panelTemperature: parseFloat(panelTemperature.toFixed(1)),
     });
   }
 

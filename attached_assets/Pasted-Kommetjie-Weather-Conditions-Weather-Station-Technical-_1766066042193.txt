@@ -1,0 +1,145 @@
+Kommetjie Weather Conditions
+...
+
+Weather Station Technical Description
+The current setup.
+*Location: Kommetjie, Cape Town, South Africa (Western Cape Peninsula). South 34°08.328' East 018°19.856'.
+
+*Technical description :A calibrated solar powered automatic meteorological data collection platform with onboard measurement/control/processing and storage device,
+
+                                    radio telemetry, GPRS telemetry and direct RS232 connection. Mounted 9m above ground measuring wind speed, wind direction, 
+
+                                    ambient temperature, barometric pressure (calibrated to sea level), solar radiation, rainfall and relative humidity; calculating dew point temperature and  ETo.
+
+*Scan interval: 1-second.
+
+*Data output interval: 1-minute for weather data / 1-hour for ETo .
+
+*Display screen update interval: 5-minute.
+
+*Data upload: Pages are served. (unless network is down)
+
+*Internet connection: ADSL Uncapped
+
+*Instrumentation:
+
+  	Campbell Scientific	  	
+CR300 DataLogger (Measurement/Control/Processing and Storage device) Weather and ETo Station, Barometric  Pressure Sensor.
+
+Another CR215 used for controlling irrigation valves based on the main CR300's ETo/Rain values.
+
+  	R.M. Young	  	Model 04101 Wind Speed Wind Direction, Model 52203 Rain Gauge, Model EE180 Temperature Humidity, Model 61205V Barometric Pressure.
+  	Li-cor	  	Model 70092 Solar Radiation.
+  	Apogee	  	Solar Radiation.
+*Software:
+
+  	Campbell Scientific LoggerNet	  	Data logger support software used for data logger communication, programming and data retrieval.
+  	WeatherQuery 4.5 - Build 20-02-2016	  	Graphical display designer (Plot charts, wind roses, labels and web cam photos. Serve web pages. Email reports/alarms.).
+Weather Station ChangeLog
+Entry 37 09/06/2020
+Installed a new temp rh sensor due the high rh readings.
+Entry 36 26/01/2019
+Moved everything to a new pc following a hard drive crash.
+Entry 35 12/08/2018
+Changed sunrise/sunset to nautical dawn/dusk based on -12 degrees solar elevation
+Entry 34 11/08/2018
+Added sunrise and sunset based on elevation = 0
+Entry 33 10/08/2018
+Refurbished the Young windspeed and direction sensor. Added sun azimuth and elevation. Yearly rain updated hourly to reduce server overhead.
+Entry 32 10/06/2017
+Made changes to the wind power graph and numeric labels(to align with speed graph/labels): 10-minute(mean;1-minute gust;gust)
+Entry 31 30/05/2017
+Wind speed and direction sensor removed for servicing - temporary sensor is in place.
+Entry 30 18/10/2016
+Added irrigation times. Calculated from (evapotranspiration - rain) * crop factor * valve flow factor.
+Entry 29 23/06/2016
+Added air density to the wind power calculation.
+Entry 28 24/04/2016
+Added wind power gust to the numeric labels. (based on the 10-minute gust)
+Entry 27 24/04/2016
+Installed a new temp/rh sensor, model EE180
+Entry 26 24/04/2016
+Transferred to a CR300 datalogger, Campbell Scientific's latest compact datalogger.
+Entry 25 24/03/2016
+The old www.icon.co.za/~aleroux domain no longer exists due to changes by the provider. Page still available http://weatherafrica.dyndns.org:8091
+Entry 24 11/01/2014
+Added some wind energy stats.
+Entry 23 16/04/2013
+Created a list view of the main page to better display on a smart phone screen Mobile page list view Download size is around 190kB.
+Entry 22 04/12/2010
+Visit the mobile page compact showing the wind direction, wind speed(avg/max) and air temperature for a 10-minute period. Download size is only 12kB for each refresh. No longer active. Once again active but in different format.
+Entry 21 07/11/2010
+* The Wind Vane bearings need to be replaced, I will order some on Monday.
+Entry 20 20/01/2010
+* Calibrated solar radiation and barometric pressure.
+Entry 19 23/01/2009
+* Replaced wind speed bearings. (Age 8 years)
+Entry 18 08/01/2009
+* OS / hard drive upgrade. Please note that the 7 and 30 days labels will be incomplete for the next 7 and 30 days respectively.
+Entry 17 01/01/2009
+* New page layout. New CR215 datalogger. On mobile phones please use Opera Mini.
+Entry 16 15/09/2008
+* Page update: Added a 7d Rain Label, 24h ETo Label, 7d ETo Label, 30d ETo Label .
+Entry 15 30/05/2008
+* Page update: Added a 10-minute Gust label, 10-minute Rain label.
+Entry 14 25/05/2008
+* Page update: Rearranged the wind rose value layout, added a legend.
+Entry 13 1/05/2008
+* No Data condition: Fixed by installing a new rs232 card. The old usb->rs232 caused system crashes.
+Entry 12 04/01/2006 - 01/05/2008
+* So few updates: I've been busy doing (non-IT/outside in the sun) stuff in GP/NW for a change, only since 02/2008 back in front of the pc.
+Entry 11 04/01/2006
+* A new year, a new page.
+Entry 10  19/05/2005
+*Chart y-axis now scaled manually to predefined values.
+
+*Wind speed converted from m/s to km/h.
+
+*Barometric pressure calibrated to sea level.
+
+Entry 9  01/12/2004
+*Implementing a new wind rose type - 16 wind direction sectors, 6 wind speed classes (class 1 = calm) 1-minute samples used.
+
+  Replaced relative humidity element (age 4 years).
+
+  Calibrated weather station.
+
+Entry 8  26/11/2003
+*Calibrated weather station
+Entry 7 26/11/2003
+*Calibrated weather station.
+Entry 6 03/04/2003
+*Calibrated weather station.
+Entry 5 19/02/2003
+* A new year, a new page. 
+Entry 4 06/08/2002
+*Calibrated Weather Station. 
+Entry 3 08/04/2002
+*Calibrated and logging via radio telemetry - storing two sets of data, 
+
+   storing data onboard - downloading data e.g. daily/weekly/monthly --> write to pc,
+
+      also,
+
+         storing data real-time on pc-->plot graphs-->upload images to website-->confirm daily with SMS/EMail.  
+
+Entry 2 18/01/2002
+*Testing two new data loggers.
+
+  The system uses radio telemetry. 
+
+  Calibrated weather station.
+
+Entry 1 27/09/2000 (Weather Station Installation)
+*Weather station installation
+
+ 
+
+External Links
+Visit the server menu list directly ....
+
+WeatherQuery
+
+Copyright Frederick le Roux - WeatherQuery - Kommetjie Weather Station - Kommetjie Weerstasie.  
+
+ 
