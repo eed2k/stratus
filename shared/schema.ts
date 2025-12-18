@@ -435,3 +435,28 @@ export const insertStationGroupMemberSchema = createInsertSchema(stationGroupMem
 
 export type InsertStationGroupMember = z.infer<typeof insertStationGroupMemberSchema>;
 export type StationGroupMember = typeof stationGroupMembers.$inferSelect;
+
+// Station Logs table - Comprehensive log for updates, upgrades, errors, calibrations
+export const stationLogs = pgTable("station_logs", {
+  id: serial("id").primaryKey(),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  logType: varchar("log_type", { length: 50 }).notNull(),
+  severity: varchar("severity", { length: 20 }).default("info"),
+  title: text("title").notNull(),
+  message: text("message"),
+  details: jsonb("details"),
+  source: varchar("source", { length: 100 }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_station_logs_station_type").on(table.stationId, table.logType),
+  index("IDX_station_logs_created").on(table.createdAt),
+]);
+
+export const insertStationLogSchema = createInsertSchema(stationLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStationLog = z.infer<typeof insertStationLogSchema>;
+export type StationLog = typeof stationLogs.$inferSelect;

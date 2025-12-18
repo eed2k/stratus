@@ -6,7 +6,7 @@ import { WindRose } from "@/components/charts/WindRose";
 import { WindRose3D } from "@/components/charts/WindRose3D";
 import { WeatherChart } from "@/components/charts/WeatherChart";
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
-import { WindPowerCard } from "@/components/dashboard/WindPowerCard";
+import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
 import { EToCard } from "@/components/dashboard/EToCard";
 import { StationSelector } from "@/components/dashboard/StationSelector";
 import { RefreshIndicator } from "@/components/dashboard/RefreshIndicator";
@@ -294,12 +294,12 @@ export default function Dashboard() {
           )}
         </div>
         <div className="space-y-4">
-          <WindPowerCard
-            currentPower={45.2}
-            gustPower={128.5}
-            airDensity={currentData.airDensity || 1.225}
-            avgSpeed={currentData.windSpeed || 0}
-            avgPower={52.3}
+          <SolarRadiationCard
+            currentRadiation={currentData.solarRadiation || 0}
+            peakRadiation={1050}
+            dailyEnergy={18.5}
+            avgRadiation={450}
+            panelTemperature={currentData.temperature ? currentData.temperature + 5 : undefined}
           />
           <EToCard
             dailyETo={currentData.eto || 4.85}

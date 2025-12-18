@@ -14,6 +14,7 @@ import {
   dataloggerPrograms,
   stationGroups,
   stationGroupMembers,
+  stationLogs,
   type User,
   type UpsertUser,
   type WeatherStation,
@@ -44,6 +45,8 @@ import {
   type InsertStationGroup,
   type StationGroupMember,
   type InsertStationGroupMember,
+  type StationLog,
+  type InsertStationLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
@@ -74,6 +77,10 @@ export interface IStorage {
   // User Preferences operations
   getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
   upsertUserPreferences(prefs: InsertUserPreferences): Promise<UserPreferences>;
+
+  // Station Logs operations
+  getStationLogs(stationId: number, limit?: number): Promise<StationLog[]>;
+  createStationLog(log: InsertStationLog): Promise<StationLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -219,6 +226,21 @@ export class DatabaseStorage implements IStorage {
         },
       })
       .returning();
+    return result;
+  }
+
+  // Station Logs operations
+  async getStationLogs(stationId: number, limit: number = 50): Promise<StationLog[]> {
+    return await db
+      .select()
+      .from(stationLogs)
+      .where(eq(stationLogs.stationId, stationId))
+      .orderBy(desc(stationLogs.createdAt))
+      .limit(limit);
+  }
+
+  async createStationLog(log: InsertStationLog): Promise<StationLog> {
+    const [result] = await db.insert(stationLogs).values(log).returning();
     return result;
   }
 

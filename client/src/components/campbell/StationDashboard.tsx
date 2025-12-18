@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Thermometer, Droplets, Wind, Gauge, Sun, CloudRain, Activity } from "lucide-react";
+import { StationLogs } from "@/components/station/StationLogs";
 
 interface WeatherData {
   temperature: number;
@@ -36,17 +37,31 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
 
   useEffect(() => {
     fetchStationData();
-    const interval = setInterval(fetchStationData, 10000); // Update every 10 seconds
+    const interval = setInterval(fetchStationData, 10000);
     return () => clearInterval(interval);
   }, [stationId]);
 
   const fetchStationData = async () => {
     try {
-      // Fetch station status
+      // First try to get Campbell-specific status
       const statusRes = await fetch(`/api/campbell/stations/${stationId}/status`);
       if (statusRes.ok) {
         const statusData = await statusRes.json();
         setStation(statusData);
+      } else {
+        // Fallback to main station info for demo/non-Campbell stations
+        const stationRes = await fetch(`/api/stations/${stationId}`);
+        if (stationRes.ok) {
+          const stationData = await stationRes.json();
+          setStation({
+            id: stationData.id,
+            name: stationData.name,
+            isConnected: stationData.isConnected || true,
+            lastConnectionTime: stationData.lastConnectionTime || new Date().toISOString(),
+            batteryVoltage: stationData.batteryVoltage || 12.8,
+            panelTemperature: stationData.panelTemperature || 25.0,
+          });
+        }
       }
 
       // Fetch latest weather data
@@ -284,6 +299,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Station Logs */}
+      <StationLogs stationId={stationId} />
     </div>
   );
 }

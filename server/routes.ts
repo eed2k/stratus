@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, getUserId } from "./netlifyAuth";
-import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, type WeatherData } from "@shared/schema";
+import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, insertStationLogSchema, type WeatherData } from "@shared/schema";
 import { registerCampbellRoutes } from "./campbell/routes";
 import { dataCollectionService } from "./campbell/dataCollectionService";
 
@@ -344,6 +344,39 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating user preferences:", error);
       res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+
+  // Station Logs routes
+  app.get("/api/stations/:stationId/logs", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const logs = await storage.getStationLogs(stationId, limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching station logs:", error);
+      res.status(500).json({ message: "Failed to fetch station logs" });
+    }
+  });
+
+  app.post("/api/stations/:stationId/logs", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      const parsed = insertStationLogSchema.safeParse({
+        ...req.body,
+        stationId,
+      });
+      
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid log entry", errors: parsed.error.errors });
+      }
+      
+      const log = await storage.createStationLog(parsed.data);
+      res.status(201).json(log);
+    } catch (error) {
+      console.error("Error creating station log:", error);
+      res.status(500).json({ message: "Failed to create station log" });
     }
   });
 
