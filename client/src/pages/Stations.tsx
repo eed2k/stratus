@@ -58,7 +58,7 @@ const initialFormData: StationFormData = {
   altitude: "",
   connectionType: "ip",
   ipAddress: "",
-  port: "8080",
+  port: "1883",
   serialPort: "COM3",
   baudRate: "115200",
   loraFrequency: "868000000",
@@ -105,6 +105,20 @@ export default function Stations() {
         if (data.connectionType === "ip") {
           payload.connectionType = "http";
         }
+      } else if (data.connectionType === "mqtt") {
+        // MQTT-specific configuration
+        payload.port = data.port ? parseInt(data.port) : 1883;
+        payload.protocol = "mqtt";
+        // Store MQTT topic in apiEndpoint, broker in ipAddress
+        // Username:password stored in apiKey
+        payload.connectionConfig = JSON.stringify({
+          broker: data.ipAddress,
+          port: payload.port,
+          topic: data.apiEndpoint,
+          username: data.apiKey?.split(":")[0] || null,
+          password: data.apiKey?.split(":")[1] || null,
+          useTls: payload.port === 8883,
+        });
       }
 
       return await apiRequest("POST", "/api/stations", payload);
@@ -722,7 +736,7 @@ export default function Stations() {
                         </div>
                       )}
 
-                      {(formData.connectionType === "ip" || formData.connectionType === "wifi" || formData.connectionType === "mqtt") && (
+                      {(formData.connectionType === "ip" || formData.connectionType === "wifi") && (
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <Label>API Endpoint / IP Address</Label>
@@ -739,6 +753,75 @@ export default function Stations() {
                               value={formData.apiKey}
                               onChange={(e) => updateForm({ apiKey: e.target.value })}
                             />
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.connectionType === "mqtt" && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>MQTT Broker Address</Label>
+                              <Input
+                                placeholder="broker.hivemq.com or 192.168.1.100"
+                                value={formData.ipAddress}
+                                onChange={(e) => updateForm({ ipAddress: e.target.value })}
+                                data-testid="input-mqtt-broker"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Port</Label>
+                              <Input
+                                type="number"
+                                placeholder="1883"
+                                value={formData.port}
+                                onChange={(e) => updateForm({ port: e.target.value })}
+                                data-testid="input-mqtt-port"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Subscribe Topic</Label>
+                            <Input
+                              placeholder="weather/station/+/data or sensors/#"
+                              value={formData.apiEndpoint}
+                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                              data-testid="input-mqtt-topic"
+                            />
+                            <p className="text-xs text-muted-foreground">Use + for single-level wildcard, # for multi-level</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Username (optional)</Label>
+                              <Input
+                                placeholder="mqtt_user"
+                                value={formData.apiKey?.split(":")[0] || ""}
+                                onChange={(e) => {
+                                  const password = formData.apiKey?.split(":")[1] || "";
+                                  updateForm({ apiKey: `${e.target.value}:${password}` });
+                                }}
+                                data-testid="input-mqtt-username"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Password (optional)</Label>
+                              <Input
+                                type="password"
+                                placeholder="mqtt_password"
+                                value={formData.apiKey?.split(":")[1] || ""}
+                                onChange={(e) => {
+                                  const username = formData.apiKey?.split(":")[0] || "";
+                                  updateForm({ apiKey: `${username}:${e.target.value}` });
+                                }}
+                                data-testid="input-mqtt-password"
+                              />
+                            </div>
+                          </div>
+                          <div className="p-3 bg-muted/50 rounded-md">
+                            <p className="text-sm text-muted-foreground">
+                              Supports MQTT 3.1.1 and 5.0. For TLS/SSL, use port 8883. 
+                              Common public brokers: broker.hivemq.com, test.mosquitto.org
+                            </p>
                           </div>
                         </div>
                       )}
