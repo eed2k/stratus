@@ -6,7 +6,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin } from "lucide-react";
 
 interface Station {
   id: string;
@@ -34,12 +33,9 @@ export function StationSelector({ stations, selectedId, onSelect }: StationSelec
   return (
     <Select value={value} onValueChange={handleChange}>
       <SelectTrigger className="w-64" data-testid="select-station">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          <SelectValue placeholder="Select a station">
-            {selectedStation?.name || "Select a station"}
-          </SelectValue>
-        </div>
+        <SelectValue placeholder="Select a station">
+          {selectedStation?.name || "Select a station"}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {stations.map((station) => (

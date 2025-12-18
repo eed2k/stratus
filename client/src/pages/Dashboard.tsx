@@ -58,6 +58,24 @@ const generateWindRoseData = () => {
   return data;
 };
 
+const generateYesterdayWindRoseData = () => {
+  const data = Array.from({ length: 16 }, (_, i) => ({
+    direction: i * 22.5,
+    speeds: [
+      Math.random() * 4,
+      Math.random() * 7,
+      Math.random() * 10,
+      Math.random() * 5,
+      Math.random() * 2,
+      Math.random() * 1,
+    ],
+  }));
+  data[4].speeds = [3, 7, 12, 8, 4, 1];
+  data[5].speeds = [4, 9, 14, 9, 5, 2];
+  data[6].speeds = [2, 5, 10, 6, 3, 1];
+  return data;
+};
+
 export default function Dashboard() {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -67,6 +85,7 @@ export default function Dashboard() {
   
   const chartData = useMemo(() => generateChartData(24), []);
   const windRoseData = useMemo(() => generateWindRoseData(), []);
+  const yesterdayWindRoseData = useMemo(() => generateYesterdayWindRoseData(), []);
 
   const { data: stations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
@@ -276,9 +295,19 @@ export default function Dashboard() {
             </ToggleGroup>
           </div>
           {windRoseView === "2d" ? (
-            <WindRose data={windRoseData} title="Wind Rose (24h)" />
+            <WindRose data={windRoseData} title="Wind Rose (Today)" />
           ) : (
-            <WindRose3D data={windRoseData} title="Wind Rose 3D (24h)" />
+            <WindRose3D data={windRoseData} title="Wind Rose 3D (Today)" />
+          )}
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">Yesterday</span>
+          </div>
+          {windRoseView === "2d" ? (
+            <WindRose data={yesterdayWindRoseData} title="Wind Rose (Yesterday)" />
+          ) : (
+            <WindRose3D data={yesterdayWindRoseData} title="Wind Rose 3D (Yesterday)" />
           )}
         </div>
         <div className="space-y-4">
