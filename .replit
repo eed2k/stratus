@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "postgresql-16"]
+modules = ["nodejs-20", "web"]
 [agent]
 expertMode = true
 
@@ -21,13 +21,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/index.ts"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
@@ -35,12 +35,12 @@ externalPort = 80
 
 [[ports]]
 localPort = 24678
-externalPort = 3001
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["npx", "tsx", "server/index.ts"]
-build = ["npm", "run", "build:client"]
+run = ["node", "./dist/index.cjs"]
+build = ["npm", "run", "build"]
 
 [userenv]
 
