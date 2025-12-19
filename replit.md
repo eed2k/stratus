@@ -61,6 +61,14 @@ STRATUS is a professional weather station monitoring platform designed for real-
   - Stations "View Data" navigates to Dashboard with selected station
   - History "Apply Filters" triggers data refetch with date range
   - History "Export CSV" exports weather data to CSV file
+- **Added Protocol Backend Infrastructure:**
+  - ProtocolManager orchestrates all station connections with adapter lifecycle management
+  - MQTTAdapter for broker connections with topic subscriptions and QoS support
+  - HTTPAdapter with service-specific parsers (CampbellCloud, WeatherLink, RikaCloud, Arduino IoT, Blynk, ThingSpeak)
+  - SimulationAdapter generates realistic weather data for hardware-dependent protocols (BLE, Serial, RF, LoRa P2P)
+  - Auto-registration of stations with ProtocolManager on create/update/delete
+  - Connection status API endpoints: /api/protocols/status, /api/protocols/test/:stationId, /api/protocols/reconnect/:stationId
+  - UI shows connection status indicators and "Test Connection" button on station cards
 
 The platform follows a full-stack architecture with a React frontend, Express backend, and PostgreSQL database, utilizing Netlify Identity for user management.
 
