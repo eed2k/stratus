@@ -21,11 +21,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Radio, Search, Trash2, Loader2, Wifi, Cable, Signal, Smartphone, Server } from "lucide-react";
+import { MapPin, Plus, Radio, Search, Trash2, Loader2, Wifi, Cable, Signal, Smartphone, Server, RefreshCw, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { WeatherStation } from "@shared/schema";
+
+interface ConnectionStatus {
+  connected: boolean;
+  lastConnected?: string;
+  lastError?: string;
+  isSimulation?: boolean;
+}
 
 type StationType = "campbell" | "davis" | "rika" | "generic" | "arduino" | "esp";
 type ConnectionType = "serial" | "lora" | "gsm" | "ip" | "wifi" | "ble" | "mqtt" | "4g" | "campbellcloud" | "rikacloud" | "arduino_iot" | "blynk" | "weatherlink_cloud" | "weatherlink_local" | "rf_receiver" | "tcp_ip";
@@ -72,10 +79,42 @@ export default function Stations() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
+  const [testingStation, setTestingStation] = useState<number | null>(null);
   const { toast } = useToast();
 
   const { data: stations = [], isLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
+  });
+
+  const { data: connectionStatuses = {} } = useQuery<Record<number, ConnectionStatus>>({
+    queryKey: ["/api/protocols/status"],
+    refetchInterval: 30000,
+  });
+
+  const testConnectionMutation = useMutation({
+    mutationFn: async (stationId: number) => {
+      setTestingStation(stationId);
+      const response = await apiRequest("POST", `/api/protocols/test/${stationId}`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTestingStation(null);
+      if (data.success) {
+        toast({ 
+          title: "Connection Successful", 
+          description: data.isSimulation 
+            ? "Connected in simulation mode (hardware not available)" 
+            : data.message 
+        });
+      } else {
+        toast({ title: "Connection Failed", description: data.message, variant: "destructive" });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/protocols/status"] });
+    },
+    onError: (error: any) => {
+      setTestingStation(null);
+      toast({ title: "Test Failed", description: error.message, variant: "destructive" });
+    },
   });
 
   const createMutation = useMutation({
@@ -1037,6 +1076,50 @@ export default function Stations() {
                     <span>{station.createdAt ? new Date(station.createdAt).toLocaleDateString() : "N/A"}</span>
                   </div>
                 </div>
+                {/* Connection Status */}
+                {station.stationType !== 'demo' && (
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                    <div className="flex items-center gap-2 text-xs">
+                      {connectionStatuses[station.id]?.connected ? (
+                        <>
+                          <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                          <span className="text-green-600">Connected</span>
+                          {connectionStatuses[station.id]?.isSimulation && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">Simulation</Badge>
+                          )}
+                        </>
+                      ) : connectionStatuses[station.id]?.lastError ? (
+                        <>
+                          <XCircle className="h-3.5 w-3.5 text-red-500" />
+                          <span className="text-red-600 truncate max-w-[120px]" title={connectionStatuses[station.id]?.lastError}>
+                            {connectionStatuses[station.id]?.lastError}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3.5 w-3.5 text-yellow-500" />
+                          <span className="text-muted-foreground">Not connected</span>
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => testConnectionMutation.mutate(station.id)}
+                      disabled={testingStation === station.id}
+                      data-testid={`button-test-${station.id}`}
+                      className="h-7 text-xs"
+                    >
+                      {testingStation === station.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                      )}
+                      Test
+                    </Button>
+                  </div>
+                )}
+
                 <div className="mt-4 flex gap-2">
                   <Button 
                     variant="outline" 

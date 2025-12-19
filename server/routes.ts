@@ -7,6 +7,7 @@ import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferen
 import { nanoid } from "nanoid";
 import { registerCampbellRoutes } from "./campbell/routes";
 import { dataCollectionService } from "./campbell/dataCollectionService";
+import { protocolManager } from "./protocols/protocolManager";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -49,6 +50,101 @@ export async function registerRoutes(
   } catch (error) {
     console.error('Failed to initialize data collection service:', error);
   }
+
+  // Initialize Protocol Manager for all station types
+  try {
+    await protocolManager.initialize();
+    console.log('Protocol Manager initialized');
+  } catch (error) {
+    console.error('Failed to initialize Protocol Manager:', error);
+  }
+
+  // Protocol Manager API endpoints
+  app.get("/api/protocols/status", optionalAuth, async (req, res) => {
+    try {
+      const statuses: Record<number, any> = {};
+      const allStatuses = protocolManager.getAllStationStatuses();
+      for (const [id, status] of allStatuses) {
+        statuses[id] = status;
+      }
+      res.json(statuses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/protocols/status/:stationId", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      const status = protocolManager.getStationStatus(stationId);
+      if (!status) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/protocols/test/:stationId", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      const result = await protocolManager.testConnection(stationId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/protocols/reconnect/:stationId", optionalAuth, async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      const station = await storage.getWeatherStation(stationId);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      
+      // Re-register station to force reconnection
+      await protocolManager.unregisterStation(stationId);
+      
+      let connectionConfig: any = {};
+      if (station.connectionConfig) {
+        try {
+          connectionConfig = typeof station.connectionConfig === 'string' 
+            ? JSON.parse(station.connectionConfig) 
+            : station.connectionConfig;
+        } catch (e) {
+          connectionConfig = {};
+        }
+      }
+      
+      // Map connection type to protocol
+      const protocolMap: Record<string, string> = {
+        'mqtt': 'mqtt',
+        'http': 'http',
+        'ip': 'http',
+        'wifi': 'http',
+        'lora': 'lora',
+        'serial': 'modbus',
+        'satellite': 'satellite',
+      };
+      
+      await protocolManager.registerStation(stationId, {
+        stationId,
+        protocol: (protocolMap[station.connectionType || ''] || 'http') as any,
+        connectionType: (station.connectionType as any) || 'http',
+        host: station.ipAddress || connectionConfig.broker,
+        port: station.port || connectionConfig.port,
+        apiKey: station.apiKey || undefined,
+        apiEndpoint: station.apiEndpoint || connectionConfig.topic,
+        ...connectionConfig,
+      });
+      
+      res.json({ success: true, message: "Station reconnected" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
 
   // Demo station initialization endpoint (no auth required for easy setup)
   app.post("/api/demo/initialize", async (req, res) => {
@@ -164,6 +260,41 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid station data", errors: parsed.error.errors });
       }
       const station = await storage.createStation(parsed.data);
+      
+      // Auto-register with Protocol Manager if not demo
+      if (station.stationType !== 'demo' && station.isActive) {
+        try {
+          let connectionConfig: any = {};
+          if (station.connectionConfig) {
+            try {
+              connectionConfig = typeof station.connectionConfig === 'string' 
+                ? JSON.parse(station.connectionConfig) 
+                : station.connectionConfig;
+            } catch (e) {
+              connectionConfig = {};
+            }
+          }
+          
+          const protocolMap: Record<string, string> = {
+            'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
+            'lora': 'lora', 'serial': 'modbus', 'satellite': 'satellite',
+          };
+          
+          await protocolManager.registerStation(station.id, {
+            stationId: station.id,
+            protocol: (protocolMap[station.connectionType || ''] || 'http') as any,
+            connectionType: (station.connectionType as any) || 'http',
+            host: station.ipAddress || connectionConfig.broker,
+            port: station.port || connectionConfig.port,
+            apiKey: station.apiKey || undefined,
+            apiEndpoint: station.apiEndpoint || connectionConfig.topic,
+            ...connectionConfig,
+          });
+        } catch (regError) {
+          console.warn(`Failed to register station ${station.id} with Protocol Manager:`, regError);
+        }
+      }
+      
       res.status(201).json(station);
     } catch (error) {
       console.error("Error creating station:", error);
@@ -177,6 +308,45 @@ export async function registerRoutes(
       if (!station) {
         return res.status(404).json({ message: "Station not found" });
       }
+      
+      // Re-register with Protocol Manager if connection settings changed
+      if (station.stationType !== 'demo') {
+        try {
+          await protocolManager.unregisterStation(station.id);
+          
+          if (station.isActive) {
+            let connectionConfig: any = {};
+            if (station.connectionConfig) {
+              try {
+                connectionConfig = typeof station.connectionConfig === 'string' 
+                  ? JSON.parse(station.connectionConfig) 
+                  : station.connectionConfig;
+              } catch (e) {
+                connectionConfig = {};
+              }
+            }
+            
+            const protocolMap: Record<string, string> = {
+              'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
+              'lora': 'lora', 'serial': 'modbus', 'satellite': 'satellite',
+            };
+            
+            await protocolManager.registerStation(station.id, {
+              stationId: station.id,
+              protocol: (protocolMap[station.connectionType || ''] || 'http') as any,
+              connectionType: (station.connectionType as any) || 'http',
+              host: station.ipAddress || connectionConfig.broker,
+              port: station.port || connectionConfig.port,
+              apiKey: station.apiKey || undefined,
+              apiEndpoint: station.apiEndpoint || connectionConfig.topic,
+              ...connectionConfig,
+            });
+          }
+        } catch (regError) {
+          console.warn(`Failed to update station ${station.id} in Protocol Manager:`, regError);
+        }
+      }
+      
       res.json(station);
     } catch (error) {
       console.error("Error updating station:", error);
@@ -186,7 +356,16 @@ export async function registerRoutes(
 
   app.delete("/api/stations/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteStation(parseInt(req.params.id));
+      const stationId = parseInt(req.params.id);
+      
+      // Unregister from Protocol Manager first
+      try {
+        await protocolManager.unregisterStation(stationId);
+      } catch (regError) {
+        console.warn(`Failed to unregister station ${stationId} from Protocol Manager:`, regError);
+      }
+      
+      const deleted = await storage.deleteStation(stationId);
       if (!deleted) {
         return res.status(404).json({ message: "Station not found" });
       }
