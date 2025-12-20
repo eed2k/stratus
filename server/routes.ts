@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import { registerCampbellRoutes } from "./campbell/routes";
 import { dataCollectionService } from "./campbell/dataCollectionService";
 import { protocolManager } from "./protocols/protocolManager";
+import { registerStationSetupRoutes } from "./station-setup/routes";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -42,6 +43,9 @@ export async function registerRoutes(
 
   // Register Campbell Scientific routes
   registerCampbellRoutes(app);
+
+  // Register station setup routes
+  await registerStationSetupRoutes(app);
 
   // Initialize data collection service
   try {

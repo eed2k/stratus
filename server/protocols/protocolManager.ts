@@ -193,6 +193,21 @@ class ProtocolManagerClass extends EventEmitter {
           const { SatelliteAdapter } = await import("./satelliteAdapter");
           return new SatelliteAdapter(config);
         
+        case 'serial':
+          const { ModbusAdapter } = await import("./modbusAdapter");
+          return new ModbusAdapter(config);
+        
+        case 'tcp':
+          // TCP could be DNP3, Modbus TCP, or generic
+          if (config.protocol === 'dnp3') {
+            const { DNP3Adapter } = await import("./dnp3Adapter");
+            return new DNP3Adapter(config);
+          } else {
+            // For BLE, GSM, 4G coming through HTTP fallback
+            const { HTTPAdapter: DefaultHTTP } = await import("./httpAdapter");
+            return new DefaultHTTP(config);
+          }
+        
         default:
           const { HTTPAdapter: DefaultAdapter } = await import("./httpAdapter");
           return new DefaultAdapter(config);
