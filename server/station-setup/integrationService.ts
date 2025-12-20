@@ -312,7 +312,7 @@ export class StationIntegrationService {
         apiEndpoint: payload.apiEndpoint,
         connectionConfig: payload.connectionConfig
           ? JSON.stringify(payload.connectionConfig)
-          : station.connectionConfig,
+          : "{}",
       });
 
       // Re-register with protocol manager
@@ -321,7 +321,7 @@ export class StationIntegrationService {
 
         const protocolConfig = buildProtocolConfig(
           stationId,
-          payload.connectionType || station.connectionType,
+          payload.connectionType || "http",
           payload.connectionConfig || {}
         );
 
