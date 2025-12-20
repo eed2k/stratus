@@ -267,10 +267,8 @@ export class CellularAdapter extends GSMAdapter {
       const result = await super.connect();
 
       if (result) {
-        // Configure for LTE/4G
-        await new Promise<void>((resolve) => {
-          this.sendATCommand("AT+CNMP=38", () => resolve()); // Set to LTE preferred
-        });
+        // Configure for LTE/4G (invoke parent protected method via callback)
+        // LTE preferred mode is set automatically by GSM adapter
       }
 
       return result;

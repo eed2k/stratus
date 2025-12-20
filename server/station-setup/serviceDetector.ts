@@ -3,14 +3,11 @@
  * Automatically detects weather station service providers
  */
 
-import { CampbellCloudClient } from "./parsers/campbellCloud";
-import { RikaCloudClient } from "./parsers/rikaCloud";
-
 export interface ServiceDetectionResult {
   provider: string;
-  confidence: number; // 0-1 scale
+  confidence: number;
   connectionType: string;
-  suggestedConfig: Record<string, any>;
+  suggestedConfig?: Record<string, any>;
   apiEndpoint?: string;
 }
 
@@ -279,6 +276,7 @@ export class ServiceDetector {
     error?: string;
   }> {
     try {
+      const { CampbellCloudClient } = await import("../parsers/campbellCloud");
       const client = new CampbellCloudClient({ apiKey });
       const organizations = await client.listOrganizations();
 
@@ -305,6 +303,7 @@ export class ServiceDetector {
     error?: string;
   }> {
     try {
+      const { RikaCloudClient } = await import("../parsers/rikaCloud");
       const client = new RikaCloudClient({ apiKey });
       const stations = await client.listStations();
 

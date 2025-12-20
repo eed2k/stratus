@@ -22,6 +22,7 @@ export interface FieldMapping {
   target: string;
   type?: "number" | "string" | "date";
   multiplier?: number;
+  multiplierFn?: (value: number) => number;
   offset?: number;
   transform?: (value: any) => number | null;
 }
@@ -45,8 +46,8 @@ export class GenericWeatherParser {
       { source: "temperature", target: "temperature" },
       { source: "temp_c", target: "temperature" },
       { source: "temperature_c", target: "temperature" },
-      { source: "temp_f", target: "temperature", multiplier: (f: number) => (f - 32) * (5 / 9) as any },
-      { source: "temperature_f", target: "temperature", multiplier: (f: number) => (f - 32) * (5 / 9) as any },
+      { source: "temp_f", target: "temperature", multiplierFn: (f: number) => (f - 32) * (5 / 9) },
+      { source: "temperature_f", target: "temperature", multiplierFn: (f: number) => (f - 32) * (5 / 9) },
       { source: "air_temperature", target: "temperature" },
       { source: "airtemperature", target: "temperature" },
 
@@ -162,11 +163,12 @@ export class GenericWeatherParser {
 
         // Apply multiplier
         if (mapping.multiplier !== undefined && typeof value === "number") {
-          if (typeof mapping.multiplier === "number") {
-            value *= mapping.multiplier;
-          } else if (typeof mapping.multiplier === "function") {
-            value = mapping.multiplier(value);
-          }
+          value *= mapping.multiplier;
+        }
+
+        // Apply multiplier function
+        if (mapping.multiplierFn && typeof value === "number") {
+          value = mapping.multiplierFn(value);
         }
 
         // Apply offset
@@ -205,55 +207,32 @@ export class GenericWeatherParser {
   }
 
   private validateRanges(data: GenericWeatherData): void {
+    const checkRange = (value: number | null | undefined, min: number, max: number): number | null => {
+      if (value === null || value === undefined) return null;
+      if (value < min || value > max) return null;
+      return value;
+    };
+
     // Validate temperature range (-60°C to 60°C)
-    if (data.temperature !== null && (data.temperature < -60 || data.temperature > 60)) {
-      data.temperature = null;
-    }
-
+    data.temperature = checkRange(data.temperature, -60, 60);
     // Validate humidity range (0-100%)
-    if (data.humidity !== null && (data.humidity < 0 || data.humidity > 100)) {
-      data.humidity = null;
-    }
-
+    data.humidity = checkRange(data.humidity, 0, 100);
     // Validate pressure range (800-1100 hPa)
-    if (data.pressure !== null && (data.pressure < 800 || data.pressure > 1100)) {
-      data.pressure = null;
-    }
-
+    data.pressure = checkRange(data.pressure, 800, 1100);
     // Validate wind speed (0-100 m/s)
-    if (data.windSpeed !== null && (data.windSpeed < 0 || data.windSpeed > 100)) {
-      data.windSpeed = null;
-    }
-
+    data.windSpeed = checkRange(data.windSpeed, 0, 100);
     // Validate wind direction (0-360°)
-    if (data.windDirection !== null && (data.windDirection < 0 || data.windDirection > 360)) {
-      data.windDirection = null;
-    }
-
+    data.windDirection = checkRange(data.windDirection, 0, 360);
     // Validate wind gust (0-150 m/s)
-    if (data.windGust !== null && (data.windGust < 0 || data.windGust > 150)) {
-      data.windGust = null;
-    }
-
+    data.windGust = checkRange(data.windGust, 0, 150);
     // Validate rainfall (0-1000 mm)
-    if (data.rainfall !== null && (data.rainfall < 0 || data.rainfall > 1000)) {
-      data.rainfall = null;
-    }
-
+    data.rainfall = checkRange(data.rainfall, 0, 1000);
     // Validate solar radiation (0-2000 W/m²)
-    if (data.solarRadiation !== null && (data.solarRadiation < 0 || data.solarRadiation > 2000)) {
-      data.solarRadiation = null;
-    }
-
+    data.solarRadiation = checkRange(data.solarRadiation, 0, 2000);
     // Validate dew point (-100 to 50°C)
-    if (data.dewPoint !== null && (data.dewPoint < -100 || data.dewPoint > 50)) {
-      data.dewPoint = null;
-    }
-
+    data.dewPoint = checkRange(data.dewPoint, -100, 50);
     // Validate battery voltage (0-15V)
-    if (data.batteryVoltage !== null && (data.batteryVoltage < 0 || data.batteryVoltage > 15)) {
-      data.batteryVoltage = null;
-    }
+    data.batteryVoltage = checkRange(data.batteryVoltage, 0, 15);
   }
 
   parseArray(dataArray: any[]): GenericWeatherData[] {
@@ -270,7 +249,7 @@ export class WeatherLinkParser extends GenericWeatherParser {
   constructor() {
     super();
     this.setMappings([
-      { source: "temp", target: "temperature", multiplier: (f: number) => (f - 32) * (5 / 9) as any },
+      { source: "temp", target: "temperature", multiplierFn: (f: number) => (f - 32) * (5 / 9) },
       { source: "hum", target: "humidity" },
       { source: "bar", target: "pressure", multiplier: 33.8639 },
       { source: "wind_speed_last", target: "windSpeed", multiplier: 0.44704 },

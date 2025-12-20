@@ -9,8 +9,8 @@ export class BLEAdapter extends BaseProtocolAdapter {
   private peripheral: any = null;
   private characteristics: Map<string, any> = new Map();
   private lastData: NormalizedWeatherData | null = null;
-  private scanTimeout: NodeJS.Timer | null = null;
-  private dataTimeout: NodeJS.Timer | null = null;
+  private scanTimeout: NodeJS.Timeout | null = null;
+  private dataTimeout: NodeJS.Timeout | null = null;
 
   constructor(config: ProtocolConfig) {
     super(config);
@@ -37,7 +37,7 @@ export class BLEAdapter extends BaseProtocolAdapter {
       }
 
       const noble = require("noble");
-      const deviceAddress = this.config.deviceAddress || this.config.apiKey;
+      const deviceAddress = ((this.config as any).deviceAddress as string | undefined) || this.config.apiKey;
 
       if (!deviceAddress) {
         this.setError(new Error("Device address required for BLE"));

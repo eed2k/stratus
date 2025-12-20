@@ -608,7 +608,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         provider: finalDetection?.provider,
         confidence: finalDetection?.confidence || 0,
         connectionType: finalDetection?.connectionType || "http",
-        suggestedConfig: finalDetection?.suggestedConfig,
+        suggestedConfig: (finalDetection as any)?.suggestedConfig || {},
         testResult: testResult ? { success: testResult.success } : null,
       });
     } catch (error: any) {

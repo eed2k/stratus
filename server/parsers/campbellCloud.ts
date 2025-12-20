@@ -19,7 +19,7 @@ export interface CampbellSensorMapping {
     dataloggerLabel: string;
     fieldName: string;
     unit: string;
-    multiplier?: number;
+    multiplier?: number | ((value: number) => number);
     weatherField:
       | "temperature"
       | "humidity"
@@ -267,7 +267,7 @@ export class CampbellCloudClient {
               mapping.multiplier &&
               typeof mapping.multiplier === "function"
             ) {
-              value = mapping.multiplier(value);
+              value = (mapping.multiplier as (value: number) => number)(value);
             }
 
             data[mapping.weatherField] = value;
