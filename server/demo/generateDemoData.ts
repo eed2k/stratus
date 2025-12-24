@@ -7,18 +7,30 @@ import { storage } from '../localStorage';
 
 /**
  * Initialize a demo station with sample data
+ * Creates a station named "Elsa" with realistic weather data
  */
 export async function initializeDemoStation() {
-  // Create a demo station
+  // Check if demo station already exists
+  const existingStations = await storage.getStations();
+  const demoStation = existingStations.find(s => s.name === 'Elsa - Demo Station');
+  if (demoStation) {
+    console.log('Demo station "Elsa" already exists');
+    return demoStation;
+  }
+
+  // Create the demo station named "Elsa"
   const station = await storage.createStation({
-    name: 'Demo Campbell CR1000X',
+    name: 'Elsa - Demo Station',
     pakbusAddress: 1,
     connectionType: 'demo',
     connectionConfig: {
       type: 'demo',
       dataTable: 'OneMin'
     },
-    securityCode: 0
+    location: 'Demo Location',
+    description: 'Demo weather station for testing and visualization',
+    securityCode: 0,
+    isActive: true
   });
 
   // Generate some sample weather data

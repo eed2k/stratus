@@ -16,6 +16,13 @@ interface CurrentConditionsProps {
   isOnline?: boolean;
 }
 
+/**
+ * Format number to max 3 decimal places, removing trailing zeros
+ */
+const fmt = (value: number, maxDecimals: number = 1): string => {
+  return parseFloat(value.toFixed(maxDecimals)).toString();
+};
+
 const getWindDirectionLabel = (deg: number): string => {
   const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
   const index = Math.round(deg / 22.5) % 16;
@@ -59,7 +66,7 @@ export function CurrentConditions({
         <div className="grid gap-6">
           <div>
             <p className="font-mono text-5xl font-bold tracking-tight" data-testid="value-temperature">
-              {temperature.toFixed(1)}
+              {fmt(temperature, 1)}
               <span className="text-2xl text-muted-foreground">°C</span>
             </p>
           </div>
@@ -67,40 +74,40 @@ export function CurrentConditions({
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Humidity</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-humidity">{humidity}%</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-humidity">{fmt(humidity, 1)}%</p>
             </div>
 
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Pressure</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-pressure">{pressure} hPa</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-pressure">{fmt(pressure, 2)} hPa</p>
             </div>
 
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Wind</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-wind">{windSpeed} km/h</p>
-              <p className="text-xs text-muted-foreground">Gust: {windGust} km/h</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-wind">{fmt(windSpeed, 1)} km/h</p>
+              <p className="text-xs text-muted-foreground">Gust: {fmt(windGust, 1)} km/h</p>
             </div>
 
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Direction</p>
               <p className="font-mono text-lg font-semibold" data-testid="value-direction">
-                {getWindDirectionLabel(windDirection)} ({windDirection}°)
+                {getWindDirectionLabel(windDirection)} ({Math.round(windDirection)}°)
               </p>
             </div>
 
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Solar</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-solar">{solarRadiation} W/m²</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-solar">{fmt(solarRadiation, 1)} W/m²</p>
             </div>
 
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Rain (24h)</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-rain">{rainfall} mm</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-rain">{fmt(rainfall, 2)} mm</p>
             </div>
 
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Dew Point</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-dewpoint">{dewPoint.toFixed(1)}°C</p>
+              <p className="font-mono text-lg font-semibold" data-testid="value-dewpoint">{fmt(dewPoint, 1)}°C</p>
             </div>
           </div>
         </div>

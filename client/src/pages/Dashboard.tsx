@@ -22,6 +22,14 @@ import {
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
 
+/**
+ * Helper function to format numbers to a maximum of 3 decimal places
+ * Removes trailing zeros for cleaner display
+ */
+const formatValue = (value: number, maxDecimals: number = 3): string => {
+  return parseFloat(value.toFixed(maxDecimals)).toString();
+};
+
 const generateChartData = (hours: number) => {
   const data = [];
   const now = new Date();
@@ -197,43 +205,43 @@ export default function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           title="Temperature"
-          value={(currentData.temperature || 0).toFixed(1)}
+          value={formatValue(currentData.temperature || 0, 1)}
           unit="°C"
           trend={{ value: 1.2, label: "vs yesterday" }}
           sparklineData={sparkline}
         />
         <MetricCard
           title="Humidity"
-          value={(currentData.humidity || 0).toFixed(1)}
+          value={formatValue(currentData.humidity || 0, 1)}
           unit="%"
           trend={{ value: -5, label: "vs yesterday" }}
           sparklineData={chartData.slice(-12).map(d => d.humidity)}
         />
         <MetricCard
           title="Pressure"
-          value={currentData.pressure || 0}
+          value={formatValue(currentData.pressure || 0, 2)}
           unit="hPa"
           trend={{ value: 2.1, label: "vs yesterday" }}
           sparklineData={chartData.slice(-12).map(d => d.pressure)}
         />
         <MetricCard
           title="Wind Speed"
-          value={currentData.windSpeed || 0}
+          value={formatValue(currentData.windSpeed || 0, 1)}
           unit="km/h"
           subMetrics={[
-            { label: "Gust", value: `${currentData.windGust || 0} km/h` },
-            { label: "Dir", value: `${currentData.windDirection || 0}°` },
+            { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} km/h` },
+            { label: "Dir", value: `${formatValue(currentData.windDirection || 0, 0)}°` },
           ]}
         />
         <MetricCard
           title="Solar Radiation"
-          value={currentData.solarRadiation || 0}
+          value={formatValue(currentData.solarRadiation || 0, 1)}
           unit="W/m²"
           sparklineData={chartData.slice(-12).map(d => d.solar)}
         />
         <MetricCard
           title="Rainfall (24h)"
-          value={currentData.rainfall || 0}
+          value={formatValue(currentData.rainfall || 0, 2)}
           unit="mm"
           subMetrics={[
             { label: "7d Total", value: "12.8 mm" },
@@ -245,12 +253,12 @@ export default function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2">
         <MetricCard
           title="Battery Voltage"
-          value={currentData.batteryVoltage || 0}
+          value={formatValue(currentData.batteryVoltage || 0, 2)}
           unit="V"
         />
         <MetricCard
           title="PM2.5"
-          value={currentData.pm25 || 0}
+          value={formatValue(currentData.pm25 || 0, 1)}
           unit="µg/m³"
           subMetrics={[
             { label: "AQI", value: currentData.pm25 ? (currentData.pm25 < 12 ? "Good" : currentData.pm25 < 35 ? "Moderate" : "Unhealthy") : "N/A" },

@@ -32,33 +32,26 @@ function createWindow() {
       label: 'File',
       submenu: [
         {
-          label: 'Campbell Scientific Support',
-          click: () => shell.openExternal('https://www.campbellsci.com/support')
+          label: 'New Station',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => mainWindow.webContents.send('menu-action', 'new-station')
         },
         { type: 'separator' },
         {
-          label: 'Contact Developer',
-          click: () => {
-            dialog.showMessageBox(mainWindow, {
-              type: 'info',
-              title: 'Contact Developer',
-              message: 'For any queries, contact Lukas Esterhuizen (esterhuizen2k@proton.me)',
-              detail: 'Stratus Weather Server © 2025'
+          label: 'Import Configuration',
+          click: async () => {
+            const result = await dialog.showOpenDialog(mainWindow, {
+              properties: ['openFile'],
+              filters: [{ name: 'Configuration', extensions: ['json', 'xml'] }]
             });
+            if (!result.canceled) {
+              mainWindow.webContents.send('import-config', result.filePaths[0]);
+            }
           }
         },
         {
-          label: 'About',
-          click: () => {
-            dialog.showMessageBox(mainWindow, {
-              type: 'info',
-              title: 'About Stratus Weather Server',
-              message: 'Stratus Weather Server',
-              detail: `Version: ${app.getVersion()}\n\nCampbell Scientific Weather Station Management\nPakBus Protocol Support\n\nDeveloped by Lukas Esterhuizen\nesterhuizen2k@proton.me\n\n© 2024-2025 Lukas Esterhuizen`
-            });
-          }
-        }
-      ]
+          label: 'Export Configuration',
+          click: () => mainWindow.webContents.send('menu-action', 'export-config')
         },
         { type: 'separator' },
         { role: 'quit' }
@@ -197,6 +190,18 @@ function createWindow() {
         },
         { type: 'separator' },
         {
+          label: 'Contact Developer',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'Contact Developer',
+              message: 'Contact Developer',
+              detail: 'For any queries, contact:\n\nLukas Esterhuizen\nesterhuizen2k@proton.me'
+            });
+          }
+        },
+        { type: 'separator' },
+        {
           label: 'About',
           click: () => {
             dialog.showMessageBox(mainWindow, {
@@ -245,10 +250,18 @@ function startServer() {
     return;
   }
 
-  const serverPath = path.join(__dirname, '../server/index.js');
+  // In packaged app, compiled server is at dist/server/index.js
+  const serverPath = path.join(__dirname, '..', 'dist', 'server', 'index.js');
+  console.log('Starting server from:', serverPath);
+  
   serverProcess = spawn('node', [serverPath], {
-    env: { ...process.env, PORT: SERVER_PORT },
-    stdio: 'pipe'
+    env: { 
+      ...process.env, 
+      PORT: SERVER_PORT.toString(),
+      NODE_ENV: 'production'
+    },
+    stdio: 'pipe',
+    cwd: path.join(__dirname, '..')
   });
 
   serverProcess.stdout.on('data', (data) => {
@@ -259,8 +272,16 @@ function startServer() {
     console.error(`Server Error: ${data}`);
   });
 
+  serverProcess.on('error', (error) => {
+    console.error('Failed to start server:', error);
+    dialog.showErrorBox('Server Error', `Failed to start server: ${error.message}`);
+  });
+
   serverProcess.on('close', (code) => {
     console.log(`Server process exited with code ${code}`);
+    if (code !== 0 && code !== null) {
+      dialog.showErrorBox('Server Error', `Server exited with code ${code}`);
+    }
   });
 }
 

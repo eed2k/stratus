@@ -3,19 +3,21 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
-  // In Electron packaged app, dist is relative to __dirname
-  // Try multiple possible paths
+  // Client builds to client/dist, server builds to dist/server
+  // __dirname is dist/server in compiled output
   const possiblePaths = [
-    path.resolve(__dirname, "..", "dist"),           // Development: server/../dist
-    path.resolve(__dirname, "..", "client", "dist"), // Alternative dev path
-    path.resolve(__dirname, "..", "..", "dist"),     // Packaged: resources/app/dist
-    path.resolve(process.cwd(), "dist"),             // Current working directory
+    path.resolve(__dirname, "..", "..", "client", "dist"),  // dist/server/../../client/dist
+    path.resolve(process.cwd(), "client", "dist"),          // CWD/client/dist
+    path.resolve(__dirname, "..", "client", "dist"),        // dist/server/../client/dist 
+    path.resolve(process.cwd(), "dist"),                    // CWD/dist (packaged app)
   ];
   
   let distPath: string | null = null;
   for (const p of possiblePaths) {
+    console.log(`Checking for dist at: ${p}`);
     if (fs.existsSync(p) && fs.existsSync(path.join(p, "index.html"))) {
       distPath = p;
+      console.log(`Found dist at: ${p}`);
       break;
     }
   }

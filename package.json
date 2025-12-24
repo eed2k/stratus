@@ -28,10 +28,10 @@
       "output": "output"
     },
     "files": [
-      "dist/**/*",
+      "client/dist/**/*",
+      "dist/server/**/*",
       "electron/**/*",
-      "server/**/*",
-      "shared/**/*",
+      "node_modules/**/*",
       "package.json"
     ],
     "extraResources": [
