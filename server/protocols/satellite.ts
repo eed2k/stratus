@@ -49,7 +49,7 @@ export class SatelliteProtocol extends EventEmitter {
   private connected: boolean = false;
   private serialPort: any = null;
   private httpClient: any = null;
-  private pollInterval: NodeJS.Timer | null = null;
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: SatelliteConfig) {
     super();
@@ -119,7 +119,7 @@ export class SatelliteProtocol extends EventEmitter {
         throw new Error(`API error: ${response.status}`);
       }
 
-      const messages = await response.json();
+      const messages = await response.json() as any[];
       
       for (const msg of messages) {
         const satMessage: SatelliteMessage = {
@@ -249,7 +249,7 @@ export class SatelliteProtocol extends EventEmitter {
 
       if (!response.ok) return;
 
-      const data = await response.json();
+      const data = await response.json() as { messages?: any[] };
       
       for (const msg of data.messages || []) {
         const satMessage: SatelliteMessage = {
@@ -305,7 +305,7 @@ export class SatelliteProtocol extends EventEmitter {
 
       if (!response.ok) return;
 
-      const data = await response.json();
+      const data = await response.json() as { messages?: any[] };
       
       for (const msg of data.messages || []) {
         const satMessage: SatelliteMessage = {

@@ -1,14 +1,47 @@
 import type { Express } from "express";
 import { dataCollectionService } from "./dataCollectionService";
-import { isAuthenticated } from "../netlifyAuth";
-import { storage } from "../storage";
-import { 
-  insertSensorSchema, 
-  insertCalibrationRecordSchema,
-  insertMaintenanceEventSchema,
-  insertAlarmSchema,
-  insertDataQualityFlagSchema 
-} from "@shared/schema";
+import { isAuthenticated } from "../localAuth";
+import { storage } from "../localStorage";
+import { z } from "zod";
+
+// Local schema definitions
+const insertSensorSchema = z.object({
+  stationId: z.number(),
+  name: z.string(),
+  type: z.string(),
+  unit: z.string(),
+  minValue: z.number().optional(),
+  maxValue: z.number().optional()
+});
+
+const insertCalibrationRecordSchema = z.object({
+  sensorId: z.number(),
+  calibratedAt: z.coerce.date(),
+  values: z.any(),
+  notes: z.string().optional()
+});
+
+const insertMaintenanceEventSchema = z.object({
+  stationId: z.number(),
+  eventType: z.string(),
+  description: z.string(),
+  scheduledAt: z.coerce.date().optional(),
+  completedAt: z.coerce.date().optional()
+});
+
+const insertAlarmSchema = z.object({
+  stationId: z.number(),
+  name: z.string(),
+  condition: z.string(),
+  threshold: z.number(),
+  severity: z.enum(['info', 'warning', 'error', 'critical'])
+});
+
+const insertDataQualityFlagSchema = z.object({
+  weatherDataId: z.number(),
+  flagType: z.string(),
+  description: z.string().optional()
+});
 
 export function registerCampbellRoutes(app: Express): void {
   
@@ -282,10 +315,11 @@ export function registerCampbellRoutes(app: Express): void {
   app.get("/api/stations/:stationId/maintenance", async (req, res) => {
     try {
       const stationId = parseInt(req.params.stationId);
-      const { startDate, endDate } = req.query;
+      const { type, startDate, endDate } = req.query;
       
       const events = await storage.getMaintenanceEvents(
         stationId,
+        type as string | undefined,
         startDate ? new Date(startDate as string) : undefined,
         endDate ? new Date(endDate as string) : undefined
       );

@@ -2,9 +2,9 @@ import { StationSelector } from "../dashboard/StationSelector";
 import { ThemeProvider } from "../ThemeProvider";
 
 const mockStations = [
-  { id: "1", name: "Kommetjie Weather", location: "Cape Town, South Africa", isOnline: true },
-  { id: "2", name: "Table Mountain", location: "Cape Town, South Africa", isOnline: true },
-  { id: "3", name: "Stellenbosch", location: "Western Cape, South Africa", isOnline: false },
+  { id: "1", name: "Demo Weather Station", location: "Local", isOnline: true },
+  { id: "2", name: "Field Station 1", location: "Farm Site A", isOnline: true },
+  { id: "3", name: "Remote Station", location: "Mountain Site", isOnline: false },
 ];
 
 export default function StationSelectorExample() {

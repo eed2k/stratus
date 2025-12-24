@@ -1,5 +1,8 @@
 import { EventEmitter } from 'events';
-import { crc16ccitt } from 'crc';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const crcLib = require('crc');
+const crc16ccitt = crcLib.crc16ccitt as (data: Buffer) => number;
 
 /**
  * PakBus Protocol Implementation for Campbell Scientific Dataloggers

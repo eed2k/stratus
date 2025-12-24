@@ -193,6 +193,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Credits
 
-Developed by Frederick Le Roux
+Developed by Lukas Esterhuizen (esterhuizen2k@proton.me)
 
 Campbell Scientific and PakBus are trademarks of Campbell Scientific, Inc.

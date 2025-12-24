@@ -1,13 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import netlifyIdentity from 'netlify-identity-widget';
 
+// For desktop app, no authentication headers needed - single user mode
 function getAuthHeaders(): HeadersInit {
-  const user = netlifyIdentity.currentUser();
-  if (user?.token?.access_token) {
-    return {
-      "Authorization": `Bearer ${user.token.access_token}`,
-    };
-  }
   return {};
 }
 

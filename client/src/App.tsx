@@ -6,11 +6,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AppSidebar } from "@/components/AppSidebar";
+import { DemoInitializer } from "@/components/DemoInitializer";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import CampbellDashboard from "@/pages/CampbellDashboard";
-import Landing from "@/pages/Landing";
 import Stations from "@/pages/Stations";
 import History from "@/pages/History";
 import Settings from "@/pages/Settings";
@@ -28,23 +28,17 @@ function LoadingScreen() {
 }
 
 function Router() {
-  const { isAuthenticated, isLoading, user, logout } = useAuth();
+  const { isLoading, user, logout } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen />;
   }
 
-  if (!isAuthenticated) {
-    return (
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route component={Landing} />
-      </Switch>
-    );
-  }
-
+  // Desktop app - always authenticated, skip landing page
   return (
-    <AuthenticatedApp user={user!} logout={logout} />
+    <DemoInitializer>
+      <AuthenticatedApp user={user!} logout={logout} />
+    </DemoInitializer>
   );
 }
 

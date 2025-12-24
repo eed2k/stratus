@@ -4,7 +4,7 @@
  */
 
 import type { Express, RequestHandler } from "express";
-import { storage } from "../storage";
+import { storage } from "../localStorage";
 import { protocolManager } from "../protocols/protocolManager";
 import {
   validateConnectionConfig,
@@ -661,37 +661,14 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
   });
 
   /**
-   * Auto-configure Rika Cloud
+   * Auto-configure Rika Cloud (Not supported in desktop version)
    * POST /api/station-setup/configure/rika
-   * Body: { apiKey }
    */
   app.post("/api/station-setup/configure/rika", async (req, res) => {
-    try {
-      const { apiKey } = req.body;
-
-      if (!apiKey) {
-        return res.status(400).json({
-          success: false,
-          message: "apiKey is required",
-        });
-      }
-
-      const result = await ServiceDetector.configureRikaCloud(apiKey);
-
-      if (!result.success) {
-        return res.status(400).json(result);
-      }
-
-      res.json({
-        success: true,
-        stations: result.stations,
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message,
-      });
-    }
+    res.status(501).json({
+      success: false,
+      message: "Rika Cloud integration is not supported. This application focuses on Campbell Scientific dataloggers.",
+    });
   });
 
   /**
@@ -930,34 +907,14 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
   });
 
   /**
-   * List stations from Rika Cloud
-   * GET /api/station-setup/rika/stations?apiKey=...
+   * List stations from Rika Cloud (Not supported in desktop version)
+   * GET /api/station-setup/rika/stations
    */
   app.get("/api/station-setup/rika/stations", async (req, res) => {
-    try {
-      const { apiKey } = req.query;
-
-      if (!apiKey) {
-        return res.status(400).json({
-          success: false,
-          message: "apiKey query parameter is required",
-        });
-      }
-
-      const stations = await StationIntegrationService.fetchRikaStations(
-        apiKey as string
-      );
-
-      res.json({
-        success: true,
-        stations,
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message,
-      });
-    }
+    res.status(501).json({
+      success: false,
+      message: "Rika Cloud integration is not supported. This application focuses on Campbell Scientific dataloggers.",
+    });
   });
 }
 

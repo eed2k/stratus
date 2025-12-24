@@ -1,9 +1,60 @@
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { storage, type WeatherData } from "./localStorage";
 import { setupAuth, isAuthenticated, getUserId } from "./localAuth";
-import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, insertStationLogSchema, insertOrganizationSchema, insertOrganizationMemberSchema, insertOrganizationInvitationSchema, type WeatherData } from "@shared/schema";
+import { z } from "zod";
+
+// Local schema definitions for validation
+const insertWeatherStationSchema = z.object({
+  name: z.string(),
+  pakbusAddress: z.number(),
+  connectionType: z.string(),
+  connectionConfig: z.any(),
+  securityCode: z.number().optional()
+});
+
+const insertWeatherDataSchema = z.object({
+  stationId: z.number(),
+  tableName: z.string().optional(),
+  recordNumber: z.number().optional(),
+  timestamp: z.coerce.date(),
+  data: z.record(z.any())
+});
+
+const insertUserPreferencesSchema = z.object({
+  userId: z.string(),
+  temperatureUnit: z.string().optional(),
+  windSpeedUnit: z.string().optional(),
+  pressureUnit: z.string().optional(),
+  precipitationUnit: z.string().optional(),
+  theme: z.string().optional()
+});
+
+const insertStationLogSchema = z.object({
+  stationId: z.number(),
+  logType: z.string(),
+  message: z.string(),
+  metadata: z.any().optional()
+});
+
+const insertOrganizationSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  ownerId: z.string()
+});
+
+const insertOrganizationMemberSchema = z.object({
+  organizationId: z.number(),
+  userId: z.string(),
+  role: z.string()
+});
+
+const insertOrganizationInvitationSchema = z.object({
+  organizationId: z.number(),
+  email: z.string(),
+  role: z.string()
+});
 import { nanoid } from "nanoid";
 import { registerCampbellRoutes } from "./campbell/routes";
 import { dataCollectionService } from "./campbell/dataCollectionService";
@@ -263,10 +314,10 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid station data", errors: parsed.error.errors });
       }
-      const station = await storage.createStation(parsed.data);
+      const station = await storage.createStation(parsed.data as any);
       
       // Auto-register with Protocol Manager if not demo
-      if (station.stationType !== 'demo' && station.isActive) {
+      if (station.connectionType !== 'demo' && station.isActive) {
         try {
           let connectionConfig: any = {};
           if (station.connectionConfig) {
@@ -314,7 +365,7 @@ export async function registerRoutes(
       }
       
       // Re-register with Protocol Manager if connection settings changed
-      if (station.stationType !== 'demo') {
+      if (station.connectionType !== 'demo') {
         try {
           await protocolManager.unregisterStation(station.id);
           
@@ -398,8 +449,7 @@ export async function registerRoutes(
       const { stationId, isDefault } = req.body;
       const result = await storage.addUserStation({
         userId,
-        stationId,
-        isDefault: isDefault || false,
+        stationId
       });
       res.status(201).json(result);
     } catch (error) {
@@ -487,7 +537,12 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid weather data", errors: parsed.error.errors });
       }
       
-      const data = await storage.insertWeatherData(parsed.data);
+      const data = await storage.insertWeatherData({
+        stationId,
+        timestamp: parsed.data.timestamp,
+        tableName: parsed.data.tableName || 'manual',
+        data: parsed.data.data || {}
+      });
       
       // Broadcast weather data update to all subscribed clients
       broadcastWeatherData(stationId, data);
@@ -532,19 +587,22 @@ export async function registerRoutes(
             await storage.insertWeatherData({
               stationId,
               timestamp: record.timestamp,
-              temperature: weatherData.temperature ?? undefined,
-              humidity: weatherData.humidity ?? undefined,
-              pressure: weatherData.pressure ?? undefined,
-              windSpeed: weatherData.windSpeed ?? undefined,
-              windDirection: weatherData.windDirection ?? undefined,
-              windGust: weatherData.windGust ?? undefined,
-              solarRadiation: weatherData.solarRadiation ?? undefined,
-              rainfall: weatherData.rainfall ?? undefined,
-              dewPoint: weatherData.dewPoint ?? undefined,
-              soilTemperature: weatherData.soilTemperature ?? undefined,
-              soilMoisture: weatherData.soilMoisture ?? undefined,
-              batteryVoltage: weatherData.batteryVoltage ?? undefined,
-              panelTemperature: weatherData.panelTemperature ?? undefined,
+              tableName: 'import',
+              data: {
+                temperature: weatherData.temperature ?? undefined,
+                humidity: weatherData.humidity ?? undefined,
+                pressure: weatherData.pressure ?? undefined,
+                windSpeed: weatherData.windSpeed ?? undefined,
+                windDirection: weatherData.windDirection ?? undefined,
+                windGust: weatherData.windGust ?? undefined,
+                solarRadiation: weatherData.solarRadiation ?? undefined,
+                rainfall: weatherData.rainfall ?? undefined,
+                dewPoint: weatherData.dewPoint ?? undefined,
+                soilTemperature: weatherData.soilTemperature ?? undefined,
+                soilMoisture: weatherData.soilMoisture ?? undefined,
+                batteryVoltage: weatherData.batteryVoltage ?? undefined,
+                panelTemperature: weatherData.panelTemperature ?? undefined,
+              }
             });
             importedCount++;
           }
@@ -667,7 +725,12 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid log entry", errors: parsed.error.errors });
       }
       
-      const log = await storage.createStationLog(parsed.data);
+      const log = await storage.createStationLog({
+        stationId,
+        logType: parsed.data.logType || 'info',
+        message: parsed.data.message || '',
+        metadata: parsed.data.metadata
+      });
       res.status(201).json(log);
     } catch (error) {
       console.error("Error creating station log:", error);

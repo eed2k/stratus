@@ -6,7 +6,7 @@ export default function CurrentConditionsExample() {
     <ThemeProvider>
       <div className="p-4 bg-background">
         <CurrentConditions
-          stationName="Kommetjie Weather Station"
+          stationName="Demo Weather Station"
           lastUpdate="2 minutes ago"
           temperature={23.5}
           humidity={68}

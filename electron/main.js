@@ -32,26 +32,33 @@ function createWindow() {
       label: 'File',
       submenu: [
         {
-          label: 'New Station',
-          accelerator: 'CmdOrCtrl+N',
-          click: () => mainWindow.webContents.send('menu-action', 'new-station')
+          label: 'Campbell Scientific Support',
+          click: () => shell.openExternal('https://www.campbellsci.com/support')
         },
         { type: 'separator' },
         {
-          label: 'Import Configuration',
-          click: async () => {
-            const result = await dialog.showOpenDialog(mainWindow, {
-              properties: ['openFile'],
-              filters: [{ name: 'Configuration', extensions: ['json', 'xml'] }]
+          label: 'Contact Developer',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'Contact Developer',
+              message: 'For any queries, contact Lukas Esterhuizen (esterhuizen2k@proton.me)',
+              detail: 'Stratus Weather Server © 2025'
             });
-            if (!result.canceled) {
-              mainWindow.webContents.send('import-config', result.filePaths[0]);
-            }
           }
         },
         {
-          label: 'Export Configuration',
-          click: () => mainWindow.webContents.send('menu-action', 'export-config')
+          label: 'About',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'About Stratus Weather Server',
+              message: 'Stratus Weather Server',
+              detail: `Version: ${app.getVersion()}\n\nCampbell Scientific Weather Station Management\nPakBus Protocol Support\n\nDeveloped by Lukas Esterhuizen\nesterhuizen2k@proton.me\n\n© 2024-2025 Lukas Esterhuizen`
+            });
+          }
+        }
+      ]
         },
         { type: 'separator' },
         { role: 'quit' }
@@ -185,10 +192,6 @@ function createWindow() {
       label: 'Help',
       submenu: [
         {
-          label: 'Documentation',
-          click: () => shell.openExternal('https://github.com/reuxnergy-admin1/stratus/wiki')
-        },
-        {
           label: 'Campbell Scientific Support',
           click: () => shell.openExternal('https://www.campbellsci.com/support')
         },
@@ -200,7 +203,7 @@ function createWindow() {
               type: 'info',
               title: 'About Stratus Weather Server',
               message: 'Stratus Weather Server',
-              detail: `Version: ${app.getVersion()}\n\nCampbell Scientific Weather Station Management\nPakBus Protocol Support\n\n© 2024 Frederick Le Roux`
+              detail: `Version: ${app.getVersion()}\n\nCampbell Scientific Weather Station Management\nPakBus Protocol Support\n\nDeveloped by Lukas Esterhuizen\nesterhuizen2k@proton.me\n\n© 2024-2025 Lukas Esterhuizen`
             });
           }
         }
@@ -216,12 +219,13 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // Load the app
+  // Load the app - always load from server (API calls need the server running)
   if (isDev) {
     mainWindow.loadURL(`http://localhost:${SERVER_PORT}`);
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // In production, load from the server too so API calls work
+    mainWindow.loadURL(`http://localhost:${SERVER_PORT}`);
   }
 
   // Handle external links

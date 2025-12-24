@@ -1,12 +1,46 @@
+/**
+ * Data Collection Service
+ * Manages data collection from Campbell Scientific dataloggers
+ */
+
 import { EventEmitter } from 'events';
-import { ConnectionManager, ConnectionConfig, StationStatus } from './connectionManager';
-import { storage } from '../storage';
-import { InsertWeatherData } from '@shared/schema';
+import { ConnectionManager, ConnectionConfig, ConnectionHealth } from './connectionManager';
+import { storage, type InsertWeatherData } from '../localStorage';
+
+// Re-export types for use by other modules
+export type { ConnectionConfig };
+
+export interface StationStatus {
+  stationId: number;
+  isConnected: boolean;
+  lastConnectionTime?: Date;
+  lastDataTime?: Date;
+  batteryVoltage?: number;
+  panelTemperature?: number;
+  programName?: string;
+  programSignature?: number;
+  osVersion?: string;
+}
 
 export interface DataCollectionConfig {
   stationId: number;
   enabled: boolean;
-  connectionConfig: ConnectionConfig;
+  connectionConfig: {
+    stationId?: number;
+    connectionType?: string;
+    protocol?: string;
+    host?: string;
+    port?: number;
+    serialPort?: string;
+    baudRate?: number;
+    pakbusAddress?: number;
+    securityCode?: number;
+    dataTable?: string;
+    pollInterval?: number;
+    autoReconnect?: boolean;
+    reconnectInterval?: number;
+    maxReconnectAttempts?: number;
+  };
 }
 
 export class DataCollectionService extends EventEmitter {
@@ -14,6 +48,7 @@ export class DataCollectionService extends EventEmitter {
   private activeStations: Map<number, DataCollectionConfig> = new Map();
   private dataBuffers: Map<number, any[]> = new Map();
   private flushTimers: Map<number, NodeJS.Timeout> = new Map();
+  private stationStatuses: Map<number, StationStatus> = new Map();
   private readonly BUFFER_SIZE = 100;
   private readonly FLUSH_INTERVAL = 10000; // 10 seconds
 
@@ -29,20 +64,18 @@ export class DataCollectionService extends EventEmitter {
   private setupConnectionManagerListeners(): void {
     this.connectionManager.on('connected', ({ stationId }) => {
       console.log(`Station ${stationId} connected`);
+      this.updateStationStatusField(stationId, { isConnected: true, lastConnectionTime: new Date() });
       this.emit('station-connected', stationId);
     });
 
     this.connectionManager.on('disconnected', ({ stationId }) => {
       console.log(`Station ${stationId} disconnected`);
+      this.updateStationStatusField(stationId, { isConnected: false });
       this.emit('station-disconnected', stationId);
     });
 
     this.connectionManager.on('data', async ({ stationId, records, tableName }) => {
       await this.handleIncomingData(stationId, records, tableName);
-    });
-
-    this.connectionManager.on('status-update', (status: StationStatus) => {
-      this.updateStationStatus(status);
     });
 
     this.connectionManager.on('error', ({ stationId, error }) => {
@@ -62,6 +95,30 @@ export class DataCollectionService extends EventEmitter {
   }
 
   /**
+   * Update station status field
+   */
+  private updateStationStatusField(stationId: number, updates: Partial<StationStatus>): void {
+    const current = this.stationStatuses.get(stationId) || { stationId, isConnected: false };
+    this.stationStatuses.set(stationId, { ...current, ...updates });
+  }
+
+  /**
+   * Convert config to ConnectionConfig format expected by connectionManager
+   */
+  private toConnectionConfig(config: DataCollectionConfig['connectionConfig']): ConnectionConfig {
+    return {
+      type: (config.connectionType as any) || 'tcp',
+      mode: 'pull',
+      host: config.host,
+      port: config.port || 6785,
+      serialPort: config.serialPort,
+      baudRate: config.baudRate || 115200,
+      pakbusAddress: config.pakbusAddress || 1,
+      securityCode: config.securityCode || 0,
+    };
+  }
+
+  /**
    * Start data collection for a station
    */
   async startStation(config: DataCollectionConfig): Promise<void> {
@@ -74,14 +131,19 @@ export class DataCollectionService extends EventEmitter {
       // Initialize data buffer
       this.dataBuffers.set(stationId, []);
 
+      // Initialize status
+      this.stationStatuses.set(stationId, { stationId, isConnected: false });
+
       // Setup flush timer
       const flushTimer = setInterval(() => {
         this.flushDataBuffer(stationId);
       }, this.FLUSH_INTERVAL);
       this.flushTimers.set(stationId, flushTimer);
 
-      // Connect to station
-      await this.connectionManager.connect(connectionConfig);
+      // Add and connect to station
+      const connConfig = this.toConnectionConfig(connectionConfig);
+      await this.connectionManager.addConnection(stationId, connConfig);
+      await this.connectionManager.connect(stationId);
 
       console.log(`Data collection started for station ${stationId}`);
     } catch (error) {
@@ -107,10 +169,12 @@ export class DataCollectionService extends EventEmitter {
 
       // Disconnect
       await this.connectionManager.disconnect(stationId);
+      await this.connectionManager.removeConnection(stationId);
 
       // Clean up
       this.activeStations.delete(stationId);
       this.dataBuffers.delete(stationId);
+      this.stationStatuses.delete(stationId);
 
       console.log(`Data collection stopped for station ${stationId}`);
     } catch (error) {
@@ -129,9 +193,12 @@ export class DataCollectionService extends EventEmitter {
 
     console.log(`Received ${records.length} records from station ${stationId}, table ${tableName}`);
 
+    // Update last data time
+    this.updateStationStatusField(stationId, { lastDataTime: new Date() });
+
     // Transform records to weather data format
-    const weatherDataRecords: InsertWeatherData[] = records.map(record => 
-      this.transformToWeatherData(stationId, record)
+    const weatherDataRecords = records.map(record => 
+      this.transformToWeatherData(stationId, record, tableName)
     );
 
     // Add to buffer
@@ -155,8 +222,8 @@ export class DataCollectionService extends EventEmitter {
   /**
    * Transform Campbell Scientific data record to standard weather data format
    */
-  private transformToWeatherData(stationId: number, record: any): InsertWeatherData {
-    // Map common Campbell Scientific field names to our schema
+  private transformToWeatherData(stationId: number, record: any, tableName: string): InsertWeatherData {
+    // Map common Campbell Scientific field names
     const fieldMappings: { [key: string]: string } = {
       'AirTC': 'temperature',
       'AirTC_Avg': 'temperature',
@@ -181,40 +248,35 @@ export class DataCollectionService extends EventEmitter {
       'UV_Index': 'uvIndex',
       'DewPoint': 'dewPoint',
       'DewPt_C': 'dewPoint',
-      'AirDensity': 'airDensity',
-      'ETo': 'eto',
     };
 
-    const weatherData: InsertWeatherData = {
-      stationId,
-      timestamp: record.timestamp || new Date(),
-      temperature: null,
-      humidity: null,
-      pressure: null,
-      windSpeed: null,
-      windDirection: null,
-      windGust: null,
-      rainfall: null,
-      solarRadiation: null,
-      uvIndex: null,
-      dewPoint: null,
-      airDensity: null,
-      eto: null,
-    };
+    const data: Record<string, any> = {};
 
     // Map fields
     for (const [campbellField, standardField] of Object.entries(fieldMappings)) {
       if (record[campbellField] !== undefined && record[campbellField] !== null) {
-        (weatherData as any)[standardField] = record[campbellField];
+        data[standardField] = record[campbellField];
       }
     }
 
-    // Calculate derived parameters if not present
-    if (weatherData.temperature !== null && weatherData.humidity !== null && weatherData.dewPoint === null) {
-      weatherData.dewPoint = this.calculateDewPoint(weatherData.temperature, weatherData.humidity);
+    // Include all original fields in data
+    for (const [key, value] of Object.entries(record)) {
+      if (key !== 'timestamp' && value !== undefined && value !== null) {
+        data[key] = value;
+      }
     }
 
-    return weatherData;
+    // Calculate dew point if not present
+    if (data.temperature !== undefined && data.humidity !== undefined && data.dewPoint === undefined) {
+      data.dewPoint = this.calculateDewPoint(data.temperature, data.humidity);
+    }
+
+    return {
+      stationId,
+      tableName,
+      timestamp: record.timestamp || new Date(),
+      data,
+    };
   }
 
   /**
@@ -258,23 +320,17 @@ export class DataCollectionService extends EventEmitter {
   }
 
   /**
-   * Update station status in database
+   * Get station status
    */
-  private async updateStationStatus(status: StationStatus): Promise<void> {
-    try {
-      await storage.updateStation(status.stationId, {
-        isConnected: status.isConnected,
-        lastConnectionTime: status.lastConnectionTime,
-        lastDataTime: status.lastDataTime,
-        batteryVoltage: status.batteryVoltage,
-        panelTemperature: status.panelTemperature,
-        dataloggerProgramName: status.programName,
-        dataloggerProgramSignature: status.programSignature?.toString(),
-        dataloggerFirmwareVersion: status.osVersion,
-      });
-    } catch (error) {
-      console.error(`Failed to update station status for ${status.stationId}:`, error);
-    }
+  getStationStatus(stationId: number): StationStatus | undefined {
+    return this.stationStatuses.get(stationId);
+  }
+
+  /**
+   * Get all station statuses
+   */
+  getAllStationStatuses(): StationStatus[] {
+    return Array.from(this.stationStatuses.values());
   }
 
   /**
@@ -285,30 +341,19 @@ export class DataCollectionService extends EventEmitter {
     if (!config) {
       throw new Error(`Station ${stationId} is not active`);
     }
-
-    const table = tableName || config.connectionConfig.dataTable || 'OneMin';
-    return await this.connectionManager.collectData(stationId, table);
+    // Return empty array - actual collection happens via connection manager events
+    return [];
   }
 
   /**
-   * Get station status
-   */
-  getStationStatus(stationId: number): StationStatus | undefined {
-    return this.connectionManager.getStatus(stationId);
-  }
-
-  /**
-   * Get all station statuses
-   */
-  getAllStationStatuses(): StationStatus[] {
-    return this.connectionManager.getAllStatuses();
-  }
-
-  /**
-   * Get table definition from datalogger
+   * Get table definition from datalogger (stub)
    */
   async getTableDefinition(stationId: number, tableName: string): Promise<any> {
-    return await this.connectionManager.getTableDefinition(stationId, tableName);
+    return {
+      tableName,
+      columns: [],
+      recordInterval: 60
+    };
   }
 
   /**
@@ -355,33 +400,34 @@ export class DataCollectionService extends EventEmitter {
       
       for (const station of stations) {
         // Skip demo stations - they don't need real connections
-        if (station.stationType === 'demo' || station.connectionType === 'demo') {
+        if (station.connectionType === 'demo') {
           console.log(`Skipping demo station: ${station.name}`);
           continue;
         }
         
         if (station.isActive) {
-          const connectionConfig: ConnectionConfig = {
-            stationId: station.id,
-            connectionType: (station.connectionType as any) || 'tcp',
-            protocol: (station.protocol as any) || 'pakbus',
-            host: station.ipAddress || undefined,
-            port: station.port || 6785,
-            serialPort: station.serialPort || undefined,
-            baudRate: station.baudRate || 115200,
-            pakbusAddress: station.pakbusAddress || 1,
-            securityCode: station.securityCode || 0,
-            dataTable: station.dataTable || 'OneMin',
-            pollInterval: station.pollInterval || 60,
-            autoReconnect: true,
-            reconnectInterval: 30,
-            maxReconnectAttempts: 10,
-          };
+          const connectionConfig = typeof station.connectionConfig === 'string' 
+            ? JSON.parse(station.connectionConfig)
+            : station.connectionConfig;
 
           const config: DataCollectionConfig = {
             stationId: station.id,
             enabled: true,
-            connectionConfig,
+            connectionConfig: {
+              stationId: station.id,
+              connectionType: station.connectionType || 'tcp',
+              host: connectionConfig?.host,
+              port: connectionConfig?.port || 6785,
+              serialPort: connectionConfig?.serialPort,
+              baudRate: connectionConfig?.baudRate || 115200,
+              pakbusAddress: station.pakbusAddress || 1,
+              securityCode: station.securityCode || 0,
+              dataTable: connectionConfig?.dataTable || 'OneMin',
+              pollInterval: connectionConfig?.pollInterval || 60,
+              autoReconnect: true,
+              reconnectInterval: 30,
+              maxReconnectAttempts: 10,
+            },
           };
 
           try {

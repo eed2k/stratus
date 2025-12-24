@@ -97,11 +97,13 @@ export function WindRose({ data, speedClasses = DEFAULT_SPEED_CLASSES, title = "
           {data.map((d, dirIndex) => {
             let currentRadius = 0;
             return d.speeds.map((count, speedIndex) => {
+              // Round wind rose values to 3 decimals
+              const roundedCount = Number(count.toFixed(3));
               const innerRadius = currentRadius;
-              const height = (count / maxValue) * maxRadius;
+              const height = (roundedCount / maxValue) * maxRadius;
               currentRadius += height;
 
-              if (count === 0) return null;
+              if (roundedCount === 0) return null;
 
               return (
                 <path

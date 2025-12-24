@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from "events";
-import type { WeatherData } from "@shared/schema";
+import type { WeatherData } from "../localStorage";
 
 export interface ProtocolConfig {
   stationId: number;
@@ -77,7 +77,7 @@ export interface IProtocolAdapter extends EventEmitter {
 export abstract class BaseProtocolAdapter extends EventEmitter implements IProtocolAdapter {
   protected config: ProtocolConfig;
   protected status: ConnectionStatus = { connected: false };
-  protected reconnectTimer: NodeJS.Timer | null = null;
+  protected reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   protected reconnectAttempts: number = 0;
   protected maxReconnectAttempts: number = 10;
   protected reconnectDelay: number = 5000;

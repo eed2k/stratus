@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindRose } from "@/components/charts/WindRose";
-import { WindRose3D } from "@/components/charts/WindRose3D";
 import { WeatherChart } from "@/components/charts/WeatherChart";
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
@@ -79,7 +78,7 @@ const generateYesterdayWindRoseData = () => {
 
 export default function Dashboard() {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
-  const [windRoseView, setWindRoseView] = useState<"2d" | "3d">("2d");
+  // Only 2D wind rose supported
   
   const chartData = useMemo(() => generateChartData(24), []);
   const windRoseData = useMemo(() => generateWindRoseData(), []);
@@ -306,29 +305,18 @@ export default function Dashboard() {
       </Tabs>
 
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {/* --- WIND ROSE VISUALIZATION --- */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">View Mode</span>
-            <ToggleGroup type="single" value={windRoseView} onValueChange={(v) => v && setWindRoseView(v as "2d" | "3d")}>
-              <ToggleGroupItem value="2d" size="sm" className="text-xs">2D</ToggleGroupItem>
-              <ToggleGroupItem value="3d" size="sm" className="text-xs">3D</ToggleGroupItem>
-            </ToggleGroup>
+            <span className="text-sm font-medium text-muted-foreground">Wind Rose (Today)</span>
           </div>
-          {windRoseView === "2d" ? (
-            <WindRose data={windRoseData} title="Wind Rose (Today)" />
-          ) : (
-            <WindRose3D data={windRoseData} title="Wind Rose 3D (Today)" />
-          )}
+          <WindRose data={windRoseData} title="Wind Rose (Today)" />
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Yesterday</span>
+            <span className="text-sm font-medium text-muted-foreground">Wind Rose (Yesterday)</span>
           </div>
-          {windRoseView === "2d" ? (
-            <WindRose data={yesterdayWindRoseData} title="Wind Rose (Yesterday)" />
-          ) : (
-            <WindRose3D data={yesterdayWindRoseData} title="Wind Rose 3D (Yesterday)" />
-          )}
+          <WindRose data={yesterdayWindRoseData} title="Wind Rose (Yesterday)" />
         </div>
         <div className="space-y-4">
           <SolarRadiationCard

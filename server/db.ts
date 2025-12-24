@@ -8,24 +8,30 @@
 import initSqlJs, { Database } from 'sql.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { app } from 'electron';
+import * as os from 'os';
 
 let db: Database | null = null;
 const DB_FILE = 'stratus.db';
 
 /**
  * Get the database file path
- * Uses app.getPath('userData') in Electron, falls back to current directory
+ * Uses standard app data location for the platform
  */
 function getDbPath(): string {
-  try {
-    // In Electron environment
-    const userDataPath = app.getPath('userData');
-    return path.join(userDataPath, DB_FILE);
-  } catch {
-    // Fallback for non-Electron environment (development)
-    return path.join(process.cwd(), 'data', DB_FILE);
+  // Use platform-appropriate app data location
+  const platform = process.platform;
+  let appDataPath: string;
+  
+  if (platform === 'win32') {
+    appDataPath = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  } else if (platform === 'darwin') {
+    appDataPath = path.join(os.homedir(), 'Library', 'Application Support');
+  } else {
+    appDataPath = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
   }
+  
+  const stratusPath = path.join(appDataPath, 'Stratus Weather Server');
+  return path.join(stratusPath, DB_FILE);
 }
 
 /**

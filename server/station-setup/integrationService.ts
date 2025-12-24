@@ -4,11 +4,10 @@
  * Focused on Campbell Scientific stations
  */
 
-import { storage } from "../storage";
+import { storage } from "../localStorage";
 import { protocolManager } from "../protocols/protocolManager";
 import { validateConnectionConfig, buildProtocolConfig } from "./validation";
 import { ServiceDetector } from "./serviceDetector";
-import { CampbellCloudClient } from "../parsers/campbellCloud";
 
 export interface StationSetupPayload {
   name: string;
@@ -75,21 +74,24 @@ export class StationIntegrationService {
       }
 
       // 4. Create station in database
-      const stationData = {
+      const stationData: any = {
         name: payload.name,
-        description: payload.description || "",
-        stationType: payload.stationType || "generic",
+        pakbusAddress: 1, // Default PakBus address
         connectionType: payload.connectionType,
-        ipAddress: payload.ipAddress,
-        port: payload.port,
-        serialPort: payload.serialPort,
-        baudRate: payload.baudRate,
-        apiKey: payload.apiKey,
-        apiEndpoint: payload.apiEndpoint,
-        connectionConfig: JSON.stringify(payload.connectionConfig || {}),
-        location: payload.location || "",
-        isActive: payload.isActive !== false,
-        provider: detectedProvider,
+        connectionConfig: {
+          ...(payload.connectionConfig || {}),
+          ipAddress: payload.ipAddress,
+          port: payload.port,
+          serialPort: payload.serialPort,
+          baudRate: payload.baudRate,
+          apiKey: payload.apiKey,
+          apiEndpoint: payload.apiEndpoint,
+          description: payload.description || "",
+          stationType: payload.stationType || "campbell",
+          location: payload.location || "",
+          provider: detectedProvider,
+        },
+        securityCode: 0,
       };
 
       const station = await storage.createStation(stationData);
@@ -169,35 +171,15 @@ export class StationIntegrationService {
   }
 
   /**
-   * Fetch stations from Campbell Cloud
+   * Fetch stations from Campbell Cloud (not yet implemented)
    */
   static async fetchCampbellStations(
     apiKey: string,
     organizationUid?: string,
     locationUid?: string
   ): Promise<Array<{ id: string; name: string; model: string }>> {
-    try {
-      const client = new CampbellCloudClient({ apiKey });
-
-      let stations: any[] = [];
-
-      if (organizationUid && locationUid) {
-        const client2 = new CampbellCloudClient({
-          apiKey,
-          organizationUid,
-          locationUid,
-        });
-        stations = await client2.listStations();
-      }
-
-      return stations.map((s) => ({
-        id: s.uid,
-        name: s.name || s.serial_number,
-        model: s.model || "Unknown",
-      }));
-    } catch (error: any) {
-      throw new Error(`Failed to fetch Campbell stations: ${error.message}`);
-    }
+    // Campbell Cloud integration is planned for future releases
+    throw new Error("Campbell Cloud integration is not yet implemented. Please use direct PakBus connections.");
   }
 
   /**

@@ -275,21 +275,10 @@ export class ServiceDetector {
     organizations?: any[];
     error?: string;
   }> {
-    try {
-      const { CampbellCloudClient } = await import("../parsers/campbellCloud");
-      const client = new CampbellCloudClient({ apiKey });
-      const organizations = await client.listOrganizations();
-
-      return {
-        success: true,
-        organizations,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
+    // Campbell Cloud integration is planned for future releases
+    return {
+      success: false,
+      error: "Campbell Cloud integration is not yet implemented. Please use direct PakBus connections.",
+    };
   }
-}
 }

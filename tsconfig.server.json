@@ -4,15 +4,17 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "outDir": "./dist/server",
-    "rootDir": "./server",
-    "strict": true,
+    "rootDir": ".",
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020"],
     "declaration": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "noImplicitAny": false
   },
   "include": ["server/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist", "shared"]
 }

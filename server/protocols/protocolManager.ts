@@ -6,14 +6,14 @@
 
 import { EventEmitter } from "events";
 import { IProtocolAdapter, ProtocolConfig, NormalizedWeatherData, ConnectionStatus } from "./adapter";
-import { storage } from "../storage";
+import { storage } from "../localStorage";
 
 export interface ManagedStation {
   stationId: number;
   adapter: IProtocolAdapter | null;
   config: ProtocolConfig;
   pollInterval: number;
-  pollTimer: NodeJS.Timer | null;
+  pollTimer: ReturnType<typeof setInterval> | null;
   isSimulation: boolean;
   lastData: NormalizedWeatherData | null;
 }
@@ -45,7 +45,7 @@ class ProtocolManagerClass extends EventEmitter {
       const stations = await storage.getStations();
       
       for (const station of stations) {
-        if (station.isActive && station.stationType !== 'demo') {
+        if (station.isActive && station.connectionType !== 'demo') {
           await this.registerStation(station.id, this.buildConfigFromStation(station));
         }
       }
@@ -287,19 +287,22 @@ class ProtocolManagerClass extends EventEmitter {
 
   private async handleIncomingData(stationId: number, data: NormalizedWeatherData): Promise<void> {
     try {
-      await storage.createWeatherData({
+      await storage.insertWeatherData({
         stationId,
         timestamp: data.timestamp,
-        temperature: data.temperature,
-        humidity: data.humidity,
-        pressure: data.pressure,
-        windSpeed: data.windSpeed,
-        windDirection: data.windDirection,
-        windGust: data.windGust,
-        rainfall: data.rainfall,
-        solarRadiation: data.solarRadiation,
-        dewPoint: data.dewPoint,
-        batteryVoltage: data.batteryVoltage,
+        tableName: 'weather',
+        data: {
+          temperature: data.temperature,
+          humidity: data.humidity,
+          pressure: data.pressure,
+          windSpeed: data.windSpeed,
+          windDirection: data.windDirection,
+          windGust: data.windGust,
+          rainfall: data.rainfall,
+          solarRadiation: data.solarRadiation,
+          dewPoint: data.dewPoint,
+          batteryVoltage: data.batteryVoltage,
+        }
       });
 
       this.emit('dataReceived', stationId, data);
