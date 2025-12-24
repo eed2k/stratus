@@ -29,14 +29,16 @@ export class ModbusAdapter extends BaseProtocolAdapter {
   private setupEventHandlers(): void {
     this.protocol.on("connected", () => {
       this.setConnected(true);
+      console.log(`[Modbus] Connected to ${this.config.host || this.config.serialPort}`);
     });
 
     this.protocol.on("disconnected", () => {
       this.setConnected(false);
+      console.warn(`[Modbus] Disconnected from ${this.config.host || this.config.serialPort}`);
     });
 
     this.protocol.on("error", (error) => {
-      this.setError(error);
+      this.setError(new Error(`[Modbus] Error: ${error.message}`));
     });
   }
 

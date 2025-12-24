@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, getUserId } from "./netlifyAuth";
+import { setupAuth, isAuthenticated, getUserId } from "./localAuth";
 import { insertWeatherStationSchema, insertWeatherDataSchema, insertUserPreferencesSchema, insertStationLogSchema, insertOrganizationSchema, insertOrganizationMemberSchema, insertOrganizationInvitationSchema, type WeatherData } from "@shared/schema";
 import { nanoid } from "nanoid";
 import { registerCampbellRoutes } from "./campbell/routes";

@@ -1,527 +1,620 @@
-import { EventEmitter } from 'events';
-import { SerialPort } from 'serialport';
-import { ReadlineParser } from '@serialport/parser-readline';
-import * as net from 'net';
-import { PakBusProtocol, DataTableDefinition } from './pakbus';
+/**
+ * Connection Manager
+ * Handles multiple connection types for Campbell Scientific stations
+ * Supports Pull (active polling) and Push (passive receive) modes
+ */
+
+import { EventEmitter } from "events";
+import { SerialPort } from "serialport";
+import { Socket } from "net";
+import { PakBusProtocol, PakBusConfig } from "./pakbusProtocol";
+
+export type ConnectionType = "serial" | "tcp" | "rf" | "gsm" | "lora" | "ble";
+export type ConnectionMode = "pull" | "push";
 
 export interface ConnectionConfig {
-  stationId: number;
-  connectionType: 'serial' | 'tcp' | 'http' | 'mqtt';
-  protocol: 'pakbus' | 'modbus' | 'http' | 'mqtt';
+  type: ConnectionType;
+  mode: ConnectionMode;
   
-  // Serial configuration
+  // Serial/RF/GSM settings
   serialPort?: string;
   baudRate?: number;
-  dataBits?: 5 | 6 | 7 | 8;
+  dataBits?: 8 | 7;
   stopBits?: 1 | 2;
-  parity?: 'none' | 'even' | 'odd' | 'mark' | 'space';
+  parity?: "none" | "even" | "odd";
   
-  // TCP/IP configuration
+  // TCP/IP settings
   host?: string;
   port?: number;
   
-  // PakBus configuration
-  pakbusAddress?: number;
+  // PakBus settings
+  pakbusAddress: number;
   securityCode?: number;
+  neighborAddress?: number;
   
-  // Polling configuration
-  pollInterval?: number;
-  dataTable?: string;
+  // Modem settings (GSM/LoRa)
+  modemType?: "gsm" | "lora" | "rf407";
+  phoneNumber?: string;
+  apn?: string;
   
-  // Reconnection
-  autoReconnect?: boolean;
-  reconnectInterval?: number;
-  maxReconnectAttempts?: number;
+  // Connection settings
+  timeout?: number;
+  retryAttempts?: number;
+  retryDelay?: number;
+  keepAlive?: boolean;
+  keepAliveInterval?: number;
 }
 
-export interface StationStatus {
+export interface ConnectionHealth {
   stationId: number;
   isConnected: boolean;
-  lastConnectionTime?: Date;
-  lastDataTime?: Date;
+  lastConnected: Date | null;
+  lastError: string | null;
+  errorCount: number;
+  successfulTransactions: number;
+  failedTransactions: number;
+  averageLatency: number;
+  signalStrength?: number;
   batteryVoltage?: number;
-  panelTemperature?: number;
-  programName?: string;
-  programSignature?: number;
-  osVersion?: string;
-  errorMessage?: string;
+}
+
+interface ActiveConnection {
+  config: ConnectionConfig;
+  transport: SerialPort | Socket | null;
+  pakbus: PakBusProtocol;
+  health: ConnectionHealth;
+  retryTimer: NodeJS.Timeout | null;
+  keepAliveTimer: NodeJS.Timeout | null;
 }
 
 export class ConnectionManager extends EventEmitter {
-  private connections: Map<number, any> = new Map();
-  private protocols: Map<number, PakBusProtocol> = new Map();
-  private pollTimers: Map<number, NodeJS.Timeout> = new Map();
-  private reconnectTimers: Map<number, NodeJS.Timeout> = new Map();
-  private reconnectAttempts: Map<number, number> = new Map();
-  private stationStatuses: Map<number, StationStatus> = new Map();
-  private tableDefinitions: Map<string, DataTableDefinition> = new Map();
+  private connections: Map<number, ActiveConnection> = new Map();
+  private discoveryInProgress: boolean = false;
 
   constructor() {
     super();
   }
 
   /**
-   * Connect to a Campbell Scientific datalogger
+   * Add a new station connection
    */
-  async connect(config: ConnectionConfig): Promise<void> {
-    const { stationId, connectionType, protocol } = config;
-
-    // Disconnect if already connected
+  async addConnection(stationId: number, config: ConnectionConfig): Promise<void> {
     if (this.connections.has(stationId)) {
-      await this.disconnect(stationId);
+      await this.removeConnection(stationId);
+    }
+
+    const pakbusConfig: PakBusConfig = {
+      address: config.pakbusAddress,
+      securityCode: config.securityCode,
+      neighborAddress: config.neighborAddress,
+    };
+
+    const connection: ActiveConnection = {
+      config,
+      transport: null,
+      pakbus: new PakBusProtocol(pakbusConfig),
+      health: {
+        stationId,
+        isConnected: false,
+        lastConnected: null,
+        lastError: null,
+        errorCount: 0,
+        successfulTransactions: 0,
+        failedTransactions: 0,
+        averageLatency: 0,
+      },
+      retryTimer: null,
+      keepAliveTimer: null,
+    };
+
+    this.connections.set(stationId, connection);
+    this.setupPakBusEvents(stationId, connection);
+
+    // Auto-connect if mode is pull
+    if (config.mode === "pull") {
+      await this.connect(stationId);
+    }
+  }
+
+  /**
+   * Connect to a station
+   */
+  async connect(stationId: number): Promise<boolean> {
+    const connection = this.connections.get(stationId);
+    if (!connection) {
+      throw new Error(`Station ${stationId} not found`);
     }
 
     try {
-      let connection: any;
-
-      switch (connectionType) {
-        case 'serial':
-          connection = await this.connectSerial(config);
-          break;
-        case 'tcp':
-          connection = await this.connectTCP(config);
-          break;
-        case 'http':
-          connection = await this.connectHTTP(config);
-          break;
-        case 'mqtt':
-          connection = await this.connectMQTT(config);
-          break;
-        default:
-          throw new Error(`Unsupported connection type: ${connectionType}`);
-      }
-
-      this.connections.set(stationId, connection);
-      this.reconnectAttempts.set(stationId, 0);
-
-      // Initialize protocol handler
-      if (protocol === 'pakbus') {
-        const pakbus = new PakBusProtocol({
-          address: config.pakbusAddress || 4095,
-          securityCode: config.securityCode || 0,
-        });
-        this.protocols.set(stationId, pakbus);
-
-        // Setup PakBus message handling
-        this.setupPakBusHandlers(stationId, connection, pakbus);
-
-        // Send Hello command
-        await this.sendPakBusCommand(stationId, pakbus.createHelloCommand());
-
-        // Get program statistics
-        await this.updateStationStatus(stationId);
-      }
-
-      // Update status
-      this.updateConnectionStatus(stationId, true);
-
-      // Start polling if configured
-      if (config.pollInterval && config.pollInterval > 0) {
-        this.startPolling(stationId, config);
-      }
-
-      this.emit('connected', { stationId });
-    } catch (error) {
-      this.emit('error', { stationId, error });
+      const transport = await this.createTransport(connection.config);
+      connection.transport = transport;
       
-      // Schedule reconnection if enabled
-      if (config.autoReconnect) {
-        this.scheduleReconnect(stationId, config);
+      // Pipe transport to PakBus protocol
+      this.pipeTransport(connection);
+
+      // Send hello transaction
+      const helloResult = await connection.pakbus.hello();
+      if (helloResult.success) {
+        connection.health.isConnected = true;
+        connection.health.lastConnected = new Date();
+        connection.health.lastError = null;
+        
+        this.emit("connected", stationId);
+        
+        // Start keep-alive if configured
+        if (connection.config.keepAlive) {
+          this.startKeepAlive(stationId);
+        }
+        
+        return true;
+      } else {
+        throw new Error(helloResult.error || "Hello transaction failed");
       }
+    } catch (error: any) {
+      connection.health.isConnected = false;
+      connection.health.lastError = error.message;
+      connection.health.errorCount++;
       
-      throw error;
+      this.emit("error", stationId, error);
+      
+      // Schedule retry
+      this.scheduleRetry(stationId);
+      
+      return false;
     }
   }
 
   /**
-   * Connect via RS-232 serial port
+   * Disconnect from a station
    */
-  private async connectSerial(config: ConnectionConfig): Promise<SerialPort> {
-    return new Promise((resolve, reject) => {
-      const port = new SerialPort({
-        path: config.serialPort!,
-        baudRate: config.baudRate || 115200,
-        dataBits: config.dataBits || 8,
-        stopBits: config.stopBits || 1,
-        parity: config.parity || 'none',
-      });
-
-      port.on('open', () => {
-        resolve(port);
-      });
-
-      port.on('error', (error) => {
-        reject(error);
-      });
-    });
-  }
-
-  /**
-   * Connect via TCP/IP
-   */
-  private async connectTCP(config: ConnectionConfig): Promise<net.Socket> {
-    return new Promise((resolve, reject) => {
-      const socket = new net.Socket();
-      
-      socket.connect(config.port || 6785, config.host || 'localhost', () => {
-        resolve(socket);
-      });
-
-      socket.on('error', (error) => {
-        reject(error);
-      });
-
-      socket.setTimeout(30000);
-    });
-  }
-
-  /**
-   * Connect via HTTP (for HTTP-based dataloggers)
-   */
-  private async connectHTTP(config: ConnectionConfig): Promise<any> {
-    // HTTP connection is stateless, return config for later use
-    return {
-      type: 'http',
-      baseUrl: `http://${config.host}:${config.port || 80}`,
-      config,
-    };
-  }
-
-  /**
-   * Connect via MQTT
-   */
-  private async connectMQTT(config: ConnectionConfig): Promise<any> {
-    // MQTT implementation would go here
-    throw new Error('MQTT connection not yet implemented');
-  }
-
-  /**
-   * Setup PakBus protocol handlers
-   */
-  private setupPakBusHandlers(stationId: number, connection: any, pakbus: PakBusProtocol): void {
-    let buffer = Buffer.alloc(0);
-
-    const dataHandler = (data: Buffer) => {
-      buffer = Buffer.concat([buffer, data]);
-
-      // Try to parse complete frames
-      while (buffer.length >= 10) {
-        // Look for frame signature
-        const sigIndex = buffer.indexOf(0xBD);
-        if (sigIndex === -1) {
-          buffer = Buffer.alloc(0);
-          break;
-        }
-
-        if (sigIndex > 0) {
-          buffer = buffer.slice(sigIndex);
-        }
-
-        // Try to parse frame
-        const message = pakbus.parseFrame(buffer);
-        if (message) {
-          this.emit('pakbus-message', { stationId, message });
-          
-          // Remove parsed frame from buffer
-          // Estimate frame length (this is simplified)
-          const frameLength = 10 + message.payload.length;
-          buffer = buffer.slice(frameLength);
-        } else {
-          // Wait for more data
-          break;
-        }
-      }
-    };
-
-    if (connection instanceof SerialPort) {
-      connection.on('data', dataHandler);
-    } else if (connection instanceof net.Socket) {
-      connection.on('data', dataHandler);
-    }
-  }
-
-  /**
-   * Send PakBus command
-   */
-  private async sendPakBusCommand(stationId: number, command: Buffer): Promise<void> {
+  async disconnect(stationId: number): Promise<void> {
     const connection = this.connections.get(stationId);
-    if (!connection) {
-      throw new Error(`No connection for station ${stationId}`);
+    if (!connection) return;
+
+    // Clear timers
+    if (connection.retryTimer) {
+      clearTimeout(connection.retryTimer);
+      connection.retryTimer = null;
+    }
+    if (connection.keepAliveTimer) {
+      clearInterval(connection.keepAliveTimer);
+      connection.keepAliveTimer = null;
     }
 
-    return new Promise((resolve, reject) => {
-      if (connection instanceof SerialPort || connection instanceof net.Socket) {
-        connection.write(command, (error: Error | null | undefined) => {
-          if (error) {
-            reject(error);
+    // Close transport
+    if (connection.transport) {
+      if (connection.transport instanceof SerialPort) {
+        await new Promise<void>((resolve) => {
+          if (connection.transport instanceof SerialPort && connection.transport.isOpen) {
+            connection.transport.close((err) => {
+              if (err) console.error('Error closing serial port:', err);
+              resolve();
+            });
           } else {
             resolve();
           }
         });
-      } else {
-        reject(new Error('Unsupported connection type for PakBus'));
+      } else if (connection.transport instanceof Socket) {
+        connection.transport.destroy();
       }
-    });
+      connection.transport = null;
+    }
+
+    connection.health.isConnected = false;
+    this.emit("disconnected", stationId);
   }
 
   /**
-   * Update station status (battery, temperature, program info)
+   * Remove a station connection
    */
-  private async updateStationStatus(stationId: number): Promise<void> {
-    const pakbus = this.protocols.get(stationId);
-    if (!pakbus) return;
+  async removeConnection(stationId: number): Promise<void> {
+    await this.disconnect(stationId);
+    this.connections.delete(stationId);
+  }
+
+  /**
+   * Get connection health for a station
+   */
+  getHealth(stationId: number): ConnectionHealth | null {
+    return this.connections.get(stationId)?.health || null;
+  }
+
+  /**
+   * Get all connection health statuses
+   */
+  getAllHealth(): ConnectionHealth[] {
+    return Array.from(this.connections.values()).map((c) => c.health);
+  }
+
+  /**
+   * Discover stations on the network
+   */
+  async discoverStations(
+    config: Partial<ConnectionConfig>
+  ): Promise<Array<{ address: number; type: string }>> {
+    if (this.discoveryInProgress) {
+      throw new Error("Discovery already in progress");
+    }
+
+    this.discoveryInProgress = true;
+    const discovered: Array<{ address: number; type: string }> = [];
 
     try {
-      const command = pakbus.createGetProgStatCommand();
-      await this.sendPakBusCommand(stationId, command);
-
-      // Response will be handled by message listener
-      this.once('pakbus-message', ({ stationId: sid, message }) => {
-        if (sid === stationId && message.messageType === 0x89) {
-          const progStat = pakbus.parseProgStatResponse(message.payload);
-          if (progStat) {
-            const status = this.stationStatuses.get(stationId) || { stationId, isConnected: true };
-            status.programName = progStat.powerUpProgramName;
-            status.programSignature = progStat.programSignature;
-            status.osVersion = progStat.osVersion;
-            this.stationStatuses.set(stationId, status);
-            this.emit('status-update', status);
+      // For TCP discovery, scan common ports
+      if (config.type === "tcp" && config.host) {
+        const ports = [6785, 6786, 6787, 6788]; // Common PakBus ports
+        for (const port of ports) {
+          try {
+            const result = await this.probeAddress(config.host, port);
+            if (result) {
+              discovered.push({ address: result, type: "tcp" });
+            }
+          } catch {
+            // Continue scanning
           }
         }
-      });
+      }
+
+      // For serial discovery, scan PakBus addresses
+      if (config.type === "serial" && config.serialPort) {
+        for (let addr = 1; addr <= 4094; addr++) {
+          try {
+            const exists = await this.probeSerialAddress(config.serialPort, addr);
+            if (exists) {
+              discovered.push({ address: addr, type: "serial" });
+            }
+          } catch {
+            // Continue scanning
+          }
+        }
+      }
+
+      this.emit("discovery-complete", discovered);
+      return discovered;
+    } finally {
+      this.discoveryInProgress = false;
+    }
+  }
+
+  /**
+   * List available serial ports
+   */
+  async listSerialPorts(): Promise<Array<{ path: string; manufacturer?: string }>> {
+    try {
+      const ports = await SerialPort.list();
+      return ports.map((p) => ({
+        path: p.path,
+        manufacturer: p.manufacturer,
+      }));
     } catch (error) {
-      this.emit('error', { stationId, error });
+      console.error("Error listing serial ports:", error);
+      return [];
     }
   }
 
   /**
-   * Get table definition from datalogger
+   * Get PakBus protocol instance for a station
    */
-  async getTableDefinition(stationId: number, tableName: string): Promise<DataTableDefinition | null> {
-    const cacheKey = `${stationId}:${tableName}`;
-    
-    // Check cache
-    if (this.tableDefinitions.has(cacheKey)) {
-      return this.tableDefinitions.get(cacheKey)!;
-    }
+  getPakBus(stationId: number): PakBusProtocol | null {
+    return this.connections.get(stationId)?.pakbus || null;
+  }
 
-    const pakbus = this.protocols.get(stationId);
-    if (!pakbus) {
-      throw new Error(`No PakBus protocol for station ${stationId}`);
-    }
-
-    return new Promise((resolve, reject) => {
-      const command = pakbus.createTableDefCommand(tableName);
+  /**
+   * Create transport based on connection type
+   */
+  private async createTransport(
+    config: ConnectionConfig
+  ): Promise<SerialPort | Socket> {
+    switch (config.type) {
+      case "serial":
+      case "rf":
+        return this.createSerialTransport(config);
       
-      const timeout = setTimeout(() => {
-        reject(new Error('Table definition request timeout'));
-      }, 30000);
+      case "tcp":
+        return this.createTcpTransport(config);
+      
+      case "gsm":
+        return this.createGsmTransport(config);
+      
+      case "lora":
+        return this.createLoRaTransport(config);
+      
+      case "ble":
+        throw new Error("BLE transport not yet implemented");
+      
+      default:
+        throw new Error(`Unknown connection type: ${config.type}`);
+    }
+  }
 
-      this.once('pakbus-message', ({ stationId: sid, message }) => {
-        clearTimeout(timeout);
-        
-        if (sid === stationId && message.messageType === 0x89) {
-          const tableDef = pakbus.parseTableDefResponse(message.payload);
-          if (tableDef) {
-            this.tableDefinitions.set(cacheKey, tableDef);
-            resolve(tableDef);
-          } else {
-            reject(new Error('Failed to parse table definition'));
-          }
-        }
+  /**
+   * Create serial port transport
+   */
+  private createSerialTransport(config: ConnectionConfig): Promise<SerialPort> {
+    return new Promise((resolve, reject) => {
+      if (!config.serialPort) {
+        reject(new Error("Serial port not specified"));
+        return;
+      }
+
+      const port = new SerialPort({
+        path: config.serialPort,
+        baudRate: config.baudRate || 115200,
+        dataBits: config.dataBits || 8,
+        stopBits: config.stopBits || 1,
+        parity: config.parity || "none",
+        autoOpen: false,
       });
 
-      this.sendPakBusCommand(stationId, command).catch(reject);
+      port.open((err) => {
+        if (err) {
+          reject(new Error(`Failed to open serial port: ${err.message}`));
+        } else {
+          resolve(port);
+        }
+      });
     });
   }
 
   /**
-   * Collect data from datalogger
+   * Create TCP socket transport
    */
-  async collectData(stationId: number, tableName: string, mode: number = 0x07): Promise<any[]> {
-    const pakbus = this.protocols.get(stationId);
-    if (!pakbus) {
-      throw new Error(`No PakBus protocol for station ${stationId}`);
-    }
-
-    // Get table definition first
-    const tableDef = await this.getTableDefinition(stationId, tableName);
-    if (!tableDef) {
-      throw new Error(`Could not get table definition for ${tableName}`);
-    }
-
+  private createTcpTransport(config: ConnectionConfig): Promise<Socket> {
     return new Promise((resolve, reject) => {
-      const command = pakbus.createCollectDataCommand(tableName, mode);
-      
-      const timeout = setTimeout(() => {
-        reject(new Error('Data collection timeout'));
-      }, 60000);
+      if (!config.host) {
+        reject(new Error("Host not specified"));
+        return;
+      }
 
-      this.once('pakbus-message', ({ stationId: sid, message }) => {
-        clearTimeout(timeout);
-        
-        if (sid === stationId && message.messageType === 0x89) {
-          const records = pakbus.parseCollectDataResponse(message.payload, tableDef);
-          resolve(records);
-        }
+      const socket = new Socket();
+      const timeout = config.timeout || 10000;
+
+      socket.setTimeout(timeout);
+
+      socket.connect(config.port || 6785, config.host, () => {
+        socket.setTimeout(0);
+        resolve(socket);
       });
 
-      this.sendPakBusCommand(stationId, command).catch(reject);
+      socket.on("error", (err) => {
+        reject(new Error(`TCP connection failed: ${err.message}`));
+      });
+
+      socket.on("timeout", () => {
+        socket.destroy();
+        reject(new Error("TCP connection timeout"));
+      });
     });
   }
 
   /**
-   * Start automatic polling
+   * Create GSM modem transport (via serial with AT commands)
    */
-  private startPolling(stationId: number, config: ConnectionConfig): void {
-    // Clear existing timer
-    this.stopPolling(stationId);
-
-    const interval = config.pollInterval! * 1000;
-    const tableName = config.dataTable || 'OneMin';
-
-    const poll = async () => {
-      try {
-        const records = await this.collectData(stationId, tableName);
-        
-        if (records && records.length > 0) {
-          this.emit('data', { stationId, records, tableName });
-          this.updateConnectionStatus(stationId, true, new Date());
-        }
-      } catch (error) {
-        this.emit('error', { stationId, error });
-        
-        // Attempt reconnection on error
-        if (config.autoReconnect) {
-          this.scheduleReconnect(stationId, config);
-        }
-      }
-    };
-
-    // Initial poll
-    poll();
-
-    // Setup interval
-    const timer = setInterval(poll, interval);
-    this.pollTimers.set(stationId, timer);
-  }
-
-  /**
-   * Stop polling
-   */
-  private stopPolling(stationId: number): void {
-    const timer = this.pollTimers.get(stationId);
-    if (timer) {
-      clearInterval(timer);
-      this.pollTimers.delete(stationId);
-    }
-  }
-
-  /**
-   * Schedule reconnection attempt
-   */
-  private scheduleReconnect(stationId: number, config: ConnectionConfig): void {
-    const attempts = this.reconnectAttempts.get(stationId) || 0;
-    const maxAttempts = config.maxReconnectAttempts || 10;
-
-    if (attempts >= maxAttempts) {
-      this.emit('reconnect-failed', { stationId, attempts });
-      return;
-    }
-
-    // Clear existing timer
-    const existingTimer = this.reconnectTimers.get(stationId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
-
-    const delay = (config.reconnectInterval || 30) * 1000;
-    const timer = setTimeout(async () => {
-      this.reconnectAttempts.set(stationId, attempts + 1);
-      this.emit('reconnecting', { stationId, attempt: attempts + 1 });
-      
-      try {
-        await this.connect(config);
-      } catch (error) {
-        // Error handler will schedule next attempt
-      }
-    }, delay);
-
-    this.reconnectTimers.set(stationId, timer);
-  }
-
-  /**
-   * Update connection status
-   */
-  private updateConnectionStatus(stationId: number, isConnected: boolean, lastDataTime?: Date): void {
-    const status = this.stationStatuses.get(stationId) || { stationId, isConnected: false };
+  private async createGsmTransport(config: ConnectionConfig): Promise<SerialPort> {
+    const port = await this.createSerialTransport(config);
     
-    status.isConnected = isConnected;
-    if (isConnected) {
-      status.lastConnectionTime = new Date();
+    // Initialize modem and dial
+    if (config.phoneNumber) {
+      await this.sendATCommand(port, "ATZ"); // Reset modem
+      await this.sendATCommand(port, "ATE0"); // Disable echo
+      await this.sendATCommand(port, `ATD${config.phoneNumber}`); // Dial
+      
+      // Wait for CONNECT response
+      await this.waitForResponse(port, "CONNECT", 60000);
     }
-    if (lastDataTime) {
-      status.lastDataTime = lastDataTime;
-    }
-
-    this.stationStatuses.set(stationId, status);
-    this.emit('status-update', status);
+    
+    return port;
   }
 
   /**
-   * Disconnect from station
+   * Create LoRa transport (via serial)
    */
-  async disconnect(stationId: number): Promise<void> {
-    // Stop polling
-    this.stopPolling(stationId);
+  private async createLoRaTransport(config: ConnectionConfig): Promise<SerialPort> {
+    const port = await this.createSerialTransport(config);
+    
+    // Initialize LoRa module
+    await this.sendATCommand(port, "sys reset");
+    await this.delay(1000);
+    await this.sendATCommand(port, "mac pause");
+    await this.sendATCommand(port, "radio set mod lora");
+    await this.sendATCommand(port, "radio set freq 915000000"); // US frequency
+    await this.sendATCommand(port, "radio set sf sf7");
+    await this.sendATCommand(port, "radio set bw 125");
+    
+    return port;
+  }
 
-    // Clear reconnect timer
-    const reconnectTimer = this.reconnectTimers.get(stationId);
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      this.reconnectTimers.delete(stationId);
-    }
+  /**
+   * Pipe transport to PakBus protocol
+   */
+  private pipeTransport(connection: ActiveConnection): void {
+    if (!connection.transport) return;
 
-    // Close connection
+    connection.transport.on("data", (data: Buffer) => {
+      connection.pakbus.processIncoming(data);
+    });
+
+    connection.pakbus.on("send", (data: Buffer) => {
+      if (connection.transport) {
+        connection.transport.write(data);
+      }
+    });
+  }
+
+  /**
+   * Setup PakBus event handlers
+   */
+  private setupPakBusEvents(stationId: number, connection: ActiveConnection): void {
+    connection.pakbus.on("data", (data: any) => {
+      connection.health.successfulTransactions++;
+      this.emit("data", stationId, data);
+    });
+
+    connection.pakbus.on("error", (error: Error) => {
+      connection.health.failedTransactions++;
+      connection.health.lastError = error.message;
+      this.emit("pakbus-error", stationId, error);
+    });
+
+    connection.pakbus.on("status", (status: any) => {
+      if (status.batteryVoltage !== undefined) {
+        connection.health.batteryVoltage = status.batteryVoltage;
+      }
+      this.emit("status", stationId, status);
+    });
+  }
+
+  /**
+   * Schedule connection retry
+   */
+  private scheduleRetry(stationId: number): void {
     const connection = this.connections.get(stationId);
-    if (connection) {
-      if (connection instanceof SerialPort) {
-        await new Promise<void>((resolve) => {
-          connection.close(() => resolve());
-        });
-      } else if (connection instanceof net.Socket) {
-        connection.destroy();
-      }
-      this.connections.delete(stationId);
+    if (!connection) return;
+
+    const { retryAttempts = 3, retryDelay = 5000 } = connection.config;
+    
+    if (connection.health.errorCount <= retryAttempts) {
+      connection.retryTimer = setTimeout(() => {
+        this.connect(stationId);
+      }, retryDelay);
+    } else {
+      this.emit("max-retries", stationId);
     }
-
-    // Clean up
-    this.protocols.delete(stationId);
-    this.reconnectAttempts.delete(stationId);
-    this.updateConnectionStatus(stationId, false);
-
-    this.emit('disconnected', { stationId });
   }
 
   /**
-   * Get station status
+   * Start keep-alive timer
    */
-  getStatus(stationId: number): StationStatus | undefined {
-    return this.stationStatuses.get(stationId);
+  private startKeepAlive(stationId: number): void {
+    const connection = this.connections.get(stationId);
+    if (!connection) return;
+
+    const interval = connection.config.keepAliveInterval || 60000;
+    
+    connection.keepAliveTimer = setInterval(async () => {
+      try {
+        await connection.pakbus.hello();
+      } catch (error) {
+        console.error(`Keep-alive failed for station ${stationId}`);
+        await this.disconnect(stationId);
+        await this.connect(stationId);
+      }
+    }, interval);
   }
 
   /**
-   * Get all station statuses
+   * Send AT command to modem
    */
-  getAllStatuses(): StationStatus[] {
-    return Array.from(this.stationStatuses.values());
+  private sendATCommand(port: SerialPort, command: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      port.write(`${command}\r`, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        let response = "";
+        const timeout = setTimeout(() => {
+          reject(new Error(`AT command timeout: ${command}`));
+        }, 5000);
+
+        const handler = (data: Buffer) => {
+          response += data.toString();
+          if (response.includes("OK") || response.includes("ERROR")) {
+            clearTimeout(timeout);
+            port.removeListener("data", handler);
+            if (response.includes("ERROR")) {
+              reject(new Error(`AT command failed: ${command}`));
+            } else {
+              resolve(response);
+            }
+          }
+        };
+
+        port.on("data", handler);
+      });
+    });
   }
 
   /**
-   * Disconnect all stations
+   * Wait for specific response from modem
    */
-  async disconnectAll(): Promise<void> {
-    const stationIds = Array.from(this.connections.keys());
-    await Promise.all(stationIds.map(id => this.disconnect(id)));
+  private waitForResponse(
+    port: SerialPort,
+    expected: string,
+    timeout: number
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let response = "";
+      const timer = setTimeout(() => {
+        reject(new Error(`Timeout waiting for: ${expected}`));
+      }, timeout);
+
+      const handler = (data: Buffer) => {
+        response += data.toString();
+        if (response.includes(expected)) {
+          clearTimeout(timer);
+          port.removeListener("data", handler);
+          resolve();
+        } else if (response.includes("NO CARRIER") || response.includes("ERROR")) {
+          clearTimeout(timer);
+          port.removeListener("data", handler);
+          reject(new Error("Connection failed"));
+        }
+      };
+
+      port.on("data", handler);
+    });
+  }
+
+  /**
+   * Probe TCP address for PakBus device
+   */
+  private async probeAddress(host: string, port: number): Promise<number | null> {
+    try {
+      const socket = await this.createTcpTransport({ type: "tcp", host, port, pakbusAddress: 1, mode: "pull" });
+      
+      const pakbus = new PakBusProtocol({ address: 1 });
+      let foundAddress: number | null = null;
+
+      socket.on("data", (data: Buffer) => {
+        pakbus.processIncoming(data);
+      });
+
+      pakbus.on("send", (data: Buffer) => {
+        socket.write(data);
+      });
+
+      const result = await pakbus.hello();
+      if (result.success) {
+        foundAddress = result.address || 1;
+      }
+
+      socket.destroy();
+      return foundAddress;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Probe serial port for PakBus address
+   */
+  private async probeSerialAddress(
+    portPath: string,
+    address: number
+  ): Promise<boolean> {
+    // Implement serial address probing
+    // This would send a hello to a specific address and check for response
+    return false;
+  }
+
+  /**
+   * Delay helper
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
+
+export const connectionManager = new ConnectionManager();

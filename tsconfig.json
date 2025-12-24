@@ -2,25 +2,29 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["node"],
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
       "@/*": ["client/src/*"],
       "@shared/*": ["shared/*"]
-    }
+    },
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
     "server/**/*",
     "shared/**/*",
     "client/src/**/*",
+    "electron/**/*",
     "vite.config.ts"
   ],
-  "exclude": ["node_modules", "**/*.spec.ts", "netlify"]
+  "exclude": ["node_modules", "**/*.spec.ts"]
 }

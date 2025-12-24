@@ -12,7 +12,7 @@ export class MQTTAdapter extends BaseProtocolAdapter {
   async connect(): Promise<boolean> {
     try {
       const mqtt = require("mqtt");
-      
+
       const broker = this.config.host || "localhost";
       const port = this.config.port || 1883;
       const useTls = port === 8883;
@@ -32,11 +32,11 @@ export class MQTTAdapter extends BaseProtocolAdapter {
         if (parts[1]) options.password = parts[1];
       }
 
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         this.client = mqtt.connect(url, options);
 
         const timeout = setTimeout(() => {
-          this.setError(new Error("Connection timeout"));
+          this.setError(new Error(`[MQTT] Connection timeout to broker ${broker}:${port}`));
           resolve(false);
         }, this.config.timeout || 30000);
 
@@ -60,10 +60,10 @@ export class MQTTAdapter extends BaseProtocolAdapter {
           this.handleMessage(topic, message);
         });
 
-        this.client.on("error", (err: Error) => {
+        this.client.on("error", (error: any) => {
           clearTimeout(timeout);
-          this.setError(err);
-          resolve(false);
+          this.setError(new Error(`[MQTT] Connection error: ${error.message}`));
+          reject(error);
         });
 
         this.client.on("close", () => {
@@ -71,11 +71,12 @@ export class MQTTAdapter extends BaseProtocolAdapter {
         });
 
         this.client.on("offline", () => {
+          this.setError(new Error(`[MQTT] Broker ${broker}:${port} is offline`));
           this.setConnected(false);
         });
       });
     } catch (error: any) {
-      this.setError(error);
+      this.setError(new Error(`[MQTT] Unexpected error: ${error.message}`));
       return false;
     }
   }

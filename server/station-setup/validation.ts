@@ -39,19 +39,19 @@ export function validateMQTTConfig(config: any): ValidationResult {
   const warnings: string[] = [];
 
   if (!config.broker && !config.host) {
-    errors.push("Broker address is required for MQTT connection");
+    errors.push("[MQTT] Broker address is required for MQTT connection");
   }
 
   if (!config.topic && !config.apiEndpoint) {
-    errors.push("Topic is required for MQTT subscription");
+    errors.push("[MQTT] Topic is required for MQTT subscription");
   }
 
   if (config.port && (config.port < 1 || config.port > 65535)) {
-    errors.push("Port must be between 1 and 65535");
+    errors.push("[MQTT] Port must be between 1 and 65535");
   }
 
   if (config.port && ![1883, 8883, 8084, 8085].includes(config.port)) {
-    warnings.push(`Non-standard MQTT port ${config.port} detected`);
+    warnings.push(`[MQTT] Non-standard MQTT port ${config.port} detected`);
   }
 
   return {
@@ -66,13 +66,13 @@ export function validateLoRaConfig(config: any): ValidationResult {
   const warnings: string[] = [];
 
   if (!config.deviceEUI) {
-    errors.push("Device EUI is required for LoRa connection");
+    errors.push("[LoRa] Device EUI is required for LoRa connection");
   } else if (!/^[0-9A-Fa-f]{16}$/.test(config.deviceEUI)) {
-    errors.push("Device EUI must be a valid 16-character hex string");
+    errors.push("[LoRa] Device EUI must be a valid 16-character hex string");
   }
 
   if (!config.appEUI) {
-    warnings.push("App EUI recommended for LoRa configuration");
+    warnings.push("[LoRa] App EUI recommended for LoRa configuration");
   }
 
   if (!config.apiKey) {

@@ -1,1 +1,0 @@
-// This file contains utility functions for managing LoRa communication.

@@ -291,31 +291,5 @@ export class ServiceDetector {
       };
     }
   }
-
-  /**
-   * Auto-configure Rika Cloud connection
-   */
-  static async configureRikaCloud(
-    apiKey: string
-  ): Promise<{
-    success: boolean;
-    stations?: any[];
-    error?: string;
-  }> {
-    try {
-      const { RikaCloudClient } = await import("../parsers/rikaCloud");
-      const client = new RikaCloudClient({ apiKey });
-      const stations = await client.listStations();
-
-      return {
-        success: true,
-        stations,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-  }
+}
 }

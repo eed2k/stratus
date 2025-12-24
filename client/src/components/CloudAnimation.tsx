@@ -2,7 +2,7 @@
 
 export default function CloudAnimation({ className = "" }: { className?: string }) {
   return (
-    <div className={elative overflow-hidden ${className}} aria-hidden>
+    <div className={`relative overflow-hidden ${className}`} aria-hidden="true">
       <div className="clouds absolute inset-0 pointer-events-none">
         <svg className="cloud cloud-1" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
           <path fill="url(#g1)" d="M20 40c0-11 9-20 20-20 6 0 11 3 15 7 4-4 9-7 15-7 11 0 20 9 20 20H20z"/>

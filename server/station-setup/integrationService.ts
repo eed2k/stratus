@@ -1,6 +1,7 @@
 /**
  * Station Integration Service
  * Handles complete station setup flow including validation, testing, and registration
+ * Focused on Campbell Scientific stations
  */
 
 import { storage } from "../storage";
@@ -8,7 +9,6 @@ import { protocolManager } from "../protocols/protocolManager";
 import { validateConnectionConfig, buildProtocolConfig } from "./validation";
 import { ServiceDetector } from "./serviceDetector";
 import { CampbellCloudClient } from "../parsers/campbellCloud";
-import { RikaCloudClient } from "../parsers/rikaCloud";
 
 export interface StationSetupPayload {
   name: string;
@@ -201,26 +201,6 @@ export class StationIntegrationService {
   }
 
   /**
-   * Fetch stations from Rika Cloud
-   */
-  static async fetchRikaStations(
-    apiKey: string
-  ): Promise<Array<{ id: string; name: string; model: string }>> {
-    try {
-      const client = new RikaCloudClient({ apiKey });
-      const stations = await client.listStations();
-
-      return stations.map((s) => ({
-        id: s.id,
-        name: s.name,
-        model: s.model || "Rika Station",
-      }));
-    } catch (error: any) {
-      throw new Error(`Failed to fetch Rika stations: ${error.message}`);
-    }
-  }
-
-  /**
    * Setup multiple stations from provider
    */
   static async setupMultipleStations(
@@ -235,13 +215,11 @@ export class StationIntegrationService {
 
       if (provider === "campbell_cloud") {
         stations = await this.fetchCampbellStations(apiKey);
-      } else if (provider === "rika_cloud") {
-        stations = await this.fetchRikaStations(apiKey);
       } else {
         return [
           {
             success: false,
-            message: `Unsupported provider: ${provider}`,
+            message: `Unsupported provider: ${provider}. Only Campbell Scientific stations are supported.`,
           },
         ];
       }

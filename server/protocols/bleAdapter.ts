@@ -87,7 +87,7 @@ export class BLEAdapter extends BaseProtocolAdapter {
     return new Promise((resolve, reject) => {
       peripheral.connect((error: any) => {
         if (error) {
-          reject(error);
+          reject(new Error(`[BLE] Failed to connect to peripheral: ${error.message}`));
           return;
         }
 
@@ -95,13 +95,16 @@ export class BLEAdapter extends BaseProtocolAdapter {
           [],
           (error: any, services: any[]) => {
             if (error) {
-              reject(error);
+              reject(new Error(`[BLE] Service discovery failed: ${error.message}`));
               return;
             }
 
-            this.discoverCharacteristics(services, error => {
-              if (error) reject(error);
-              else resolve();
+            this.discoverCharacteristics(services, (error) => {
+              if (error) {
+                reject(new Error(`[BLE] Characteristic discovery failed: ${error.message}`));
+              } else {
+                resolve();
+              }
             });
           }
         );
@@ -117,19 +120,19 @@ export class BLEAdapter extends BaseProtocolAdapter {
 
     services.forEach((service) => {
       service.discoverCharacteristics([], (error: any, chars: any[]) => {
-        processed++;
-
         if (error) {
-          if (processed === services.length) callback(error);
+          callback(new Error(`[BLE] Failed to discover characteristics for service ${service.uuid}: ${error.message}`));
           return;
         }
 
-        // Store characteristics for later use
         chars.forEach((char) => {
           this.characteristics.set(char.uuid, char);
         });
 
-        if (processed === services.length) callback();
+        processed++;
+        if (processed === services.length) {
+          callback();
+        }
       });
     });
   }
