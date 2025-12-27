@@ -24,6 +24,7 @@
   "build": {
     "appId": "com.stratus.weather-server",
     "productName": "Stratus Weather Server",
+    "asar": false,
     "directories": {
       "output": "output"
     },
@@ -31,8 +32,14 @@
       "client/dist/**/*",
       "dist/server/**/*",
       "electron/**/*",
-      "node_modules/**/*",
       "package.json"
+    ],
+    "extraFiles": [
+      {
+        "from": "node_modules",
+        "to": "node_modules",
+        "filter": ["**/*"]
+      }
     ],
     "extraResources": [
       {

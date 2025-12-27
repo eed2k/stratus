@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DemoInitializer } from "@/components/DemoInitializer";
 import { useAuth } from "@/hooks/useAuth";
+import { useElectronMenu } from "@/hooks/useElectronMenu";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import CampbellDashboard from "@/pages/CampbellDashboard";
@@ -17,6 +18,9 @@ import Settings from "@/pages/Settings";
 import Organizations from "@/pages/Organizations";
 import Alarms from "@/pages/Alarms";
 import Reports from "@/pages/Reports";
+import SerialMonitor from "@/pages/SerialMonitor";
+import SharedDashboard from "@/pages/SharedDashboard";
+import { LoginPage } from "@/pages/LoginPage";
 import { Loader2 } from "lucide-react";
 
 function LoadingScreen() {
@@ -28,13 +32,24 @@ function LoadingScreen() {
 }
 
 function Router() {
-  const { isLoading, user, logout } = useAuth();
+  const { isLoading, user, logout, needsSetup, login } = useAuth();
+  const [location] = useLocation();
+
+  // Shared dashboard routes don't need authentication
+  if (location.startsWith('/shared/')) {
+    return <SharedDashboard />;
+  }
 
   if (isLoading) {
     return <LoadingScreen />;
   }
 
-  // Desktop app - always authenticated, skip landing page
+  // Show login/setup screen on first launch
+  if (needsSetup || !user) {
+    return <LoginPage onLogin={login} />;
+  }
+
+  // Desktop app - authenticated
   return (
     <DemoInitializer>
       <AuthenticatedApp user={user!} logout={logout} />
@@ -46,6 +61,9 @@ function AuthenticatedApp({ user, logout }: {
   user: { firstName?: string | null; lastName?: string | null; email?: string | null; profileImageUrl?: string | null };
   logout: () => void;
 }) {
+  // Initialize Electron menu listeners
+  useElectronMenu();
+  
   const sidebarStyle = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -79,6 +97,7 @@ function AuthenticatedApp({ user, logout }: {
               <Route path="/history" component={History} />
               <Route path="/alarms" component={Alarms} />
               <Route path="/reports" component={Reports} />
+              <Route path="/serial-monitor" component={SerialMonitor} />
               <Route path="/settings" component={Settings} />
               <Route component={NotFound} />
             </Switch>

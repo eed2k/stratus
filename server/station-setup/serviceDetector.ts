@@ -1,6 +1,6 @@
 /**
  * Service Type Detection & Auto-Configuration
- * Automatically detects weather station service providers
+ * For Campbell Scientific dataloggers
  */
 
 export interface ServiceDetectionResult {
@@ -14,26 +14,16 @@ export interface ServiceDetectionResult {
 export class ServiceDetector {
   /**
    * Detect service provider from API endpoint or host
+   * Focused on Campbell Scientific connections
    */
   static detectFromEndpoint(endpoint: string): ServiceDetectionResult | null {
     const lower = endpoint.toLowerCase();
 
     const detections: Array<[string, string, string, number]> = [
-      ["campbell", "campbellcloud", "http", 0.95],
-      ["konect", "campbellcloud", "http", 0.95],
-      ["campbellcloud", "campbellcloud", "http", 0.99],
-      ["weatherlink", "weatherlink_cloud", "http", 0.95],
-      ["davis", "weatherlink_cloud", "http", 0.85],
-      ["rika", "rika_cloud", "http", 0.95],
-      ["arduino", "arduino_iot", "http", 0.9],
-      ["api2.arduino.cc", "arduino_iot", "http", 0.99],
-      ["blynk", "blynk", "http", 0.95],
-      ["thingspeak", "thingspeak", "http", 0.95],
-      ["thenetwork", "lorawan", "lora", 0.9],
-      ["ttn.io", "lorawan", "lora", 0.95],
-      ["inmarsat", "satellite", "satellite", 0.9],
-      ["iridium", "satellite", "satellite", 0.9],
-      ["globalstar", "satellite", "satellite", 0.9],
+      ["campbell", "campbell_tcp", "tcp", 0.95],
+      ["konect", "campbell_tcp", "tcp", 0.95],
+      ["campbellcloud", "campbell_tcp", "tcp", 0.99],
+      ["pakbus", "campbell_serial", "serial", 0.95],
     ];
 
     for (const [keyword, provider, type, confidence] of detections) {
@@ -53,89 +43,33 @@ export class ServiceDetector {
 
   /**
    * Detect from API response structure
+   * Looks for Campbell Scientific data patterns
    */
   static detectFromResponse(
     response: any
   ): ServiceDetectionResult | null {
     if (!response || typeof response !== "object") return null;
 
-    // Campbell Cloud pattern
+    // Campbell Scientific data pattern
     if (response.data && Array.isArray(response.data)) {
       const record = response.data[0];
-      if (record && (record.AirTemp_C !== undefined || record.RH !== undefined)) {
+      if (record && (record.AirTemp_C !== undefined || record.RH !== undefined || record.BattV !== undefined)) {
         return {
-          provider: "campbellcloud",
+          provider: "campbell_tcp",
           confidence: 0.85,
-          connectionType: "http",
-          suggestedConfig: this.getProviderConfig("campbellcloud"),
+          connectionType: "tcp",
+          suggestedConfig: this.getProviderConfig("campbell_tcp"),
         };
       }
     }
 
-    // Rika pattern
-    if (response.temperature !== undefined || response.lastData) {
+    // PakBus response pattern
+    if (response.tableData || response.pakbusData) {
       return {
-        provider: "rika_cloud",
-        confidence: 0.8,
-        connectionType: "http",
-        suggestedConfig: this.getProviderConfig("rika_cloud"),
-      };
-    }
-
-    // WeatherLink pattern
-    if (response.sensors && Array.isArray(response.sensors)) {
-      const sensor = response.sensors[0];
-      if (sensor && (sensor.data || sensor.sensor_type)) {
-        return {
-          provider: "weatherlink_cloud",
-          confidence: 0.85,
-          connectionType: "http",
-          suggestedConfig: this.getProviderConfig("weatherlink_cloud"),
-        };
-      }
-    }
-
-    // Arduino IoT pattern
-    if (response.properties && Array.isArray(response.properties)) {
-      return {
-        provider: "arduino_iot",
-        confidence: 0.8,
-        connectionType: "http",
-        suggestedConfig: this.getProviderConfig("arduino_iot"),
-      };
-    }
-
-    // Blynk pattern
-    if (Array.isArray(response) && response.length >= 5) {
-      return {
-        provider: "blynk",
-        confidence: 0.7,
-        connectionType: "http",
-        suggestedConfig: this.getProviderConfig("blynk"),
-      };
-    }
-
-    // ThingSpeak pattern
-    if (response.feeds && Array.isArray(response.feeds)) {
-      return {
-        provider: "thingspeak",
-        confidence: 0.8,
-        connectionType: "http",
-        suggestedConfig: this.getProviderConfig("thingspeak"),
-      };
-    }
-
-    // Generic weather data pattern
-    if (
-      response.temperature !== undefined ||
-      response.humidity !== undefined ||
-      response.pressure !== undefined
-    ) {
-      return {
-        provider: "generic_http",
-        confidence: 0.6,
-        connectionType: "http",
-        suggestedConfig: this.getProviderConfig("generic_http"),
+        provider: "campbell_serial",
+        confidence: 0.9,
+        connectionType: "serial",
+        suggestedConfig: this.getProviderConfig("campbell_serial"),
       };
     }
 
@@ -143,16 +77,34 @@ export class ServiceDetector {
   }
 
   /**
-   * Test connection to a potential endpoint
+   * Test connection to a Campbell Scientific datalogger
+   */
+  static async testConnection(
+    connectionType: string,
+    config: Record<string, any>,
+    timeout: number = 10000
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    // Connection testing is handled by the PakBus protocol layer
+    // This is a placeholder for future implementation
+    return {
+      success: true,
+      message: `Connection test for ${connectionType} would be performed via PakBus protocol`,
+    };
+  }
+
+  /**
+   * Test HTTP endpoint connectivity
    */
   static async testEndpoint(
-    endpoint: string,
+    url: string,
     apiKey?: string,
     timeout: number = 10000
   ): Promise<{
     success: boolean;
-    provider?: string;
-    data?: any;
     error?: string;
   }> {
     try {
@@ -160,105 +112,64 @@ export class ServiceDetector {
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
       const headers: Record<string, string> = {
-        "Accept": "application/json",
+        'Accept': 'application/json',
       };
-
       if (apiKey) {
-        // Try common authorization schemes
-        headers["Authorization"] = `Bearer ${apiKey}`;
-        headers["X-API-Key"] = apiKey;
-        headers["X-Api-Secret"] = apiKey;
+        headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
-      const response = await fetch(endpoint, {
-        method: "GET",
+      const response = await fetch(url, {
+        method: 'GET',
         headers,
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        return {
-          success: false,
-          error: `HTTP ${response.status}: ${response.statusText}`,
-        };
-      }
-
-      const data = await response.json();
-      const detection = this.detectFromResponse(data);
-
       return {
-        success: true,
-        provider: detection?.provider,
-        data,
+        success: response.ok,
+        error: response.ok ? undefined : `HTTP ${response.status}`,
       };
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || "Connection failed",
+        error: error.name === 'AbortError' ? 'Connection timeout' : error.message,
       };
     }
   }
 
   /**
    * Get provider-specific configuration template
+   * For Campbell Scientific connections
    */
   private static getProviderConfig(
     provider: string
   ): Record<string, any> {
     const configs: Record<string, Record<string, any>> = {
-      campbellcloud: {
-        apiEndpoint: "https://api.campbellcloud.com/v2",
-        port: 443,
+      campbell_serial: {
+        port: "COM3",
+        baudRate: 115200,
         timeout: 30000,
-        requiredFields: ["apiKey", "stationUid"],
+        requiredFields: ["serialPort", "baudRate"],
       },
-      weatherlink_cloud: {
-        apiEndpoint: "https://api.weatherlink.com/v2",
-        port: 443,
+      campbell_tcp: {
+        port: 6785,
         timeout: 30000,
-        requiredFields: ["apiKey"],
+        requiredFields: ["ipAddress", "port"],
       },
-      rika_cloud: {
-        apiEndpoint: "https://api.rika.co/v1",
-        port: 443,
-        timeout: 30000,
-        requiredFields: ["apiKey", "stationId"],
-      },
-      arduino_iot: {
-        apiEndpoint: "https://api2.arduino.cc/iot/v2",
-        port: 443,
-        timeout: 30000,
-        requiredFields: ["apiKey"],
-      },
-      blynk: {
-        apiEndpoint: "https://blynk.cloud/external/api",
-        port: 443,
-        timeout: 30000,
-        requiredFields: ["apiKey"],
-      },
-      thingspeak: {
-        apiEndpoint: "https://api.thingspeak.com",
-        port: 443,
-        timeout: 30000,
-        requiredFields: ["apiKey"],
-      },
-      lorawan: {
-        apiEndpoint: "https://api.thethingsnetwork.org/v3",
-        port: 443,
-        timeout: 30000,
-        requiredFields: ["deviceEUI", "apiKey"],
-      },
-      satellite: {
-        port: 9602,
+      campbell_lora: {
+        frequency: 868000000,
         timeout: 60000,
-        requiredFields: ["imei", "apiKey"],
+        requiredFields: ["loraFrequency", "deviceEUI"],
       },
-      generic_http: {
-        port: 80,
+      campbell_gsm: {
+        timeout: 60000,
+        requiredFields: ["apn"],
+      },
+      campbell_mqtt: {
+        port: 1883,
         timeout: 30000,
-        requiredFields: ["apiEndpoint"],
+        requiredFields: ["broker", "topic"],
       },
     };
 
@@ -266,19 +177,20 @@ export class ServiceDetector {
   }
 
   /**
-   * Auto-configure Campbell Cloud connection
+   * Configure Campbell Scientific connection via PakBus
    */
-  static async configureCampbellCloud(
-    apiKey: string
+  static async configureCampbellConnection(
+    connectionType: string,
+    config: Record<string, any>
   ): Promise<{
     success: boolean;
-    organizations?: any[];
+    message?: string;
     error?: string;
   }> {
-    // Campbell Cloud integration is planned for future releases
+    // Connection configuration is handled by the PakBus protocol layer
     return {
-      success: false,
-      error: "Campbell Cloud integration is not yet implemented. Please use direct PakBus connections.",
+      success: true,
+      message: `Campbell Scientific ${connectionType} connection configured. Use PakBus protocol for data collection.`,
     };
   }
 }

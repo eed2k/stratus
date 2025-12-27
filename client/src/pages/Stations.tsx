@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +33,8 @@ interface ConnectionStatus {
   isSimulation?: boolean;
 }
 
-type StationType = "campbell" | "davis" | "rika" | "generic" | "arduino" | "esp";
-type ConnectionType = "serial" | "lora" | "gsm" | "ip" | "wifi" | "ble" | "mqtt" | "4g" | "campbellcloud" | "rikacloud" | "arduino_iot" | "blynk" | "weatherlink_cloud" | "weatherlink_local" | "rf_receiver" | "tcp_ip";
+type StationType = "campbell";
+type ConnectionType = "serial" | "lora" | "gsm" | "ip" | "mqtt" | "4g" | "tcp_ip";
 
 interface StationFormData {
   name: string;
@@ -54,18 +53,35 @@ interface StationFormData {
   apiKey: string;
   apiEndpoint: string;
   pollInterval: string;
+  // Campbell Scientific / LoggerNet specific
+  pakbusAddress: string;
+  securityCode: string;
+  dataTable: string;
+  dataloggerModel: string;
+  dataloggerSerialNumber: string;
+  dataloggerProgramName: string;
+  // Modem/Communication hardware
+  modemModel: string;
+  modemSerialNumber: string;
+  modemPhoneNumber: string;
+  simCardNumber: string;
+  // Notes and maintenance
+  notes: string;
+  lastCalibrationDate: string;
+  nextCalibrationDate: string;
+  siteDescription: string;
 }
 
 const initialFormData: StationFormData = {
   name: "",
-  type: "generic",
+  type: "campbell",
   location: "",
   latitude: "",
   longitude: "",
   altitude: "",
-  connectionType: "ip",
+  connectionType: "serial",
   ipAddress: "",
-  port: "1883",
+  port: "6785",
   serialPort: "COM3",
   baudRate: "115200",
   loraFrequency: "868000000",
@@ -73,6 +89,23 @@ const initialFormData: StationFormData = {
   apiKey: "",
   apiEndpoint: "",
   pollInterval: "60",
+  // Campbell Scientific / LoggerNet defaults
+  pakbusAddress: "1",
+  securityCode: "0",
+  dataTable: "OneMin",
+  dataloggerModel: "",
+  dataloggerSerialNumber: "",
+  dataloggerProgramName: "",
+  // Modem/Communication hardware
+  modemModel: "",
+  modemSerialNumber: "",
+  modemPhoneNumber: "",
+  simCardNumber: "",
+  // Notes and maintenance
+  notes: "",
+  lastCalibrationDate: "",
+  nextCalibrationDate: "",
+  siteDescription: "",
 };
 
 export default function Stations() {
@@ -80,7 +113,59 @@ export default function Stations() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
   const [testingStation, setTestingStation] = useState<number | null>(null);
+  const [availablePorts, setAvailablePorts] = useState<Array<{path: string; manufacturer?: string}>>([]);
+  const [scanningPorts, setScanningPorts] = useState(false);
   const { toast } = useToast();
+
+  // Listen for Electron menu events
+  useEffect(() => {
+    const handleOpenNewStation = () => {
+      setDialogOpen(true);
+    };
+    
+    const handleDiscoverStations = () => {
+      scanSerialPorts();
+    };
+
+    window.addEventListener('open-new-station-dialog', handleOpenNewStation);
+    window.addEventListener('discover-stations', handleDiscoverStations);
+    
+    return () => {
+      window.removeEventListener('open-new-station-dialog', handleOpenNewStation);
+      window.removeEventListener('discover-stations', handleDiscoverStations);
+    };
+  }, []);
+
+  // Scan for available serial ports
+  const scanSerialPorts = async () => {
+    setScanningPorts(true);
+    try {
+      const response = await apiRequest("GET", "/api/station-setup/discover/serial");
+      const data = await response.json();
+      if (data.devices && data.devices.length > 0) {
+        setAvailablePorts(data.devices);
+        toast({
+          title: "Ports Found",
+          description: `Found ${data.devices.length} serial port(s)`,
+        });
+      } else {
+        setAvailablePorts([]);
+        toast({
+          title: "No Ports Found",
+          description: "No serial ports detected. Make sure your device is connected.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Scan Error",
+        description: error.message || "Failed to scan for serial ports",
+        variant: "destructive",
+      });
+    } finally {
+      setScanningPorts(false);
+    }
+  };
 
   const { data: stations = [], isLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
@@ -129,30 +214,72 @@ export default function Stations() {
         stationType: stationType,
         connectionType: data.connectionType,
         ipAddress: data.ipAddress || null,
-        port: data.port ? parseInt(data.port) : 80,
+        port: data.port ? parseInt(data.port) : 6785,
+        serialPort: data.serialPort || null,
+        baudRate: data.baudRate ? parseInt(data.baudRate) : 115200,
         apiKey: data.apiKey || null,
         apiEndpoint: data.apiEndpoint || null,
         pollInterval: data.pollInterval ? parseInt(data.pollInterval) : 60,
-        dataTable: "OneMin",
+        protocol: "pakbus",
+        // Campbell Scientific / LoggerNet fields
+        pakbusAddress: data.pakbusAddress ? parseInt(data.pakbusAddress) : 1,
+        securityCode: data.securityCode ? parseInt(data.securityCode) : 0,
+        dataTable: data.dataTable || "OneMin",
+        dataloggerModel: data.dataloggerModel || null,
+        dataloggerSerialNumber: data.dataloggerSerialNumber || null,
+        dataloggerProgramName: data.dataloggerProgramName || null,
+        // Modem/Communication hardware
+        modemModel: data.modemModel || null,
+        modemSerialNumber: data.modemSerialNumber || null,
+        modemPhoneNumber: data.modemPhoneNumber || null,
+        simCardNumber: data.simCardNumber || null,
+        // Notes and maintenance
+        notes: data.notes || null,
+        lastCalibrationDate: data.lastCalibrationDate ? new Date(data.lastCalibrationDate) : null,
+        nextCalibrationDate: data.nextCalibrationDate ? new Date(data.nextCalibrationDate) : null,
+        siteDescription: data.siteDescription || null,
       };
 
-      if (data.type === "rika") {
-        payload.apiEndpoint = data.ipAddress ? `http://${data.ipAddress}:${data.port}/api/v1/data` : data.apiEndpoint;
-        payload.connectionType = "http";
-      } else if (data.type === "campbell") {
-        payload.connectionType = data.connectionType;
-        if (data.connectionType === "ip") {
-          payload.connectionType = "http";
-        }
+      // Campbell Scientific specific handling - connection config for each type
+      if (data.connectionType === "serial") {
+        payload.connectionConfig = JSON.stringify({
+          type: "serial",
+          serialPort: data.serialPort,
+          baudRate: parseInt(data.baudRate),
+          pakbusAddress: parseInt(data.pakbusAddress) || 1,
+          securityCode: parseInt(data.securityCode) || 0,
+        });
+      } else if (data.connectionType === "tcp_ip") {
+        payload.connectionConfig = JSON.stringify({
+          type: "tcp",
+          host: data.ipAddress,
+          port: parseInt(data.port) || 6785,
+          pakbusAddress: parseInt(data.pakbusAddress) || 1,
+          securityCode: parseInt(data.securityCode) || 0,
+        });
+      } else if (data.connectionType === "lora") {
+        payload.connectionConfig = JSON.stringify({
+          type: "lora",
+          frequency: data.loraFrequency,
+          pakbusAddress: parseInt(data.pakbusAddress) || 1,
+          securityCode: parseInt(data.securityCode) || 0,
+        });
+      } else if (data.connectionType === "gsm" || data.connectionType === "4g") {
+        payload.connectionConfig = JSON.stringify({
+          type: data.connectionType,
+          apn: data.gsmApn,
+          modemModel: data.modemModel,
+          phoneNumber: data.modemPhoneNumber,
+          simCard: data.simCardNumber,
+          pakbusAddress: parseInt(data.pakbusAddress) || 1,
+          securityCode: parseInt(data.securityCode) || 0,
+        });
       } else if (data.connectionType === "mqtt") {
-        // MQTT-specific configuration
         payload.port = data.port ? parseInt(data.port) : 1883;
         payload.protocol = "mqtt";
-        // Store MQTT topic in apiEndpoint, broker in ipAddress
-        // Username:password stored in apiKey
         payload.connectionConfig = JSON.stringify({
           broker: data.ipAddress,
-          port: payload.port,
+          port: parseInt(data.port) || 1883,
           topic: data.apiEndpoint,
           username: data.apiKey?.split(":")[0] || null,
           password: data.apiKey?.split(":")[1] || null,
@@ -216,11 +343,7 @@ export default function Stations() {
   };
 
   const getStationTypeIcon = (type: StationType) => {
-    switch (type) {
-      case "campbell": return <Server className="h-5 w-5" />;
-      case "rika": return <Wifi className="h-5 w-5" />;
-      default: return <Radio className="h-5 w-5" />;
-    }
+    return <Server className="h-5 w-5" />;
   };
 
   const getConnectionIcon = (type: ConnectionType) => {
@@ -253,673 +376,373 @@ export default function Stations() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6 py-4">
-              <Tabs value={formData.type} onValueChange={(v) => updateForm({ type: v as StationType })}>
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="campbell" data-testid="tab-campbell">
-                    Campbell
-                  </TabsTrigger>
-                  <TabsTrigger value="davis" data-testid="tab-davis">
-                    Davis
-                  </TabsTrigger>
-                  <TabsTrigger value="rika" data-testid="tab-rika">
-                    Rika
-                  </TabsTrigger>
-                  <TabsTrigger value="generic" data-testid="tab-generic">
-                    Generic
-                  </TabsTrigger>
-                </TabsList>
+              <Card className="border-sky-200 bg-sky-50/50 dark:border-sky-800 dark:bg-sky-950/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Campbell Scientific Configuration</CardTitle>
+                  <CardDescription>
+                    Supports CR300, CR215, CR1000 dataloggers with RS232, TCP/IP, LoRa, or GSM connections
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Connection Type</Label>
+                    <Select value={formData.connectionType} onValueChange={(v) => updateForm({ connectionType: v as ConnectionType })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="serial">
+                          <div className="flex items-center gap-2">
+                            <Cable className="h-4 w-4" />
+                            Serial RS232
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="tcp_ip">
+                          <div className="flex items-center gap-2">
+                            <Wifi className="h-4 w-4" />
+                            TCP/IP (Ethernet/WiFi)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="lora">
+                          <div className="flex items-center gap-2">
+                            <Signal className="h-4 w-4" />
+                            LoRa Radio
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="gsm">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="h-4 w-4" />
+                            GSM/GPRS
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="4g">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="h-4 w-4" />
+                            4G/LTE Cellular
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="mqtt">
+                          <div className="flex items-center gap-2">
+                            <Radio className="h-4 w-4" />
+                            MQTT Protocol
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <TabsContent value="campbell" className="space-y-4 mt-4">
-                  <Card className="border-sky-200 bg-sky-50/50 dark:border-sky-800 dark:bg-sky-950/20">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Campbell Scientific Configuration</CardTitle>
-                      <CardDescription>
-                        Supports CR300, CR215 dataloggers with RS232, LoRa, or GSM connections
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                  {(formData.connectionType === "tcp_ip" || formData.connectionType === "ip") && (
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Connection Type</Label>
-                        <Select value={formData.connectionType} onValueChange={(v) => updateForm({ connectionType: v as ConnectionType })}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="campbellcloud">
-                              <div className="flex items-center gap-2">
-                                <Server className="h-4 w-4" />
-                                CampbellCloud API
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="ip">
-                              <div className="flex items-center gap-2">
-                                <Wifi className="h-4 w-4" />
-                                HTTP/IP (Web API)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="serial">
-                              <div className="flex items-center gap-2">
-                                <Cable className="h-4 w-4" />
-                                Serial RS232
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="lora">
-                              <div className="flex items-center gap-2">
-                                <Signal className="h-4 w-4" />
-                                LoRa Radio
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="gsm">
-                              <div className="flex items-center gap-2">
-                                <Smartphone className="h-4 w-4" />
-                                GSM/GPRS
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="4g">
-                              <div className="flex items-center gap-2">
-                                <Smartphone className="h-4 w-4" />
-                                4G/LTE Cellular
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="mqtt">
-                              <div className="flex items-center gap-2">
-                                <Radio className="h-4 w-4" />
-                                MQTT Protocol
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label>Datalogger IP Address</Label>
+                        <Input
+                          placeholder="192.168.4.14"
+                          value={formData.ipAddress}
+                          onChange={(e) => updateForm({ ipAddress: e.target.value })}
+                        />
                       </div>
+                      <div className="space-y-2">
+                        <Label>Port</Label>
+                        <Input
+                          placeholder="6785"
+                          value={formData.port}
+                          onChange={(e) => updateForm({ port: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                      {formData.connectionType === "ip" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Datalogger IP Address</Label>
-                            <Input
-                              placeholder="192.168.4.14"
-                              value={formData.ipAddress}
-                              onChange={(e) => updateForm({ ipAddress: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Port</Label>
-                            <Input
-                              placeholder="80"
-                              value={formData.port}
-                              onChange={(e) => updateForm({ port: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.connectionType === "serial" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Serial Port</Label>
+                  {formData.connectionType === "serial" && (
+                    <div className="space-y-4">
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1 space-y-2">
+                          <Label>Serial Port</Label>
+                          {availablePorts.length > 0 ? (
+                            <Select value={formData.serialPort} onValueChange={(v) => updateForm({ serialPort: v })}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a port" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availablePorts.map((port) => (
+                                  <SelectItem key={port.path} value={port.path}>
+                                    {port.path} {port.manufacturer ? `(${port.manufacturer})` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
                             <Input
                               placeholder="COM3 or /dev/ttyUSB0"
                               value={formData.serialPort}
                               onChange={(e) => updateForm({ serialPort: e.target.value })}
                             />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Baud Rate</Label>
-                            <Select value={formData.baudRate} onValueChange={(v) => updateForm({ baudRate: v })}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="9600">9600</SelectItem>
-                                <SelectItem value="19200">19200</SelectItem>
-                                <SelectItem value="38400">38400</SelectItem>
-                                <SelectItem value="57600">57600</SelectItem>
-                                <SelectItem value="115200">115200</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          )}
                         </div>
-                      )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={scanSerialPorts}
+                          disabled={scanningPorts}
+                        >
+                          {scanningPorts ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                          <span className="ml-2">Scan</span>
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Baud Rate</Label>
+                        <Select value={formData.baudRate} onValueChange={(v) => updateForm({ baudRate: v })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="9600">9600</SelectItem>
+                            <SelectItem value="19200">19200</SelectItem>
+                            <SelectItem value="38400">38400</SelectItem>
+                            <SelectItem value="57600">57600</SelectItem>
+                            <SelectItem value="115200">115200</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
 
-                      {formData.connectionType === "lora" && (
-                        <div className="space-y-2">
-                          <Label>LoRa Frequency (Hz)</Label>
-                          <Select value={formData.loraFrequency} onValueChange={(v) => updateForm({ loraFrequency: v })}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="868000000">868 MHz (Europe)</SelectItem>
-                              <SelectItem value="915000000">915 MHz (North America)</SelectItem>
-                              <SelectItem value="433000000">433 MHz (Asia)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+                  {formData.connectionType === "lora" && (
+                    <div className="space-y-2">
+                      <Label>LoRa Frequency (Hz)</Label>
+                      <Select value={formData.loraFrequency} onValueChange={(v) => updateForm({ loraFrequency: v })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="868000000">868 MHz (Europe/Africa)</SelectItem>
+                          <SelectItem value="915000000">915 MHz (North America)</SelectItem>
+                          <SelectItem value="433000000">433 MHz (Asia)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                      {formData.connectionType === "gsm" && (
+                  {(formData.connectionType === "gsm" || formData.connectionType === "4g") && (
+                    <div className="space-y-2">
+                      <Label>APN (Access Point Name)</Label>
+                      <Input
+                        placeholder="internet.provider.co.za"
+                        value={formData.gsmApn}
+                        onChange={(e) => updateForm({ gsmApn: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {formData.connectionType === "mqtt" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>APN (Access Point Name)</Label>
+                          <Label>MQTT Broker Address</Label>
                           <Input
-                            placeholder="internet.provider.co.za"
-                            value={formData.gsmApn}
-                            onChange={(e) => updateForm({ gsmApn: e.target.value })}
+                            placeholder="192.168.1.100"
+                            value={formData.ipAddress}
+                            onChange={(e) => updateForm({ ipAddress: e.target.value })}
                           />
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="davis" className="space-y-4 mt-4">
-                  <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Davis Instruments Configuration</CardTitle>
-                      <CardDescription>
-                        Supports Vantage Pro2, Vantage Vue, WeatherLink Live, and AirLink
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Port</Label>
+                          <Input
+                            type="number"
+                            placeholder="1883"
+                            value={formData.port}
+                            onChange={(e) => updateForm({ port: e.target.value })}
+                          />
+                        </div>
+                      </div>
                       <div className="space-y-2">
-                        <Label>Connection Type</Label>
-                        <Select value={formData.connectionType} onValueChange={(v) => updateForm({ connectionType: v as ConnectionType })}>
+                        <Label>Subscribe Topic</Label>
+                        <Input
+                          placeholder="campbell/station/data"
+                          value={formData.apiEndpoint}
+                          onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Poll Interval (seconds)</Label>
+                    <Input
+                      type="number"
+                      placeholder="60"
+                      value={formData.pollInterval}
+                      onChange={(e) => updateForm({ pollInterval: e.target.value })}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* PakBus / LoggerNet Settings */}
+              <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">PakBus / LoggerNet Settings</CardTitle>
+                  <CardDescription>
+                    Communication protocol settings for Campbell Scientific dataloggers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>PakBus Address</Label>
+                      <Input
+                        type="number"
+                        placeholder="1"
+                        min="1"
+                        max="4094"
+                        value={formData.pakbusAddress}
+                        onChange={(e) => updateForm({ pakbusAddress: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">1-4094 (default: 1)</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Security Code</Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        min="0"
+                        max="65535"
+                        value={formData.securityCode}
+                        onChange={(e) => updateForm({ securityCode: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">0 = no security</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Data Table</Label>
+                      <Select value={formData.dataTable} onValueChange={(v) => updateForm({ dataTable: v })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Public">Public</SelectItem>
+                          <SelectItem value="OneMin">OneMin (1-minute)</SelectItem>
+                          <SelectItem value="FiveMin">FiveMin (5-minute)</SelectItem>
+                          <SelectItem value="FifteenMin">FifteenMin (15-minute)</SelectItem>
+                          <SelectItem value="Hourly">Hourly</SelectItem>
+                          <SelectItem value="Daily">Daily</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Datalogger Information */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Datalogger Information</CardTitle>
+                  <CardDescription>
+                    Hardware details for the Campbell Scientific datalogger
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Datalogger Model</Label>
+                      <Select value={formData.dataloggerModel} onValueChange={(v) => updateForm({ dataloggerModel: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CR300">CR300</SelectItem>
+                          <SelectItem value="CR310">CR310</SelectItem>
+                          <SelectItem value="CR350">CR350</SelectItem>
+                          <SelectItem value="CR1000X">CR1000X</SelectItem>
+                          <SelectItem value="CR6">CR6</SelectItem>
+                          <SelectItem value="CR1000">CR1000 (Legacy)</SelectItem>
+                          <SelectItem value="CR3000">CR3000 (Legacy)</SelectItem>
+                          <SelectItem value="CR800">CR800 (Legacy)</SelectItem>
+                          <SelectItem value="CR850">CR850 (Legacy)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Serial Number</Label>
+                      <Input
+                        placeholder="e.g., 12345"
+                        value={formData.dataloggerSerialNumber}
+                        onChange={(e) => updateForm({ dataloggerSerialNumber: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Program Name</Label>
+                    <Input
+                      placeholder="e.g., CPU:WeatherStation.CR1X"
+                      value={formData.dataloggerProgramName}
+                      onChange={(e) => updateForm({ dataloggerProgramName: e.target.value })}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Modem/Communication Hardware - Only show for GSM/4G connections */}
+              {(formData.connectionType === "gsm" || formData.connectionType === "4g") && (
+                <Card className="border-purple-200 bg-purple-50/50 dark:border-purple-800 dark:bg-purple-950/20">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Modem / Communication Hardware</CardTitle>
+                    <CardDescription>
+                      Cellular modem details for GSM/4G connections
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Modem Model</Label>
+                        <Select value={formData.modemModel} onValueChange={(v) => updateForm({ modemModel: v })}>
                           <SelectTrigger>
-                            <SelectValue />
+                            <SelectValue placeholder="Select modem" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="weatherlink_cloud">
-                              <div className="flex items-center gap-2">
-                                <Server className="h-4 w-4" />
-                                WeatherLink Cloud API v2
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="weatherlink_local">
-                              <div className="flex items-center gap-2">
-                                <Wifi className="h-4 w-4" />
-                                WeatherLink Live (Local API)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="serial">
-                              <div className="flex items-center gap-2">
-                                <Cable className="h-4 w-4" />
-                                Serial/USB (WeatherLink Cable)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="tcp_ip">
-                              <div className="flex items-center gap-2">
-                                <Wifi className="h-4 w-4" />
-                                IP Data Logger (6555)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="rf_receiver">
-                              <div className="flex items-center gap-2">
-                                <Signal className="h-4 w-4" />
-                                RF Receiver (900MHz)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="mqtt">
-                              <div className="flex items-center gap-2">
-                                <Radio className="h-4 w-4" />
-                                MQTT Protocol
-                              </div>
-                            </SelectItem>
+                            <SelectItem value="CELL215">CELL215</SelectItem>
+                            <SelectItem value="CELL220">CELL220</SelectItem>
+                            <SelectItem value="RV50X">RV50X (Sierra Wireless)</SelectItem>
+                            <SelectItem value="RV55">RV55 (Sierra Wireless)</SelectItem>
+                            <SelectItem value="COM320">COM320</SelectItem>
+                            <SelectItem value="NL240">NL240 (Legacy)</SelectItem>
+                            <SelectItem value="NL241">NL241 (Legacy)</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-
-                      {formData.connectionType === "weatherlink_cloud" && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>WeatherLink Station ID</Label>
-                            <Input
-                              placeholder="123456"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>API Key</Label>
-                            <Input
-                              placeholder="Your WeatherLink API key"
-                              value={formData.apiKey}
-                              onChange={(e) => updateForm({ apiKey: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {(formData.connectionType === "weatherlink_local" || formData.connectionType === "tcp_ip") && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Device IP Address</Label>
-                            <Input
-                              placeholder="192.168.1.50"
-                              value={formData.ipAddress}
-                              onChange={(e) => updateForm({ ipAddress: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Port</Label>
-                            <Input
-                              placeholder={formData.connectionType === "tcp_ip" ? "22222" : "80"}
-                              value={formData.port}
-                              onChange={(e) => updateForm({ port: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.connectionType === "serial" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Serial Port</Label>
-                            <Input
-                              placeholder="COM3 or /dev/ttyUSB0"
-                              value={formData.serialPort}
-                              onChange={(e) => updateForm({ serialPort: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Baud Rate</Label>
-                            <Select value={formData.baudRate} onValueChange={(v) => updateForm({ baudRate: v })}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="19200">19200 (Davis default)</SelectItem>
-                                <SelectItem value="9600">9600</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.connectionType === "rf_receiver" && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>Receiver Type</Label>
-                            <Select defaultValue="rtl_433">
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="rtl_433">rtl_433 (SDR)</SelectItem>
-                                <SelectItem value="envoy">Davis Envoy</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Transmitter ID</Label>
-                            <Input
-                              placeholder="1"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
                       <div className="space-y-2">
-                        <Label>Poll Interval (seconds)</Label>
+                        <Label>Modem Serial Number</Label>
                         <Input
-                          type="number"
-                          placeholder="60"
-                          value={formData.pollInterval}
-                          onChange={(e) => updateForm({ pollInterval: e.target.value })}
+                          placeholder="Modem S/N"
+                          value={formData.modemSerialNumber}
+                          onChange={(e) => updateForm({ modemSerialNumber: e.target.value })}
                         />
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="rika" className="space-y-4 mt-4">
-                  <Card className="border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Rika Station Configuration</CardTitle>
-                      <CardDescription>
-                        Supports RikaCloud IoT platform or direct IP connection
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Connection Type</Label>
-                        <Select value={formData.connectionType} onValueChange={(v) => updateForm({ connectionType: v as ConnectionType })}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="rikacloud">
-                              <div className="flex items-center gap-2">
-                                <Server className="h-4 w-4" />
-                                RikaCloud API
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="ip">
-                              <div className="flex items-center gap-2">
-                                <Wifi className="h-4 w-4" />
-                                HTTP/IP Direct
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="mqtt">
-                              <div className="flex items-center gap-2">
-                                <Radio className="h-4 w-4" />
-                                MQTT Protocol
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {formData.connectionType === "rikacloud" && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>RikaCloud Device ID</Label>
-                            <Input
-                              placeholder="device-id-12345"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>API Key</Label>
-                            <Input
-                              placeholder="Your RikaCloud API key"
-                              value={formData.apiKey}
-                              onChange={(e) => updateForm({ apiKey: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {(formData.connectionType === "ip" || !formData.connectionType || formData.connectionType === "mqtt") && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Station IP Address</Label>
-                            <Input
-                              placeholder="192.168.1.100"
-                              value={formData.ipAddress}
-                              onChange={(e) => updateForm({ ipAddress: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Port</Label>
-                            <Input
-                              placeholder="8080"
-                              value={formData.port}
-                              onChange={(e) => updateForm({ port: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      <div className="space-y-2">
-                        <Label>API Key (optional)</Label>
+                        <Label>Phone Number</Label>
                         <Input
-                          placeholder="Optional authentication key"
-                          value={formData.apiKey}
-                          onChange={(e) => updateForm({ apiKey: e.target.value })}
+                          placeholder="+27 XX XXX XXXX"
+                          value={formData.modemPhoneNumber}
+                          onChange={(e) => updateForm({ modemPhoneNumber: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Poll Interval (seconds)</Label>
+                        <Label>SIM Card Number (ICCID)</Label>
                         <Input
-                          type="number"
-                          placeholder="60"
-                          value={formData.pollInterval}
-                          onChange={(e) => updateForm({ pollInterval: e.target.value })}
+                          placeholder="SIM ICCID"
+                          value={formData.simCardNumber}
+                          onChange={(e) => updateForm({ simCardNumber: e.target.value })}
                         />
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="generic" className="space-y-4 mt-4">
-                  <Card className="border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/20">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Generic / IoT Platform Configuration</CardTitle>
-                      <CardDescription>
-                        Supports Arduino IoT Cloud, Blynk IoT, ESP32/ESP8266, and custom stations
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Connection / Platform Type</Label>
-                        <Select value={formData.connectionType} onValueChange={(v) => updateForm({ connectionType: v as ConnectionType })}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="arduino_iot">
-                              <div className="flex items-center gap-2">
-                                <Wifi className="h-4 w-4" />
-                                Arduino IoT Cloud
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="blynk">
-                              <div className="flex items-center gap-2">
-                                <Smartphone className="h-4 w-4" />
-                                Blynk IoT Platform
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="ip">
-                              <div className="flex items-center gap-2">
-                                <Wifi className="h-4 w-4" />
-                                HTTP/IP (REST API)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="wifi">
-                              <div className="flex items-center gap-2">
-                                <Wifi className="h-4 w-4" />
-                                WiFi Direct (ESP32/ESP8266)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="ble">
-                              <div className="flex items-center gap-2">
-                                <Signal className="h-4 w-4" />
-                                Bluetooth LE (BLE)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="mqtt">
-                              <div className="flex items-center gap-2">
-                                <Radio className="h-4 w-4" />
-                                MQTT Broker
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="lora">
-                              <div className="flex items-center gap-2">
-                                <Signal className="h-4 w-4" />
-                                LoRa/LoRaWAN
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {formData.connectionType === "arduino_iot" && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>Arduino IoT Cloud Thing ID</Label>
-                            <Input
-                              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>API Key (Client ID:Secret)</Label>
-                            <Input
-                              placeholder="client_id:client_secret"
-                              value={formData.apiKey}
-                              onChange={(e) => updateForm({ apiKey: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.connectionType === "blynk" && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>Blynk Device Token</Label>
-                            <Input
-                              placeholder="Your Blynk device token"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Blynk Server (optional)</Label>
-                            <Input
-                              placeholder="blynk.cloud (default)"
-                              value={formData.apiKey}
-                              onChange={(e) => updateForm({ apiKey: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {(formData.connectionType === "ip" || formData.connectionType === "wifi") && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>API Endpoint / IP Address</Label>
-                            <Input
-                              placeholder="https://api.weatherstation.com/data or 192.168.1.100"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>API Key (optional)</Label>
-                            <Input
-                              placeholder="Your API key"
-                              value={formData.apiKey}
-                              onChange={(e) => updateForm({ apiKey: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.connectionType === "mqtt" && (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>MQTT Broker Address</Label>
-                              <Input
-                                placeholder="broker.hivemq.com or 192.168.1.100"
-                                value={formData.ipAddress}
-                                onChange={(e) => updateForm({ ipAddress: e.target.value })}
-                                data-testid="input-mqtt-broker"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Port</Label>
-                              <Input
-                                type="number"
-                                placeholder="1883"
-                                value={formData.port}
-                                onChange={(e) => updateForm({ port: e.target.value })}
-                                data-testid="input-mqtt-port"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Subscribe Topic</Label>
-                            <Input
-                              placeholder="weather/station/+/data or sensors/#"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                              data-testid="input-mqtt-topic"
-                            />
-                            <p className="text-xs text-muted-foreground">Use + for single-level wildcard, # for multi-level</p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Username (optional)</Label>
-                              <Input
-                                placeholder="mqtt_user"
-                                value={formData.apiKey?.split(":")[0] || ""}
-                                onChange={(e) => {
-                                  const password = formData.apiKey?.split(":")[1] || "";
-                                  updateForm({ apiKey: `${e.target.value}:${password}` });
-                                }}
-                                data-testid="input-mqtt-username"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Password (optional)</Label>
-                              <Input
-                                type="password"
-                                placeholder="mqtt_password"
-                                value={formData.apiKey?.split(":")[1] || ""}
-                                onChange={(e) => {
-                                  const username = formData.apiKey?.split(":")[0] || "";
-                                  updateForm({ apiKey: `${username}:${e.target.value}` });
-                                }}
-                                data-testid="input-mqtt-password"
-                              />
-                            </div>
-                          </div>
-                          <div className="p-3 bg-muted/50 rounded-md">
-                            <p className="text-sm text-muted-foreground">
-                              Supports MQTT 3.1.1 and 5.0. For TLS/SSL, use port 8883. 
-                              Common public brokers: broker.hivemq.com, test.mosquitto.org
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.connectionType === "ble" && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>Device MAC Address</Label>
-                            <Input
-                              placeholder="AA:BB:CC:DD:EE:FF"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Service UUID</Label>
-                            <Input
-                              placeholder="00001101-0000-1000-8000-00805f9b34fb"
-                              value={formData.apiKey}
-                              onChange={(e) => updateForm({ apiKey: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.connectionType === "lora" && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>LoRaWAN Device EUI</Label>
-                            <Input
-                              placeholder="0011223344556677"
-                              value={formData.apiEndpoint}
-                              onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Application Key</Label>
-                            <Input
-                              placeholder="Your LoRaWAN app key"
-                              value={formData.apiKey}
-                              onChange={(e) => updateForm({ apiKey: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-2">
-                        <Label>Poll Interval (seconds)</Label>
-                        <Input
-                          type="number"
-                          placeholder="60"
-                          value={formData.pollInterval}
-                          onChange={(e) => updateForm({ pollInterval: e.target.value })}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="border-t pt-4 space-y-4">
                 <h3 className="font-medium">Station Details</h3>
@@ -982,6 +805,54 @@ export default function Stations() {
                 </div>
               </div>
 
+              {/* Notes & Maintenance */}
+              <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Notes & Maintenance</CardTitle>
+                  <CardDescription>
+                    Hardware notes, calibration, and maintenance records
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Site Description</Label>
+                    <textarea
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="Describe the station site, mounting details, sensor configuration..."
+                      value={formData.siteDescription}
+                      onChange={(e) => updateForm({ siteDescription: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Last Calibration Date</Label>
+                      <Input
+                        type="date"
+                        value={formData.lastCalibrationDate}
+                        onChange={(e) => updateForm({ lastCalibrationDate: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Next Calibration Due</Label>
+                      <Input
+                        type="date"
+                        value={formData.nextCalibrationDate || ''}
+                        onChange={(e) => updateForm({ nextCalibrationDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <textarea
+                      className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="Hardware notes, upgrades, sensor changes, issues, maintenance history..."
+                      value={formData.notes}
+                      onChange={(e) => updateForm({ notes: e.target.value })}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
               <Button
                 type="submit"
                 className="w-full"
@@ -989,7 +860,7 @@ export default function Stations() {
                 data-testid="button-save-station"
               >
                 {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Add {formData.type === "campbell" ? "Campbell Scientific" : formData.type === "rika" ? "Rika" : ""} Station
+                Add Campbell Scientific Station
               </Button>
             </form>
           </DialogContent>
@@ -1019,7 +890,7 @@ export default function Stations() {
             <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
               {search 
                 ? "No stations match your search." 
-                : "Add your first Campbell Scientific or Rika weather station to get started."}
+                : "Add your first Campbell Scientific weather station to get started."}
             </p>
             {!search && (
               <Button onClick={() => setDialogOpen(true)} data-testid="button-add-first-station">

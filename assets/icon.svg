@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <!-- Stratus Weather Station - Blue and White Circle Logo -->
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="innerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f0f9ff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Outer blue circle -->
+  <circle cx="128" cy="128" r="120" fill="url(#blueGrad)"/>
+  
+  <!-- Inner white circle -->
+  <circle cx="128" cy="128" r="80" fill="url(#innerGrad)"/>
+  
+  <!-- Stylized 'S' for Stratus using weather-inspired curves -->
+  <path d="M100 88 C100 88 156 88 156 108 C156 128 100 128 100 148 C100 168 156 168 156 168" 
+        stroke="#3b82f6" 
+        stroke-width="16" 
+        stroke-linecap="round" 
+        fill="none"/>
+  
+  <!-- Subtle ring highlight -->
+  <circle cx="128" cy="128" r="116" stroke="white" stroke-width="2" fill="none" opacity="0.3"/>
+</svg>

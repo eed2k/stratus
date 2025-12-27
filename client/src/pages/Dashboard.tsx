@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindRose } from "@/components/charts/WindRose";
+import { WindCompass } from "@/components/dashboard/WindCompass";
 import { WeatherChart } from "@/components/charts/WeatherChart";
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
@@ -10,17 +11,23 @@ import { EToCard } from "@/components/dashboard/EToCard";
 import { StationSelector } from "@/components/dashboard/StationSelector";
 import { ExportTools } from "@/components/dashboard/ExportTools";
 import { DataImport } from "@/components/dashboard/DataImport";
+import { DashboardConfigPanel } from "@/components/dashboard/DashboardConfigPanel";
+import { ShareDashboard } from "@/components/dashboard/ShareDashboard";
+import { StationInfoPanel } from "@/components/dashboard/StationInfoPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Link } from "wouter";
 import {
   Radio,
   Plus,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
+import { DEFAULT_DASHBOARD_CONFIG, type DashboardConfig } from "../../../shared/dashboardConfig";
 
 /**
  * Helper function to format numbers to a maximum of 3 decimal places
@@ -86,9 +93,14 @@ const generateYesterdayWindRoseData = () => {
 
 export default function Dashboard() {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
-  // Only 2D wind rose supported
+  const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
+    // Load config from localStorage if available
+    const saved = localStorage.getItem('dashboardConfig');
+    return saved ? JSON.parse(saved) : DEFAULT_DASHBOARD_CONFIG;
+  });
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   
-  const chartData = useMemo(() => generateChartData(24), []);
+  const chartData = useMemo(() => generateChartData(dashboardConfig.chartTimeRange), [dashboardConfig.chartTimeRange]);
   const windRoseData = useMemo(() => generateWindRoseData(), []);
   const yesterdayWindRoseData = useMemo(() => generateYesterdayWindRoseData(), []);
 
@@ -101,7 +113,25 @@ export default function Dashboard() {
   const { data: latestData, isLoading: dataLoading, refetch } = useQuery<WeatherData>({
     queryKey: ["/api/stations", activeStationId, "data", "latest"],
     enabled: !!activeStationId,
+    refetchInterval: dashboardConfig.updatePeriod * 1000, // Auto-refresh based on config
   });
+
+  // Save config to localStorage when it changes
+  const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
+    setDashboardConfig(newConfig);
+    localStorage.setItem('dashboardConfig', JSON.stringify(newConfig));
+  }, []);
+
+  // Manual refresh handler
+  const handleRefresh = useCallback(() => {
+    refetch();
+    setLastRefresh(new Date());
+  }, [refetch]);
+
+  // Check if a parameter is enabled
+  const isParameterEnabled = useCallback((paramId: string) => {
+    return dashboardConfig.enabledParameters.includes(paramId);
+  }, [dashboardConfig.enabledParameters]);
 
   const selectedStation = stations.find(s => s.id === activeStationId);
 
@@ -158,25 +188,51 @@ export default function Dashboard() {
     batteryVoltage: 12.8,
     particulateCount: 42,
     pm25: 12.5,
+    pm10: 25.3,
     atmosphericVisibility: 18.5,
     panelTemperature: 28.5,
+    soilTemperature: 18.2,
+    soilMoisture: 32.5,
+    uvIndex: 6.2,
   };
 
   const sparkline = chartData.slice(-12).map(d => d.temperature);
+  const maxWindSpeed = Math.max(currentData.windGust || 0, ...windRoseData.flatMap(d => d.speeds));
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
+      {/* Header Section */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between no-print">
         <StationSelector
           stations={stationOptions}
           selectedId={String(activeStationId)}
           onSelect={(id) => setSelectedStationId(parseInt(id))}
         />
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            Updates every {dashboardConfig.updatePeriod < 60 
+              ? `${dashboardConfig.updatePeriod}s` 
+              : `${Math.floor(dashboardConfig.updatePeriod / 60)}m`}
+          </Badge>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={dataLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${dataLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <DashboardConfigPanel
+            config={dashboardConfig}
+            onConfigChange={handleConfigChange}
+            onRefresh={handleRefresh}
+          />
           {activeStationId && (
             <DataImport 
               stationId={activeStationId} 
               stationName={selectedStation?.name || "Weather Station"} 
+            />
+          )}
+          {activeStationId && selectedStation && (
+            <ShareDashboard 
+              stationId={activeStationId} 
+              stationName={selectedStation.name} 
             />
           )}
           <ExportTools 
@@ -186,193 +242,308 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div id="dashboard-content">
-      <CurrentConditions
-        stationName={selectedStation?.name || "Weather Station"}
-        lastUpdate={latestData?.timestamp ? new Date(latestData.timestamp).toLocaleString() : "No data"}
-        temperature={currentData.temperature || 0}
-        humidity={currentData.humidity || 0}
-        pressure={currentData.pressure || 0}
-        windSpeed={currentData.windSpeed || 0}
-        windGust={currentData.windGust || 0}
-        windDirection={currentData.windDirection || 0}
-        solarRadiation={currentData.solarRadiation || 0}
-        rainfall={currentData.rainfall || 0}
-        dewPoint={currentData.dewPoint || 0}
-        isOnline={selectedStation?.isActive || false}
-      />
+      <div id="dashboard-content" className="space-y-6">
+        {/* Current Conditions Header */}
+        <CurrentConditions
+          stationName={selectedStation?.name || "Weather Station"}
+          lastUpdate={latestData?.timestamp ? new Date(latestData.timestamp).toLocaleString() : "No data"}
+          temperature={currentData.temperature || 0}
+          humidity={currentData.humidity || 0}
+          pressure={currentData.pressure || 0}
+          windSpeed={currentData.windSpeed || 0}
+          windGust={currentData.windGust || 0}
+          windDirection={currentData.windDirection || 0}
+          solarRadiation={currentData.solarRadiation || 0}
+          rainfall={currentData.rainfall || 0}
+          dewPoint={currentData.dewPoint || 0}
+          isOnline={selectedStation?.isActive || false}
+        />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <MetricCard
-          title="Temperature"
-          value={formatValue(currentData.temperature || 0, 1)}
-          unit="°C"
-          trend={{ value: 1.2, label: "vs yesterday" }}
-          sparklineData={sparkline}
-        />
-        <MetricCard
-          title="Humidity"
-          value={formatValue(currentData.humidity || 0, 1)}
-          unit="%"
-          trend={{ value: -5, label: "vs yesterday" }}
-          sparklineData={chartData.slice(-12).map(d => d.humidity)}
-        />
-        <MetricCard
-          title="Pressure"
-          value={formatValue(currentData.pressure || 0, 2)}
-          unit="hPa"
-          trend={{ value: 2.1, label: "vs yesterday" }}
-          sparklineData={chartData.slice(-12).map(d => d.pressure)}
-        />
-        <MetricCard
-          title="Wind Speed"
-          value={formatValue(currentData.windSpeed || 0, 1)}
-          unit="km/h"
-          subMetrics={[
-            { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} km/h` },
-            { label: "Dir", value: `${formatValue(currentData.windDirection || 0, 0)}°` },
-          ]}
-        />
-        <MetricCard
-          title="Solar Radiation"
-          value={formatValue(currentData.solarRadiation || 0, 1)}
-          unit="W/m²"
-          sparklineData={chartData.slice(-12).map(d => d.solar)}
-        />
-        <MetricCard
-          title="Rainfall (24h)"
-          value={formatValue(currentData.rainfall || 0, 2)}
-          unit="mm"
-          subMetrics={[
-            { label: "7d Total", value: "12.8 mm" },
-            { label: "30d Total", value: "45.2 mm" },
-          ]}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <MetricCard
-          title="Battery Voltage"
-          value={formatValue(currentData.batteryVoltage || 0, 2)}
-          unit="V"
-        />
-        <MetricCard
-          title="PM2.5"
-          value={formatValue(currentData.pm25 || 0, 1)}
-          unit="µg/m³"
-          subMetrics={[
-            { label: "AQI", value: currentData.pm25 ? (currentData.pm25 < 12 ? "Good" : currentData.pm25 < 35 ? "Moderate" : "Unhealthy") : "N/A" },
-          ]}
-        />
-      </div>
-
-      <Tabs defaultValue="temperature" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-none lg:flex">
-          <TabsTrigger value="temperature" data-testid="tab-temperature">Temperature</TabsTrigger>
-          <TabsTrigger value="wind" data-testid="tab-wind">Wind</TabsTrigger>
-          <TabsTrigger value="pressure" data-testid="tab-pressure">Pressure</TabsTrigger>
-          <TabsTrigger value="solar" data-testid="tab-solar">Solar</TabsTrigger>
-        </TabsList>
-        <TabsContent value="temperature" className="mt-4">
-          <WeatherChart
-            title="Temperature & Humidity"
-            data={chartData}
-            series={[
-              { dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" },
-              { dataKey: "humidity", name: "Humidity (%)", color: "#3b82f6" },
-            ]}
-          />
-        </TabsContent>
-        <TabsContent value="wind" className="mt-4">
-          <WeatherChart
-            title="Wind Speed"
-            data={chartData}
-            series={[
-              { dataKey: "windSpeed", name: "Wind Speed (km/h)", color: "#14b8a6" },
-            ]}
-          />
-        </TabsContent>
-        <TabsContent value="pressure" className="mt-4">
-          <WeatherChart
-            title="Barometric Pressure"
-            data={chartData}
-            series={[
-              { dataKey: "pressure", name: "Pressure (hPa)", color: "#8b5cf6" },
-            ]}
-          />
-        </TabsContent>
-        <TabsContent value="solar" className="mt-4">
-          <WeatherChart
-            title="Solar Radiation"
-            data={chartData}
-            series={[
-              { dataKey: "solar", name: "Solar Radiation (W/m²)", color: "#f59e0b" },
-            ]}
-          />
-        </TabsContent>
-      </Tabs>
-
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {/* --- WIND ROSE VISUALIZATION --- */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Wind Rose (Today)</span>
+        {/* Primary Metrics - Always Visible */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Primary Metrics</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <MetricCard
+              title="Temperature"
+              value={formatValue(currentData.temperature || 0, 1)}
+              unit="°C"
+              trend={{ value: 1.2, label: "vs yesterday" }}
+              sparklineData={sparkline}
+            />
+            <MetricCard
+              title="Humidity"
+              value={formatValue(currentData.humidity || 0, 1)}
+              unit="%"
+              trend={{ value: -5, label: "vs yesterday" }}
+              sparklineData={chartData.slice(-12).map(d => d.humidity)}
+            />
+            <MetricCard
+              title="Dew Point"
+              value={formatValue(currentData.dewPoint || 0, 1)}
+              unit="°C"
+            />
+            <MetricCard
+              title="Pressure"
+              value={formatValue(currentData.pressure || 0, 1)}
+              unit="hPa"
+              trend={{ value: 2.1, label: "vs yesterday" }}
+              sparklineData={chartData.slice(-12).map(d => d.pressure)}
+            />
+            <MetricCard
+              title="Wind Speed"
+              value={formatValue(currentData.windSpeed || 0, 1)}
+              unit="km/h"
+              subMetrics={[
+                { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} km/h` },
+              ]}
+            />
+            <MetricCard
+              title="Rainfall (24h)"
+              value={formatValue(currentData.rainfall || 0, 2)}
+              unit="mm"
+              subMetrics={[
+                { label: "7d", value: "12.8 mm" },
+              ]}
+            />
           </div>
-          <WindRose data={windRoseData} title="Wind Rose (Today)" />
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Wind Rose (Yesterday)</span>
+        </section>
+
+        {/* Solar & Radiation Section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Solar & Radiation</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <MetricCard
+              title="Solar Radiation"
+              value={formatValue(currentData.solarRadiation || 0, 0)}
+              unit="W/m²"
+              sparklineData={chartData.slice(-12).map(d => d.solar)}
+            />
+            <MetricCard
+              title="UV Index"
+              value={formatValue(currentData.uvIndex || 0, 1)}
+              unit=""
+              subMetrics={[
+                { label: "Risk", value: (currentData.uvIndex || 0) < 3 ? "Low" : (currentData.uvIndex || 0) < 6 ? "Moderate" : "High" },
+              ]}
+            />
+            <MetricCard
+              title="Reference ET"
+              value={formatValue(currentData.eto || 0, 2)}
+              unit="mm"
+            />
+            <MetricCard
+              title="Panel Temp"
+              value={formatValue(currentData.panelTemperature || 0, 1)}
+              unit="°C"
+            />
+            <MetricCard
+              title="Air Density"
+              value={formatValue(currentData.airDensity || 0, 3)}
+              unit="kg/m³"
+            />
           </div>
-          <WindRose data={yesterdayWindRoseData} title="Wind Rose (Yesterday)" />
-        </div>
-        <div className="space-y-4">
-          <SolarRadiationCard
-            currentRadiation={currentData.solarRadiation || 0}
-            peakRadiation={1050}
-            dailyEnergy={18.5}
-            avgRadiation={450}
-            panelTemperature={currentData.temperature ? currentData.temperature + 5 : undefined}
+        </section>
+
+        {/* Soil & Environment Section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Soil & Environment</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <MetricCard
+              title="Soil Temperature"
+              value={formatValue(currentData.soilTemperature || 0, 1)}
+              unit="°C"
+            />
+            <MetricCard
+              title="Soil Moisture"
+              value={formatValue(currentData.soilMoisture || 0, 1)}
+              unit="%"
+              subMetrics={[
+                { label: "Status", value: (currentData.soilMoisture || 0) < 20 ? "Dry" : (currentData.soilMoisture || 0) < 40 ? "Optimal" : "Wet" },
+              ]}
+            />
+            <MetricCard
+              title="PM2.5"
+              value={formatValue(currentData.pm25 || 0, 1)}
+              unit="µg/m³"
+              subMetrics={[
+                { label: "AQI", value: (currentData.pm25 || 0) < 12 ? "Good" : (currentData.pm25 || 0) < 35 ? "Moderate" : "Unhealthy" },
+              ]}
+            />
+            <MetricCard
+              title="PM10"
+              value={formatValue(currentData.pm10 || 0, 1)}
+              unit="µg/m³"
+            />
+            <MetricCard
+              title="Battery"
+              value={formatValue(currentData.batteryVoltage || 0, 2)}
+              unit="V"
+              subMetrics={[
+                { label: "Status", value: (currentData.batteryVoltage || 0) > 12 ? "Good" : "Low" },
+              ]}
+            />
+          </div>
+        </section>
+
+        {/* Wind Direction Compass & Charts */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Wind Analysis</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Wind Compass */}
+            <WindCompass
+              direction={currentData.windDirection || 0}
+              speed={currentData.windSpeed || 0}
+              gust={currentData.windGust}
+              unit="km/h"
+            />
+            
+            {/* Wind Rose Today */}
+            <WindRose 
+              data={windRoseData} 
+              title="Wind Rose (Today)" 
+              maxWindSpeed={maxWindSpeed}
+            />
+            
+            {/* Wind Rose Yesterday */}
+            <WindRose 
+              data={yesterdayWindRoseData} 
+              title="Wind Rose (Yesterday)"
+              maxWindSpeed={maxWindSpeed}
+            />
+          </div>
+        </section>
+
+        {/* Charts Section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Historical Data</h2>
+          <Tabs defaultValue="temperature" className="w-full">
+            <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+              <TabsTrigger value="temperature" className="flex-1 min-w-[80px]" data-testid="tab-temperature">Temp</TabsTrigger>
+              <TabsTrigger value="wind" className="flex-1 min-w-[80px]" data-testid="tab-wind">Wind</TabsTrigger>
+              <TabsTrigger value="pressure" className="flex-1 min-w-[80px]" data-testid="tab-pressure">Pressure</TabsTrigger>
+              <TabsTrigger value="solar" className="flex-1 min-w-[80px]" data-testid="tab-solar">Solar</TabsTrigger>
+              <TabsTrigger value="rain" className="flex-1 min-w-[80px]" data-testid="tab-rain">Rain</TabsTrigger>
+            </TabsList>
+            <TabsContent value="temperature" className="mt-4">
+              <WeatherChart
+                title="Temperature & Humidity"
+                data={chartData}
+                series={[
+                  { dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" },
+                  { dataKey: "humidity", name: "Humidity (%)", color: "#3b82f6" },
+                ]}
+              />
+            </TabsContent>
+            <TabsContent value="wind" className="mt-4">
+              <WeatherChart
+                title="Wind Speed"
+                data={chartData}
+                series={[
+                  { dataKey: "windSpeed", name: "Wind Speed (km/h)", color: "#14b8a6" },
+                ]}
+              />
+            </TabsContent>
+            <TabsContent value="pressure" className="mt-4">
+              <WeatherChart
+                title="Barometric Pressure"
+                data={chartData}
+                series={[
+                  { dataKey: "pressure", name: "Pressure (hPa)", color: "#8b5cf6" },
+                ]}
+              />
+            </TabsContent>
+            <TabsContent value="solar" className="mt-4">
+              <WeatherChart
+                title="Solar Radiation"
+                data={chartData}
+                series={[
+                  { dataKey: "solar", name: "Solar Radiation (W/m²)", color: "#f59e0b" },
+                ]}
+              />
+            </TabsContent>
+            <TabsContent value="rain" className="mt-4">
+              <WeatherChart
+                title="Rainfall"
+                data={chartData}
+                series={[
+                  { dataKey: "rain", name: "Rainfall (mm)", color: "#06b6d4" },
+                ]}
+              />
+            </TabsContent>
+          </Tabs>
+        </section>
+
+        {/* Solar & ET Cards */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Solar & Evapotranspiration</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <SolarRadiationCard
+              currentRadiation={currentData.solarRadiation || 0}
+              peakRadiation={1050}
+              dailyEnergy={18.5}
+              avgRadiation={450}
+              panelTemperature={currentData.panelTemperature}
+            />
+            <EToCard
+              dailyETo={currentData.eto || 4.85}
+              weeklyETo={32.4}
+              monthlyETo={128.5}
+            />
+            <StatisticsCard
+              title="Temperature Statistics"
+              periods={[
+                {
+                  period: "24h",
+                  stats: [
+                    { label: "Min", value: 15.2, unit: "°C" },
+                    { label: "Max", value: 28.4, unit: "°C" },
+                    { label: "Avg", value: 21.8, unit: "°C" },
+                    { label: "Range", value: 13.2, unit: "°C" },
+                  ],
+                },
+                {
+                  period: "7d",
+                  stats: [
+                    { label: "Min", value: 12.1, unit: "°C" },
+                    { label: "Max", value: 31.5, unit: "°C" },
+                    { label: "Avg", value: 20.3, unit: "°C" },
+                    { label: "Range", value: 19.4, unit: "°C" },
+                  ],
+                },
+              ]}
+            />
+          </div>
+        </section>
+
+        {/* Station Administration - Admin Only */}
+        {selectedStation && (
+          <StationInfoPanel
+            station={{
+              id: selectedStation.id,
+              name: selectedStation.name,
+              location: selectedStation.location || undefined,
+              latitude: selectedStation.latitude || undefined,
+              longitude: selectedStation.longitude || undefined,
+              altitude: selectedStation.altitude || undefined,
+              pakbusAddress: selectedStation.pakbusAddress || undefined,
+              securityCode: selectedStation.securityCode || undefined,
+              dataloggerModel: selectedStation.dataloggerModel || undefined,
+              dataloggerSerialNumber: selectedStation.dataloggerSerialNumber || undefined,
+              programName: selectedStation.dataloggerProgramName || undefined,
+              siteDescription: selectedStation.siteDescription || undefined,
+              notes: selectedStation.notes || undefined,
+              modemModel: selectedStation.modemModel || undefined,
+              modemSerialNumber: selectedStation.modemSerialNumber || undefined,
+              lastCalibrationDate: selectedStation.lastCalibrationDate ? new Date(selectedStation.lastCalibrationDate).toISOString().split('T')[0] : undefined,
+              nextCalibrationDate: selectedStation.nextCalibrationDate ? new Date(selectedStation.nextCalibrationDate).toISOString().split('T')[0] : undefined,
+            }}
+            isAdmin={true}
+            onSave={(data) => {
+              console.log("Saving station info:", data);
+              // TODO: Implement save to database
+            }}
           />
-          <EToCard
-            dailyETo={currentData.eto || 4.85}
-            weeklyETo={32.4}
-            monthlyETo={128.5}
-          />
-        </div>
-        <StatisticsCard
-          title="Temperature Statistics"
-          periods={[
-            {
-              period: "24h",
-              stats: [
-                { label: "Minimum", value: 15.2, unit: "°C" },
-                { label: "Maximum", value: 28.4, unit: "°C" },
-                { label: "Average", value: 21.8, unit: "°C" },
-                { label: "Range", value: 13.2, unit: "°C" },
-              ],
-            },
-            {
-              period: "7d",
-              stats: [
-                { label: "Minimum", value: 12.1, unit: "°C" },
-                { label: "Maximum", value: 31.5, unit: "°C" },
-                { label: "Average", value: 20.3, unit: "°C" },
-                { label: "Range", value: 19.4, unit: "°C" },
-              ],
-            },
-            {
-              period: "30d",
-              stats: [
-                { label: "Minimum", value: 8.5, unit: "°C" },
-                { label: "Maximum", value: 34.2, unit: "°C" },
-                { label: "Average", value: 19.6, unit: "°C" },
-                { label: "Range", value: 25.7, unit: "°C" },
-              ],
-            },
-          ]}
-        />
-      </div>
+        )}
       </div>
     </div>
   );

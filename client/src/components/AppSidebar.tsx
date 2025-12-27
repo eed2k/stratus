@@ -27,6 +27,7 @@ interface AppSidebarProps {
 const navItems = [
   { title: "Dashboard", url: "/" },
   { title: "Stations", url: "/stations" },
+  { title: "Serial Monitor", url: "/serial-monitor" },
   { title: "Organizations", url: "/organizations" },
   { title: "History", url: "/history" },
   { title: "Alarms", url: "/alarms" },
@@ -40,9 +41,17 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
   return (
     <Sidebar className="bg-sidebar-background border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div>
-          <h2 className="font-semibold text-sidebar-foreground">STRATUS</h2>
-          <p className="text-xs text-muted-foreground">Weather Monitoring</p>
+        <div className="flex items-center gap-3">
+          {/* Blue and White Circle Logo */}
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
+            <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
+              <span className="text-blue-600 font-bold text-xs">S</span>
+            </div>
+          </div>
+          <div>
+            <h2 className="font-semibold text-sidebar-foreground">STRATUS</h2>
+            <p className="text-xs text-muted-foreground">Weather Monitoring</p>
+          </div>
         </div>
       </SidebarHeader>
 

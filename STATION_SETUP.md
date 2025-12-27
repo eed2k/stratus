@@ -183,7 +183,6 @@ EndTable
 6. **Save Station**
    - Click "Add Station"
    - Station appears in station list
-
 ### Manual Configuration
 
 You can also configure stations via the API:

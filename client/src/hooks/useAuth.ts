@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface AuthUser {
   id: string;
@@ -8,46 +8,92 @@ export interface AuthUser {
   profileImageUrl?: string | null;
 }
 
-// Desktop app - single user mode, always authenticated
-const LOCAL_USER: AuthUser = {
-  id: 'local-user',
-  email: 'user@localhost',
-  firstName: 'Local',
-  lastName: 'User',
-  profileImageUrl: null,
+// Desktop app - check for stored user or use default
+const getStoredUser = (): AuthUser | null => {
+  const setupComplete = localStorage.getItem('stratus_setup_complete');
+  if (!setupComplete) {
+    return null; // Need to show login/setup screen
+  }
+  
+  const storedUser = localStorage.getItem('stratus_user');
+  if (storedUser) {
+    try {
+      const userData = JSON.parse(storedUser);
+      return {
+        id: 'local-user',
+        email: userData.email || 'user@localhost',
+        firstName: userData.firstName || 'Local',
+        lastName: userData.lastName || 'User',
+        profileImageUrl: null,
+      };
+    } catch {
+      // Fallback to default user
+    }
+  }
+  
+  return {
+    id: 'local-user',
+    email: 'user@localhost',
+    firstName: 'Local',
+    lastName: 'User',
+    profileImageUrl: null,
+  };
 };
 
 export function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(LOCAL_USER);
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
-    // Desktop app - automatically logged in
-    setUser(LOCAL_USER);
+    // Check if setup has been completed
+    const storedUser = getStoredUser();
+    if (storedUser) {
+      setUser(storedUser);
+      setNeedsSetup(false);
+    } else {
+      setUser(null);
+      setNeedsSetup(true);
+    }
     setIsLoading(false);
   }, []);
 
-  const login = () => {
-    setUser(LOCAL_USER);
-  };
+  const login = useCallback((userData: { email: string; firstName: string; lastName: string }) => {
+    const authUser: AuthUser = {
+      id: 'local-user',
+      email: userData.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      profileImageUrl: null,
+    };
+    setUser(authUser);
+    setNeedsSetup(false);
+    localStorage.setItem('stratus_user', JSON.stringify(userData));
+    localStorage.setItem('stratus_setup_complete', 'true');
+  }, []);
   
-  const signup = () => {
-    setUser(LOCAL_USER);
-  };
+  const signup = useCallback((userData: { email: string; firstName: string; lastName: string }) => {
+    login(userData);
+  }, [login]);
   
-  const logout = () => {
-    // In desktop mode, logout just resets to local user
-    setUser(LOCAL_USER);
-  };
+  const logout = useCallback(() => {
+    // Clear stored user data
+    localStorage.removeItem('stratus_user');
+    localStorage.removeItem('stratus_setup_complete');
+    setUser(null);
+    setNeedsSetup(true);
+  }, []);
 
   return {
     user,
     isLoading,
-    isAuthenticated: true, // Always authenticated in desktop mode
+    isAuthenticated: !!user,
+    needsSetup,
     login,
     signup,
     logout,
     error,
   };
 }
+

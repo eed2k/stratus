@@ -31,7 +31,6 @@ export function SignupForm({ onSignup, onSocialSignup, onLogin }: SignupFormProp
   };
 
   const handleSocialSignup = (provider: string) => {
-    console.log(`${provider} signup triggered`);
     onSocialSignup?.(provider);
   };
 

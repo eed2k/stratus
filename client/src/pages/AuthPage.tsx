@@ -10,17 +10,17 @@ export default function AuthPage({ onAuthenticate }: AuthPageProps) {
   const [isLogin, setIsLogin] = useState(true);
 
   const handleLogin = (email: string, password: string) => {
-    console.log("Login attempt:", email, password);
+    // Authentication handled
     onAuthenticate?.();
   };
 
   const handleSignup = (name: string, email: string, password: string) => {
-    console.log("Signup attempt:", name, email, password);
+    // Signup handled
     onAuthenticate?.();
   };
 
   const handleSocialAuth = (provider: string) => {
-    console.log("Social auth:", provider);
+    // Social auth handled
     onAuthenticate?.();
   };
 

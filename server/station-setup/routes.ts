@@ -458,70 +458,47 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * GET /api/station-setup/providers
    */
   app.get("/api/station-setup/providers", (req, res) => {
+    // Desktop app focused on Campbell Scientific dataloggers
     const providers = [
       {
-        id: "campbell_cloud",
-        name: "Campbell Scientific Cloud",
-        type: "http",
-        description: "Campbell Scientific dataloggers connected via Campbell Cloud",
-        apiEndpoint: "https://api.campbellcloud.com",
-        requiredFields: ["apiKey"],
-        documentationUrl:
-          "https://www.campbellsci.com/",
+        id: "campbell_serial",
+        name: "Campbell Scientific (RS232)",
+        type: "serial",
+        description: "Direct RS232 serial connection to Campbell dataloggers",
+        requiredFields: ["serialPort", "baudRate"],
+        documentationUrl: "https://www.campbellsci.com/",
       },
       {
-        id: "weatherlink_cloud",
-        name: "Davis WeatherLink Cloud",
-        type: "http",
-        description: "Davis Instruments weather stations via WeatherLink",
-        apiEndpoint: "https://api.weatherlink.com/v2",
-        requiredFields: ["apiKey"],
-        documentationUrl: "https://www.weatherlink.com/",
+        id: "campbell_tcp",
+        name: "Campbell Scientific (TCP/IP)",
+        type: "tcp",
+        description: "TCP/IP connection to Campbell dataloggers with ethernet/WiFi",
+        requiredFields: ["ipAddress", "port"],
+        documentationUrl: "https://www.campbellsci.com/",
       },
       {
-        id: "rika_cloud",
-        name: "Rika Cloud",
-        type: "http",
-        description: "Rika weather station solutions",
-        apiEndpoint: "https://cloud.rika.co",
-        requiredFields: ["apiKey"],
-        documentationUrl: "https://www.rika.co",
-      },
-      {
-        id: "arduino_iot",
-        name: "Arduino IoT Cloud",
-        type: "http",
-        description: "Arduino MKR WiFi 1010 and compatible devices",
-        apiEndpoint: "https://api2.arduino.cc/iot",
-        requiredFields: ["apiKey"],
-        documentationUrl: "https://create.arduino.cc/iot",
-      },
-      {
-        id: "blynk",
-        name: "Blynk IoT Platform",
-        type: "http",
-        description: "Blynk IoT platform for connected devices",
-        apiEndpoint: "https://blynk.cloud",
-        requiredFields: ["apiKey"],
-        documentationUrl: "https://blynk.io",
-      },
-      {
-        id: "thingspeak",
-        name: "ThingSpeak",
-        type: "http",
-        description: "MathWorks ThingSpeak for IoT applications",
-        apiEndpoint: "https://api.thingspeak.com",
-        requiredFields: ["apiKey"],
-        documentationUrl: "https://thingspeak.com",
-      },
-      {
-        id: "thenetwork",
-        name: "The Things Network",
+        id: "campbell_lora",
+        name: "Campbell Scientific (LoRa)",
         type: "lora",
-        description: "Open LoRaWAN network",
-        apiEndpoint: "https://api.thethingsnetwork.org",
-        requiredFields: ["deviceEUI", "apiKey"],
-        documentationUrl: "https://www.thethingsnetwork.org",
+        description: "LoRa radio connection to remote Campbell dataloggers",
+        requiredFields: ["loraFrequency", "deviceEUI"],
+        documentationUrl: "https://www.campbellsci.com/",
+      },
+      {
+        id: "campbell_gsm",
+        name: "Campbell Scientific (GSM/4G)",
+        type: "cellular",
+        description: "Cellular connection to Campbell dataloggers via GSM/4G",
+        requiredFields: ["apn"],
+        documentationUrl: "https://www.campbellsci.com/",
+      },
+      {
+        id: "campbell_mqtt",
+        name: "Campbell Scientific (MQTT)",
+        type: "mqtt",
+        description: "MQTT protocol for Campbell dataloggers",
+        requiredFields: ["broker", "topic"],
+        documentationUrl: "https://www.campbellsci.com/",
       },
     ];
 
@@ -538,15 +515,11 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
       const { apiEndpoint, host } = req.body;
       const endpoint = (apiEndpoint || host || "").toLowerCase();
 
+      // For desktop Campbell Scientific focus, only detect relevant endpoints
       const detections: Record<string, string> = {
-        campbellcloud: "campbell_cloud",
-        konect: "campbell_cloud",
-        weatherlink: "weatherlink_cloud",
-        rika: "rika_cloud",
-        arduino: "arduino_iot",
-        blynk: "blynk",
-        thingspeak: "thingspeak",
-        thethingsnetwork: "thenetwork",
+        campbellcloud: "campbell_tcp",
+        konect: "campbell_tcp",
+        campbell: "campbell_tcp",
       };
 
       let detectedProvider = null;
@@ -594,20 +567,14 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         ? await ServiceDetector.testEndpoint(apiEndpoint, apiKey)
         : null;
 
-      // Combine detections
-      const finalDetection = testResult?.provider
-        ? {
-            provider: testResult.provider,
-            confidence: 0.95,
-            connectionType: "http",
-          }
-        : endpointDetection;
+      // Use detection result
+      const finalDetection = endpointDetection;
 
       res.json({
         detected: !!finalDetection,
         provider: finalDetection?.provider,
         confidence: finalDetection?.confidence || 0,
-        connectionType: finalDetection?.connectionType || "http",
+        connectionType: finalDetection?.connectionType || "serial",
         suggestedConfig: (finalDetection as any)?.suggestedConfig || {},
         testResult: testResult ? { success: testResult.success } : null,
       });
@@ -620,38 +587,29 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
   });
 
   /**
-   * Auto-configure Campbell Cloud
+   * Auto-configure Campbell Scientific connection
    * POST /api/station-setup/configure/campbell
-   * Body: { apiKey }
+   * Body: { connectionType, serialPort, ipAddress, port }
    */
   app.post("/api/station-setup/configure/campbell", async (req, res) => {
     try {
-      const { apiKey } = req.body;
+      const { connectionType, serialPort, ipAddress, port } = req.body;
 
-      if (!apiKey) {
+      if (!connectionType) {
         return res.status(400).json({
           success: false,
-          message: "apiKey is required",
+          message: "connectionType is required (serial, tcp_ip, lora, gsm, mqtt)",
         });
       }
 
-      const result = await ServiceDetector.configureCampbellCloud(apiKey);
-
-      if (!result.success) {
-        return res.status(400).json(result);
-      }
-
-      // Extract and format available stations
-      const stations = result.organizations?.map((org) => ({
-        id: org.uid,
-        name: org.name,
-        type: "organization",
-      })) || [];
-
-      res.json({
-        success: true,
-        organizations: stations,
+      // Configure the connection using ServiceDetector
+      const result = await ServiceDetector.configureCampbellConnection(connectionType, {
+        serialPort,
+        ipAddress,
+        port,
       });
+
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({
         success: false,
@@ -661,135 +619,81 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
   });
 
   /**
-   * Auto-configure Rika Cloud (Not supported in desktop version)
-   * POST /api/station-setup/configure/rika
-   */
-  app.post("/api/station-setup/configure/rika", async (req, res) => {
-    res.status(501).json({
-      success: false,
-      message: "Rika Cloud integration is not supported. This application focuses on Campbell Scientific dataloggers.",
-    });
-  });
-
-  /**
    * List available providers and their capabilities
    * GET /api/station-setup/providers/info
    */
   app.get("/api/station-setup/providers/info", (req, res) => {
+    // Desktop app focused on Campbell Scientific dataloggers
     const providersInfo = [
       {
-        id: "campbell_cloud",
-        name: "Campbell Scientific Cloud",
-        description:
-          "Official cloud service for Campbell Scientific dataloggers",
-        icon: "🔬",
+        id: "campbell_serial",
+        name: "Campbell Scientific (RS232)",
+        description: "Direct RS232 serial connection to Campbell Scientific dataloggers like CR300, CR1000X, CR6",
+        icon: "🔌",
         capabilities: [
-          "Real-time data streaming",
-          "Historical data access",
-          "Device management",
-          "Alert configuration",
+          "Direct PakBus communication",
+          "Real-time data collection",
+          "Table data retrieval",
+          "Program upload",
         ],
-        setup: "Quick Setup Available",
-        documentation:
-          "https://www.campbellsci.com/cloud-connect",
+        setup: "Connect via RS232 serial cable",
+        documentation: "https://www.campbellsci.com/",
       },
       {
-        id: "weatherlink_cloud",
-        name: "Davis WeatherLink Cloud",
-        description: "WeatherLink cloud platform for Davis weather stations",
-        icon: "🌤️",
-        capabilities: [
-          "Real-time weather data",
-          "Historical graphs",
-          "Storm tracking",
-          "API access",
-        ],
-        setup: "Requires WeatherLink account",
-        documentation: "https://www.weatherlink.com/",
-      },
-      {
-        id: "rika_cloud",
-        name: "Rika Cloud",
-        description: "Rika weather station cloud services",
-        icon: "☁️",
-        capabilities: [
-          "Real-time monitoring",
-          "Alert thresholds",
-          "Data export",
-          "Mobile access",
-        ],
-        setup: "Quick Setup Available",
-        documentation: "https://www.rika.co",
-      },
-      {
-        id: "arduino_iot",
-        name: "Arduino IoT Cloud",
-        description: "Arduino MKR WiFi 1010 and IoT cloud platform",
-        icon: "🤖",
-        capabilities: [
-          "Cloud storage",
-          "Dashboard creation",
-          "API access",
-          "Mobile app",
-        ],
-        setup: "Requires Arduino account",
-        documentation: "https://create.arduino.cc/iot",
-      },
-      {
-        id: "blynk",
-        name: "Blynk IoT Platform",
-        description: "Blynk IoT platform for connected devices",
-        icon: "💡",
-        capabilities: [
-          "Real-time monitoring",
-          "Custom dashboards",
-          "Mobile notifications",
-          "Hardware support",
-        ],
-        setup: "Requires Blynk account",
-        documentation: "https://blynk.io",
-      },
-      {
-        id: "thingspeak",
-        name: "ThingSpeak",
-        description: "MathWorks ThingSpeak IoT analytics",
-        icon: "📊",
-        capabilities: [
-          "Data storage",
-          "Visualizations",
-          "MATLAB analysis",
-          "Real-time alerts",
-        ],
-        setup: "Requires ThingSpeak account",
-        documentation: "https://thingspeak.com",
-      },
-      {
-        id: "mqtt",
-        name: "MQTT Broker",
-        description: "Generic MQTT message broker",
-        icon: "📡",
-        capabilities: [
-          "Publish/Subscribe",
-          "Multiple devices",
-          "Custom topics",
-          "TLS support",
-        ],
-        setup: "Custom Configuration",
-        documentation: "https://mqtt.org",
-      },
-      {
-        id: "http_generic",
-        name: "Generic HTTP API",
-        description: "Any HTTP/REST endpoint",
+        id: "campbell_tcp",
+        name: "Campbell Scientific (TCP/IP)",
+        description: "TCP/IP connection to Campbell dataloggers with ethernet or WiFi modules",
         icon: "🌐",
         capabilities: [
-          "Custom endpoints",
-          "API key support",
-          "POST/GET methods",
-          "JSON payloads",
+          "Network-based communication",
+          "Remote data access",
+          "Multiple station support",
+          "PakBus over TCP",
         ],
-        setup: "Custom Configuration",
-        documentation: "https://www.postman.com/",
+        setup: "Enter IP address and port (default: 6785)",
+        documentation: "https://www.campbellsci.com/",
+      },
+      {
+        id: "campbell_lora",
+        name: "Campbell Scientific (LoRa)",
+        description: "LoRa radio connection for remote Campbell dataloggers",
+        icon: "📡",
+        capabilities: [
+          "Long-range communication",
+          "Low power consumption",
+          "Remote site access",
+          "Mesh networking",
+        ],
+        setup: "Configure LoRa frequency band",
+        documentation: "https://www.campbellsci.com/",
+      },
+      {
+        id: "campbell_gsm",
+        name: "Campbell Scientific (GSM/4G)",
+        description: "Cellular connection to Campbell dataloggers via GSM or 4G/LTE",
+        icon: "📱",
+        capabilities: [
+          "Cellular connectivity",
+          "Remote site access",
+          "SMS alerts",
+          "Global coverage",
+        ],
+        setup: "Configure APN settings",
+        documentation: "https://www.campbellsci.com/",
+      },
+      {
+        id: "campbell_mqtt",
+        name: "Campbell Scientific (MQTT)",
+        description: "MQTT protocol for Campbell dataloggers with IoT gateway",
+        icon: "📨",
+        capabilities: [
+          "Publish/Subscribe model",
+          "Lightweight protocol",
+          "Cloud integration",
+          "Real-time streaming",
+        ],
+        setup: "Configure MQTT broker and topic",
+        documentation: "https://www.campbellsci.com/",
       },
     ];
 

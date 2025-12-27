@@ -53,12 +53,29 @@ export async function initDatabase(): Promise<Database> {
   if (fs.existsSync(dbPath)) {
     const fileBuffer = fs.readFileSync(dbPath);
     db = new SQL.Database(fileBuffer);
+    // Run migrations for existing databases
+    await runMigrations(db);
   } else {
     db = new SQL.Database();
     await createTables(db);
   }
 
   return db;
+}
+
+/**
+ * Run database migrations for existing databases
+ */
+async function runMigrations(database: Database): Promise<void> {
+  // Add personnel columns if they don't exist
+  const columns = ['installation_team', 'station_admin', 'station_admin_email', 'station_admin_phone'];
+  for (const col of columns) {
+    try {
+      database.run(`ALTER TABLE stations ADD COLUMN ${col} TEXT`);
+    } catch (e) {
+      // Column already exists, ignore
+    }
+  }
 }
 
 /**
@@ -77,7 +94,11 @@ async function createTables(database: Database): Promise<void> {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_connected DATETIME,
-      is_active INTEGER DEFAULT 1
+      is_active INTEGER DEFAULT 1,
+      installation_team TEXT,
+      station_admin TEXT,
+      station_admin_email TEXT,
+      station_admin_phone TEXT
     )
   `);
 

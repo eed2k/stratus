@@ -250,9 +250,32 @@ function startServer() {
     return;
   }
 
-  // In packaged app, compiled server is at dist/server/index.js
-  const serverPath = path.join(__dirname, '..', 'dist', 'server', 'index.js');
+  const fs = require('fs');
+  let serverPath;
+  let cwd;
+  
+  if (app.isPackaged) {
+    // Packaged app - files are in resources/app folder (asar disabled)
+    const resourcesPath = process.resourcesPath;
+    serverPath = path.join(resourcesPath, 'app', 'dist', 'server', 'index.js');
+    cwd = path.join(resourcesPath, 'app');
+    
+    console.log('Packaged app detected');
+    console.log('Resources path:', resourcesPath);
+  } else {
+    // Development - use relative path from electron folder
+    serverPath = path.join(__dirname, '..', 'dist', 'server', 'index.js');
+    cwd = path.join(__dirname, '..');
+  }
+  
   console.log('Starting server from:', serverPath);
+  console.log('Working directory:', cwd);
+  console.log('Server exists:', fs.existsSync(serverPath));
+  
+  if (!fs.existsSync(serverPath)) {
+    dialog.showErrorBox('Server Error', `Server file not found at: ${serverPath}`);
+    return;
+  }
   
   serverProcess = spawn('node', [serverPath], {
     env: { 
@@ -261,7 +284,7 @@ function startServer() {
       NODE_ENV: 'production'
     },
     stdio: 'pipe',
-    cwd: path.join(__dirname, '..')
+    cwd: cwd
   });
 
   serverProcess.stdout.on('data', (data) => {
@@ -274,7 +297,7 @@ function startServer() {
 
   serverProcess.on('error', (error) => {
     console.error('Failed to start server:', error);
-    dialog.showErrorBox('Server Error', `Failed to start server: ${error.message}`);
+    dialog.showErrorBox('Server Error', `Failed to start server: ${error.message}\n\nPath: ${serverPath}`);
   });
 
   serverProcess.on('close', (code) => {

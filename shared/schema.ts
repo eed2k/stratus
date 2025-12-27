@@ -144,6 +144,19 @@ export const weatherStations = pgTable("weather_stations", {
   stationAdmin: text("station_admin"),
   stationAdminEmail: text("station_admin_email"),
   stationAdminPhone: text("station_admin_phone"),
+  // Maintenance and notes fields
+  notes: text("notes"),
+  lastCalibrationDate: timestamp("last_calibration_date"),
+  nextCalibrationDate: timestamp("next_calibration_date"),
+  maintenanceHistory: text("maintenance_history"),
+  modemModel: varchar("modem_model", { length: 100 }),
+  modemSerialNumber: text("modem_serial_number"),
+  modemPhoneNumber: text("modem_phone_number"),
+  simCardNumber: text("sim_card_number"),
+  antennaType: varchar("antenna_type", { length: 100 }),
+  solarPanelWatts: integer("solar_panel_watts"),
+  batteryAmpHours: integer("battery_amp_hours"),
+  enclosureType: varchar("enclosure_type", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -578,3 +591,35 @@ export const insertStationLogSchema = createInsertSchema(stationLogs).omit({
 
 export type InsertStationLog = z.infer<typeof insertStationLogSchema>;
 export type StationLog = typeof stationLogs.$inferSelect;
+
+// Station Shares table - Share dashboard access with clients/viewers
+export const stationShares = pgTable("station_shares", {
+  id: serial("id").primaryKey(),
+  stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  shareToken: text("share_token").notNull().unique(),
+  name: text("name").notNull(), // Name/description for this share link
+  email: text("email"), // Optional: email of the person it's shared with
+  accessLevel: varchar("access_level", { length: 20 }).notNull().default("viewer"), // viewer (read-only), editor (can edit settings)
+  password: text("password"), // Optional: password protection
+  expiresAt: timestamp("expires_at"), // Optional: expiration date
+  isActive: boolean("is_active").default(true),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  accessCount: integer("access_count").default(0),
+  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_station_shares_token").on(table.shareToken),
+  index("IDX_station_shares_station").on(table.stationId),
+]);
+
+export const insertStationShareSchema = createInsertSchema(stationShares).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastAccessedAt: true,
+  accessCount: true,
+});
+
+export type InsertStationShare = z.infer<typeof insertStationShareSchema>;
+export type StationShare = typeof stationShares.$inferSelect;

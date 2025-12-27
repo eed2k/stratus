@@ -15,7 +15,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/hooks/use-toast";
-import { User, Bell, Palette, Globe, Shield, Save } from "lucide-react";
+import { User, Bell, Palette, Globe, Shield, Save, Server } from "lucide-react";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
@@ -24,6 +24,25 @@ export default function Settings() {
   const [pushNotifications, setPushNotifications] = useState(false);
   const [units, setUnits] = useState("metric");
   const [timezone, setTimezone] = useState("auto");
+  const [serverAddress, setServerAddress] = useState(() => {
+    return localStorage.getItem('stratus_server_address') || '';
+  });
+
+  const handleSaveServerAddress = () => {
+    if (serverAddress.trim()) {
+      localStorage.setItem('stratus_server_address', serverAddress.trim());
+      toast({
+        title: "Server Address Saved",
+        description: "Share links will now use this address for external access.",
+      });
+    } else {
+      localStorage.removeItem('stratus_server_address');
+      toast({
+        title: "Server Address Cleared",
+        description: "Share links will prompt for manual configuration.",
+      });
+    }
+  };
 
   const showComingSoon = (feature: string) => {
     toast({
@@ -158,6 +177,36 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-server-settings">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Server className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-lg">Server & Sharing</CardTitle>
+            </div>
+            <CardDescription>Configure server address for sharing dashboards</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="serverAddress">Server Address</Label>
+              <Input
+                id="serverAddress"
+                placeholder="e.g., 192.168.1.100:5000 or your-domain.com"
+                value={serverAddress}
+                onChange={(e) => setServerAddress(e.target.value)}
+                data-testid="input-server-address"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter your server's IP address or domain name. This is used when sharing
+                dashboard links with clients so they can access the dashboard remotely.
+              </p>
+            </div>
+            <Button onClick={handleSaveServerAddress} data-testid="button-save-server">
+              <Save className="mr-2 h-4 w-4" />
+              Save Server Address
+            </Button>
           </CardContent>
         </Card>
 

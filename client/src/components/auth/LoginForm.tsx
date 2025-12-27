@@ -27,7 +27,6 @@ export function LoginForm({ onLogin, onSocialLogin, onSignUp }: LoginFormProps) 
   };
 
   const handleSocialLogin = (provider: string) => {
-    console.log(`${provider} login triggered`);
     onSocialLogin?.(provider);
   };
 

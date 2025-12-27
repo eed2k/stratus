@@ -12,6 +12,35 @@ import {
   Legend,
 } from "recharts";
 
+/**
+ * Format a number to a maximum of 3 decimal places
+ * Removes trailing zeros for cleaner display
+ */
+const formatTooltipValue = (value: number | string): string => {
+  if (typeof value === 'number') {
+    return parseFloat(value.toFixed(3)).toString();
+  }
+  return String(value);
+};
+
+/**
+ * Custom tooltip component with decimal precision control
+ */
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+  
+  return (
+    <div className="bg-card border border-border rounded-md p-2 shadow-md text-xs">
+      <p className="font-medium mb-1">{label}</p>
+      {payload.map((entry: any, index: number) => (
+        <p key={index} style={{ color: entry.color }}>
+          {entry.name}: {formatTooltipValue(entry.value)} {entry.payload?.unit || ''}
+        </p>
+      ))}
+    </div>
+  );
+};
+
 interface ChartDataPoint {
   timestamp: string;
   [key: string]: string | number;
@@ -83,14 +112,7 @@ export function WeatherChart({
                 axisLine={false}
                 width={40}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "6px",
-                  fontSize: "12px",
-                }}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
               {series.map((s) => (
                 <Line

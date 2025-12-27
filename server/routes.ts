@@ -60,6 +60,8 @@ import { registerCampbellRoutes } from "./campbell/routes";
 import { dataCollectionService } from "./campbell/dataCollectionService";
 import { protocolManager } from "./protocols/protocolManager";
 import { registerStationSetupRoutes } from "./station-setup/routes";
+import { registerSerialMonitorRoutes } from "./serial/routes";
+import shareRoutes from "./shares/routes";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -97,6 +99,12 @@ export async function registerRoutes(
 
   // Register station setup routes
   await registerStationSetupRoutes(app);
+
+  // Register serial monitor routes
+  registerSerialMonitorRoutes(app, httpServer);
+
+  // Register share routes
+  app.use('/api', shareRoutes);
 
   // Initialize data collection service
   try {

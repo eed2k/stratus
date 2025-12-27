@@ -10,7 +10,27 @@ interface WindRoseProps {
   data: WindRoseData[];
   speedClasses?: { min: number; max: number; color: string; label: string }[];
   title?: string;
+  maxWindSpeed?: number; // Optional: if not provided, will auto-calculate from data
 }
+
+/**
+ * Generate dynamic speed classes based on max wind speed
+ * Creates 6 equal-ish bands from 0 to maxSpeed
+ */
+const generateSpeedClasses = (maxSpeed: number) => {
+  // Round up max speed to nearest nice number
+  const niceMax = Math.ceil(maxSpeed / 5) * 5 || 10;
+  const step = niceMax / 5;
+  
+  return [
+    { min: 0, max: step, color: "#bfdbfe", label: `0-${step.toFixed(0)} km/h` },
+    { min: step, max: step * 2, color: "#60a5fa", label: `${step.toFixed(0)}-${(step * 2).toFixed(0)} km/h` },
+    { min: step * 2, max: step * 3, color: "#22c55e", label: `${(step * 2).toFixed(0)}-${(step * 3).toFixed(0)} km/h` },
+    { min: step * 3, max: step * 4, color: "#facc15", label: `${(step * 3).toFixed(0)}-${(step * 4).toFixed(0)} km/h` },
+    { min: step * 4, max: step * 5, color: "#f97316", label: `${(step * 4).toFixed(0)}-${(step * 5).toFixed(0)} km/h` },
+    { min: step * 5, max: Infinity, color: "#dc2626", label: `>${(step * 5).toFixed(0)} km/h` },
+  ];
+};
 
 const DEFAULT_SPEED_CLASSES = [
   { min: 0, max: 2, color: "#bfdbfe", label: "0-2 km/h" },
@@ -23,7 +43,33 @@ const DEFAULT_SPEED_CLASSES = [
 
 const DIRECTIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 
-export function WindRose({ data, speedClasses = DEFAULT_SPEED_CLASSES, title = "Wind Rose" }: WindRoseProps) {
+export function WindRose({ data, speedClasses, title = "Wind Rose", maxWindSpeed }: WindRoseProps) {
+  // Calculate max wind speed from data if not provided
+  const calculatedMaxSpeed = useMemo(() => {
+    if (maxWindSpeed !== undefined) return maxWindSpeed;
+    
+    let maxSpeed = 0;
+    data.forEach(d => {
+      // Sum of all speed class counts weighted by their max values
+      d.speeds.forEach((count, idx) => {
+        if (count > 0) {
+          // The actual max speed is approximated by looking at which speed classes have data
+          const classMax = DEFAULT_SPEED_CLASSES[idx]?.max || 100;
+          if (classMax !== Infinity && classMax > maxSpeed) {
+            maxSpeed = classMax;
+          }
+        }
+      });
+    });
+    return maxSpeed || 50; // Default to 50 if no data
+  }, [data, maxWindSpeed]);
+
+  // Use provided speed classes or generate dynamic ones based on max speed
+  const activeSpeedClasses = useMemo(() => {
+    if (speedClasses) return speedClasses;
+    return generateSpeedClasses(calculatedMaxSpeed);
+  }, [speedClasses, calculatedMaxSpeed]);
+
   const maxValue = useMemo(() => {
     let max = 0;
     data.forEach(d => {
@@ -109,7 +155,7 @@ export function WindRose({ data, speedClasses = DEFAULT_SPEED_CLASSES, title = "
                 <path
                   key={`${dirIndex}-${speedIndex}`}
                   d={createWedge(dirIndex, innerRadius, currentRadius)}
-                  fill={speedClasses[speedIndex]?.color || "#3b82f6"}
+                  fill={activeSpeedClasses[speedIndex]?.color || "#3b82f6"}
                   stroke="white"
                   strokeWidth={0.5}
                   opacity={0.85}
@@ -119,8 +165,13 @@ export function WindRose({ data, speedClasses = DEFAULT_SPEED_CLASSES, title = "
           })}
         </svg>
 
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {speedClasses.map((sc) => (
+        {/* Max wind speed indicator */}
+        <div className="mt-2 text-center text-xs text-muted-foreground">
+          Max: {calculatedMaxSpeed.toFixed(1)} km/h
+        </div>
+
+        <div className="mt-2 flex flex-wrap justify-center gap-2">
+          {activeSpeedClasses.map((sc) => (
             <div key={sc.label} className="flex items-center gap-1 text-xs">
               <div
                 className="h-3 w-3 rounded-sm"

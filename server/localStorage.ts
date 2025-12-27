@@ -210,6 +210,11 @@ export class DatabaseStorage {
     if (station.connectionType !== undefined) updateData.connection_type = station.connectionType;
     if (station.connectionConfig !== undefined) updateData.connection_config = JSON.stringify(station.connectionConfig);
     if (station.securityCode !== undefined) updateData.security_code = station.securityCode;
+    // Personnel fields
+    if ((station as any).installationTeam !== undefined) updateData.installation_team = (station as any).installationTeam;
+    if ((station as any).stationAdmin !== undefined) updateData.station_admin = (station as any).stationAdmin;
+    if ((station as any).stationAdminEmail !== undefined) updateData.station_admin_email = (station as any).stationAdminEmail;
+    if ((station as any).stationAdminPhone !== undefined) updateData.station_admin_phone = (station as any).stationAdminPhone;
     
     db.updateStation(id, updateData);
     return this.getStation(id);
@@ -502,7 +507,12 @@ export class DatabaseStorage {
       pollInterval: connectionConfig.pollInterval,
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
-      stationType: connectionConfig.stationType || station.connection_type
+      stationType: connectionConfig.stationType || station.connection_type,
+      // Personnel fields
+      installationTeam: station.installation_team || undefined,
+      stationAdmin: station.station_admin || undefined,
+      stationAdminEmail: station.station_admin_email || undefined,
+      stationAdminPhone: station.station_admin_phone || undefined
     };
   }
 
