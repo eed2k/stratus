@@ -8,7 +8,28 @@ let serverProcess = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const SERVER_PORT = 5000;
 
+/**
+ * Get the correct icon path based on platform and whether app is packaged
+ * In development: assets are relative to project root
+ * In production: assets are in resources/assets (extraResources)
+ */
+function getIconPath() {
+  const iconFile = process.platform === 'win32' ? 'icon.ico' : 'icon.png';
+  
+  if (isDev) {
+    // Development: assets folder is relative to electron folder
+    return path.join(__dirname, '..', 'assets', iconFile);
+  } else {
+    // Production: assets are copied to resources/assets by extraResources
+    return path.join(process.resourcesPath, 'assets', iconFile);
+  }
+}
+
 function createWindow() {
+  // Get the correct icon path
+  const iconPath = getIconPath();
+  console.log('Using icon path:', iconPath);
+
   // Create the browser window
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -20,10 +41,10 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, '../assets/icon.png'),
+    icon: iconPath,
     title: 'Stratus Weather Server',
     show: false,
-    backgroundColor: '#1a1a2e'
+    backgroundColor: '#ffffff'
   });
 
   // Create application menu

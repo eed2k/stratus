@@ -46,22 +46,22 @@ export function MetricCard({
   }
 
   return (
-    <Card className="hover-elevate transition-shadow duration-200 border-white/50" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card className="hover-elevate transition-shadow duration-200 border-2 border-black bg-white" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-sm font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-1">
-          <span className="font-mono text-3xl font-bold tracking-tight" data-testid={`value-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+          <span className="text-3xl font-bold tracking-tight text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid={`value-${title.toLowerCase().replace(/\s+/g, '-')}`}>
             {value}
           </span>
-          <span className="text-sm text-muted-foreground">{unit}</span>
+          <span className="text-sm font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{unit}</span>
         </div>
 
         {trend && (
-          <p className={`mt-1 text-xs ${trend.value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <p className={`mt-1 text-xs font-bold ${trend.value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             {trend.value >= 0 ? '+' : ''}{trend.value} {trend.label}
           </p>
         )}
@@ -76,7 +76,7 @@ export function MetricCard({
               return (
                 <div
                   key={i}
-                  className="flex-1 bg-white rounded-t-sm"
+                  className="flex-1 bg-black rounded-t-sm"
                   style={{ height: `${Math.max(height, 5)}%` }}
                 />
               );
@@ -85,11 +85,11 @@ export function MetricCard({
         )}
 
         {subMetrics && subMetrics.length > 0 && (
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3">
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-black pt-3">
             {subMetrics.map((sub, i) => (
-              <div key={i} className="text-xs">
-                <span className="text-muted-foreground">{sub.label}: </span>
-                <span className="font-mono font-medium">{sub.value}</span>
+              <div key={i} className="text-xs" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <span className="font-bold text-black">{sub.label}: </span>
+                <span className="font-bold text-black">{sub.value}</span>
               </div>
             ))}
           </div>

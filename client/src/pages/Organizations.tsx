@@ -40,7 +40,7 @@ export default function Organizations() {
 
   const createOrgMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string }) => {
-      return apiRequest("/api/organizations", { method: "POST", body: JSON.stringify(data) });
+      return apiRequest("POST", "/api/organizations", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/organizations"] });
@@ -56,7 +56,7 @@ export default function Organizations() {
 
   const inviteMutation = useMutation({
     mutationFn: async (data: { email: string; role: string }) => {
-      return apiRequest(`/api/organizations/${selectedOrg?.id}/invitations`, { method: "POST", body: JSON.stringify(data) });
+      return apiRequest("POST", `/api/organizations/${selectedOrg?.id}/invitations`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/organizations", selectedOrg?.id, "invitations"] });
@@ -72,7 +72,7 @@ export default function Organizations() {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return apiRequest(`/api/organizations/${selectedOrg?.id}/members/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) });
+      return apiRequest("PATCH", `/api/organizations/${selectedOrg?.id}/members/${userId}/role`, { role });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/organizations", selectedOrg?.id, "members"] });
@@ -82,7 +82,7 @@ export default function Organizations() {
 
   const removeMemberMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return apiRequest(`/api/organizations/${selectedOrg?.id}/members/${userId}`, { method: "DELETE" });
+      return apiRequest("DELETE", `/api/organizations/${selectedOrg?.id}/members/${userId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/organizations", selectedOrg?.id, "members"] });

@@ -44,19 +44,20 @@ export function CurrentConditions({
   isOnline = true,
 }: CurrentConditionsProps) {
   return (
-    <Card className="w-full" data-testid="card-current-conditions">
+    <Card className="w-full border-2 border-black bg-white" data-testid="card-current-conditions">
       <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4">
         <div className="flex flex-col gap-1">
-          <CardTitle className="text-xl font-semibold" data-testid="text-station-name">
+          <CardTitle className="text-xl font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-station-name">
             {stationName}
           </CardTitle>
-          <p className="text-xs text-muted-foreground" data-testid="text-last-update">
+          <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-last-update">
             Last update: {lastUpdate}
           </p>
         </div>
         <Badge
           variant={isOnline ? "default" : "secondary"}
-          className={isOnline ? "bg-green-600 text-white" : ""}
+          className={isOnline ? "bg-green-600 text-white font-bold" : "font-bold"}
+          style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
           data-testid="badge-station-status"
         >
           {isOnline ? "Online" : "Offline"}
@@ -65,49 +66,49 @@ export function CurrentConditions({
       <CardContent>
         <div className="grid gap-6">
           <div>
-            <p className="font-mono text-5xl font-bold tracking-tight" data-testid="value-temperature">
+            <p className="text-5xl font-bold tracking-tight text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-temperature">
               {fmt(temperature, 1)}
-              <span className="text-2xl text-muted-foreground">°C</span>
+              <span className="text-2xl text-black">°C</span>
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Humidity</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-humidity">{fmt(humidity, 1)}%</p>
+            <div className="rounded-lg border-2 border-black bg-gray-50 p-3">
+              <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Humidity</p>
+              <p className="text-lg font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-humidity">{fmt(humidity, 1)}%</p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Pressure</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-pressure">{fmt(pressure, 2)} hPa</p>
+            <div className="rounded-lg border-2 border-black bg-gray-50 p-3">
+              <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Pressure</p>
+              <p className="text-lg font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-pressure">{fmt(pressure, 2)} hPa</p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Wind</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-wind">{fmt(windSpeed, 1)} km/h</p>
-              <p className="text-xs text-muted-foreground">Gust: {fmt(windGust, 1)} km/h</p>
+            <div className="rounded-lg border-2 border-black bg-gray-50 p-3">
+              <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Wind</p>
+              <p className="text-lg font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-wind">{fmt(windSpeed, 1)} km/h</p>
+              <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust: {fmt(windGust, 1)} km/h</p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Direction</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-direction">
+            <div className="rounded-lg border-2 border-black bg-gray-50 p-3">
+              <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Direction</p>
+              <p className="text-lg font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-direction">
                 {getWindDirectionLabel(windDirection)} ({Math.round(windDirection)}°)
               </p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Solar</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-solar">{fmt(solarRadiation, 1)} W/m²</p>
+            <div className="rounded-lg border-2 border-black bg-gray-50 p-3">
+              <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Solar</p>
+              <p className="text-lg font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-solar">{fmt(solarRadiation, 1)} W/m²</p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Rain (24h)</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-rain">{fmt(rainfall, 2)} mm</p>
+            <div className="rounded-lg border-2 border-black bg-gray-50 p-3">
+              <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rain (24h)</p>
+              <p className="text-lg font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-rain">{fmt(rainfall, 2)} mm</p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Dew Point</p>
-              <p className="font-mono text-lg font-semibold" data-testid="value-dewpoint">{fmt(dewPoint, 1)}°C</p>
+            <div className="rounded-lg border-2 border-black bg-gray-50 p-3">
+              <p className="text-xs font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Dew Point</p>
+              <p className="text-lg font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-dewpoint">{fmt(dewPoint, 1)}°C</p>
             </div>
           </div>
         </div>

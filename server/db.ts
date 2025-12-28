@@ -76,6 +76,59 @@ async function runMigrations(database: Database): Promise<void> {
       // Column already exists, ignore
     }
   }
+
+  // Add organizations table if it doesn't exist
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS organizations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE,
+        description TEXT,
+        owner_id TEXT DEFAULT 'local-user',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    // Table already exists
+  }
+
+  // Add organization members table if it doesn't exist
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS organization_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        organization_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT DEFAULT 'member',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (e) {
+    // Table already exists
+  }
+
+  // Add organization invitations table if it doesn't exist
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS organization_invitations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        organization_id INTEGER NOT NULL,
+        email TEXT NOT NULL,
+        role TEXT DEFAULT 'member',
+        token TEXT UNIQUE NOT NULL,
+        expires_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (e) {
+    // Table already exists
+  }
+
+  saveDatabase();
 }
 
 /**
@@ -188,6 +241,45 @@ async function createTables(database: Database): Promise<void> {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Organizations table for desktop multi-org support
+  database.run(`
+    CREATE TABLE IF NOT EXISTS organizations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE,
+      description TEXT,
+      owner_id TEXT DEFAULT 'local-user',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Organization members table
+  database.run(`
+    CREATE TABLE IF NOT EXISTS organization_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      organization_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT DEFAULT 'member',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Organization invitations table
+  database.run(`
+    CREATE TABLE IF NOT EXISTS organization_invitations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      organization_id INTEGER NOT NULL,
+      email TEXT NOT NULL,
+      role TEXT DEFAULT 'member',
+      token TEXT UNIQUE NOT NULL,
+      expires_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
     )
   `);
 
@@ -502,6 +594,197 @@ export function acknowledgeAlert(id: number): void {
   saveDatabase();
 }
 
+// ============ Organizations Operations ============
+
+export interface OrganizationRecord {
+  id: number;
+  name: string;
+  slug?: string;
+  description?: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrgMemberRecord {
+  id: number;
+  organization_id: number;
+  user_id: string;
+  role: string;
+  created_at: string;
+}
+
+export interface OrgInvitationRecord {
+  id: number;
+  organization_id: number;
+  email: string;
+  role: string;
+  token: string;
+  expires_at?: string;
+  created_at: string;
+}
+
+export function getAllOrganizations(): OrganizationRecord[] {
+  if (!db) return [];
+  const result = db.exec('SELECT * FROM organizations ORDER BY created_at DESC');
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    name: row[1] as string,
+    slug: row[2] as string | undefined,
+    description: row[3] as string | undefined,
+    owner_id: row[4] as string,
+    created_at: row[5] as string,
+    updated_at: row[6] as string
+  }));
+}
+
+export function getOrganizationById(id: number): OrganizationRecord | null {
+  if (!db) return null;
+  const result = db.exec('SELECT * FROM organizations WHERE id = ?', [id]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const row = result[0].values[0];
+  return {
+    id: row[0] as number,
+    name: row[1] as string,
+    slug: row[2] as string | undefined,
+    description: row[3] as string | undefined,
+    owner_id: row[4] as string,
+    created_at: row[5] as string,
+    updated_at: row[6] as string
+  };
+}
+
+export function createOrganization(name: string, description?: string, ownerId: string = 'local-user'): number {
+  if (!db) throw new Error('Database not initialized');
+  
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  
+  db.run(
+    `INSERT INTO organizations (name, slug, description, owner_id) VALUES (?, ?, ?, ?)`,
+    [name, slug, description || null, ownerId]
+  );
+  
+  const result = db.exec('SELECT last_insert_rowid()');
+  const id = result[0].values[0][0] as number;
+  
+  saveDatabase();
+  return id;
+}
+
+export function updateOrganization(id: number, data: { name?: string; description?: string }): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  const updates: string[] = [];
+  const params: any[] = [];
+  
+  if (data.name !== undefined) {
+    updates.push('name = ?');
+    params.push(data.name);
+    updates.push('slug = ?');
+    params.push(data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+  }
+  if (data.description !== undefined) {
+    updates.push('description = ?');
+    params.push(data.description);
+  }
+  
+  if (updates.length === 0) return;
+  
+  updates.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(id);
+  
+  db.run(`UPDATE organizations SET ${updates.join(', ')} WHERE id = ?`, params);
+  saveDatabase();
+}
+
+export function deleteOrganization(id: number): void {
+  if (!db) throw new Error('Database not initialized');
+  db.run('DELETE FROM organizations WHERE id = ?', [id]);
+  saveDatabase();
+}
+
+export function getOrganizationMembers(orgId: number): OrgMemberRecord[] {
+  if (!db) return [];
+  const result = db.exec('SELECT * FROM organization_members WHERE organization_id = ?', [orgId]);
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    organization_id: row[1] as number,
+    user_id: row[2] as string,
+    role: row[3] as string,
+    created_at: row[4] as string
+  }));
+}
+
+export function addOrganizationMember(orgId: number, userId: string, role: string = 'member'): number {
+  if (!db) throw new Error('Database not initialized');
+  
+  db.run(
+    'INSERT INTO organization_members (organization_id, user_id, role) VALUES (?, ?, ?)',
+    [orgId, userId, role]
+  );
+  
+  const result = db.exec('SELECT last_insert_rowid()');
+  const id = result[0].values[0][0] as number;
+  
+  saveDatabase();
+  return id;
+}
+
+export function updateMemberRole(orgId: number, userId: string, role: string): void {
+  if (!db) throw new Error('Database not initialized');
+  db.run(
+    'UPDATE organization_members SET role = ? WHERE organization_id = ? AND user_id = ?',
+    [role, orgId, userId]
+  );
+  saveDatabase();
+}
+
+export function removeOrganizationMember(orgId: number, userId: string): void {
+  if (!db) throw new Error('Database not initialized');
+  db.run(
+    'DELETE FROM organization_members WHERE organization_id = ? AND user_id = ?',
+    [orgId, userId]
+  );
+  saveDatabase();
+}
+
+export function getOrganizationInvitations(orgId: number): OrgInvitationRecord[] {
+  if (!db) return [];
+  const result = db.exec('SELECT * FROM organization_invitations WHERE organization_id = ?', [orgId]);
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    organization_id: row[1] as number,
+    email: row[2] as string,
+    role: row[3] as string,
+    token: row[4] as string,
+    expires_at: row[5] as string | undefined,
+    created_at: row[6] as string
+  }));
+}
+
+export function createOrganizationInvitation(orgId: number, email: string, role: string = 'member'): string {
+  if (!db) throw new Error('Database not initialized');
+  
+  // Generate a simple token
+  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+  
+  db.run(
+    'INSERT INTO organization_invitations (organization_id, email, role, token, expires_at) VALUES (?, ?, ?, ?, ?)',
+    [orgId, email, role, token, expiresAt]
+  );
+  
+  saveDatabase();
+  return token;
+}
+
 // Export database module
 export default {
   initDatabase,
@@ -521,5 +804,16 @@ export default {
   getAllSettings,
   createAlert,
   getActiveAlerts,
-  acknowledgeAlert
+  acknowledgeAlert,
+  getAllOrganizations,
+  getOrganizationById,
+  createOrganization,
+  updateOrganization,
+  deleteOrganization,
+  getOrganizationMembers,
+  addOrganizationMember,
+  updateMemberRole,
+  removeOrganizationMember,
+  getOrganizationInvitations,
+  createOrganizationInvitation
 };

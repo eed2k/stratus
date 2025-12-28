@@ -422,53 +422,89 @@ export class DatabaseStorage {
     // No-op for desktop
   }
 
-  // Organization operations - stubs (desktop is single-user)
+  // Organization operations - now with real database persistence
   async getOrganizations(): Promise<Organization[]> {
-    return [];
+    const orgs = db.getAllOrganizations();
+    return orgs.map(org => ({
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      description: org.description,
+      ownerId: org.owner_id,
+      createdAt: new Date(org.created_at)
+    }));
   }
 
   async getUserOrganizations(userId: string): Promise<Organization[]> {
-    return [];
+    // For desktop, return all organizations (single user)
+    return this.getOrganizations();
   }
 
   async getOrganization(id: number): Promise<Organization | undefined> {
-    return undefined;
+    const org = db.getOrganizationById(id);
+    if (!org) return undefined;
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      description: org.description,
+      ownerId: org.owner_id,
+      createdAt: new Date(org.created_at)
+    };
   }
 
-  async createOrganization(org: any): Promise<Organization> {
-    return { 
-      id: Date.now(), 
-      createdAt: new Date(), 
-      updatedAt: new Date(),
-      ownerId: 'local-user', 
-      name: org.name || 'Untitled Organization',
-      description: org.description || null,
-      slug: org.slug || org.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'org',
-      ...org 
+  async createOrganization(orgData: any): Promise<Organization> {
+    const id = db.createOrganization(orgData.name, orgData.description, 'local-user');
+    const org = db.getOrganizationById(id);
+    return {
+      id: org!.id,
+      name: org!.name,
+      slug: org!.slug,
+      description: org!.description,
+      ownerId: org!.owner_id,
+      createdAt: new Date(org!.created_at)
     };
   }
 
   async updateOrganization(id: number, data: any): Promise<Organization | undefined> {
-    return { id, createdAt: new Date(), ownerId: 'local-user', ...data };
+    db.updateOrganization(id, data);
+    return this.getOrganization(id);
   }
 
   async deleteOrganization(id: number): Promise<boolean> {
+    db.deleteOrganization(id);
     return true;
   }
 
   async getOrganizationMembers(orgId: number): Promise<any[]> {
-    return [];
+    const members = db.getOrganizationMembers(orgId);
+    return members.map(m => ({
+      id: m.id,
+      organizationId: m.organization_id,
+      userId: m.user_id,
+      role: m.role,
+      createdAt: new Date(m.created_at),
+      user: {
+        id: m.user_id,
+        email: m.user_id === 'local-user' ? 'user@localhost' : m.user_id,
+        firstName: 'Local',
+        lastName: 'User'
+      }
+    }));
   }
 
   async addOrganizationMember(data: any): Promise<any> {
-    return { id: Date.now(), ...data };
+    const id = db.addOrganizationMember(data.organizationId, data.userId, data.role);
+    return { id, ...data, createdAt: new Date() };
   }
 
   async updateMemberRole(orgId: number, userId: string, role: string): Promise<any> {
+    db.updateMemberRole(orgId, userId, role);
     return { organizationId: orgId, userId, role };
   }
 
   async removeOrganizationMember(orgId: number, userId: string): Promise<boolean> {
+    db.removeOrganizationMember(orgId, userId);
     return true;
   }
 
@@ -481,11 +517,26 @@ export class DatabaseStorage {
   }
 
   async getOrganizationInvitations(orgId: number): Promise<any[]> {
-    return [];
+    const invitations = db.getOrganizationInvitations(orgId);
+    return invitations.map(inv => ({
+      id: inv.id,
+      organizationId: inv.organization_id,
+      email: inv.email,
+      role: inv.role,
+      token: inv.token,
+      expiresAt: inv.expires_at ? new Date(inv.expires_at) : undefined,
+      createdAt: new Date(inv.created_at)
+    }));
   }
 
   async createInvitation(data: any): Promise<any> {
-    return { id: Date.now(), token: 'local', ...data };
+    const token = db.createOrganizationInvitation(data.organizationId, data.email, data.role);
+    return { 
+      id: Date.now(), 
+      token,
+      ...data,
+      createdAt: new Date()
+    };
   }
 
   async getInvitationByToken(token: string): Promise<any> {
