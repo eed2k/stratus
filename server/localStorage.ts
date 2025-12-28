@@ -31,6 +31,11 @@ export interface WeatherStation {
   description?: string;
   location?: string;
   provider?: string;
+  // Personnel fields
+  installationTeam?: string;
+  stationAdmin?: string;
+  stationAdminEmail?: string;
+  stationAdminPhone?: string;
 }
 
 export interface WeatherData {
@@ -82,6 +87,11 @@ export interface InsertWeatherStation {
   location?: string;
   provider?: string;
   isActive?: boolean;
+  // Personnel fields
+  installationTeam?: string;
+  stationAdmin?: string;
+  stationAdminEmail?: string;
+  stationAdminPhone?: string;
 }
 
 // Simple user for local desktop app

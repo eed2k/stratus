@@ -99,33 +99,31 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0a1628] flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         {/* Logo & Branding */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
-            {/* Blue and White Circle Logo */}
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg border-2 border-white/20">
-              <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center">
-                <span className="text-blue-600 font-bold text-xl">S</span>
-              </div>
+            {/* Dark Blue Circle with White Dot Logo */}
+            <div className="w-14 h-14 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-lg border-2 border-white/10">
+              <div className="w-4 h-4 rounded-full bg-white"></div>
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">
                 Stratus
               </h1>
-              <p className="text-sm text-blue-200">Weather Station Server</p>
+              <p className="text-sm text-blue-300">Weather Station Server</p>
             </div>
           </div>
         </div>
 
         {/* Login/Signup Card */}
-        <Card className="shadow-xl border-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm">
+        <Card className="shadow-xl border border-white/10 bg-[#0f2744] backdrop-blur-sm">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl text-center">
+            <CardTitle className="text-2xl text-center text-white">
               {isSignup ? "Welcome to Stratus" : "Welcome Back"}
             </CardTitle>
-            <CardDescription className="text-center">
+            <CardDescription className="text-center text-blue-300">
               {isSignup
                 ? "Create your account to get started"
                 : "Sign in to your account"}
@@ -133,9 +131,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </CardHeader>
           <CardContent>
             <Tabs value={isSignup ? "signup" : "login"} onValueChange={(v) => setIsSignup(v === "signup")}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signup">Create Account</TabsTrigger>
-                <TabsTrigger value="login">Sign In</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-6 bg-[#1a3654]">
+                <TabsTrigger value="signup" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-blue-200">Create Account</TabsTrigger>
+                <TabsTrigger value="login" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-blue-200">Sign In</TabsTrigger>
               </TabsList>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -148,13 +146,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 {isSignup && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name *</Label>
+                      <Label htmlFor="firstName" className="text-blue-200">First Name *</Label>
                       <div className="relative">
-                        <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <User className="absolute left-3 top-2.5 h-4 w-4 text-blue-400" />
                         <Input
                           id="firstName"
                           placeholder="John"
-                          className="pl-9"
+                          className="pl-9 bg-[#1a3654] border-white/20 text-white placeholder:text-blue-400/50"
                           value={formData.firstName}
                           onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                           required
@@ -162,10 +160,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
+                      <Label htmlFor="lastName" className="text-blue-200">Last Name</Label>
                       <Input
                         id="lastName"
                         placeholder="Doe"
+                        className="bg-[#1a3654] border-white/20 text-white placeholder:text-blue-400/50"
                         value={formData.lastName}
                         onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                       />
@@ -174,14 +173,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email" className="text-blue-200">Email *</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-blue-400" />
                     <Input
                       id="email"
                       type="email"
                       placeholder="you@example.com"
-                      className="pl-9"
+                      className="pl-9 bg-[#1a3654] border-white/20 text-white placeholder:text-blue-400/50"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       required
@@ -190,21 +189,21 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password {isSignup && "*"}</Label>
+                  <Label htmlFor="password" className="text-blue-200">Password {isSignup && "*"}</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-blue-400" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder={isSignup ? "Create a password (min 6 chars)" : "Enter your password"}
-                      className="pl-9 pr-9"
+                      className="pl-9 pr-9 bg-[#1a3654] border-white/20 text-white placeholder:text-blue-400/50"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       required={isSignup}
                     />
                     <button
                       type="button"
-                      className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-2.5 text-blue-400 hover:text-blue-200"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -214,14 +213,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
                 {isSignup && (
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                    <Label htmlFor="confirmPassword" className="text-blue-200">Confirm Password *</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-2.5 h-4 w-4 text-blue-400" />
                       <Input
                         id="confirmPassword"
                         type={showPassword ? "text" : "password"}
                         placeholder="Confirm your password"
-                        className="pl-9"
+                        className="pl-9 bg-[#1a3654] border-white/20 text-white placeholder:text-blue-400/50"
                         value={formData.confirmPassword}
                         onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                         required
@@ -230,7 +229,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   </div>
                 )}
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={isLoading}>
                   {isLoading ? (
                     "Please wait..."
                   ) : isSignup ? (
@@ -249,11 +248,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Footer */}
         <div className="text-center space-y-1">
-          <p className="text-xs text-blue-200">
+          <p className="text-xs text-blue-300">
             Stratus Weather Station Server v1.0.0
           </p>
-          <p className="text-xs text-blue-300/70">
-            Developed by <span className="font-medium text-blue-200">Itronics (Pty) Ltd</span>
+          <p className="text-xs text-blue-400">
+            Developer: <span className="font-medium text-blue-300">Lukas Esterhuizen</span> (esterhuizen2k@proton.me)
           </p>
         </div>
       </div>
