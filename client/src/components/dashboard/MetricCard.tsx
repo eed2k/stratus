@@ -28,7 +28,7 @@ export function MetricCard({
   if (isFaulty) {
     return (
       <Card 
-        className="bg-yellow-500 border-yellow-600" 
+        className="bg-yellow-500 border-yellow-400" 
         data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}
       >
         <CardHeader className="pb-2">
@@ -46,7 +46,7 @@ export function MetricCard({
   }
 
   return (
-    <Card className="hover-elevate transition-shadow duration-200 border-2 border-black bg-white" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card className="hover-elevate transition-shadow duration-200 border border-gray-300 bg-white" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-bold text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           {title}

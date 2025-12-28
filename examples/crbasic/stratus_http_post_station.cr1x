@@ -1,0 +1,208 @@
+'===============================================================================
+' STRATUS WEATHER SERVER - HTTP POST Connection Example
+' For CR1000X, CR6, CR300 with Ethernet/WiFi
+'===============================================================================
+' This program collects weather data and POSTs it directly to Stratus
+' Weather Server's HTTP API endpoint. Best for remote stations with
+' internet connectivity.
+'
+' Connection: Ethernet, WiFi, or Cellular
+' Protocol: HTTP POST to Stratus API
+' Requires: CR1000X, CR6, or CR300 with network interface
+'===============================================================================
+
+'--- STRATUS SERVER CONFIGURATION ---
+' Configure these to match your Stratus installation
+Const STRATUS_SERVER = "192.168.1.100"  'Stratus server IP or hostname
+Const STRATUS_PORT = 5000                'Stratus HTTP port (default 5000)
+Const STATION_ID = "CR1000X_001"         'Your station ID in Stratus
+Const API_KEY = "your-api-key-here"      'Optional: API key for authentication
+
+'--- Timing Constants ---
+Const SCAN_INTERVAL = 5        'Seconds between measurements  
+Const POST_INTERVAL = 60       'Seconds between HTTP POSTs to Stratus
+
+'--- Sensor Calibration ---
+Const WIND_SPEED_MULT = 0.098
+Const RAIN_MM_PER_TIP = 0.254
+
+'--- Public Variables ---
+Public BattV, PTemp_C
+Public AirTC, RH
+Public WS_ms, WindDir
+Public Rain_mm, BP_mbar
+Public DewPoint_C
+
+'--- HTTP Communication Variables ---
+Public HTTPResponse As String * 500
+Public HTTPStatus As Long
+Public PostSuccess As Boolean
+Public LastPostTime As String * 25
+Public PostCount As Long
+Public ErrorCount As Long
+
+'--- JSON Payload ---
+Dim JSONPayload As String * 1000
+Dim Socket As Long
+
+'--- Data Table for local backup ---
+DataTable(WeatherData,True,-1)
+  DataInterval(0,1,Min,10)
+  Average(1,AirTC,FP2,False)
+  Sample(1,RH,FP2)
+  Average(1,WS_ms,FP2,False)
+  Sample(1,WindDir,FP2)
+  Totalize(1,Rain_mm,FP2,False)
+  Average(1,BP_mbar,FP2,False)
+  Sample(1,DewPoint_C,FP2)
+  Sample(1,BattV,FP2)
+EndTable
+
+'--- Subroutines ---
+Sub CalcDewPoint
+  Dim e_sat, e_act
+  If RH > 0 AND AirTC > -40 Then
+    e_sat = 6.112 * EXP((17.67 * AirTC) / (AirTC + 243.5))
+    e_act = e_sat * (RH / 100)
+    DewPoint_C = (243.5 * LOG(e_act / 6.112)) / (17.67 - LOG(e_act / 6.112))
+  Else
+    DewPoint_C = NAN
+  EndIf
+EndSub
+
+' Build JSON payload for Stratus API
+Sub BuildJSONPayload
+  JSONPayload = "{"
+  JSONPayload = JSONPayload & """stationId"":""" & STATION_ID & ""","
+  JSONPayload = JSONPayload & """timestamp"":""" & Public.Timestamp(1,1) & ""","
+  JSONPayload = JSONPayload & """data"":{"
+  JSONPayload = JSONPayload & """temperature"":" & FormatFloat(AirTC,"%0.2f") & ","
+  JSONPayload = JSONPayload & """humidity"":" & FormatFloat(RH,"%0.1f") & ","
+  JSONPayload = JSONPayload & """windSpeed"":" & FormatFloat(WS_ms,"%0.2f") & ","
+  JSONPayload = JSONPayload & """windDirection"":" & FormatFloat(WindDir,"%0.0f") & ","
+  JSONPayload = JSONPayload & """rainfall"":" & FormatFloat(Rain_mm,"%0.2f") & ","
+  JSONPayload = JSONPayload & """pressure"":" & FormatFloat(BP_mbar,"%0.1f") & ","
+  JSONPayload = JSONPayload & """dewPoint"":" & FormatFloat(DewPoint_C,"%0.2f") & ","
+  JSONPayload = JSONPayload & """battery"":" & FormatFloat(BattV,"%0.2f")
+  JSONPayload = JSONPayload & "}}"
+EndSub
+
+' Send data to Stratus via HTTP POST
+Sub PostToStratus
+  Dim URI As String * 100
+  Dim Headers As String * 200
+  
+  URI = "/api/weather-data"
+  
+  ' Build headers
+  Headers = "Content-Type: application/json" & CHR(13) & CHR(10)
+  Headers = Headers & "X-Station-ID: " & STATION_ID & CHR(13) & CHR(10)
+  If API_KEY <> "" Then
+    Headers = Headers & "Authorization: Bearer " & API_KEY & CHR(13) & CHR(10)
+  EndIf
+  
+  ' Build JSON payload
+  Call BuildJSONPayload
+  
+  ' Send HTTP POST request
+  HTTPStatus = HTTPPost(STRATUS_SERVER,STRATUS_PORT,URI,JSONPayload,Headers,HTTPResponse,Socket)
+  
+  If HTTPStatus = 200 OR HTTPStatus = 201 Then
+    PostSuccess = True
+    PostCount = PostCount + 1
+    LastPostTime = Public.Timestamp(1,1)
+  Else
+    PostSuccess = False
+    ErrorCount = ErrorCount + 1
+  EndIf
+EndSub
+
+'===============================================================================
+' MAIN PROGRAM  
+'===============================================================================
+BeginProg
+  
+  ' Initialize counters
+  PostCount = 0
+  ErrorCount = 0
+  
+  ' Main measurement scan
+  Scan(SCAN_INTERVAL,Sec,1,0)
+    
+    '--- System Measurements ---
+    Battery(BattV)
+    PanelTemp(PTemp_C,60)
+    
+    '--- Sensor Measurements ---
+    ' Temperature and Humidity (HMP155 or similar)
+    VoltSe(AirTC,1,mV5000,1,0,0,60,0.1,-40)
+    VoltSe(RH,1,mV5000,2,0,0,60,0.1,0)
+    If RH > 100 Then RH = 100
+    If RH < 0 Then RH = 0
+    
+    ' Wind Speed and Direction (RM Young 05103)
+    PulseCount(WS_ms,1,P1,5,1,WIND_SPEED_MULT,0)
+    BrHalf(WindDir,1,mV5000,3,Vx1,1,5000,True,0,60,355,0)
+    If WindDir >= 360 OR WindDir < 0 Then WindDir = 0
+    
+    ' Rainfall (TE525)
+    PulseCount(Rain_mm,1,P2,2,0,RAIN_MM_PER_TIP,0)
+    
+    ' Barometric Pressure (CS106)
+    VoltSe(BP_mbar,1,mV5000,4,0,0,60,0.240,500)
+    
+    '--- Calculate Derived Values ---
+    Call CalcDewPoint
+    
+    '--- Store to local table ---
+    CallTable(WeatherData)
+    
+  NextScan
+  
+  ' Slow sequence for HTTP POST (runs independently)
+  SlowSequence
+  Scan(POST_INTERVAL,Sec,1,0)
+    Call PostToStratus
+  NextScan
+  EndSequence
+  
+EndProg
+
+'===============================================================================
+' STRATUS API ENDPOINTS
+'===============================================================================
+' Stratus Weather Server accepts data via these endpoints:
+'
+' POST /api/weather-data
+'   - Accepts JSON weather data
+'   - Body format:
+'     {
+'       "stationId": "CR1000X_001",
+'       "timestamp": "2025-01-01T12:00:00",
+'       "data": {
+'         "temperature": 22.5,
+'         "humidity": 65.0,
+'         "windSpeed": 3.2,
+'         "windDirection": 180,
+'         "rainfall": 0.0,
+'         "pressure": 1013.25,
+'         "dewPoint": 15.8,
+'         "battery": 12.8
+'       }
+'     }
+'
+' POST /api/stations/:id/data
+'   - Alternative endpoint using station ID in URL
+'
+' Headers:
+'   Content-Type: application/json
+'   X-Station-ID: [station identifier]
+'   Authorization: Bearer [api-key] (if authentication enabled)
+'
+' Response:
+'   200 OK - Data accepted
+'   201 Created - New record created
+'   400 Bad Request - Invalid data format
+'   401 Unauthorized - Invalid API key
+'   404 Not Found - Station not registered
+'===============================================================================

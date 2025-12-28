@@ -1,0 +1,230 @@
+'===============================================================================
+' STRATUS WEATHER SERVER - PakBus Connection Example
+' For CR1000X, CR6, CR1000, CR800, CR300 series
+'===============================================================================
+' This program collects weather data and stores it in tables that Stratus
+' polls via PakBus protocol. No special code needed - Stratus connects to
+' the datalogger and retrieves data automatically.
+'
+' Connection: Serial RS-232, TCP/IP, or Radio
+' Protocol: PakBus (Campbell Scientific native protocol)
+'===============================================================================
+
+'--- Wiring ---
+' HMP155 Temperature/RH Sensor:
+'   Yellow -> SE1 (Temp)
+'   Blue -> SE2 (RH) 
+'   White -> AG
+'   Brown -> 12V
+'   Black -> G
+'
+' RM Young 05103 Wind Sensor:
+'   Red -> P1 (Wind Speed)
+'   Black -> AG
+'   White -> SE3 (Wind Direction)
+'   Green -> AG
+'   Shield -> G
+'
+' TE525 Rain Gauge:
+'   Black -> P2
+'   White -> AG
+'   Clear -> G
+'
+' CS106 Barometric Pressure:
+'   Red -> 12V
+'   Black -> G
+'   Green -> SE4
+'===============================================================================
+
+' PakBus Settings (configured via Device Configuration Utility)
+' - PakBus Address: 1 (default, can be 1-4094)
+' - Neighbor List: Add Stratus server IP or serial port
+' - Security Code: Match what's configured in Stratus
+
+'--- Constants ---
+Const SCAN_INTERVAL = 5        'Seconds between measurements
+Const OUTPUT_INTERVAL = 1      'Minutes between data storage
+Const STATION_ELEVATION = 100  'Meters above sea level (for pressure correction)
+
+'--- Sensor Calibration Constants ---
+Const WIND_SPEED_MULT = 0.098  '05103 wind speed multiplier (m/s per Hz)
+Const WIND_SPEED_OFFSET = 0    'Wind speed offset
+Const RAIN_MM_PER_TIP = 0.254  'TE525 rain gauge mm per tip
+
+'--- Public Variables (visible to Stratus) ---
+Public BattV              'Battery voltage
+Public PTemp_C            'Panel temperature
+Public AirTC              'Air temperature (°C)
+Public RH                 'Relative humidity (%)
+Public WS_ms              'Wind speed (m/s)
+Public WindDir            'Wind direction (degrees)
+Public Rain_mm            'Rainfall (mm)
+Public BP_mbar            'Barometric pressure (mbar)
+Public DewPoint_C         'Calculated dew point (°C)
+Public HeatIndex_C        'Calculated heat index (°C)
+Public WindChill_C        'Calculated wind chill (°C)
+
+'--- Working Variables ---
+Dim e_sat, e_act          'For dew point calculation
+Dim WS_kmh                'Wind speed in km/h for heat index
+
+'--- Data Tables (Stratus polls these) ---
+' Main weather data table - 1 minute averages
+DataTable(WeatherData,True,-1)
+  DataInterval(0,OUTPUT_INTERVAL,Min,10)
+  
+  ' Stratus expects these field names (configurable in station setup)
+  Average(1,AirTC,FP2,False)
+  Sample(1,RH,FP2)
+  Average(1,WS_ms,FP2,False)
+  Sample(1,WindDir,FP2)
+  WindVector(1,WS_ms,WindDir,FP2,False,0,0,0)
+  Totalize(1,Rain_mm,FP2,False)
+  Average(1,BP_mbar,FP2,False)
+  Sample(1,DewPoint_C,FP2)
+  Sample(1,HeatIndex_C,FP2)
+  Sample(1,WindChill_C,FP2)
+  Average(1,BattV,FP2,False)
+  Average(1,PTemp_C,FP2,False)
+EndTable
+
+' Hourly summary table
+DataTable(HourlyData,True,-1)
+  DataInterval(0,60,Min,10)
+  
+  Average(1,AirTC,FP2,False)
+  Maximum(1,AirTC,FP2,False,False)
+  Minimum(1,AirTC,FP2,False,False)
+  Average(1,RH,FP2,False)
+  Average(1,WS_ms,FP2,False)
+  Maximum(1,WS_ms,FP2,False,False)
+  Totalize(1,Rain_mm,FP2,False)
+  Average(1,BP_mbar,FP2,False)
+EndTable
+
+' Daily summary table
+DataTable(DailyData,True,-1)
+  DataInterval(0,1440,Min,10)
+  
+  Average(1,AirTC,FP2,False)
+  Maximum(1,AirTC,FP2,False,False)
+  Minimum(1,AirTC,FP2,False,False)
+  Average(1,RH,FP2,False)
+  Maximum(1,WS_ms,FP2,False,False)
+  Totalize(1,Rain_mm,FP2,False)
+  Average(1,BP_mbar,FP2,False)
+EndTable
+
+'--- Subroutines ---
+' Calculate dew point from temperature and RH
+Sub CalcDewPoint
+  If RH > 0 AND AirTC > -40 Then
+    e_sat = 6.112 * EXP((17.67 * AirTC) / (AirTC + 243.5))
+    e_act = e_sat * (RH / 100)
+    DewPoint_C = (243.5 * LOG(e_act / 6.112)) / (17.67 - LOG(e_act / 6.112))
+  Else
+    DewPoint_C = NAN
+  EndIf
+EndSub
+
+' Calculate heat index (valid for T > 26.7°C and RH > 40%)
+Sub CalcHeatIndex
+  If AirTC > 26.7 AND RH > 40 Then
+    HeatIndex_C = -8.784695 + 1.61139411 * AirTC + 2.338549 * RH _
+                  - 0.14611605 * AirTC * RH - 0.012308094 * AirTC^2 _
+                  - 0.016424828 * RH^2 + 0.002211732 * AirTC^2 * RH _
+                  + 0.00072546 * AirTC * RH^2 - 0.000003582 * AirTC^2 * RH^2
+  Else
+    HeatIndex_C = AirTC
+  EndIf
+EndSub
+
+' Calculate wind chill (valid for T < 10°C and WS > 4.8 km/h)
+Sub CalcWindChill
+  WS_kmh = WS_ms * 3.6
+  If AirTC < 10 AND WS_kmh > 4.8 Then
+    WindChill_C = 13.12 + 0.6215 * AirTC - 11.37 * (WS_kmh^0.16) _
+                  + 0.3965 * AirTC * (WS_kmh^0.16)
+  Else
+    WindChill_C = AirTC
+  EndIf
+EndSub
+
+'===============================================================================
+' MAIN PROGRAM
+'===============================================================================
+BeginProg
+  
+  ' Main scan loop
+  Scan(SCAN_INTERVAL,Sec,1,0)
+    
+    '--- System Measurements ---
+    Battery(BattV)
+    PanelTemp(PTemp_C,60)
+    
+    '--- Temperature and Humidity (HMP155) ---
+    VoltSe(AirTC,1,mV5000,1,0,0,60,0.1,-40)
+    VoltSe(RH,1,mV5000,2,0,0,60,0.1,0)
+    If RH > 100 Then RH = 100
+    If RH < 0 Then RH = 0
+    
+    '--- Wind Speed and Direction (RM Young 05103) ---
+    PulseCount(WS_ms,1,P1,5,1,WIND_SPEED_MULT,WIND_SPEED_OFFSET)
+    BrHalf(WindDir,1,mV5000,3,Vx1,1,5000,True,0,60,355,0)
+    If WindDir >= 360 OR WindDir < 0 Then WindDir = 0
+    
+    '--- Rainfall (TE525) ---
+    PulseCount(Rain_mm,1,P2,2,0,RAIN_MM_PER_TIP,0)
+    
+    '--- Barometric Pressure (CS106) ---
+    VoltSe(BP_mbar,1,mV5000,4,0,0,60,0.240,500)
+    ' Apply elevation correction (optional)
+    ' BP_mbar = BP_mbar * EXP(STATION_ELEVATION / 8434.5)
+    
+    '--- Calculate Derived Values ---
+    Call CalcDewPoint
+    Call CalcHeatIndex
+    Call CalcWindChill
+    
+    '--- Call Data Tables ---
+    CallTable(WeatherData)
+    CallTable(HourlyData)
+    CallTable(DailyData)
+    
+  NextScan
+  
+EndProg
+
+'===============================================================================
+' STRATUS CONFIGURATION NOTES
+'===============================================================================
+' In Stratus Weather Server, configure the station with:
+'
+' 1. Connection Settings:
+'    - Protocol: PakBus
+'    - Connection Type: TCP/IP or Serial
+'    - IP Address: [Datalogger IP] or COM Port: [Serial Port]
+'    - PakBus Address: 1 (or your configured address)
+'    - Security Code: [Your code] (0 = no security)
+'
+' 2. Data Collection:
+'    - Table Name: WeatherData (or HourlyData, DailyData)
+'    - Poll Interval: 60 seconds (or as needed)
+'    - Collect Mode: Since Last Collection
+'
+' 3. Field Mapping in Stratus:
+'    AirTC -> temperature
+'    RH -> humidity
+'    WS_ms -> windSpeed
+'    WindDir -> windDirection
+'    Rain_mm -> rainfall
+'    BP_mbar -> pressure
+'    DewPoint_C -> dewPoint
+'
+' Stratus will automatically:
+' - Connect to datalogger via PakBus
+' - Poll data tables at configured intervals
+' - Store data in SQLite database
+' - Display on real-time dashboard
+' - Generate historical charts and reports
+'===============================================================================

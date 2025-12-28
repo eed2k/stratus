@@ -157,7 +157,7 @@ export default function Dashboard() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 px-8">
             <Radio className="h-12 w-12 text-muted-foreground mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No Weather Stations</h2>
+            <h2 className="text-base font-semibold mb-2">No Weather Stations</h2>
             <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
               Add a weather station to start monitoring weather data on your dashboard.
             </p>
@@ -261,7 +261,7 @@ export default function Dashboard() {
 
         {/* Primary Metrics - Always Visible */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Primary Metrics</h2>
+          <h2 className="text-base font-semibold text-foreground">Primary Metrics</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             <MetricCard
               title="Temperature"
@@ -310,7 +310,7 @@ export default function Dashboard() {
 
         {/* Solar & Radiation Section */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Solar & Radiation</h2>
+          <h2 className="text-base font-semibold text-foreground">Solar & Radiation</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <MetricCard
               title="Solar Radiation"
@@ -346,7 +346,7 @@ export default function Dashboard() {
 
         {/* Soil & Environment Section */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Soil & Environment</h2>
+          <h2 className="text-base font-semibold text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <MetricCard
               title="Soil Temperature"
@@ -387,7 +387,7 @@ export default function Dashboard() {
 
         {/* Wind Direction Compass & Charts */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Wind Analysis</h2>
+          <h2 className="text-base font-semibold text-foreground">Wind Analysis</h2>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Wind Compass */}
             <WindCompass
@@ -415,7 +415,7 @@ export default function Dashboard() {
 
         {/* Charts Section */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Historical Data</h2>
+          <h2 className="text-base font-semibold text-foreground">Historical Data</h2>
           <Tabs defaultValue="temperature" className="w-full">
             <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
               <TabsTrigger value="temperature" className="flex-1 min-w-[80px]" data-testid="tab-temperature">Temp</TabsTrigger>
@@ -475,7 +475,7 @@ export default function Dashboard() {
 
         {/* Solar & ET Cards */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Solar & Evapotranspiration</h2>
+          <h2 className="text-base font-semibold text-foreground">Solar & Evapotranspiration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <SolarRadiationCard
               currentRadiation={currentData.solarRadiation || 0}

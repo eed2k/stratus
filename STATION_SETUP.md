@@ -30,6 +30,49 @@ Complete guide for connecting and configuring Campbell Scientific dataloggers wi
 
 ## Connection Types
 
+### CR200/CR200X Serial & Modem Setup
+
+**Supported Methods:**
+- Direct Serial (RS232, null modem cable)
+- Modem (GSM, cellular, or dial-up)
+
+**Serial Connection:**
+- Use a 9-pin null modem cable or direct RS232 cable from the CR200(X) to your PC or a USB-to-Serial adapter.
+- In Stratus, set:
+   - Connection Type: Serial
+   - COM Port: (e.g., COM3)
+   - Baud Rate: Match logger (default 9600 or 115200)
+   - PakBus Address: Match logger
+- On the logger, set matching baud rate and PakBus address in Device Config Utility.
+
+**Modem Connection:**
+- Connect a compatible modem (e.g., Campbell CELL200, Sierra Wireless, or standard AT-command modem) to the CR200(X) RS232 port.
+- In Stratus, set:
+   - Connection Type: Serial (for direct dial) or TCP/IP (for cellular modems with IP)
+   - COM Port: (for direct serial modem)
+   - Phone Number: (for dial-up)
+   - APN: (for cellular, if required)
+   - PakBus Address: Match logger
+- Stratus will:
+   - Initialize the modem using AT commands
+   - Dial the configured number (for dial-up)
+   - Wait for CONNECT
+   - Start PakBus or Modbus protocol over the serial stream
+
+**How Stratus Handles Modem Connections:**
+- Stratus backend (see gsmAdapter.ts, connectionManager.ts) manages modem negotiation:
+   - Sends AT commands to configure and dial
+   - Waits for CONNECT response
+   - On connection, switches to PakBus/Modbus protocol for data collection
+   - Handles disconnection and retries automatically
+- For cellular modems with IP, use TCP/IP connection as above.
+
+**Troubleshooting:**
+- Ensure baud rate and PakBus address match on both sides
+- Use null modem cable for direct serial
+- For modems, verify SIM card, APN, and signal
+- Check Stratus logs for connection and AT command errors
+
 ### Serial Connection (RS232/RS485)
 
 **Hardware Required:**
@@ -348,4 +391,4 @@ Apply sensor-specific calibration coefficients.
 
 For additional help:
 - Campbell Scientific Support: campbellsci.com/support
-- Stratus GitHub Issues: github.com/yourusername/stratus/issues
+- Lukas Esterhuizen (esterhuizen2k@proton.me) (Developer)
