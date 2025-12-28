@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { ThemeProvider } from "@/components/ThemeProvider";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DemoInitializer } from "@/components/DemoInitializer";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,7 +74,7 @@ function AuthenticatedApp({ user, logout }: {
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="dark flex h-screen w-full bg-background">
+      <div className="flex h-screen w-full bg-white">
         <AppSidebar
           user={{
             name: displayName,
@@ -111,12 +110,10 @@ function AuthenticatedApp({ user, logout }: {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <TooltipProvider>
-          <Router />
-          <Toaster />
-        </TooltipProvider>
-      </ThemeProvider>
+      <TooltipProvider>
+        <Router />
+        <Toaster />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

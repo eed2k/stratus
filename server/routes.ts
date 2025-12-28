@@ -40,8 +40,9 @@ const insertStationLogSchema = z.object({
 
 const insertOrganizationSchema = z.object({
   name: z.string(),
-  description: z.string().optional(),
-  ownerId: z.string()
+  description: z.string().optional().nullable(),
+  ownerId: z.string(),
+  slug: z.string().optional()
 });
 
 const insertOrganizationMemberSchema = z.object({

@@ -12,13 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/hooks/use-toast";
-import { User, Bell, Palette, Globe, Shield, Save, Server } from "lucide-react";
+import { User, Bell, Globe, Shield, Save, Server } from "lucide-react";
 
 export default function Settings() {
-  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
@@ -77,15 +74,6 @@ export default function Settings() {
             <CardDescription>Update your personal information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage />
-                <AvatarFallback className="text-lg">JD</AvatarFallback>
-              </Avatar>
-              <Button variant="outline" size="sm" data-testid="button-change-avatar" onClick={() => showComingSoon("Avatar upload")}>
-                Change Avatar
-              </Button>
-            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
@@ -152,30 +140,6 @@ export default function Settings() {
                   <Input id="windHigh" type="number" defaultValue="50" data-testid="input-wind-high" />
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-appearance-settings">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Palette className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Appearance</CardTitle>
-            </div>
-            <CardDescription>Customize the look and feel</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label>Theme</Label>
-              <Select value={theme} onValueChange={(v) => setTheme(v as "light" | "dark")}>
-                <SelectTrigger data-testid="select-theme">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardContent>
         </Card>

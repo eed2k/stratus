@@ -39,51 +39,16 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
-
-  .dark {
-    /* Dark Blue Theme - #0A1929 base */
-    --background: 210 60% 8%;  /* #0A1929 */
-    --foreground: 0 0% 100%;  /* White text */
-    --card: 210 45% 12%;  /* #1A2332 - Slightly lighter for cards */
-    --card-foreground: 0 0% 100%;
-    --popover: 210 45% 12%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 210 50% 20%;  /* #1E3A5F - Subtle blue accent */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 45% 10%;  /* #162130 - Secondary background */
-    --secondary-foreground: 0 0% 96%;  /* #F5F5F5 */
-    --muted: 210 40% 15%;
-    --muted-foreground: 0 0% 70%;  /* rgba(255,255,255,0.7) */
-    --accent: 210 50% 20%;  /* #1E3A5F - Hover states */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 50% 15%;  /* #3D0F0F - Very dark red */
-    --destructive-foreground: 0 0% 100%;
-    --border: 210 35% 25%;  /* #2D3B4E - Subtle borders */
-    --card-border: 0 0% 100%;  /* White outline for cards */
-    --input: 210 40% 15%;
-    --ring: 210 50% 25%;
-    --chart-1: 210 70% 50%;  /* Blue shades for charts */
-    --chart-2: 210 60% 40%;
-    --chart-3: 210 50% 30%;
-    --chart-4: 210 40% 60%;
-    --chart-5: 210 30% 70%;
-    --sidebar-background: 210 60% 8%;  /* Darkest blue */
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 210 50% 20%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 45% 12%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 210 35% 25%;
-    --sidebar-ring: 210 50% 25%;
-  }
 }
 
 @layer base {
   * {
     @apply border-border;
+    font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
   }
 }
 

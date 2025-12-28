@@ -11,7 +11,6 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
@@ -79,12 +78,6 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
       <SidebarFooter className="border-t border-sidebar-border p-4 space-y-3">
         {user && (
           <div className="flex items-center gap-3">
-            <Avatar className="h-9 w-9">
-              <AvatarImage src={user.avatar} />
-              <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
-                {user.name.split(" ").map(n => n[0]).join("").toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
             <div className="flex-1 overflow-hidden">
               <p className="truncate text-sm font-medium text-sidebar-foreground" data-testid="text-user-name">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>

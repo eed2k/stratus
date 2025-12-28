@@ -436,7 +436,16 @@ export class DatabaseStorage {
   }
 
   async createOrganization(org: any): Promise<Organization> {
-    return { id: Date.now(), createdAt: new Date(), ownerId: 'local-user', ...org };
+    return { 
+      id: Date.now(), 
+      createdAt: new Date(), 
+      updatedAt: new Date(),
+      ownerId: 'local-user', 
+      name: org.name || 'Untitled Organization',
+      description: org.description || null,
+      slug: org.slug || org.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'org',
+      ...org 
+    };
   }
 
   async updateOrganization(id: number, data: any): Promise<Organization | undefined> {
