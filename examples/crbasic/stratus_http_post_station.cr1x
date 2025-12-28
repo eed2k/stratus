@@ -13,10 +13,10 @@
 
 '--- STRATUS SERVER CONFIGURATION ---
 ' Configure these to match your Stratus installation
-Const STRATUS_SERVER = "192.168.1.100"  'Stratus server IP or hostname
+Const STRATUS_SERVER = "stratusweather1.dynv6.net"  'Stratus server IP or hostname
 Const STRATUS_PORT = 5000                'Stratus HTTP port (default 5000)
 Const STATION_ID = "CR1000X_001"         'Your station ID in Stratus
-Const API_KEY = "your-api-key-here"      'Optional: API key for authentication
+Const API_KEY = ""                       'Optional: API key for authentication
 
 '--- Timing Constants ---
 Const SCAN_INTERVAL = 5        'Seconds between measurements  
