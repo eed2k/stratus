@@ -80,7 +80,7 @@ export function WeatherChart({
   return (
     <Card data-testid={`card-chart-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 pb-2">
-        <CardTitle className="text-lg font-medium">{title}</CardTitle>
+        <CardTitle className="text-lg font-normal">{title}</CardTitle>
         <div className="flex flex-wrap gap-1">
           {timeRanges.map((range) => (
             <Button

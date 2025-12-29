@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface WindRoseData {
   direction: number;
@@ -8,67 +9,115 @@ interface WindRoseData {
 
 interface WindRoseProps {
   data: WindRoseData[];
-  speedClasses?: { min: number; max: number; color: string; label: string }[];
+  speedClasses?: { min: number; max: number; color: string; label: string; beaufort: string }[];
   title?: string;
-  maxWindSpeed?: number; // Optional: if not provided, will auto-calculate from data
+  maxWindSpeed?: number;
+  showWMOInfo?: boolean;
 }
 
 /**
- * Generate dynamic speed classes based on max wind speed
- * Creates 6 equal-ish bands from 0 to maxSpeed
+ * WMO (World Meteorological Organization) Standard Wind Speed Classes
+ * Based on the Beaufort Scale with metric (km/h) values
+ * Reference: WMO-No. 8, Guide to Meteorological Instruments and Methods of Observation
  */
-const generateSpeedClasses = (maxSpeed: number) => {
-  // Round up max speed to nearest nice number
-  const niceMax = Math.ceil(maxSpeed / 5) * 5 || 10;
-  const step = niceMax / 5;
-  
-  return [
-    { min: 0, max: step, color: "#bfdbfe", label: `0-${step.toFixed(0)} km/h` },
-    { min: step, max: step * 2, color: "#60a5fa", label: `${step.toFixed(0)}-${(step * 2).toFixed(0)} km/h` },
-    { min: step * 2, max: step * 3, color: "#22c55e", label: `${(step * 2).toFixed(0)}-${(step * 3).toFixed(0)} km/h` },
-    { min: step * 3, max: step * 4, color: "#facc15", label: `${(step * 3).toFixed(0)}-${(step * 4).toFixed(0)} km/h` },
-    { min: step * 4, max: step * 5, color: "#f97316", label: `${(step * 4).toFixed(0)}-${(step * 5).toFixed(0)} km/h` },
-    { min: step * 5, max: Infinity, color: "#dc2626", label: `>${(step * 5).toFixed(0)} km/h` },
-  ];
-};
+const WMO_SPEED_CLASSES = [
+  { min: 0, max: 1, color: "#e0f2fe", label: "Calm", beaufort: "0", description: "Smoke rises vertically" },
+  { min: 1, max: 6, color: "#bae6fd", label: "Light Air", beaufort: "1", description: "Direction shown by smoke drift" },
+  { min: 6, max: 12, color: "#7dd3fc", label: "Light Breeze", beaufort: "2", description: "Wind felt on face, leaves rustle" },
+  { min: 12, max: 20, color: "#38bdf8", label: "Gentle Breeze", beaufort: "3", description: "Leaves and small twigs in motion" },
+  { min: 20, max: 29, color: "#0ea5e9", label: "Moderate Breeze", beaufort: "4", description: "Raises dust and loose paper" },
+  { min: 29, max: 39, color: "#0284c7", label: "Fresh Breeze", beaufort: "5", description: "Small trees begin to sway" },
+  { min: 39, max: 50, color: "#22c55e", label: "Strong Breeze", beaufort: "6", description: "Large branches in motion" },
+  { min: 50, max: 62, color: "#eab308", label: "Near Gale", beaufort: "7", description: "Whole trees in motion" },
+  { min: 62, max: 75, color: "#f97316", label: "Gale", beaufort: "8", description: "Twigs break off trees" },
+  { min: 75, max: 89, color: "#ef4444", label: "Strong Gale", beaufort: "9", description: "Slight structural damage" },
+  { min: 89, max: 103, color: "#dc2626", label: "Storm", beaufort: "10", description: "Trees uprooted" },
+  { min: 103, max: 118, color: "#b91c1c", label: "Violent Storm", beaufort: "11", description: "Widespread damage" },
+  { min: 118, max: Infinity, color: "#7f1d1d", label: "Hurricane", beaufort: "12", description: "Devastating damage" },
+];
 
-const DEFAULT_SPEED_CLASSES = [
-  { min: 0, max: 2, color: "#bfdbfe", label: "0-2 km/h" },
-  { min: 2, max: 10, color: "#60a5fa", label: "2-10 km/h" },
-  { min: 10, max: 25, color: "#22c55e", label: "10-25 km/h" },
-  { min: 25, max: 50, color: "#facc15", label: "25-50 km/h" },
-  { min: 50, max: 100, color: "#f97316", label: "50-100 km/h" },
-  { min: 100, max: Infinity, color: "#dc2626", label: ">100 km/h" },
+/**
+ * Simplified WMO classes for wind rose display (6 categories)
+ */
+const WMO_SIMPLIFIED_CLASSES = [
+  { min: 0, max: 6, color: "#bae6fd", label: "Calm/Light (0-6 km/h)", beaufort: "0-1" },
+  { min: 6, max: 20, color: "#38bdf8", label: "Light/Gentle (6-20 km/h)", beaufort: "2-3" },
+  { min: 20, max: 39, color: "#0284c7", label: "Moderate/Fresh (20-39 km/h)", beaufort: "4-5" },
+  { min: 39, max: 62, color: "#22c55e", label: "Strong/Near Gale (39-62 km/h)", beaufort: "6-7" },
+  { min: 62, max: 89, color: "#f97316", label: "Gale/Strong Gale (62-89 km/h)", beaufort: "8-9" },
+  { min: 89, max: Infinity, color: "#dc2626", label: "Storm+ (>89 km/h)", beaufort: "10+" },
 ];
 
 const DIRECTIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 
-export function WindRose({ data, speedClasses, title = "Wind Rose", maxWindSpeed }: WindRoseProps) {
+/**
+ * Get wind description based on WMO Beaufort scale
+ */
+const getWindDescription = (speed: number): string => {
+  const wmoClass = WMO_SPEED_CLASSES.find(c => speed >= c.min && speed < c.max);
+  return wmoClass?.label || "Unknown";
+};
+
+/**
+ * Calculate wind statistics from data
+ */
+const calculateWindStats = (data: WindRoseData[]) => {
+  let totalObservations = 0;
+  let calmObservations = 0;
+  let dominantDirection = 0;
+  let maxDirectionCount = 0;
+
+  data.forEach((d, idx) => {
+    const total = d.speeds.reduce((a, b) => a + b, 0);
+    totalObservations += total;
+    calmObservations += d.speeds[0] || 0; // First speed class is typically calm
+    
+    if (total > maxDirectionCount) {
+      maxDirectionCount = total;
+      dominantDirection = idx;
+    }
+  });
+
+  return {
+    totalObservations,
+    calmPercentage: totalObservations > 0 ? ((calmObservations / totalObservations) * 100).toFixed(1) : "0",
+    dominantDirection: DIRECTIONS[dominantDirection],
+    dominantPercentage: totalObservations > 0 ? ((maxDirectionCount / totalObservations) * 100).toFixed(1) : "0",
+  };
+};
+
+export function WindRose({ 
+  data, 
+  speedClasses, 
+  title = "Wind Rose", 
+  maxWindSpeed,
+  showWMOInfo = true 
+}: WindRoseProps) {
   // Calculate max wind speed from data if not provided
   const calculatedMaxSpeed = useMemo(() => {
     if (maxWindSpeed !== undefined) return maxWindSpeed;
     
     let maxSpeed = 0;
     data.forEach(d => {
-      // Sum of all speed class counts weighted by their max values
       d.speeds.forEach((count, idx) => {
         if (count > 0) {
-          // The actual max speed is approximated by looking at which speed classes have data
-          const classMax = DEFAULT_SPEED_CLASSES[idx]?.max || 100;
+          const classMax = WMO_SIMPLIFIED_CLASSES[idx]?.max || 100;
           if (classMax !== Infinity && classMax > maxSpeed) {
             maxSpeed = classMax;
           }
         }
       });
     });
-    return maxSpeed || 50; // Default to 50 if no data
+    return maxSpeed || 50;
   }, [data, maxWindSpeed]);
 
-  // Use provided speed classes or generate dynamic ones based on max speed
+  // Use WMO simplified classes by default
   const activeSpeedClasses = useMemo(() => {
-    if (speedClasses) return speedClasses;
-    return generateSpeedClasses(calculatedMaxSpeed);
-  }, [speedClasses, calculatedMaxSpeed]);
+    return speedClasses || WMO_SIMPLIFIED_CLASSES;
+  }, [speedClasses]);
+
+  // Calculate wind statistics
+  const windStats = useMemo(() => calculateWindStats(data), [data]);
 
   const maxValue = useMemo(() => {
     let max = 0;
@@ -106,23 +155,38 @@ export function WindRose({ data, speedClasses, title = "Wind Rose", maxWindSpeed
   return (
     <Card data-testid="card-wind-rose">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-medium">{title}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-normal">{title}</CardTitle>
+          {showWMOInfo && (
+            <Badge variant="outline" className="text-xs">WMO/Beaufort</Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
         <svg width={size} height={size} className="overflow-visible">
+          {/* Concentric circles with percentage labels */}
           {[0.25, 0.5, 0.75, 1].map((ratio) => (
-            <circle
-              key={ratio}
-              cx={center}
-              cy={center}
-              r={maxRadius * ratio}
-              fill="none"
-              stroke="currentColor"
-              strokeOpacity={0.1}
-              strokeWidth={1}
-            />
+            <g key={ratio}>
+              <circle
+                cx={center}
+                cy={center}
+                r={maxRadius * ratio}
+                fill="none"
+                stroke="currentColor"
+                strokeOpacity={0.1}
+                strokeWidth={1}
+              />
+              <text
+                x={center + 5}
+                y={center - maxRadius * ratio + 12}
+                className="fill-muted-foreground text-[10px]"
+              >
+                {(ratio * 100).toFixed(0)}%
+              </text>
+            </g>
           ))}
 
+          {/* Direction labels */}
           {DIRECTIONS.map((dir, i) => {
             const angle = i * 22.5;
             const pos = polarToCart(angle, maxRadius + 20);
@@ -133,17 +197,17 @@ export function WindRose({ data, speedClasses, title = "Wind Rose", maxWindSpeed
                 y={pos.y}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                className="fill-foreground text-xs font-medium"
+                className="fill-foreground text-xs font-normal"
               >
                 {dir}
               </text>
             );
           })}
 
+          {/* Wind rose petals */}
           {data.map((d, dirIndex) => {
             let currentRadius = 0;
             return d.speeds.map((count, speedIndex) => {
-              // Round wind rose values to 3 decimals
               const roundedCount = Number(count.toFixed(3));
               const innerRadius = currentRadius;
               const height = (roundedCount / maxValue) * maxRadius;
@@ -163,18 +227,42 @@ export function WindRose({ data, speedClasses, title = "Wind Rose", maxWindSpeed
               );
             });
           })}
+
+          {/* Center calm circle */}
+          <circle
+            cx={center}
+            cy={center}
+            r={8}
+            fill="currentColor"
+            className="text-muted-foreground/30"
+          />
         </svg>
 
-        {/* Max wind speed indicator */}
+        {/* Wind Statistics */}
+        {showWMOInfo && (
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-center w-full">
+            <div className="rounded bg-muted/50 p-2">
+              <div className="text-muted-foreground">Dominant</div>
+              <div className="font-normal">{windStats.dominantDirection} ({windStats.dominantPercentage}%)</div>
+            </div>
+            <div className="rounded bg-muted/50 p-2">
+              <div className="text-muted-foreground">Calm</div>
+              <div className="font-normal">{windStats.calmPercentage}%</div>
+            </div>
+          </div>
+        )}
+
+        {/* Max wind speed and current classification */}
         <div className="mt-2 text-center text-xs text-muted-foreground">
-          Max: {calculatedMaxSpeed.toFixed(1)} km/h
+          Max: {calculatedMaxSpeed.toFixed(1)} km/h ({getWindDescription(calculatedMaxSpeed)})
         </div>
 
-        <div className="mt-2 flex flex-wrap justify-center gap-2">
+        {/* Legend */}
+        <div className="mt-3 flex flex-wrap justify-center gap-1">
           {activeSpeedClasses.map((sc) => (
-            <div key={sc.label} className="flex items-center gap-1 text-xs">
+            <div key={sc.label} className="flex items-center gap-1 text-[10px]">
               <div
-                className="h-3 w-3 rounded-sm"
+                className="h-2.5 w-2.5 rounded-sm"
                 style={{ backgroundColor: sc.color }}
               />
               <span className="text-muted-foreground">{sc.label}</span>
@@ -185,3 +273,5 @@ export function WindRose({ data, speedClasses, title = "Wind Rose", maxWindSpeed
     </Card>
   );
 }
+
+export { WMO_SPEED_CLASSES, WMO_SIMPLIFIED_CLASSES, getWindDescription };

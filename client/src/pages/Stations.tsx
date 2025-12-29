@@ -808,9 +808,9 @@ export default function Stations() {
               {/* Notes & Maintenance */}
               <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Notes & Maintenance</CardTitle>
+                  <CardTitle className="text-base">Notes & Site Info</CardTitle>
                   <CardDescription>
-                    Hardware notes, calibration, and maintenance records
+                    Hardware notes and site description
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -823,33 +823,18 @@ export default function Stations() {
                       onChange={(e) => updateForm({ siteDescription: e.target.value })}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Last Calibration Date</Label>
-                      <Input
-                        type="date"
-                        value={formData.lastCalibrationDate}
-                        onChange={(e) => updateForm({ lastCalibrationDate: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Next Calibration Due</Label>
-                      <Input
-                        type="date"
-                        value={formData.nextCalibrationDate || ''}
-                        onChange={(e) => updateForm({ nextCalibrationDate: e.target.value })}
-                      />
-                    </div>
-                  </div>
                   <div className="space-y-2">
                     <Label>Notes</Label>
                     <textarea
                       className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder="Hardware notes, upgrades, sensor changes, issues, maintenance history..."
+                      placeholder="Hardware notes, upgrades, sensor changes, issues..."
                       value={formData.notes}
                       onChange={(e) => updateForm({ notes: e.target.value })}
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Note: Calibration and maintenance records can be managed in the station dashboard after setup.
+                  </p>
                 </CardContent>
               </Card>
 

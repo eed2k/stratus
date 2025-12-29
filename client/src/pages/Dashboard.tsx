@@ -4,6 +4,7 @@ import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindRose } from "@/components/charts/WindRose";
 import { WindCompass } from "@/components/dashboard/WindCompass";
+import { WindPowerCard } from "@/components/dashboard/WindPowerCard";
 import { WeatherChart } from "@/components/charts/WeatherChart";
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
@@ -14,6 +15,7 @@ import { DataImport } from "@/components/dashboard/DataImport";
 import { DashboardConfigPanel } from "@/components/dashboard/DashboardConfigPanel";
 import { ShareDashboard } from "@/components/dashboard/ShareDashboard";
 import { StationInfoPanel } from "@/components/dashboard/StationInfoPanel";
+import { StationMap } from "@/components/dashboard/StationMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -91,6 +93,57 @@ const generateYesterdayWindRoseData = () => {
   return data;
 };
 
+const generateLast60MinutesWindRoseData = () => {
+  const data = Array.from({ length: 16 }, (_, i) => ({
+    direction: i * 22.5,
+    speeds: [
+      Math.random() * 3,
+      Math.random() * 5,
+      Math.random() * 8,
+      Math.random() * 4,
+      Math.random() * 2,
+      Math.random() * 1,
+    ],
+  }));
+  // Bias toward current wind direction (southwest)
+  data[10].speeds = [2, 6, 10, 6, 3, 1];
+  data[11].speeds = [3, 8, 12, 7, 4, 2];
+  data[9].speeds = [1, 4, 8, 5, 2, 1];
+  return data;
+};
+
+/**
+ * Calculate wind power density using P = 0.5 * ρ * v³
+ * @param windSpeed Wind speed in km/h
+ * @param airDensity Air density in kg/m³ (default 1.225)
+ * @returns Power density in W/m²
+ */
+const calculateWindPower = (windSpeed: number, airDensity: number = 1.225): number => {
+  const speedMs = windSpeed / 3.6; // Convert km/h to m/s
+  return 0.5 * airDensity * Math.pow(speedMs, 3);
+};
+
+/**
+ * Generate wind energy chart data
+ */
+const generateWindEnergyData = (hours: number) => {
+  const data = [];
+  const now = new Date();
+  for (let i = hours; i >= 0; i--) {
+    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+    const windSpeed = 10 + Math.random() * 15;
+    const airDensity = 1.225 + (Math.random() - 0.5) * 0.05;
+    const power = calculateWindPower(windSpeed, airDensity);
+    data.push({
+      timestamp: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      windSpeed,
+      windPower: power,
+      cumulativeEnergy: power * 0.001, // kWh/m² approximation
+    });
+  }
+  return data;
+};
+
 export default function Dashboard() {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
@@ -103,6 +156,8 @@ export default function Dashboard() {
   const chartData = useMemo(() => generateChartData(dashboardConfig.chartTimeRange), [dashboardConfig.chartTimeRange]);
   const windRoseData = useMemo(() => generateWindRoseData(), []);
   const yesterdayWindRoseData = useMemo(() => generateYesterdayWindRoseData(), []);
+  const last60MinutesWindRoseData = useMemo(() => generateLast60MinutesWindRoseData(), []);
+  const windEnergyData = useMemo(() => generateWindEnergyData(dashboardConfig.chartTimeRange), [dashboardConfig.chartTimeRange]);
 
   const { data: stations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
@@ -259,9 +314,51 @@ export default function Dashboard() {
           isOnline={selectedStation?.isActive || false}
         />
 
+        {/* Station Location Map */}
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Station Location</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <StationMap
+              latitude={selectedStation?.latitude || undefined}
+              longitude={selectedStation?.longitude || undefined}
+              stationName={selectedStation?.name || "Weather Station"}
+              altitude={selectedStation?.altitude || undefined}
+            />
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-normal">Station Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Latitude</p>
+                    <p className="text-sm font-normal">{selectedStation?.latitude?.toFixed(6) || "Not set"}°</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Longitude</p>
+                    <p className="text-sm font-normal">{selectedStation?.longitude?.toFixed(6) || "Not set"}°</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Altitude</p>
+                    <p className="text-sm font-normal">{selectedStation?.altitude ? `${selectedStation.altitude} m` : "Not set"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="text-sm font-normal">{selectedStation?.location || "Not specified"}</p>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <p className="text-xs text-muted-foreground">Station Type</p>
+                    <p className="text-sm font-normal">{selectedStation?.dataloggerModel || "Campbell Scientific"}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
         {/* Primary Metrics - Always Visible */}
         <section className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Primary Metrics</h2>
+          <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             <MetricCard
               title="Temperature"
@@ -310,7 +407,7 @@ export default function Dashboard() {
 
         {/* Solar & Radiation Section */}
         <section className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Solar & Radiation</h2>
+          <h2 className="text-base font-normal text-foreground">Solar & Radiation</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <MetricCard
               title="Solar Radiation"
@@ -346,7 +443,7 @@ export default function Dashboard() {
 
         {/* Soil & Environment Section */}
         <section className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Soil & Environment</h2>
+          <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <MetricCard
               title="Soil Temperature"
@@ -387,14 +484,21 @@ export default function Dashboard() {
 
         {/* Wind Direction Compass & Charts */}
         <section className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Wind Analysis</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <h2 className="text-base font-normal text-foreground">Wind Analysis</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Wind Compass */}
             <WindCompass
               direction={currentData.windDirection || 0}
               speed={currentData.windSpeed || 0}
               gust={currentData.windGust}
               unit="km/h"
+            />
+            
+            {/* Wind Rose Last 60 Minutes */}
+            <WindRose 
+              data={last60MinutesWindRoseData} 
+              title="Wind Rose (Last 60 min)" 
+              maxWindSpeed={maxWindSpeed}
             />
             
             {/* Wind Rose Today */}
@@ -413,9 +517,58 @@ export default function Dashboard() {
           </div>
         </section>
 
+        {/* Wind Energy Section */}
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Wind Energy</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <WindPowerCard
+              currentPower={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225)}
+              gustPower={calculateWindPower(currentData.windGust || 0, currentData.airDensity || 1.225)}
+              airDensity={currentData.airDensity || 1.225}
+              avgSpeed={chartData.slice(-10).reduce((sum, d) => sum + d.windSpeed, 0) / 10}
+              avgPower={chartData.slice(-10).reduce((sum, d) => sum + calculateWindPower(d.windSpeed), 0) / 10}
+              sparklineData={windEnergyData.slice(-12).map(d => d.windPower)}
+            />
+            <MetricCard
+              title="Current Wind Power"
+              value={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225).toFixed(1)}
+              unit="W/m²"
+              sparklineData={windEnergyData.slice(-12).map(d => d.windPower)}
+              chartColor="#14b8a6"
+            />
+            <MetricCard
+              title="Peak Gust Power"
+              value={calculateWindPower(currentData.windGust || 0, currentData.airDensity || 1.225).toFixed(1)}
+              unit="W/m²"
+              sparklineData={windEnergyData.slice(-12).map(d => d.windPower * 1.5)}
+              chartColor="#f97316"
+            />
+            <MetricCard
+              title="Daily Energy Potential"
+              value={(windEnergyData.reduce((sum, d) => sum + d.cumulativeEnergy, 0)).toFixed(2)}
+              unit="kWh/m²"
+              sparklineData={windEnergyData.slice(-12).map(d => d.cumulativeEnergy)}
+              chartColor="#8b5cf6"
+            />
+          </div>
+          {/* Wind Energy Chart */}
+          <WeatherChart
+            title="Wind Power Density Over Time"
+            data={windEnergyData.map(d => ({
+              timestamp: d.timestamp,
+              windPower: d.windPower,
+              windSpeed: d.windSpeed,
+            }))}
+            series={[
+              { dataKey: "windPower", name: "Wind Power (W/m²)", color: "#14b8a6" },
+              { dataKey: "windSpeed", name: "Wind Speed (km/h)", color: "#3b82f6" },
+            ]}
+          />
+        </section>
+
         {/* Charts Section */}
         <section className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Historical Data</h2>
+          <h2 className="text-base font-normal text-foreground">Historical Data</h2>
           <Tabs defaultValue="temperature" className="w-full">
             <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
               <TabsTrigger value="temperature" className="flex-1 min-w-[80px]" data-testid="tab-temperature">Temp</TabsTrigger>
@@ -475,7 +628,7 @@ export default function Dashboard() {
 
         {/* Solar & ET Cards */}
         <section className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Solar & Evapotranspiration</h2>
+          <h2 className="text-base font-normal text-foreground">Solar & Evapotranspiration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <SolarRadiationCard
               currentRadiation={currentData.solarRadiation || 0}

@@ -20,7 +20,7 @@ export function WindCompass({ direction, speed, gust, unit = "km/h" }: WindCompa
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Wind Direction</CardTitle>
+        <CardTitle className="text-lg font-normal">Wind Direction</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center p-4">
         {/* Compass Container */}
@@ -155,13 +155,13 @@ export function WindCompass({ direction, speed, gust, unit = "km/h" }: WindCompa
         {/* Wind info below compass */}
         <div className="mt-4 text-center space-y-1">
           <div className="flex items-baseline justify-center gap-2">
-            <span className="text-3xl font-bold">{displayDirection}°</span>
-            <span className="text-xl font-semibold text-primary">{cardinal}</span>
+            <span className="text-3xl font-normal">{displayDirection}°</span>
+            <span className="text-xl font-normal text-primary">{cardinal}</span>
           </div>
           <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-            <span>Speed: <span className="font-medium text-foreground">{speed.toFixed(1)} {unit}</span></span>
+            <span>Speed: <span className="font-normal text-foreground">{speed.toFixed(1)} {unit}</span></span>
             {gust !== undefined && (
-              <span>Gust: <span className="font-medium text-foreground">{gust.toFixed(1)} {unit}</span></span>
+              <span>Gust: <span className="font-normal text-foreground">{gust.toFixed(1)} {unit}</span></span>
             )}
           </div>
         </div>
