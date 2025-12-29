@@ -366,6 +366,7 @@ export default function Dashboard() {
               unit="°C"
               trend={{ value: 1.2, label: "vs yesterday" }}
               sparklineData={sparkline}
+              chartColor="#ef4444"
             />
             <MetricCard
               title="Humidity"
@@ -373,11 +374,13 @@ export default function Dashboard() {
               unit="%"
               trend={{ value: -5, label: "vs yesterday" }}
               sparklineData={chartData.slice(-12).map(d => d.humidity)}
+              chartColor="#3b82f6"
             />
             <MetricCard
               title="Dew Point"
               value={formatValue(currentData.dewPoint || 0, 1)}
               unit="°C"
+              chartColor="#06b6d4"
             />
             <MetricCard
               title="Pressure"
@@ -385,6 +388,7 @@ export default function Dashboard() {
               unit="hPa"
               trend={{ value: 2.1, label: "vs yesterday" }}
               sparklineData={chartData.slice(-12).map(d => d.pressure)}
+              chartColor="#8b5cf6"
             />
             <MetricCard
               title="Wind Speed"
@@ -393,6 +397,8 @@ export default function Dashboard() {
               subMetrics={[
                 { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} km/h` },
               ]}
+              sparklineData={chartData.slice(-12).map(d => d.windSpeed)}
+              chartColor="#14b8a6"
             />
             <MetricCard
               title="Rainfall (24h)"
@@ -401,8 +407,19 @@ export default function Dashboard() {
               subMetrics={[
                 { label: "7d", value: "12.8 mm" },
               ]}
+              sparklineData={chartData.slice(-12).map(d => d.rain)}
+              chartColor="#0ea5e9"
             />
           </div>
+          {/* Primary Metrics Chart */}
+          <WeatherChart
+            title="Temperature & Humidity (24h)"
+            data={chartData}
+            series={[
+              { dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" },
+              { dataKey: "humidity", name: "Humidity (%)", color: "#3b82f6" },
+            ]}
+          />
         </section>
 
         {/* Solar & Radiation Section */}
@@ -414,6 +431,7 @@ export default function Dashboard() {
               value={formatValue(currentData.solarRadiation || 0, 0)}
               unit="W/m²"
               sparklineData={chartData.slice(-12).map(d => d.solar)}
+              chartColor="#f59e0b"
             />
             <MetricCard
               title="UV Index"
@@ -422,23 +440,35 @@ export default function Dashboard() {
               subMetrics={[
                 { label: "Risk", value: (currentData.uvIndex || 0) < 3 ? "Low" : (currentData.uvIndex || 0) < 6 ? "Moderate" : "High" },
               ]}
+              chartColor="#dc2626"
             />
             <MetricCard
               title="Reference ET"
               value={formatValue(currentData.eto || 0, 2)}
               unit="mm"
+              chartColor="#22c55e"
             />
             <MetricCard
               title="Panel Temp"
               value={formatValue(currentData.panelTemperature || 0, 1)}
               unit="°C"
+              chartColor="#f97316"
             />
             <MetricCard
               title="Air Density"
               value={formatValue(currentData.airDensity || 0, 3)}
               unit="kg/m³"
+              chartColor="#64748b"
             />
           </div>
+          {/* Solar Radiation Chart */}
+          <WeatherChart
+            title="Solar Radiation (24h)"
+            data={chartData}
+            series={[
+              { dataKey: "solar", name: "Solar Radiation (W/m²)", color: "#f59e0b" },
+            ]}
+          />
         </section>
 
         {/* Soil & Environment Section */}
@@ -449,6 +479,7 @@ export default function Dashboard() {
               title="Soil Temperature"
               value={formatValue(currentData.soilTemperature || 0, 1)}
               unit="°C"
+              chartColor="#a16207"
             />
             <MetricCard
               title="Soil Moisture"
@@ -457,6 +488,7 @@ export default function Dashboard() {
               subMetrics={[
                 { label: "Status", value: (currentData.soilMoisture || 0) < 20 ? "Dry" : (currentData.soilMoisture || 0) < 40 ? "Optimal" : "Wet" },
               ]}
+              chartColor="#15803d"
             />
             <MetricCard
               title="PM2.5"
@@ -465,11 +497,13 @@ export default function Dashboard() {
               subMetrics={[
                 { label: "AQI", value: (currentData.pm25 || 0) < 12 ? "Good" : (currentData.pm25 || 0) < 35 ? "Moderate" : "Unhealthy" },
               ]}
+              chartColor="#6b7280"
             />
             <MetricCard
               title="PM10"
               value={formatValue(currentData.pm10 || 0, 1)}
               unit="µg/m³"
+              chartColor="#9ca3af"
             />
             <MetricCard
               title="Battery"
@@ -478,14 +512,17 @@ export default function Dashboard() {
               subMetrics={[
                 { label: "Status", value: (currentData.batteryVoltage || 0) > 12 ? "Good" : "Low" },
               ]}
+              chartColor="#22c55e"
             />
           </div>
         </section>
 
         {/* Wind Direction Compass & Charts */}
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Wind Analysis</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <section className="space-y-6">
+          <h2 className="text-base font-normal text-foreground">Wind Analysis (WMO/Beaufort Scale)</h2>
+          
+          {/* Top Row: Wind Compass and Last 60 Minutes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Wind Compass */}
             <WindCompass
               direction={currentData.windDirection || 0}
@@ -500,7 +537,10 @@ export default function Dashboard() {
               title="Wind Rose (Last 60 min)" 
               maxWindSpeed={maxWindSpeed}
             />
-            
+          </div>
+          
+          {/* Bottom Row: Today and Yesterday Wind Roses */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Wind Rose Today */}
             <WindRose 
               data={windRoseData} 

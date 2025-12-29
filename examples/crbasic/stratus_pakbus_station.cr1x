@@ -8,6 +8,15 @@
 '
 ' Connection: Serial RS-232, TCP/IP, or Radio
 ' Protocol: PakBus (Campbell Scientific native protocol)
+'
+' Stratus Server: https://meteotronics.com
+' API Endpoint: https://api.meteotronics.com/api/campbell/data
+'
+' WMO Compliance: Data follows WMO/ISO standards for meteorological data
+'   - Wind speed in m/s (WMO standard)
+'   - Temperature in Celsius
+'   - Pressure in hPa (mbar)
+'   - Wind direction 0-360 degrees (meteorological convention)
 '===============================================================================
 
 '--- Wiring ---

@@ -8,6 +8,14 @@
 ' Connection: RS-232 serial cable to PC running Stratus
 ' Protocol: ASCII text (CSV or JSON format)
 ' Baud Rate: 9600 (configurable)
+'
+' Stratus Server: https://meteotronics.com
+' For remote stations, data can be forwarded to:
+'   https://api.meteotronics.com/api/weather-data
+'
+' WMO Compliance: Data follows WMO/ISO standards
+'   - SI units (m/s, °C, hPa)
+'   - ISO 8601 timestamps
 '===============================================================================
 
 '--- Serial Port Configuration ---

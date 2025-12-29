@@ -4,6 +4,23 @@
 
 Stratus Weather Server supports multiple methods for connecting to Campbell Scientific dataloggers. This guide explains each connection method and provides example CRBASIC programs.
 
+**Production Server:** https://meteotronics.com  
+**API Endpoint:** https://api.meteotronics.com
+
+## WMO Compliance
+
+All data transmitted to Stratus follows **WMO (World Meteorological Organization)** and **ISO** standards:
+
+| Parameter | Unit | Standard |
+|-----------|------|----------|
+| Wind Speed | m/s | WMO-No. 8 |
+| Wind Direction | 0-360° | Meteorological convention |
+| Temperature | °C | SI/ISO |
+| Pressure | hPa (mbar) | SI/ISO |
+| Rainfall | mm | SI/ISO |
+| Solar Radiation | W/m² | SI/ISO |
+| Timestamps | ISO 8601 | UTC recommended |
+
 ## Connection Methods Comparison
 
 | Method | Best For | Datalogger Requirements | Stratus Component |
@@ -60,14 +77,27 @@ Use `stratus_http_post_station.cr1x` - Configure your Stratus server IP and stat
 
 ### Configuration in CRBASIC
 ```basic
-Const STRATUS_SERVER = "your-stratus-ip.com"
+' For cloud deployment via Cloudflare Tunnel:
+Const STRATUS_SERVER = "api.meteotronics.com"
+Const STRATUS_PORT = 443
+Const USE_HTTPS = True
+
+' For local network:
+Const STRATUS_SERVER = "192.168.1.100"
 Const STRATUS_PORT = 5000
+Const USE_HTTPS = False
+
 Const STATION_ID = "CR1000X_001"
 Const API_KEY = "your-api-key"  ' Optional
 ```
 
-### Stratus API Endpoint
+### Stratus API Endpoints
 ```
+# Cloud (via Cloudflare Tunnel)
+POST https://api.meteotronics.com/api/weather-data
+POST https://api.meteotronics.com/api/campbell/data
+
+# Local Network
 POST http://stratus-server:5000/api/weather-data
 
 Headers:

@@ -805,38 +805,9 @@ export default function Stations() {
                 </div>
               </div>
 
-              {/* Notes & Maintenance */}
-              <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Notes & Site Info</CardTitle>
-                  <CardDescription>
-                    Hardware notes and site description
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Site Description</Label>
-                    <textarea
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder="Describe the station site, mounting details, sensor configuration..."
-                      value={formData.siteDescription}
-                      onChange={(e) => updateForm({ siteDescription: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Notes</Label>
-                    <textarea
-                      className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder="Hardware notes, upgrades, sensor changes, issues..."
-                      value={formData.notes}
-                      onChange={(e) => updateForm({ notes: e.target.value })}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Note: Calibration and maintenance records can be managed in the station dashboard after setup.
-                  </p>
-                </CardContent>
-              </Card>
+              <p className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-md">
+                Note: Site description, notes, calibration and maintenance records can be configured in the station dashboard admin panel after setup.
+              </p>
 
               <Button
                 type="submit"
