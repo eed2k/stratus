@@ -87,6 +87,19 @@ async function runMigrations(database: Database): Promise<void> {
     }
   }
 
+  // Add equipment and description columns if they don't exist
+  const textColumns = [
+    'location', 'datalogger_model', 'datalogger_serial_number', 'program_name',
+    'modem_model', 'modem_serial_number', 'site_description', 'notes'
+  ];
+  for (const col of textColumns) {
+    try {
+      database.run(`ALTER TABLE stations ADD COLUMN ${col} TEXT`);
+    } catch (e) {
+      // Column already exists, ignore
+    }
+  }
+
   // Add organizations table if it doesn't exist
   try {
     database.run(`
@@ -331,6 +344,33 @@ async function createTables(database: Database): Promise<void> {
     ('collectionTimeout', '30000')
   `);
 
+  // Add missing columns to stations table (for upgrades from older versions)
+  const addColumnIfNotExists = (columnName: string, columnType: string) => {
+    try {
+      // Check if column exists
+      const tableInfo = database.exec('PRAGMA table_info(stations)');
+      if (tableInfo.length > 0) {
+        const columns = tableInfo[0].values.map((row: any) => row[1]);
+        if (!columns.includes(columnName)) {
+          database.run(`ALTER TABLE stations ADD COLUMN ${columnName} ${columnType}`);
+        }
+      }
+    } catch (e) {
+      // Column might already exist, ignore error
+    }
+  };
+
+  // Equipment columns
+  addColumnIfNotExists('location', 'TEXT');
+  addColumnIfNotExists('datalogger_model', 'TEXT');
+  addColumnIfNotExists('datalogger_serial_number', 'TEXT');
+  addColumnIfNotExists('program_name', 'TEXT');
+  addColumnIfNotExists('modem_model', 'TEXT');
+  addColumnIfNotExists('modem_serial_number', 'TEXT');
+  // Description columns
+  addColumnIfNotExists('site_description', 'TEXT');
+  addColumnIfNotExists('notes', 'TEXT');
+
   saveDatabase();
 }
 
@@ -379,9 +419,19 @@ export interface Station {
   last_connected?: string;
   is_active?: number;
   // Location fields
+  location?: string;
   latitude?: number;
   longitude?: number;
   altitude?: number;
+  // Equipment fields
+  datalogger_model?: string;
+  datalogger_serial_number?: string;
+  program_name?: string;
+  modem_model?: string;
+  modem_serial_number?: string;
+  // Description fields
+  site_description?: string;
+  notes?: string;
   // Personnel fields
   installation_team?: string;
   station_admin?: string;
@@ -391,7 +441,11 @@ export interface Station {
 
 export function getAllStations(): Station[] {
   if (!db) return [];
-  const result = db.exec('SELECT id, name, pakbus_address, connection_type, connection_config, security_code, created_at, updated_at, last_connected, is_active, latitude, longitude, altitude, installation_team, station_admin, station_admin_email, station_admin_phone FROM stations WHERE is_active = 1 ORDER BY name');
+  const result = db.exec(`SELECT id, name, pakbus_address, connection_type, connection_config, security_code, 
+    created_at, updated_at, last_connected, is_active, location, latitude, longitude, altitude, 
+    datalogger_model, datalogger_serial_number, program_name, modem_model, modem_serial_number,
+    site_description, notes, installation_team, station_admin, station_admin_email, station_admin_phone 
+    FROM stations WHERE is_active = 1 ORDER BY name`);
   if (result.length === 0) return [];
   
   return result[0].values.map((row: any[]) => ({
@@ -405,19 +459,31 @@ export function getAllStations(): Station[] {
     updated_at: row[7] as string,
     last_connected: row[8] as string | undefined,
     is_active: row[9] as number,
-    latitude: row[10] as number | undefined,
-    longitude: row[11] as number | undefined,
-    altitude: row[12] as number | undefined,
-    installation_team: row[13] as string | undefined,
-    station_admin: row[14] as string | undefined,
-    station_admin_email: row[15] as string | undefined,
-    station_admin_phone: row[16] as string | undefined
+    location: row[10] as string | undefined,
+    latitude: row[11] as number | undefined,
+    longitude: row[12] as number | undefined,
+    altitude: row[13] as number | undefined,
+    datalogger_model: row[14] as string | undefined,
+    datalogger_serial_number: row[15] as string | undefined,
+    program_name: row[16] as string | undefined,
+    modem_model: row[17] as string | undefined,
+    modem_serial_number: row[18] as string | undefined,
+    site_description: row[19] as string | undefined,
+    notes: row[20] as string | undefined,
+    installation_team: row[21] as string | undefined,
+    station_admin: row[22] as string | undefined,
+    station_admin_email: row[23] as string | undefined,
+    station_admin_phone: row[24] as string | undefined
   }));
 }
 
 export function getStationById(id: number): Station | null {
   if (!db) return null;
-  const result = db.exec('SELECT id, name, pakbus_address, connection_type, connection_config, security_code, created_at, updated_at, last_connected, is_active, latitude, longitude, altitude, installation_team, station_admin, station_admin_email, station_admin_phone FROM stations WHERE id = ?', [id]);
+  const result = db.exec(`SELECT id, name, pakbus_address, connection_type, connection_config, security_code, 
+    created_at, updated_at, last_connected, is_active, location, latitude, longitude, altitude, 
+    datalogger_model, datalogger_serial_number, program_name, modem_model, modem_serial_number,
+    site_description, notes, installation_team, station_admin, station_admin_email, station_admin_phone 
+    FROM stations WHERE id = ?`, [id]);
   if (result.length === 0 || result[0].values.length === 0) return null;
   
   const row = result[0].values[0];
@@ -432,13 +498,21 @@ export function getStationById(id: number): Station | null {
     updated_at: row[7] as string,
     last_connected: row[8] as string | undefined,
     is_active: row[9] as number,
-    latitude: row[10] as number | undefined,
-    longitude: row[11] as number | undefined,
-    altitude: row[12] as number | undefined,
-    installation_team: row[13] as string | undefined,
-    station_admin: row[14] as string | undefined,
-    station_admin_email: row[15] as string | undefined,
-    station_admin_phone: row[16] as string | undefined
+    location: row[10] as string | undefined,
+    latitude: row[11] as number | undefined,
+    longitude: row[12] as number | undefined,
+    altitude: row[13] as number | undefined,
+    datalogger_model: row[14] as string | undefined,
+    datalogger_serial_number: row[15] as string | undefined,
+    program_name: row[16] as string | undefined,
+    modem_model: row[17] as string | undefined,
+    modem_serial_number: row[18] as string | undefined,
+    site_description: row[19] as string | undefined,
+    notes: row[20] as string | undefined,
+    installation_team: row[21] as string | undefined,
+    station_admin: row[22] as string | undefined,
+    station_admin_email: row[23] as string | undefined,
+    station_admin_phone: row[24] as string | undefined
   };
 }
 
@@ -471,9 +545,19 @@ export function updateStation(id: number, station: Partial<Station>): void {
   if (station.security_code !== undefined) { fields.push('security_code = ?'); values.push(station.security_code); }
   if (station.last_connected !== undefined) { fields.push('last_connected = ?'); values.push(station.last_connected); }
   // Location fields
+  if (station.location !== undefined) { fields.push('location = ?'); values.push(station.location); }
   if (station.latitude !== undefined) { fields.push('latitude = ?'); values.push(station.latitude); }
   if (station.longitude !== undefined) { fields.push('longitude = ?'); values.push(station.longitude); }
   if (station.altitude !== undefined) { fields.push('altitude = ?'); values.push(station.altitude); }
+  // Equipment fields
+  if (station.datalogger_model !== undefined) { fields.push('datalogger_model = ?'); values.push(station.datalogger_model); }
+  if (station.datalogger_serial_number !== undefined) { fields.push('datalogger_serial_number = ?'); values.push(station.datalogger_serial_number); }
+  if (station.program_name !== undefined) { fields.push('program_name = ?'); values.push(station.program_name); }
+  if (station.modem_model !== undefined) { fields.push('modem_model = ?'); values.push(station.modem_model); }
+  if (station.modem_serial_number !== undefined) { fields.push('modem_serial_number = ?'); values.push(station.modem_serial_number); }
+  // Description fields
+  if (station.site_description !== undefined) { fields.push('site_description = ?'); values.push(station.site_description); }
+  if (station.notes !== undefined) { fields.push('notes = ?'); values.push(station.notes); }
   // Personnel fields
   if (station.installation_team !== undefined) { fields.push('installation_team = ?'); values.push(station.installation_team); }
   if (station.station_admin !== undefined) { fields.push('station_admin = ?'); values.push(station.station_admin); }

@@ -148,39 +148,53 @@ export function StationMap({
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Dynamically load Leaflet CSS
-    if (!document.querySelector('link[href*="leaflet.css"]')) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
-      link.crossOrigin = "";
-      document.head.appendChild(link);
-    }
+    const loadCss = () => {
+      if (!document.querySelector('link[href*="leaflet.css"]')) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
+        link.crossOrigin = "";
+        document.head.appendChild(link);
+      }
+    };
 
     // Dynamically load Leaflet JS
     const loadLeaflet = async () => {
+      loadCss();
+      
       if (!(window as any).L) {
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
-        script.crossOrigin = "";
-        
-        await new Promise<void>((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+          script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
+          script.crossOrigin = "";
           script.onload = () => resolve();
           script.onerror = () => reject(new Error("Failed to load Leaflet"));
           document.head.appendChild(script);
         });
       }
-      
-      initMap();
     };
 
     const initMap = () => {
-      if (!mapRef.current || mapInstanceRef.current) return;
+      if (!mapRef.current || !isMounted) return;
+      
+      // Clean up existing map first
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
 
       try {
         const L = (window as any).L;
+        if (!L) {
+          setError("Leaflet not loaded");
+          return;
+        }
         
         // Create map with South Africa default view
         const map = L.map(mapRef.current, {
@@ -260,45 +274,50 @@ export function StationMap({
 
         // Invalidate size after render to fix display issues
         setTimeout(() => {
-          map.invalidateSize();
-        }, 100);
+          if (isMounted && map) {
+            map.invalidateSize();
+          }
+        }, 250);
+        
+        setError(null);
       } catch (err) {
         console.error("Map initialization error:", err);
         setError("Failed to initialize map");
       }
     };
 
-    loadLeaflet().catch((err) => {
-      console.error("Failed to load Leaflet:", err);
-      setError("Failed to load map library");
-    });
+    loadLeaflet()
+      .then(() => {
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
+          if (isMounted) {
+            initMap();
+          }
+        }, 100);
+      })
+      .catch((err) => {
+        console.error("Failed to load Leaflet:", err);
+        if (isMounted) {
+          setError("Failed to load map library");
+        }
+      });
 
     return () => {
+      isMounted = false;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         markerRef.current = null;
       }
     };
-  }, []);
+  }, [lat, lng, defaultZoom, stationName, altitude]);
 
-  // Update map when coordinates change
-  useEffect(() => {
-    if (mapInstanceRef.current && markerRef.current) {
-      const map = mapInstanceRef.current;
-      const marker = markerRef.current;
-      
-      map.setView([lat, lng], defaultZoom);
-      marker.setLatLng([lat, lng]);
-    }
-  }, [lat, lng, defaultZoom]);
-
-  // Handle expand/collapse
+  // Handle expand/collapse - just invalidate size
   useEffect(() => {
     if (mapInstanceRef.current) {
       setTimeout(() => {
-        mapInstanceRef.current.invalidateSize();
-      }, 100);
+        mapInstanceRef.current?.invalidateSize();
+      }, 150);
     }
   }, [isExpanded]);
 

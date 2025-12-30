@@ -112,6 +112,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInf
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<Partial<StationInfo>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const [calibrationLogs, setCalibrationLogs] = useState<CalibrationLog[]>(demoCalibrationLogs);
   const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>(demoMaintenanceLogs);
   const [showAddCalibration, setShowAddCalibration] = useState(false);
@@ -119,13 +120,37 @@ export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInf
   const [newCalibration, setNewCalibration] = useState<Partial<CalibrationLog>>({});
   const [newMaintenance, setNewMaintenance] = useState<Partial<MaintenanceLog>>({});
 
-  const handleSave = () => {
-    onSave?.(editedData);
-    setIsEditing(false);
-    toast({
-      title: "Changes Saved",
-      description: "Station information has been updated.",
+  // Reset editedData when station changes or when starting to edit
+  const startEditing = () => {
+    setEditedData({
+      name: station.name,
+      location: station.location,
+      latitude: station.latitude,
+      longitude: station.longitude,
+      altitude: station.altitude,
+      pakbusAddress: station.pakbusAddress,
+      securityCode: station.securityCode,
+      dataloggerModel: station.dataloggerModel,
+      dataloggerSerialNumber: station.dataloggerSerialNumber,
+      programName: station.programName,
+      modemModel: station.modemModel,
+      modemSerialNumber: station.modemSerialNumber,
+      siteDescription: station.siteDescription,
+      notes: station.notes,
     });
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave?.(editedData);
+      setIsEditing(false);
+    } catch (error) {
+      // Error handled by parent
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddCalibration = () => {
@@ -231,18 +256,30 @@ export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInf
           <Badge variant="secondary" className="ml-2">Admin Only</Badge>
         </h2>
         {!isEditing ? (
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+          <Button variant="outline" size="sm" onClick={startEditing}>
             <Edit className="h-4 w-4 mr-2" />
             Edit Info
           </Button>
         ) : (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
+            <Button size="sm" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </span>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
             </Button>
           </div>
         )}

@@ -229,9 +229,19 @@ export class DatabaseStorage {
     if (station.connectionConfig !== undefined) updateData.connection_config = JSON.stringify(station.connectionConfig);
     if (station.securityCode !== undefined) updateData.security_code = station.securityCode;
     // Location fields
+    if ((station as any).location !== undefined) updateData.location = (station as any).location;
     if (station.latitude !== undefined) updateData.latitude = station.latitude;
     if (station.longitude !== undefined) updateData.longitude = station.longitude;
     if (station.altitude !== undefined) updateData.altitude = station.altitude;
+    // Equipment fields
+    if ((station as any).dataloggerModel !== undefined) updateData.datalogger_model = (station as any).dataloggerModel;
+    if ((station as any).dataloggerSerialNumber !== undefined) updateData.datalogger_serial_number = (station as any).dataloggerSerialNumber;
+    if ((station as any).programName !== undefined) updateData.program_name = (station as any).programName;
+    if ((station as any).modemModel !== undefined) updateData.modem_model = (station as any).modemModel;
+    if ((station as any).modemSerialNumber !== undefined) updateData.modem_serial_number = (station as any).modemSerialNumber;
+    // Description fields
+    if ((station as any).siteDescription !== undefined) updateData.site_description = (station as any).siteDescription;
+    if ((station as any).notes !== undefined) updateData.notes = (station as any).notes;
     // Personnel fields
     if ((station as any).installationTeam !== undefined) updateData.installation_team = (station as any).installationTeam;
     if ((station as any).stationAdmin !== undefined) updateData.station_admin = (station as any).stationAdmin;
@@ -591,9 +601,19 @@ export class DatabaseStorage {
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.connection_type,
       // Location fields
+      location: station.location || undefined,
       latitude: station.latitude || undefined,
       longitude: station.longitude || undefined,
       altitude: station.altitude || undefined,
+      // Equipment fields
+      dataloggerModel: station.datalogger_model || undefined,
+      dataloggerSerialNumber: station.datalogger_serial_number || undefined,
+      programName: station.program_name || undefined,
+      modemModel: station.modem_model || undefined,
+      modemSerialNumber: station.modem_serial_number || undefined,
+      // Description fields
+      siteDescription: station.site_description || undefined,
+      notes: station.notes || undefined,
       // Personnel fields
       installationTeam: station.installation_team || undefined,
       stationAdmin: station.station_admin || undefined,

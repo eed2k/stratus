@@ -153,29 +153,31 @@ export function DataBlockChart({
   const renderChart = () => {
     const commonProps = {
       data,
-      margin: { top: 10, right: 30, left: 10, bottom: 30 },
+      margin: { top: 10, right: 20, left: yAxisLabel ? 60 : 45, bottom: xAxisLabel ? 45 : 20 },
     };
 
     const xAxisProps = {
       dataKey: "timestamp",
-      tick: { fontSize: 11 },
+      tick: { fontSize: 10 },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
-      label: !compact ? { value: xAxisLabel, position: 'bottom', offset: 15, fontSize: 12, fill: 'hsl(var(--muted-foreground))' } : undefined,
+      interval: 'preserveStartEnd' as const,
+      label: !compact && xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fontSize: 11, fill: 'hsl(var(--muted-foreground))' } : undefined,
     };
 
     const yAxisProps = {
-      tick: { fontSize: 11 },
+      tick: { fontSize: 10 },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
-      width: 50,
+      width: yAxisLabel ? 55 : 40,
       label: yAxisLabel && !compact ? { 
-        value: `${yAxisLabel} (${primaryUnit})`, 
+        value: primaryUnit ? `${yAxisLabel} (${primaryUnit})` : yAxisLabel, 
         angle: -90, 
         position: 'insideLeft',
-        offset: 10,
-        fontSize: 12,
-        fill: 'hsl(var(--muted-foreground))'
+        offset: 5,
+        fontSize: 10,
+        fill: 'hsl(var(--muted-foreground))',
+        style: { textAnchor: 'middle' }
       } : undefined,
     };
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindRose } from "@/components/charts/WindRose";
@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
   Radio,
@@ -153,6 +154,8 @@ export default function Dashboard() {
     return saved ? JSON.parse(saved) : DEFAULT_DASHBOARD_CONFIG;
   });
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const chartData = useMemo(() => generateChartData(dashboardConfig.chartTimeRange), [dashboardConfig.chartTimeRange]);
   const windRoseData = useMemo(() => generateWindRoseData(), []);
@@ -829,9 +832,28 @@ export default function Dashboard() {
               nextCalibrationDate: selectedStation.nextCalibrationDate ? new Date(selectedStation.nextCalibrationDate).toISOString().split('T')[0] : undefined,
             }}
             isAdmin={true}
-            onSave={(data) => {
-              console.log("Saving station info:", data);
-              // TODO: Implement save to database
+            onSave={async (data) => {
+              try {
+                const response = await fetch(`/api/stations/${selectedStation.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(data),
+                });
+                if (!response.ok) throw new Error('Failed to save');
+                // Refresh station data
+                await queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
+                toast({
+                  title: "Saved Successfully",
+                  description: "Station information has been updated.",
+                });
+              } catch (error) {
+                console.error("Error saving station:", error);
+                toast({
+                  title: "Save Failed",
+                  description: "Could not save station information. Please try again.",
+                  variant: "destructive",
+                });
+              }
             }}
           />
         )}
