@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,17 +13,159 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { User, Bell, Globe, Shield, Save, Server } from "lucide-react";
+import { User, Bell, Globe, Shield, Save, Server, Loader2 } from "lucide-react";
+
+// User profile settings interface
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+// Notification settings interface
+interface NotificationSettings {
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  tempHighAlert: number;
+  windHighAlert: number;
+}
+
+// Unit settings interface
+interface UnitSettings {
+  units: "metric" | "imperial";
+  timezone: string;
+}
+
+// Load settings from localStorage
+const loadUserProfile = (): UserProfile => {
+  const saved = localStorage.getItem('stratus_user_profile');
+  return saved ? JSON.parse(saved) : { firstName: '', lastName: '', email: '' };
+};
+
+const loadNotificationSettings = (): NotificationSettings => {
+  const saved = localStorage.getItem('stratus_notification_settings');
+  return saved ? JSON.parse(saved) : { 
+    emailNotifications: true, 
+    pushNotifications: false,
+    tempHighAlert: 35,
+    windHighAlert: 50
+  };
+};
+
+const loadUnitSettings = (): UnitSettings => {
+  const saved = localStorage.getItem('stratus_unit_settings');
+  return saved ? JSON.parse(saved) : { units: 'metric', timezone: 'auto' };
+};
 
 export default function Settings() {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Profile state
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  
+  // Notification state
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
-  const [units, setUnits] = useState("metric");
+  const [tempHighAlert, setTempHighAlert] = useState(35);
+  const [windHighAlert, setWindHighAlert] = useState(50);
+  
+  // Units state
+  const [units, setUnits] = useState<"metric" | "imperial">("metric");
   const [timezone, setTimezone] = useState("auto");
-  const [serverAddress, setServerAddress] = useState(() => {
-    return localStorage.getItem('stratus_server_address') || '';
-  });
+  
+  // Server state
+  const [serverAddress, setServerAddress] = useState('');
+
+  // Load all settings on mount
+  useEffect(() => {
+    const profile = loadUserProfile();
+    setFirstName(profile.firstName);
+    setLastName(profile.lastName);
+    setEmail(profile.email);
+    
+    const notifications = loadNotificationSettings();
+    setEmailNotifications(notifications.emailNotifications);
+    setPushNotifications(notifications.pushNotifications);
+    setTempHighAlert(notifications.tempHighAlert);
+    setWindHighAlert(notifications.windHighAlert);
+    
+    const unitPrefs = loadUnitSettings();
+    setUnits(unitPrefs.units);
+    setTimezone(unitPrefs.timezone);
+    
+    setServerAddress(localStorage.getItem('stratus_server_address') || '');
+  }, []);
+
+  // Save profile to localStorage
+  const handleSaveProfile = () => {
+    setIsLoading(true);
+    try {
+      const profile: UserProfile = { firstName, lastName, email };
+      localStorage.setItem('stratus_user_profile', JSON.stringify(profile));
+      toast({
+        title: "Profile Saved",
+        description: "Your profile information has been saved successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save notification settings
+  const handleSaveNotifications = () => {
+    setIsLoading(true);
+    try {
+      const settings: NotificationSettings = {
+        emailNotifications,
+        pushNotifications,
+        tempHighAlert,
+        windHighAlert
+      };
+      localStorage.setItem('stratus_notification_settings', JSON.stringify(settings));
+      toast({
+        title: "Notifications Saved",
+        description: "Your notification preferences have been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save notification settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save unit preferences
+  const handleSaveUnits = () => {
+    setIsLoading(true);
+    try {
+      const settings: UnitSettings = { units, timezone };
+      localStorage.setItem('stratus_unit_settings', JSON.stringify(settings));
+      toast({
+        title: "Units Saved",
+        description: "Your measurement preferences have been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save unit preferences.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSaveServerAddress = () => {
     if (serverAddress.trim()) {
@@ -45,13 +187,6 @@ export default function Settings() {
     toast({
       title: "Coming Soon",
       description: `${feature} will be available in a future update.`,
-    });
-  };
-
-  const handleSaveProfile = () => {
-    toast({
-      title: "Profile Saved",
-      description: "Your profile changes have been saved.",
     });
   };
 
@@ -77,20 +212,39 @@ export default function Settings() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
-                <Input id="firstName" defaultValue="John" data-testid="input-first-name" />
+                <Input 
+                  id="firstName" 
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Enter your first name"
+                  data-testid="input-first-name" 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
-                <Input id="lastName" defaultValue="Doe" data-testid="input-last-name" />
+                <Input 
+                  id="lastName" 
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Enter your last name"
+                  data-testid="input-last-name" 
+                />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue="john@example.com" data-testid="input-settings-email" />
+              <Input 
+                id="email" 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                data-testid="input-settings-email" 
+              />
             </div>
-            <Button data-testid="button-save-profile" onClick={handleSaveProfile}>
-              <Save className="mr-2 h-4 w-4" />
-              Save Changes
+            <Button data-testid="button-save-profile" onClick={handleSaveProfile} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Profile
             </Button>
           </CardContent>
         </Card>
@@ -133,14 +287,30 @@ export default function Settings() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="tempHigh">High Temp Alert (°C)</Label>
-                  <Input id="tempHigh" type="number" defaultValue="35" data-testid="input-temp-high" />
+                  <Input 
+                    id="tempHigh" 
+                    type="number" 
+                    value={tempHighAlert}
+                    onChange={(e) => setTempHighAlert(Number(e.target.value))}
+                    data-testid="input-temp-high" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="windHigh">High Wind Alert (km/h)</Label>
-                  <Input id="windHigh" type="number" defaultValue="50" data-testid="input-wind-high" />
+                  <Input 
+                    id="windHigh" 
+                    type="number" 
+                    value={windHighAlert}
+                    onChange={(e) => setWindHighAlert(Number(e.target.value))}
+                    data-testid="input-wind-high" 
+                  />
                 </div>
               </div>
             </div>
+            <Button onClick={handleSaveNotifications} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Notifications
+            </Button>
           </CardContent>
         </Card>
 
@@ -209,6 +379,10 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
+            <Button onClick={handleSaveUnits} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Preferences
+            </Button>
           </CardContent>
         </Card>
 

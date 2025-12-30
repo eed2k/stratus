@@ -1,8 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Maximize2, Minimize2, Navigation, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MapPin, Maximize2, Minimize2, Navigation, ExternalLink, Search, Loader2, X } from "lucide-react";
+
+interface LocationSearchResult {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type: string;
+  importance: number;
+}
 
 interface StationMapProps {
   latitude?: number;
@@ -10,11 +20,15 @@ interface StationMapProps {
   stationName?: string;
   altitude?: number;
   zoom?: number;
+  onLocationSelect?: (lat: number, lng: number, name: string) => void;
+  editable?: boolean;
 }
 
 /**
  * OpenStreetMap component using Leaflet.js
  * Free and open source map with no API key required
+ * Uses Nominatim for location search (OpenStreetMap geocoding)
+ * Default view: South Africa
  */
 export function StationMap({
   latitude,
@@ -22,17 +36,116 @@ export function StationMap({
   stationName = "Weather Station",
   altitude,
   zoom = 13,
+  onLocationSelect,
+  editable = false,
 }: StationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Location search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Default to a central location if no coordinates provided
-  const lat = latitude ?? -33.9249; // Default: Cape Town
-  const lng = longitude ?? 18.4241;
+  // Default to South Africa (center) if no coordinates provided
+  const lat = latitude ?? -30.5595; // Central South Africa
+  const lng = longitude ?? 22.9375;
   const hasCoordinates = latitude !== undefined && longitude !== undefined;
+  
+  // Default zoom for South Africa overview vs specific location
+  const defaultZoom = hasCoordinates ? zoom : 5;
+
+  // Nominatim search function with South Africa bias
+  const searchLocation = useCallback(async (query: string) => {
+    if (query.length < 3) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // Search with South Africa country bias and viewbox
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+        `q=${encodeURIComponent(query)}` +
+        `&format=json` +
+        `&limit=8` +
+        `&countrycodes=za` + // Bias to South Africa
+        `&viewbox=16.45,-34.85,32.89,-22.13` + // South Africa bounding box
+        `&bounded=0` + // Allow results outside but prefer inside
+        `&addressdetails=1`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'StratusWeatherServer/1.0',
+          },
+        }
+      );
+      
+      if (!response.ok) throw new Error('Search failed');
+      
+      const data: LocationSearchResult[] = await response.json();
+      setSearchResults(data);
+      setShowResults(data.length > 0);
+    } catch (err) {
+      console.error('Location search error:', err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Debounced search
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchQuery(value);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      searchLocation(value);
+    }, 300);
+  }, [searchLocation]);
+
+  // Handle location selection
+  const handleSelectLocation = useCallback((result: LocationSearchResult) => {
+    const selectedLat = parseFloat(result.lat);
+    const selectedLng = parseFloat(result.lon);
+    
+    // Update map view
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView([selectedLat, selectedLng], 14);
+      
+      // Update marker position
+      if (markerRef.current) {
+        markerRef.current.setLatLng([selectedLat, selectedLng]);
+        markerRef.current.openPopup();
+      }
+    }
+    
+    // Notify parent component
+    if (onLocationSelect) {
+      onLocationSelect(selectedLat, selectedLng, result.display_name);
+    }
+    
+    // Clear search
+    setShowResults(false);
+    setSearchQuery(result.display_name.split(',')[0]); // Just show first part
+  }, [onLocationSelect]);
+
+  // Clear search
+  const clearSearch = useCallback(() => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowResults(false);
+  }, []);
 
   useEffect(() => {
     // Dynamically load Leaflet CSS
@@ -69,10 +182,10 @@ export function StationMap({
       try {
         const L = (window as any).L;
         
-        // Create map
+        // Create map with South Africa default view
         const map = L.map(mapRef.current, {
           center: [lat, lng],
-          zoom: zoom,
+          zoom: defaultZoom,
           zoomControl: true,
           attributionControl: true,
         });
@@ -175,10 +288,10 @@ export function StationMap({
       const map = mapInstanceRef.current;
       const marker = markerRef.current;
       
-      map.setView([lat, lng], zoom);
+      map.setView([lat, lng], defaultZoom);
       marker.setLatLng([lat, lng]);
     }
-  }, [lat, lng, zoom]);
+  }, [lat, lng, defaultZoom]);
 
   // Handle expand/collapse
   useEffect(() => {
@@ -198,11 +311,11 @@ export function StationMap({
 
   const centerOnStation = () => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([lat, lng], zoom);
+      mapInstanceRef.current.setView([lat, lng], defaultZoom);
     }
   };
 
-  if (!hasCoordinates) {
+  if (!hasCoordinates && !editable) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
@@ -255,6 +368,53 @@ export function StationMap({
             </Button>
           </div>
         </div>
+        
+        {/* Location Search Bar */}
+        {(editable || onLocationSelect) && (
+          <div className="relative mt-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search location in South Africa..."
+                value={searchQuery}
+                onChange={(e) => handleSearchInput(e.target.value)}
+                onFocus={() => searchResults.length > 0 && setShowResults(true)}
+                className="pl-9 pr-8"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                  onClick={clearSearch}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+              {isSearching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            
+            {/* Search Results Dropdown */}
+            {showResults && searchResults.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                {searchResults.map((result) => (
+                  <button
+                    key={result.place_id}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border last:border-b-0"
+                    onClick={() => handleSelectLocation(result)}
+                  >
+                    <div className="font-medium truncate">{result.display_name.split(',')[0]}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {result.display_name.split(',').slice(1, 3).join(',')}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {error ? (

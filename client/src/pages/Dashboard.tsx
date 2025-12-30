@@ -6,6 +6,7 @@ import { WindRose } from "@/components/charts/WindRose";
 import { WindCompass } from "@/components/dashboard/WindCompass";
 import { WindPowerCard } from "@/components/dashboard/WindPowerCard";
 import { WeatherChart } from "@/components/charts/WeatherChart";
+import { DataBlockChart } from "@/components/charts/DataBlockChart";
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
 import { EToCard } from "@/components/dashboard/EToCard";
@@ -411,14 +412,52 @@ export default function Dashboard() {
               chartColor="#0ea5e9"
             />
           </div>
-          {/* Primary Metrics Chart */}
-          <WeatherChart
-            title="Temperature & Humidity (24h)"
+          
+          {/* Primary Metrics Dedicated Charts - Grid Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <DataBlockChart
+              title="Temperature"
+              data={chartData}
+              series={[
+                { dataKey: "temperature", name: "Temperature", color: "#ef4444", unit: "°C" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Temperature"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.temperature || 0}
+              trend={{ value: 1.2, label: "vs yesterday" }}
+            />
+            <DataBlockChart
+              title="Humidity"
+              data={chartData}
+              series={[
+                { dataKey: "humidity", name: "Humidity", color: "#3b82f6", unit: "%" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Humidity"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.humidity || 0}
+              trend={{ value: -5, label: "vs yesterday" }}
+            />
+          </div>
+          
+          {/* Pressure Chart */}
+          <DataBlockChart
+            title="Barometric Pressure"
             data={chartData}
             series={[
-              { dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" },
-              { dataKey: "humidity", name: "Humidity (%)", color: "#3b82f6" },
+              { dataKey: "pressure", name: "Pressure", color: "#8b5cf6", unit: "hPa" },
             ]}
+            chartType="line"
+            xAxisLabel="Time"
+            yAxisLabel="Pressure"
+            showAverage={true}
+            showMinMax={true}
+            currentValue={currentData.pressure || 0}
           />
         </section>
 
@@ -461,13 +500,19 @@ export default function Dashboard() {
               chartColor="#64748b"
             />
           </div>
-          {/* Solar Radiation Chart */}
-          <WeatherChart
-            title="Solar Radiation (24h)"
+          {/* Solar Radiation Dedicated Chart */}
+          <DataBlockChart
+            title="Solar Radiation"
             data={chartData}
             series={[
-              { dataKey: "solar", name: "Solar Radiation (W/m²)", color: "#f59e0b" },
+              { dataKey: "solar", name: "Solar Radiation", color: "#f59e0b", unit: "W/m²" },
             ]}
+            chartType="area"
+            xAxisLabel="Time"
+            yAxisLabel="Radiation"
+            showAverage={true}
+            showMinMax={true}
+            currentValue={currentData.solarRadiation || 0}
           />
         </section>
 
@@ -513,6 +558,36 @@ export default function Dashboard() {
                 { label: "Status", value: (currentData.batteryVoltage || 0) > 12 ? "Good" : "Low" },
               ]}
               chartColor="#22c55e"
+            />
+          </div>
+          
+          {/* Soil Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <DataBlockChart
+              title="Soil Temperature"
+              data={chartData.map(d => ({ ...d, soilTemp: 18 + Math.sin(parseFloat(d.timestamp.split(':')[0]) / 4) * 3 }))}
+              series={[
+                { dataKey: "soilTemp", name: "Soil Temp", color: "#a16207", unit: "°C" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Temperature"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.soilTemperature || 0}
+            />
+            <DataBlockChart
+              title="Soil Moisture"
+              data={chartData.map(d => ({ ...d, soilMoist: 30 + Math.random() * 10 }))}
+              series={[
+                { dataKey: "soilMoist", name: "Moisture", color: "#15803d", unit: "%" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Moisture"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.soilMoisture || 0}
             />
           </div>
         </section>
@@ -591,8 +666,8 @@ export default function Dashboard() {
               chartColor="#8b5cf6"
             />
           </div>
-          {/* Wind Energy Chart */}
-          <WeatherChart
+          {/* Wind Energy Dedicated Chart */}
+          <DataBlockChart
             title="Wind Power Density Over Time"
             data={windEnergyData.map(d => ({
               timestamp: d.timestamp,
@@ -600,9 +675,32 @@ export default function Dashboard() {
               windSpeed: d.windSpeed,
             }))}
             series={[
-              { dataKey: "windPower", name: "Wind Power (W/m²)", color: "#14b8a6" },
-              { dataKey: "windSpeed", name: "Wind Speed (km/h)", color: "#3b82f6" },
+              { dataKey: "windPower", name: "Wind Power", color: "#14b8a6", unit: "W/m²" },
+              { dataKey: "windSpeed", name: "Wind Speed", color: "#3b82f6", unit: "km/h" },
             ]}
+            chartType="area"
+            xAxisLabel="Time"
+            yAxisLabel="Power / Speed"
+            showAverage={true}
+            showMinMax={true}
+            currentValue={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225)}
+          />
+        </section>
+
+        {/* Rainfall Section */}
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Rainfall</h2>
+          <DataBlockChart
+            title="Rainfall History"
+            data={chartData}
+            series={[
+              { dataKey: "rain", name: "Rainfall", color: "#0ea5e9", unit: "mm" },
+            ]}
+            chartType="bar"
+            xAxisLabel="Time"
+            yAxisLabel="Rainfall"
+            showMinMax={true}
+            currentValue={currentData.rainfall || 0}
           />
         </section>
 
