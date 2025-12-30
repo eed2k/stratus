@@ -1,27 +1,8 @@
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
+import { createShare, getShareByToken, getSharesByStation, updateShare, deleteShare, Share } from "../db";
 
 const router = Router();
-
-// In-memory storage for shares (in production, use database)
-interface StationShare {
-  id: string;
-  stationId: number;
-  shareToken: string;
-  name: string;
-  email?: string;
-  accessLevel: 'viewer' | 'editor';
-  password?: string;
-  expiresAt?: Date;
-  isActive: boolean;
-  lastAccessedAt?: Date;
-  accessCount: number;
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const shares: Map<string, StationShare> = new Map();
 
 // Generate a unique share token
 const generateShareToken = (): string => {
@@ -35,31 +16,37 @@ router.post('/stations/:stationId/shares', (req: Request, res: Response) => {
     const { name, email, accessLevel = 'viewer', password, expiresAt } = req.body;
     
     const shareToken = generateShareToken();
-    const id = randomBytes(8).toString('hex');
     
-    const share: StationShare = {
-      id,
-      stationId: parseInt(stationId),
-      shareToken,
+    const share: Share = {
+      station_id: parseInt(stationId),
+      share_token: shareToken,
       name: name || 'Shared Dashboard',
       email,
-      accessLevel,
+      access_level: accessLevel,
       password,
-      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-      isActive: true,
-      accessCount: 0,
-      createdBy: 'admin', // In real app, get from session
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      expires_at: expiresAt || undefined,
+      is_active: 1,
+      access_count: 0,
+      created_by: 'admin', // In real app, get from session
     };
     
-    shares.set(shareToken, share);
+    createShare(share);
     
     // Return share info with the full URL
     res.json({
       success: true,
       share: {
-        ...share,
+        id: share.share_token,
+        stationId: share.station_id,
+        shareToken: share.share_token,
+        name: share.name,
+        email: share.email,
+        accessLevel: share.access_level,
+        password: share.password ? '••••••' : undefined,
+        expiresAt: share.expires_at,
+        isActive: share.is_active === 1,
+        accessCount: share.access_count,
+        createdBy: share.created_by,
         shareUrl: `/shared/${shareToken}`,
       },
     });
@@ -75,14 +62,24 @@ router.get('/stations/:stationId/shares', (req: Request, res: Response) => {
     const { stationId } = req.params;
     const stationIdNum = parseInt(stationId);
     
-    const stationShares = Array.from(shares.values())
-      .filter(s => s.stationId === stationIdNum)
-      .map(s => ({
-        ...s,
-        shareUrl: `/shared/${s.shareToken}`,
-        // Don't expose password in list
-        password: s.password ? '••••••' : undefined,
-      }));
+    const dbShares = getSharesByStation(stationIdNum);
+    const stationShares = dbShares.map(s => ({
+      id: s.share_token,
+      stationId: s.station_id,
+      shareToken: s.share_token,
+      name: s.name,
+      email: s.email,
+      accessLevel: s.access_level,
+      password: s.password ? '••••••' : undefined,
+      expiresAt: s.expires_at,
+      isActive: s.is_active === 1,
+      lastAccessedAt: s.last_accessed_at,
+      accessCount: s.access_count,
+      createdBy: s.created_by,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+      shareUrl: `/shared/${s.share_token}`,
+    }));
     
     res.json({ success: true, shares: stationShares });
   } catch (error) {
@@ -97,17 +94,17 @@ router.post('/shares/:shareToken/validate', (req: Request, res: Response) => {
     const { shareToken } = req.params;
     const { password } = req.body;
     
-    const share = shares.get(shareToken);
+    const share = getShareByToken(shareToken);
     
     if (!share) {
       return res.status(404).json({ success: false, error: 'Share link not found' });
     }
     
-    if (!share.isActive) {
+    if (share.is_active !== 1) {
       return res.status(403).json({ success: false, error: 'Share link is no longer active' });
     }
     
-    if (share.expiresAt && new Date() > share.expiresAt) {
+    if (share.expires_at && new Date() > new Date(share.expires_at)) {
       return res.status(403).json({ success: false, error: 'Share link has expired' });
     }
     
@@ -116,15 +113,16 @@ router.post('/shares/:shareToken/validate', (req: Request, res: Response) => {
     }
     
     // Update access stats
-    share.lastAccessedAt = new Date();
-    share.accessCount++;
-    shares.set(shareToken, share);
+    updateShare(shareToken, {
+      last_accessed_at: new Date().toISOString(),
+      access_count: (share.access_count || 0) + 1
+    });
     
     res.json({
       success: true,
       access: {
-        stationId: share.stationId,
-        accessLevel: share.accessLevel,
+        stationId: share.station_id,
+        accessLevel: share.access_level,
         name: share.name,
       },
     });
@@ -138,26 +136,26 @@ router.post('/shares/:shareToken/validate', (req: Request, res: Response) => {
 router.get('/shares/:shareToken', (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
-    const share = shares.get(shareToken);
+    const share = getShareByToken(shareToken);
     
     if (!share) {
       return res.status(404).json({ success: false, error: 'Share link not found' });
     }
     
-    if (!share.isActive) {
+    if (share.is_active !== 1) {
       return res.status(403).json({ success: false, error: 'Share link is no longer active' });
     }
     
-    if (share.expiresAt && new Date() > share.expiresAt) {
+    if (share.expires_at && new Date() > new Date(share.expires_at)) {
       return res.status(403).json({ success: false, error: 'Share link has expired' });
     }
     
     res.json({
       success: true,
       share: {
-        stationId: share.stationId,
+        stationId: share.station_id,
         name: share.name,
-        accessLevel: share.accessLevel,
+        accessLevel: share.access_level,
         requiresPassword: !!share.password,
       },
     });
@@ -171,7 +169,7 @@ router.get('/shares/:shareToken', (req: Request, res: Response) => {
 router.patch('/shares/:shareToken', (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
-    const share = shares.get(shareToken);
+    const share = getShareByToken(shareToken);
     
     if (!share) {
       return res.status(404).json({ success: false, error: 'Share not found' });
@@ -179,17 +177,30 @@ router.patch('/shares/:shareToken', (req: Request, res: Response) => {
     
     const { name, email, accessLevel, password, expiresAt, isActive } = req.body;
     
-    if (name !== undefined) share.name = name;
-    if (email !== undefined) share.email = email;
-    if (accessLevel !== undefined) share.accessLevel = accessLevel;
-    if (password !== undefined) share.password = password;
-    if (expiresAt !== undefined) share.expiresAt = expiresAt ? new Date(expiresAt) : undefined;
-    if (isActive !== undefined) share.isActive = isActive;
-    share.updatedAt = new Date();
+    const updates: Partial<Share> = {};
+    if (name !== undefined) updates.name = name;
+    if (email !== undefined) updates.email = email;
+    if (accessLevel !== undefined) updates.access_level = accessLevel;
+    if (password !== undefined) updates.password = password;
+    if (expiresAt !== undefined) updates.expires_at = expiresAt || undefined;
+    if (isActive !== undefined) updates.is_active = isActive ? 1 : 0;
     
-    shares.set(shareToken, share);
+    updateShare(shareToken, updates);
     
-    res.json({ success: true, share });
+    const updatedShare = getShareByToken(shareToken);
+    res.json({ 
+      success: true, 
+      share: {
+        id: updatedShare?.share_token,
+        stationId: updatedShare?.station_id,
+        shareToken: updatedShare?.share_token,
+        name: updatedShare?.name,
+        email: updatedShare?.email,
+        accessLevel: updatedShare?.access_level,
+        expiresAt: updatedShare?.expires_at,
+        isActive: updatedShare?.is_active === 1,
+      }
+    });
   } catch (error) {
     console.error('Error updating share:', error);
     res.status(500).json({ success: false, error: 'Failed to update share' });
@@ -201,11 +212,12 @@ router.delete('/shares/:shareToken', (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
     
-    if (!shares.has(shareToken)) {
+    const share = getShareByToken(shareToken);
+    if (!share) {
       return res.status(404).json({ success: false, error: 'Share not found' });
     }
     
-    shares.delete(shareToken);
+    deleteShare(shareToken);
     res.json({ success: true, message: 'Share deleted successfully' });
   } catch (error) {
     console.error('Error deleting share:', error);

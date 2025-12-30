@@ -31,6 +31,10 @@ export interface WeatherStation {
   description?: string;
   location?: string;
   provider?: string;
+  // Location coordinates for map
+  latitude?: number;
+  longitude?: number;
+  altitude?: number;
   // Personnel fields
   installationTeam?: string;
   stationAdmin?: string;
@@ -87,6 +91,10 @@ export interface InsertWeatherStation {
   location?: string;
   provider?: string;
   isActive?: boolean;
+  // Location coordinates for map
+  latitude?: number;
+  longitude?: number;
+  altitude?: number;
   // Personnel fields
   installationTeam?: string;
   stationAdmin?: string;
@@ -220,6 +228,10 @@ export class DatabaseStorage {
     if (station.connectionType !== undefined) updateData.connection_type = station.connectionType;
     if (station.connectionConfig !== undefined) updateData.connection_config = JSON.stringify(station.connectionConfig);
     if (station.securityCode !== undefined) updateData.security_code = station.securityCode;
+    // Location fields
+    if (station.latitude !== undefined) updateData.latitude = station.latitude;
+    if (station.longitude !== undefined) updateData.longitude = station.longitude;
+    if (station.altitude !== undefined) updateData.altitude = station.altitude;
     // Personnel fields
     if ((station as any).installationTeam !== undefined) updateData.installation_team = (station as any).installationTeam;
     if ((station as any).stationAdmin !== undefined) updateData.station_admin = (station as any).stationAdmin;
@@ -578,6 +590,10 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.connection_type,
+      // Location fields
+      latitude: station.latitude || undefined,
+      longitude: station.longitude || undefined,
+      altitude: station.altitude || undefined,
       // Personnel fields
       installationTeam: station.installation_team || undefined,
       stationAdmin: station.station_admin || undefined,

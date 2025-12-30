@@ -77,6 +77,16 @@ async function runMigrations(database: Database): Promise<void> {
     }
   }
 
+  // Add location columns if they don't exist
+  const locationColumns = ['latitude', 'longitude', 'altitude'];
+  for (const col of locationColumns) {
+    try {
+      database.run(`ALTER TABLE stations ADD COLUMN ${col} REAL`);
+    } catch (e) {
+      // Column already exists, ignore
+    }
+  }
+
   // Add organizations table if it doesn't exist
   try {
     database.run(`
@@ -128,6 +138,31 @@ async function runMigrations(database: Database): Promise<void> {
     // Table already exists
   }
 
+  // Add shares table for dashboard sharing
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS shares (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        station_id INTEGER NOT NULL,
+        share_token TEXT UNIQUE NOT NULL,
+        name TEXT DEFAULT 'Shared Dashboard',
+        email TEXT,
+        access_level TEXT DEFAULT 'viewer',
+        password TEXT,
+        expires_at DATETIME,
+        is_active INTEGER DEFAULT 1,
+        last_accessed_at DATETIME,
+        access_count INTEGER DEFAULT 0,
+        created_by TEXT DEFAULT 'admin',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (e) {
+    // Table already exists
+  }
+
   saveDatabase();
 }
 
@@ -148,6 +183,9 @@ async function createTables(database: Database): Promise<void> {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_connected DATETIME,
       is_active INTEGER DEFAULT 1,
+      latitude REAL,
+      longitude REAL,
+      altitude REAL,
       installation_team TEXT,
       station_admin TEXT,
       station_admin_email TEXT,
@@ -340,11 +378,20 @@ export interface Station {
   updated_at?: string;
   last_connected?: string;
   is_active?: number;
+  // Location fields
+  latitude?: number;
+  longitude?: number;
+  altitude?: number;
+  // Personnel fields
+  installation_team?: string;
+  station_admin?: string;
+  station_admin_email?: string;
+  station_admin_phone?: string;
 }
 
 export function getAllStations(): Station[] {
   if (!db) return [];
-  const result = db.exec('SELECT * FROM stations WHERE is_active = 1 ORDER BY name');
+  const result = db.exec('SELECT id, name, pakbus_address, connection_type, connection_config, security_code, created_at, updated_at, last_connected, is_active, latitude, longitude, altitude, installation_team, station_admin, station_admin_email, station_admin_phone FROM stations WHERE is_active = 1 ORDER BY name');
   if (result.length === 0) return [];
   
   return result[0].values.map((row: any[]) => ({
@@ -357,13 +404,20 @@ export function getAllStations(): Station[] {
     created_at: row[6] as string,
     updated_at: row[7] as string,
     last_connected: row[8] as string | undefined,
-    is_active: row[9] as number
+    is_active: row[9] as number,
+    latitude: row[10] as number | undefined,
+    longitude: row[11] as number | undefined,
+    altitude: row[12] as number | undefined,
+    installation_team: row[13] as string | undefined,
+    station_admin: row[14] as string | undefined,
+    station_admin_email: row[15] as string | undefined,
+    station_admin_phone: row[16] as string | undefined
   }));
 }
 
 export function getStationById(id: number): Station | null {
   if (!db) return null;
-  const result = db.exec('SELECT * FROM stations WHERE id = ?', [id]);
+  const result = db.exec('SELECT id, name, pakbus_address, connection_type, connection_config, security_code, created_at, updated_at, last_connected, is_active, latitude, longitude, altitude, installation_team, station_admin, station_admin_email, station_admin_phone FROM stations WHERE id = ?', [id]);
   if (result.length === 0 || result[0].values.length === 0) return null;
   
   const row = result[0].values[0];
@@ -377,7 +431,14 @@ export function getStationById(id: number): Station | null {
     created_at: row[6] as string,
     updated_at: row[7] as string,
     last_connected: row[8] as string | undefined,
-    is_active: row[9] as number
+    is_active: row[9] as number,
+    latitude: row[10] as number | undefined,
+    longitude: row[11] as number | undefined,
+    altitude: row[12] as number | undefined,
+    installation_team: row[13] as string | undefined,
+    station_admin: row[14] as string | undefined,
+    station_admin_email: row[15] as string | undefined,
+    station_admin_phone: row[16] as string | undefined
   };
 }
 
@@ -409,6 +470,15 @@ export function updateStation(id: number, station: Partial<Station>): void {
   if (station.connection_config !== undefined) { fields.push('connection_config = ?'); values.push(station.connection_config); }
   if (station.security_code !== undefined) { fields.push('security_code = ?'); values.push(station.security_code); }
   if (station.last_connected !== undefined) { fields.push('last_connected = ?'); values.push(station.last_connected); }
+  // Location fields
+  if (station.latitude !== undefined) { fields.push('latitude = ?'); values.push(station.latitude); }
+  if (station.longitude !== undefined) { fields.push('longitude = ?'); values.push(station.longitude); }
+  if (station.altitude !== undefined) { fields.push('altitude = ?'); values.push(station.altitude); }
+  // Personnel fields
+  if (station.installation_team !== undefined) { fields.push('installation_team = ?'); values.push(station.installation_team); }
+  if (station.station_admin !== undefined) { fields.push('station_admin = ?'); values.push(station.station_admin); }
+  if (station.station_admin_email !== undefined) { fields.push('station_admin_email = ?'); values.push(station.station_admin_email); }
+  if (station.station_admin_phone !== undefined) { fields.push('station_admin_phone = ?'); values.push(station.station_admin_phone); }
   
   fields.push('updated_at = CURRENT_TIMESTAMP');
   values.push(id);
@@ -785,6 +855,126 @@ export function createOrganizationInvitation(orgId: number, email: string, role:
   return token;
 }
 
+// ============ Share Operations ============
+
+export interface Share {
+  id?: number;
+  station_id: number;
+  share_token: string;
+  name: string;
+  email?: string;
+  access_level: string;
+  password?: string;
+  expires_at?: string;
+  is_active: number;
+  last_accessed_at?: string;
+  access_count: number;
+  created_by: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export function createShare(share: Share): string {
+  if (!db) throw new Error('Database not initialized');
+  
+  db.run(
+    `INSERT INTO shares (station_id, share_token, name, email, access_level, password, expires_at, is_active, access_count, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      share.station_id,
+      share.share_token,
+      share.name || 'Shared Dashboard',
+      share.email || null,
+      share.access_level || 'viewer',
+      share.password || null,
+      share.expires_at || null,
+      share.is_active !== undefined ? share.is_active : 1,
+      share.access_count || 0,
+      share.created_by || 'admin'
+    ]
+  );
+  
+  saveDatabase();
+  return share.share_token;
+}
+
+export function getShareByToken(token: string): Share | null {
+  if (!db) return null;
+  const result = db.exec('SELECT * FROM shares WHERE share_token = ?', [token]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const row = result[0].values[0];
+  return {
+    id: row[0] as number,
+    station_id: row[1] as number,
+    share_token: row[2] as string,
+    name: row[3] as string,
+    email: row[4] as string | undefined,
+    access_level: row[5] as string,
+    password: row[6] as string | undefined,
+    expires_at: row[7] as string | undefined,
+    is_active: row[8] as number,
+    last_accessed_at: row[9] as string | undefined,
+    access_count: row[10] as number,
+    created_by: row[11] as string,
+    created_at: row[12] as string,
+    updated_at: row[13] as string
+  };
+}
+
+export function getSharesByStation(stationId: number): Share[] {
+  if (!db) return [];
+  const result = db.exec('SELECT * FROM shares WHERE station_id = ? ORDER BY created_at DESC', [stationId]);
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    station_id: row[1] as number,
+    share_token: row[2] as string,
+    name: row[3] as string,
+    email: row[4] as string | undefined,
+    access_level: row[5] as string,
+    password: row[6] as string | undefined,
+    expires_at: row[7] as string | undefined,
+    is_active: row[8] as number,
+    last_accessed_at: row[9] as string | undefined,
+    access_count: row[10] as number,
+    created_by: row[11] as string,
+    created_at: row[12] as string,
+    updated_at: row[13] as string
+  }));
+}
+
+export function updateShare(token: string, updates: Partial<Share>): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  const fields: string[] = [];
+  const values: any[] = [];
+  
+  if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
+  if (updates.email !== undefined) { fields.push('email = ?'); values.push(updates.email); }
+  if (updates.access_level !== undefined) { fields.push('access_level = ?'); values.push(updates.access_level); }
+  if (updates.password !== undefined) { fields.push('password = ?'); values.push(updates.password); }
+  if (updates.expires_at !== undefined) { fields.push('expires_at = ?'); values.push(updates.expires_at); }
+  if (updates.is_active !== undefined) { fields.push('is_active = ?'); values.push(updates.is_active); }
+  if (updates.last_accessed_at !== undefined) { fields.push('last_accessed_at = ?'); values.push(updates.last_accessed_at); }
+  if (updates.access_count !== undefined) { fields.push('access_count = ?'); values.push(updates.access_count); }
+  
+  if (fields.length === 0) return;
+  
+  fields.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(token);
+  
+  db.run(`UPDATE shares SET ${fields.join(', ')} WHERE share_token = ?`, values);
+  saveDatabase();
+}
+
+export function deleteShare(token: string): void {
+  if (!db) throw new Error('Database not initialized');
+  db.run('DELETE FROM shares WHERE share_token = ?', [token]);
+  saveDatabase();
+}
+
 // Export database module
 export default {
   initDatabase,
@@ -815,5 +1005,11 @@ export default {
   updateMemberRole,
   removeOrganizationMember,
   getOrganizationInvitations,
-  createOrganizationInvitation
+  createOrganizationInvitation,
+  // Share functions
+  createShare,
+  getShareByToken,
+  getSharesByStation,
+  updateShare,
+  deleteShare
 };
