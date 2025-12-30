@@ -35,6 +35,15 @@ export interface WeatherStation {
   latitude?: number;
   longitude?: number;
   altitude?: number;
+  // Equipment fields
+  dataloggerModel?: string;
+  dataloggerSerialNumber?: string;
+  programName?: string;
+  modemModel?: string;
+  modemSerialNumber?: string;
+  // Description fields
+  siteDescription?: string;
+  notes?: string;
   // Personnel fields
   installationTeam?: string;
   stationAdmin?: string;
