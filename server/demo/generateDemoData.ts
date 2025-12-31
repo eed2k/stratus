@@ -14,20 +14,24 @@ export async function initializeDemoStation() {
   const existingStations = await storage.getStations();
   const demoStation = existingStations.find(s => s.name === 'Elsa - Demo Station');
   if (demoStation) {
-    console.log('Demo station "Elsa" already exists');
+    console.log('Skipping demo station: Elsa - Demo Station');
     return demoStation;
   }
 
-  // Create the demo station named "Elsa"
+  // Create the demo station named "Elsa" with Cape Town coordinates
   const station = await storage.createStation({
     name: 'Elsa - Demo Station',
     pakbusAddress: 1,
     connectionType: 'demo',
     connectionConfig: {
       type: 'demo',
-      dataTable: 'OneMin'
+      dataTable: 'OneMin',
+      stationType: 'demo'
     },
-    location: 'Demo Location',
+    location: 'Cape Town, South Africa',
+    latitude: -33.9258, // Cape Town coordinates
+    longitude: 18.4232,
+    altitude: 5,
     description: 'Demo weather station for testing and visualization',
     securityCode: 0,
     isActive: true

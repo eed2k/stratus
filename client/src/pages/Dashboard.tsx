@@ -146,7 +146,13 @@ const generateWindEnergyData = (hours: number) => {
   return data;
 };
 
-export default function Dashboard() {
+interface DashboardProps {
+  isAdmin?: boolean;
+  canAccessStation?: (stationId: number) => boolean;
+  assignedStations?: number[];
+}
+
+export default function Dashboard({ isAdmin = true, canAccessStation, assignedStations = [] }: DashboardProps) {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
     // Load config from localStorage if available
@@ -163,9 +169,16 @@ export default function Dashboard() {
   const last60MinutesWindRoseData = useMemo(() => generateLast60MinutesWindRoseData(), []);
   const windEnergyData = useMemo(() => generateWindEnergyData(dashboardConfig.chartTimeRange), [dashboardConfig.chartTimeRange]);
 
-  const { data: stations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
+  const { data: allStations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
   });
+
+  // Filter stations based on user access
+  const stations = useMemo(() => {
+    if (isAdmin) return allStations;
+    if (!canAccessStation) return allStations;
+    return allStations.filter(s => canAccessStation(s.id));
+  }, [allStations, isAdmin, canAccessStation]);
 
   const activeStationId = selectedStationId || (stations.length > 0 ? stations[0].id : null);
 
@@ -202,6 +215,22 @@ export default function Dashboard() {
     isOnline: s.isActive || false,
   }));
 
+  // Show message if user has no stations assigned
+  if (!isAdmin && stations.length === 0 && !stationsLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="text-center space-y-4">
+          <Radio className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+          <h2 className="text-xl font-semibold text-muted-foreground">No Stations Assigned</h2>
+          <p className="text-sm text-muted-foreground max-w-md">
+            You don't have any weather stations assigned to your account yet.
+            Please contact your administrator to get access to station dashboards.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (stationsLoading) {
     return (
       <div className="flex h-full items-center justify-center p-6">
@@ -218,14 +247,18 @@ export default function Dashboard() {
             <Radio className="h-12 w-12 text-muted-foreground mb-4" />
             <h2 className="text-base font-semibold mb-2">No Weather Stations</h2>
             <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
-              Add a weather station to start monitoring weather data on your dashboard.
+              {isAdmin 
+                ? "Add a weather station to start monitoring weather data on your dashboard."
+                : "No stations have been assigned to your account yet."}
             </p>
-            <Link href="/stations">
-              <Button data-testid="button-add-station-dashboard">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Station
-              </Button>
-            </Link>
+            {isAdmin && (
+              <Link href="/stations">
+                <Button data-testid="button-add-station-dashboard">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Station
+                </Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       </div>

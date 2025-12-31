@@ -125,13 +125,16 @@ function New-TunnelConfig {
         $credentialsFile = "$configDir\$TunnelId.json"
     }
     
+    # Get the credentials path (handle both FileInfo object and string)
+    $credentialsPath = if ($credentialsFile -is [System.IO.FileInfo]) { $credentialsFile.FullName } else { $credentialsFile }
+    
     $config = @"
 # Stratus Weather Server - Cloudflare Tunnel Configuration
 # Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 # Domain: $Domain
 
 tunnel: $TunnelId
-credentials-file: $($credentialsFile.FullName ?? $credentialsFile)
+credentials-file: $credentialsPath
 
 # Origin server configuration
 originRequest:

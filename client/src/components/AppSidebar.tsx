@@ -12,20 +12,24 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LogOut, Shield, User } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
     name: string;
     email: string;
     avatar?: string;
+    role?: 'admin' | 'user';
   };
   onLogout?: () => void;
 }
 
-const navItems = [
+// Admin navigation items - full access
+const adminNavItems = [
   { title: "Dashboard", url: "/" },
   { title: "Stations", url: "/stations" },
+  { title: "User Management", url: "/users" },
   { title: "Serial Monitor", url: "/serial-monitor" },
   { title: "Organizations", url: "/organizations" },
   { title: "History", url: "/history" },
@@ -34,8 +38,16 @@ const navItems = [
   { title: "Settings", url: "/settings" },
 ];
 
+// User navigation items - limited access
+const userNavItems = [
+  { title: "Dashboard", url: "/" },
+  { title: "Account Settings", url: "/account" },
+];
+
 export function AppSidebar({ user, onLogout }: AppSidebarProps) {
   const [location] = useLocation();
+  const isAdmin = user?.role === 'admin';
+  const navItems = isAdmin ? adminNavItems : userNavItems;
 
   return (
     <Sidebar className="bg-sidebar-background border-r border-sidebar-border">
@@ -62,7 +74,7 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
                   <SidebarMenuButton
                     asChild
                     isActive={location === item.url}
-                    data-testid={`nav-${item.title.toLowerCase()}`}
+                    data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     <Link href={item.url}>
                       <span>{item.title}</span>
@@ -77,20 +89,35 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
 
       <SidebarFooter className="border-t border-sidebar-border p-4 space-y-3">
         {user && (
-          <div className="flex items-center gap-3">
-            <div className="flex-1 overflow-hidden">
-              <p className="truncate text-sm font-medium text-sidebar-foreground" data-testid="text-user-name">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              {isAdmin ? (
+                <Badge variant="default" className="bg-blue-600 text-xs">
+                  <Shield className="h-3 w-3 mr-1" />
+                  Admin
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-xs">
+                  <User className="h-3 w-3 mr-1" />
+                  User
+                </Badge>
+              )}
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onLogout}
-              data-testid="button-logout"
-              aria-label="Logout"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 overflow-hidden">
+                <p className="truncate text-sm font-medium text-sidebar-foreground" data-testid="text-user-name">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onLogout}
+                data-testid="button-logout"
+                aria-label="Logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
         <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">

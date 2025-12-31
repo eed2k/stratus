@@ -3,45 +3,55 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { User, Mail, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Shield, Users } from "lucide-react";
+import { getAllUsers, addUser, type StoredUser } from "@/hooks/useAuth";
 
 // Admin credentials (hashed for security)
 const ADMIN_EMAIL = "esterhuizen2k@proton.me";
-const ADMIN_PASSWORD_HASH = "THVrYXNANjEwMw=="; // Base64 encoded
+const ADMIN_PASSWORD_HASH = "THVrYXNANjEwMw=="; // Base64 encoded "Lukas@6103"
+
+function verifyPassword(password: string, hash: string): boolean {
+  return btoa(password) === hash;
+}
 
 interface LoginPageProps {
-  onLogin: (user: { email: string; firstName: string; lastName: string }) => void;
+  onLogin: (user: { 
+    email: string; 
+    firstName: string; 
+    lastName: string;
+    role?: 'admin' | 'user';
+    assignedStations?: number[];
+  }) => void;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
-  const [isSignup, setIsSignup] = useState(false); // Default to login since admin exists
+  const [loginType, setLoginType] = useState<'admin' | 'user'>('admin');
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    confirmPassword: "",
-    firstName: "",
-    lastName: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Setup default admin on first load
   useEffect(() => {
-    const storedUser = localStorage.getItem("stratus_user");
-    if (!storedUser) {
+    const users = getAllUsers();
+    const adminExists = users.some(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+    
+    if (!adminExists) {
       // Set up default admin account
-      const adminUser = {
+      const adminUser: StoredUser = {
         email: ADMIN_EMAIL,
         firstName: "Lukas",
         lastName: "Esterhuizen",
         passwordHash: ADMIN_PASSWORD_HASH,
-        isAdmin: true,
+        role: 'admin',
+        assignedStations: [],
         createdAt: new Date().toISOString(),
       };
-      localStorage.setItem("stratus_user", JSON.stringify(adminUser));
+      addUser(adminUser);
     }
   }, []);
 
@@ -51,46 +61,43 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setIsLoading(true);
 
     try {
-      if (isSignup) {
-        // Validation for signup
-        if (!formData.firstName.trim()) {
-          throw new Error("First name is required");
-        }
-        if (!formData.email.trim()) {
-          throw new Error("Email is required");
-        }
-        if (formData.password.length < 6) {
-          throw new Error("Password must be at least 6 characters");
-        }
-        if (formData.password !== formData.confirmPassword) {
-          throw new Error("Passwords do not match");
-        }
-
-        // Store user in localStorage
-        const userData = {
-          email: formData.email.trim(),
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          createdAt: new Date().toISOString(),
-        };
-        localStorage.setItem("stratus_user", JSON.stringify(userData));
-        localStorage.setItem("stratus_setup_complete", "true");
-        
-        onLogin(userData);
-      } else {
-        // Login - check stored credentials
-        const storedUser = localStorage.getItem("stratus_user");
-        if (!storedUser) {
-          throw new Error("No account found. Please create an account first.");
-        }
-        
-        const userData = JSON.parse(storedUser);
-        if (userData.email !== formData.email.trim()) {
-          throw new Error("Invalid email address");
-        }
-        
-        onLogin(userData);
+      if (!formData.email.trim()) {
+        throw new Error("Email is required");
       }
+      if (!formData.password) {
+        throw new Error("Password is required");
+      }
+
+      // Find user in stored users
+      const users = getAllUsers();
+      const user = users.find(u => u.email.toLowerCase() === formData.email.trim().toLowerCase());
+
+      if (!user) {
+        throw new Error("Invalid email or password");
+      }
+
+      // Verify password
+      if (!user.passwordHash || !verifyPassword(formData.password, user.passwordHash)) {
+        throw new Error("Invalid email or password");
+      }
+
+      // Check role matches login type
+      if (loginType === 'admin' && user.role !== 'admin') {
+        throw new Error("This account does not have admin access. Please use 'User Login'.");
+      }
+
+      if (loginType === 'user' && user.role === 'admin') {
+        throw new Error("Admin accounts should use 'Admin Login'.");
+      }
+
+      // Login successful
+      onLogin({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        assignedStations: user.assignedStations || [],
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -117,134 +124,110 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </div>
         </div>
 
-        {/* Login/Signup Card */}
+        {/* Login Type Selection */}
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={loginType === 'admin' ? 'default' : 'outline'}
+            className={`flex-1 ${loginType === 'admin' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+            onClick={() => setLoginType('admin')}
+          >
+            <Shield className="mr-2 h-4 w-4" />
+            Admin Login
+          </Button>
+          <Button
+            type="button"
+            variant={loginType === 'user' ? 'default' : 'outline'}
+            className={`flex-1 ${loginType === 'user' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+            onClick={() => setLoginType('user')}
+          >
+            <Users className="mr-2 h-4 w-4" />
+            User Login
+          </Button>
+        </div>
+
+        {/* Login Card */}
         <Card className="shadow-xl border border-gray-200 bg-white">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-2xl text-center text-gray-900">
-              {isSignup ? "Welcome to Stratus" : "Welcome Back"}
+              {loginType === 'admin' ? 'Administrator Access' : 'User Access'}
             </CardTitle>
             <CardDescription className="text-center text-gray-600">
-              {isSignup
-                ? "Create your account to get started"
-                : "Sign in to your account"}
+              {loginType === 'admin' 
+                ? 'Sign in with your admin credentials'
+                : 'Sign in to view your assigned dashboards'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={isSignup ? "signup" : "login"} onValueChange={(v) => setIsSignup(v === "signup")}>
-              <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100">
-                <TabsTrigger value="signup" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-700">Create Account</TabsTrigger>
-                <TabsTrigger value="login" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-700">Sign In</TabsTrigger>
-              </TabsList>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-
-                {isSignup && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-gray-700">First Name *</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="firstName"
-                          placeholder="John"
-                          className="pl-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                          value={formData.firstName}
-                          onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-gray-700">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        placeholder="Doe"
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-700">Email *</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      className="pl-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                    />
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-700">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    className="pl-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
+                  />
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-gray-700">Password {isSignup && "*"}</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder={isSignup ? "Create a password (min 6 chars)" : "Enter your password"}
-                      className="pl-9 pr-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      required={isSignup}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-gray-700">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    className="pl-9 pr-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
+              </div>
 
-                {isSignup && (
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword" className="text-gray-700">Confirm Password *</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="confirmPassword"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Confirm your password"
-                        className="pl-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                        value={formData.confirmPassword}
-                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={isLoading}>
-                  {isLoading ? (
-                    "Please wait..."
-                  ) : isSignup ? (
-                    <>
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Create Account
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-              </form>
-            </Tabs>
+              <Button 
+                type="submit" 
+                className={`w-full text-white ${
+                  loginType === 'admin' 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-green-600 hover:bg-green-700'
+                }`} 
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
+
+        {/* Info Text */}
+        <div className="text-center text-sm text-gray-500">
+          {loginType === 'admin' ? (
+            <p>Administrators have full access to all settings and stations.</p>
+          ) : (
+            <p>Users can only view dashboards assigned by an administrator.</p>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="text-center space-y-1">

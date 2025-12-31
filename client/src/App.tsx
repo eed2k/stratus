@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DemoInitializer } from "@/components/DemoInitializer";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, type AuthUser } from "@/hooks/useAuth";
 import { useElectronMenu } from "@/hooks/useElectronMenu";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
@@ -19,6 +19,8 @@ import Alarms from "@/pages/Alarms";
 import Reports from "@/pages/Reports";
 import SerialMonitor from "@/pages/SerialMonitor";
 import SharedDashboard from "@/pages/SharedDashboard";
+import UserManagement from "@/pages/UserManagement";
+import AccountSettings from "@/pages/AccountSettings";
 import { LoginPage } from "@/pages/LoginPage";
 import { Loader2 } from "lucide-react";
 
@@ -31,7 +33,7 @@ function LoadingScreen() {
 }
 
 function Router() {
-  const { isLoading, user, logout, needsSetup, login } = useAuth();
+  const { isLoading, user, logout, needsSetup, login, isAdmin, canAccessStation } = useAuth();
   const [location] = useLocation();
 
   // Shared dashboard routes don't need authentication
@@ -51,14 +53,16 @@ function Router() {
   // Desktop app - authenticated
   return (
     <DemoInitializer>
-      <AuthenticatedApp user={user!} logout={logout} />
+      <AuthenticatedApp user={user!} logout={logout} isAdmin={isAdmin} canAccessStation={canAccessStation} />
     </DemoInitializer>
   );
 }
 
-function AuthenticatedApp({ user, logout }: { 
-  user: { firstName?: string | null; lastName?: string | null; email?: string | null; profileImageUrl?: string | null };
+function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: { 
+  user: AuthUser;
   logout: () => void;
+  isAdmin: boolean;
+  canAccessStation: (stationId: number) => boolean;
 }) {
   // Initialize Electron menu listeners
   useElectronMenu();
@@ -80,6 +84,7 @@ function AuthenticatedApp({ user, logout }: {
             name: displayName,
             email: user.email || "",
             avatar: user.profileImageUrl || undefined,
+            role: user.role,
           }}
           onLogout={logout}
         />
@@ -89,15 +94,31 @@ function AuthenticatedApp({ user, logout }: {
           </header>
           <main className="flex-1 overflow-auto bg-background">
             <Switch>
-              <Route path="/" component={Dashboard} />
-              <Route path="/campbell" component={CampbellDashboard} />
-              <Route path="/stations" component={Stations} />
-              <Route path="/organizations" component={Organizations} />
-              <Route path="/history" component={History} />
-              <Route path="/alarms" component={Alarms} />
-              <Route path="/reports" component={Reports} />
-              <Route path="/serial-monitor" component={SerialMonitor} />
-              <Route path="/settings" component={Settings} />
+              {/* Dashboard - available to all users */}
+              <Route path="/">
+                <Dashboard isAdmin={isAdmin} canAccessStation={canAccessStation} assignedStations={user.assignedStations} />
+              </Route>
+              
+              {/* Admin-only routes */}
+              {isAdmin && (
+                <>
+                  <Route path="/campbell" component={CampbellDashboard} />
+                  <Route path="/stations" component={Stations} />
+                  <Route path="/users" component={UserManagement} />
+                  <Route path="/organizations" component={Organizations} />
+                  <Route path="/history" component={History} />
+                  <Route path="/alarms" component={Alarms} />
+                  <Route path="/reports" component={Reports} />
+                  <Route path="/serial-monitor" component={SerialMonitor} />
+                  <Route path="/settings" component={Settings} />
+                </>
+              )}
+              
+              {/* User routes */}
+              {!isAdmin && (
+                <Route path="/account" component={AccountSettings} />
+              )}
+              
               <Route component={NotFound} />
             </Switch>
           </main>
