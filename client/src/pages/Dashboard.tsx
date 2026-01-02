@@ -22,6 +22,9 @@ import { AirDensityCard } from "@/components/dashboard/AirDensityCard";
 import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
 import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
 import { EvapotranspirationCard } from "@/components/dashboard/EvapotranspirationCard";
+import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
+import { WindDirectionChart } from "@/components/dashboard/WindDirectionChart";
+import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -733,18 +736,35 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               currentValue={solarPosition.elevation}
             />
           </div>
+
+          {/* Solar Power Harvesting Potential - Renewable Energy Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <SolarPowerHarvestCard
+              currentRadiation={hasValidData(currentData.solarRadiation) ? currentData.solarRadiation : null}
+              panelEfficiency={0.20}
+              systemLosses={0.15}
+            />
+            <WindDirectionChart
+              currentDirection={hasValidData(currentData.windDirection) ? currentData.windDirection : null}
+              currentSpeed={hasValidData(currentData.windSpeed) ? currentData.windSpeed : null}
+              period="Today"
+            />
+          </div>
         </section>
 
         {/* Soil & Environment Section */}
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {hasValidData(currentData.soilTemperature) && (
             <MetricCard
               title="Soil Temperature"
               value={formatValue(currentData.soilTemperature || 0, 1)}
               unit="°C"
               chartColor="#a16207"
             />
+            )}
+            {hasValidData(currentData.soilMoisture) && (
             <MetricCard
               title="Soil Moisture"
               value={formatValue(currentData.soilMoisture || 0, 1)}
@@ -754,6 +774,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               ]}
               chartColor="#15803d"
             />
+            )}
+            {hasValidData(currentData.pm25) && (
             <MetricCard
               title="PM2.5"
               value={formatValue(currentData.pm25 || 0, 1)}
@@ -763,12 +785,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               ]}
               chartColor="#6b7280"
             />
+            )}
+            {hasValidData(currentData.pm10) && (
             <MetricCard
               title="PM10"
               value={formatValue(currentData.pm10 || 0, 1)}
               unit="µg/m³"
               chartColor="#9ca3af"
             />
+            )}
+            {hasValidData(currentData.batteryVoltage) && (
             <MetricCard
               title="Battery"
               value={formatValue(currentData.batteryVoltage || 0, 2)}
@@ -778,10 +804,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               ]}
               chartColor="#22c55e"
             />
+            )}
           </div>
           
-          {/* Soil Charts */}
+          {/* Soil Charts - Only show if soil data available */}
+          {(hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture)) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {hasValidData(currentData.soilTemperature) && (
             <DataBlockChart
               title="Soil Temperature"
               data={chartData.map(d => ({ ...d, soilTemp: 18 + Math.sin(parseFloat(d.timestamp.split(':')[0]) / 4) * 3 }))}
@@ -795,6 +824,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               showMinMax={true}
               currentValue={currentData.soilTemperature || 0}
             />
+            )}
+            {hasValidData(currentData.soilMoisture) && (
             <DataBlockChart
               title="Soil Moisture"
               data={chartData.map(d => ({ ...d, soilMoist: 30 + Math.random() * 10 }))}
@@ -808,7 +839,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               showMinMax={true}
               currentValue={currentData.soilMoisture || 0}
             />
+            )}
           </div>
+          )}
         </section>
 
         {/* Wind Direction Compass & Charts */}
@@ -818,12 +851,23 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
           {/* Top Row: Wind Compass and Last 60 Minutes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Wind Compass */}
+            {hasValidData(currentData.windDirection) ? (
             <WindCompass
               direction={currentData.windDirection || 0}
               speed={currentData.windSpeed || 0}
               gust={currentData.windGust}
               unit="km/h"
             />
+            ) : (
+            <NoDataWrapper
+              data={null}
+              title="Wind Compass"
+              noDataMessage="No Data"
+              noDataDescription="Wind direction data is not available for this station"
+            >
+              <div />
+            </NoDataWrapper>
+            )}
             
             {/* Wind Rose Last 60 Minutes */}
             <WindRose 
