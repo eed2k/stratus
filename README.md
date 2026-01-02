@@ -14,8 +14,13 @@ A professional desktop application for Campbell Scientific weather station manag
 - **File Operations** - Browse, transfer, and manage datalogger files
 - **Clock Synchronization** - Automatic and manual clock sync with stations
 
-### Real-Time Monitoring
+### Real-Time Monitoring Dashboard
 - **Live Dashboard** - Real-time weather data visualization
+- **Solar Position Tracking** - Sun elevation, azimuth, nautical dawn/dusk
+- **Air Density Calculations** - Real-time air density from temperature, pressure, humidity
+- **Reference Evapotranspiration** - FAO Penman-Monteith ETo calculations
+- **Barometric Pressure** - Dual display (station level + sea level QNH)
+- **Battery Monitoring** - Logger battery voltage with status indicators
 - **Connection Health** - Monitor connection status and quality
 - **Alerts & Alarms** - Configurable alerts for data thresholds and connection issues
 - **Data Validation** - Automatic QC checks on incoming data
@@ -25,6 +30,11 @@ A professional desktop application for Campbell Scientific weather station manag
 - **Data Export** - Export to CSV, JSON, or connect to external databases
 - **Historical Charts** - View and analyze historical weather data
 - **Backup & Restore** - Backup station configurations and data
+
+### Remote Access (Cloudflare Tunnel)
+- **24/7 Public Access** - Secure HTTPS access via Cloudflare Tunnel
+- **Custom Domain** - Configure with your own domain (e.g., api.meteotronics.com)
+- **Auto-Restart** - Windows services for automatic restart on failure
 
 ## Installation
 
@@ -148,6 +158,45 @@ stratus/
 - Set up data processing rules (scaling, calibration)
 
 See [STATION_SETUP.md](STATION_SETUP.md) for detailed configuration instructions.
+
+## 24/7 Production Deployment
+
+### Setting Up Cloudflare Tunnel for Public Access
+
+Stratus Weather Server can be accessed publicly via Cloudflare Tunnel, allowing weather stations to POST data to a public URL.
+
+#### Prerequisites
+1. Cloudflare account with a domain (e.g., meteotronics.com)
+2. Domain DNS managed by Cloudflare
+3. Windows Administrator access
+
+#### Quick Setup
+```powershell
+# Run as Administrator
+cd scripts
+
+# 1. Initial tunnel setup (creates tunnel and DNS routes)
+.\setup-cloudflare-tunnel.ps1 -Domain "meteotronics.com" -InstallService
+
+# 2. Configure 24/7 production mode
+.\setup-production-24-7.ps1
+
+# 3. Check status
+.\setup-production-24-7.ps1 -CheckStatus
+```
+
+#### Available Commands
+```powershell
+.\setup-production-24-7.ps1 -CheckStatus   # Check service status
+.\setup-production-24-7.ps1 -RestartAll    # Restart all services
+.\setup-production-24-7.ps1 -FixTunnelOnly # Fix tunnel configuration
+.\setup-production-24-7.ps1 -Uninstall     # Remove all services
+```
+
+#### Endpoints
+- **Dashboard**: `https://yourdomain.com`
+- **API**: `https://api.yourdomain.com`
+- **Data Ingestion**: `https://api.yourdomain.com/api/weather-data`
 
 ## API Reference
 

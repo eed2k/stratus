@@ -8,7 +8,9 @@
 
 param(
     [switch]$FixTunnelOnly,
-    [switch]$CheckStatus
+    [switch]$CheckStatus,
+    [switch]$RestartAll,
+    [switch]$Uninstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,6 +24,7 @@ function Write-Err { param($Message) Write-Host "[ERROR] $Message" -ForegroundCo
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Blue
 Write-Host "  STRATUS WEATHER SERVER - 24/7 Production Setup" -ForegroundColor White
+Write-Host "  Domain: api.meteotronics.com | meteotronics.com" -ForegroundColor Gray
 Write-Host "============================================================" -ForegroundColor Blue
 Write-Host ""
 
@@ -33,6 +36,24 @@ if (-not $isAdmin) {
     exit 1
 }
 Write-Success "Running with Administrator privileges"
+
+#===============================================================================
+# UNINSTALL
+#===============================================================================
+if ($Uninstall) {
+    Write-Host ""
+    Write-Warn "Uninstalling Stratus 24/7 services..."
+    
+    # Stop and remove Cloudflare service
+    Stop-Service -Name "Cloudflared" -Force -ErrorAction SilentlyContinue
+    cloudflared service uninstall 2>&1 | Out-Null
+    
+    # Remove scheduled task
+    Unregister-ScheduledTask -TaskName "Stratus Weather Server Production" -Confirm:$false -ErrorAction SilentlyContinue
+    
+    Write-Success "Services uninstalled"
+    exit 0
+}
 
 #===============================================================================
 # STATUS CHECK
@@ -60,8 +81,11 @@ if ($CheckStatus) {
     if ($tunnelInfo -match "does not have any active connection") {
         Write-Err "Tunnel has NO ACTIVE CONNECTIONS"
         Write-Warn "The service is running but not properly configured!"
+        Write-Info "Try running: .\setup-production-24-7.ps1 -RestartAll"
     } elseif ($tunnelInfo -match "connection") {
         Write-Success "Tunnel has active connections"
+        # Show connection details
+        $tunnelInfo | Select-String "connector" | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
     }
     
     # Check Stratus server
@@ -81,23 +105,67 @@ if ($CheckStatus) {
         Write-Err "Port 5000: NOT IN USE (server not running)"
     }
     
-    # Test API endpoint
+    # Test API endpoints
     Write-Host ""
     Write-Info "Testing API endpoints..."
     try {
-        $null = Invoke-WebRequest -Uri "http://localhost:5000" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
-        Write-Success "Local server (localhost:5000): OK"
+        $response = Invoke-WebRequest -Uri "http://localhost:5000" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        Write-Success "Local server (localhost:5000): OK (Status: $($response.StatusCode))"
     } catch {
         Write-Err "Local server (localhost:5000): NOT RESPONDING"
     }
     
     try {
-        $null = Invoke-WebRequest -Uri "https://api.meteotronics.com" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
-        Write-Success "Public API (api.meteotronics.com): OK"
+        $response = Invoke-WebRequest -Uri "https://api.meteotronics.com" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+        Write-Success "Public API (api.meteotronics.com): OK (Status: $($response.StatusCode))"
     } catch {
         Write-Err "Public API (api.meteotronics.com): NOT RESPONDING"
+        Write-Warn "Check tunnel configuration and DNS settings"
     }
     
+    try {
+        $response = Invoke-WebRequest -Uri "https://meteotronics.com" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+        Write-Success "Main dashboard (meteotronics.com): OK (Status: $($response.StatusCode))"
+    } catch {
+        Write-Err "Main dashboard (meteotronics.com): NOT RESPONDING"
+    }
+    
+    # Show uptime
+    Write-Host ""
+    if ($cfService -and $cfService.Status -eq "Running") {
+        $startTime = (Get-Process cloudflared -ErrorAction SilentlyContinue).StartTime
+        if ($startTime) {
+            $uptime = (Get-Date) - $startTime
+            Write-Info "Tunnel uptime: $($uptime.Days)d $($uptime.Hours)h $($uptime.Minutes)m"
+        }
+    }
+    
+    exit 0
+}
+
+#===============================================================================
+# RESTART ALL SERVICES
+#===============================================================================
+if ($RestartAll) {
+    Write-Host ""
+    Write-Info "Restarting all services..."
+    
+    # Restart Cloudflare tunnel
+    Write-Info "Restarting Cloudflare tunnel service..."
+    Restart-Service -Name "Cloudflared" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+    
+    # Restart Stratus server task
+    Write-Info "Restarting Stratus server..."
+    Stop-ScheduledTask -TaskName "Stratus Weather Server Production" -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Start-ScheduledTask -TaskName "Stratus Weather Server Production" -ErrorAction SilentlyContinue
+    
+    Write-Success "Services restarted! Waiting for startup..."
+    Start-Sleep -Seconds 10
+    
+    # Run status check
+    & $PSCommandPath -CheckStatus
     exit 0
 }
 
@@ -105,7 +173,7 @@ if ($CheckStatus) {
 # FIX CLOUDFLARE TUNNEL SERVICE
 #===============================================================================
 Write-Host ""
-Write-Info "Step 1: Fixing Cloudflare Tunnel Service..."
+Write-Info "Step 1: Setting up Cloudflare Tunnel Service for 24/7 operation..."
 Write-Host ""
 
 # Stop existing service
@@ -117,16 +185,58 @@ Write-Info "Removing old service configuration..."
 cloudflared service uninstall 2>&1 | Out-Null
 Start-Sleep -Seconds 2
 
-# The key fix: Install service with the tunnel configuration
-# cloudflared service install reads from config.yml and sets up properly
+# Check for config file
 $configPath = "$env:USERPROFILE\.cloudflared\config.yml"
-if (Test-Path $configPath) {
-    Write-Success "Found tunnel config at: $configPath"
+if (-not (Test-Path $configPath)) {
+    Write-Warn "No tunnel configuration found at: $configPath"
+    Write-Info "Creating default configuration..."
+    
+    # Check if tunnel exists
+    $tunnelList = cloudflared tunnel list --output json 2>$null | ConvertFrom-Json
+    $existingTunnel = $tunnelList | Where-Object { $_.name -eq "stratus-tunnel" }
+    
+    if (-not $existingTunnel) {
+        Write-Err "Tunnel 'stratus-tunnel' not found!"
+        Write-Err "Please run setup-cloudflare-tunnel.ps1 first to create the tunnel."
+        exit 1
+    }
+    
+    $tunnelId = $existingTunnel.id
+    
+    # Create config file
+    $configContent = @"
+# Stratus Weather Server - Cloudflare Tunnel Configuration
+# Auto-generated for 24/7 operation
+
+tunnel: $tunnelId
+credentials-file: $env:USERPROFILE\.cloudflared\$tunnelId.json
+
+originRequest:
+  connectTimeout: 30s
+  noTLSVerify: false
+
+ingress:
+  - hostname: api.meteotronics.com
+    service: http://localhost:5000
+    originRequest:
+      connectTimeout: 60s
+  
+  - hostname: meteotronics.com
+    service: http://localhost:5000
+  
+  - hostname: www.meteotronics.com
+    service: http://localhost:5000
+  
+  - service: http_status:404
+"@
+    
+    $configContent | Out-File -FilePath $configPath -Encoding utf8 -Force
+    Write-Success "Created tunnel configuration"
 } else {
-    Write-Err "No tunnel configuration found! Run setup-cloudflare-tunnel.ps1 first."
-    exit 1
+    Write-Success "Found tunnel config at: $configPath"
 }
 
+# Install service with proper configuration
 Write-Info "Installing Cloudflare service with tunnel configuration..."
 cloudflared service install
 
@@ -256,17 +366,29 @@ Write-Host "  SETUP COMPLETE - 24/7 Production Mode" -ForegroundColor White
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Services configured:" -ForegroundColor Cyan
-Write-Host "  • Cloudflare Tunnel: Windows Service (auto-start)" -ForegroundColor Gray
+Write-Host "  • Cloudflare Tunnel: Windows Service (auto-start on boot)" -ForegroundColor Gray
 Write-Host "  • Stratus Server: Scheduled Task (auto-start, auto-restart)" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Your endpoints:" -ForegroundColor Cyan
 Write-Host "  • https://meteotronics.com (Dashboard)" -ForegroundColor White
 Write-Host "  • https://api.meteotronics.com (API)" -ForegroundColor White
+Write-Host "  • https://api.meteotronics.com/api/weather-data (Data Ingestion)" -ForegroundColor White
 Write-Host ""
-Write-Host "To check status:" -ForegroundColor Yellow
-Write-Host "  .\setup-production-24-7.ps1 -CheckStatus" -ForegroundColor Gray
+Write-Host "Commands:" -ForegroundColor Yellow
+Write-Host "  Check status:    .\setup-production-24-7.ps1 -CheckStatus" -ForegroundColor Gray
+Write-Host "  Restart all:     .\setup-production-24-7.ps1 -RestartAll" -ForegroundColor Gray
+Write-Host "  Fix tunnel:      .\setup-production-24-7.ps1 -FixTunnelOnly" -ForegroundColor Gray
+Write-Host "  Uninstall:       .\setup-production-24-7.ps1 -Uninstall" -ForegroundColor Gray
 Write-Host ""
-Write-Host "To fix tunnel only:" -ForegroundColor Yellow
-Write-Host "  .\setup-production-24-7.ps1 -FixTunnelOnly" -ForegroundColor Gray
+Write-Host "SEO/Google Preview Note:" -ForegroundColor Cyan
+Write-Host "  For proper Google search preview, ensure your pages have:" -ForegroundColor Gray
+Write-Host "    - <title> tag with 'Stratus Weather Server'" -ForegroundColor Gray
+Write-Host "    - <meta name='description' content='...'>" -ForegroundColor Gray
+Write-Host "    - Open Graph tags (og:title, og:description, og:image)" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Tunnel will remain active 24/7 as long as:" -ForegroundColor Cyan
+Write-Host "  1. Computer is powered on" -ForegroundColor Gray
+Write-Host "  2. Internet connection is available" -ForegroundColor Gray
+Write-Host "  3. Cloudflared service is running" -ForegroundColor Gray
 Write-Host ""
 

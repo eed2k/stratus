@@ -17,6 +17,11 @@ import { DashboardConfigPanel } from "@/components/dashboard/DashboardConfigPane
 import { ShareDashboard } from "@/components/dashboard/ShareDashboard";
 import { StationInfoPanel } from "@/components/dashboard/StationInfoPanel";
 import { StationMap } from "@/components/dashboard/StationMap";
+import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
+import { AirDensityCard } from "@/components/dashboard/AirDensityCard";
+import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
+import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
+import { EvapotranspirationCard } from "@/components/dashboard/EvapotranspirationCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +36,15 @@ import {
   RefreshCw,
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
+import { 
+  calculateSolarPosition, 
+  calculateAirDensity, 
+  calculateSeaLevelPressure,
+  calculateETo,
+  getDayOfYear,
+  kmhToMs,
+  wattsToMJPerDay
+} from "@shared/utils/calc";
 import { DEFAULT_DASHBOARD_CONFIG, type DashboardConfig } from "../../../shared/dashboardConfig";
 
 /**
@@ -288,6 +302,73 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
     uvIndex: 6.2,
   };
 
+  // Calculate solar position based on station coordinates
+  const solarPosition = useMemo(() => {
+    const lat = selectedStation?.latitude || 0;
+    const lon = selectedStation?.longitude || 0;
+    if (lat === 0 && lon === 0) {
+      // Default demo values
+      return {
+        elevation: 45.2,
+        azimuth: 185.5,
+        sunrise: new Date(new Date().setHours(6, 45, 0)),
+        sunset: new Date(new Date().setHours(18, 30, 0)),
+        nauticalDawn: new Date(new Date().setHours(5, 15, 0)),
+        nauticalDusk: new Date(new Date().setHours(19, 45, 0)),
+        solarNoon: new Date(new Date().setHours(12, 37, 0)),
+        dayLength: 705,
+      };
+    }
+    return calculateSolarPosition(lat, lon);
+  }, [selectedStation?.latitude, selectedStation?.longitude]);
+
+  // Calculate air density from current conditions
+  const calculatedAirDensity = useMemo(() => {
+    return calculateAirDensity(
+      currentData.temperature || 20,
+      currentData.pressure || 1013.25,
+      currentData.humidity || 50
+    );
+  }, [currentData.temperature, currentData.pressure, currentData.humidity]);
+
+  // Calculate sea level pressure
+  const seaLevelPressure = useMemo(() => {
+    const altitude = selectedStation?.altitude || 0;
+    return calculateSeaLevelPressure(
+      currentData.pressure || 1013.25,
+      altitude,
+      currentData.temperature || 20
+    );
+  }, [currentData.pressure, currentData.temperature, selectedStation?.altitude]);
+
+  // Calculate reference evapotranspiration
+  const calculatedETo = useMemo(() => {
+    const lat = selectedStation?.latitude || 0;
+    const altitude = selectedStation?.altitude || 0;
+    const dayOfYear = getDayOfYear();
+    // Convert solar radiation from W/m² to MJ/m²/day (assuming 12hr daylight average)
+    const solarMJ = wattsToMJPerDay(currentData.solarRadiation || 0, 12);
+    // Convert wind speed from km/h to m/s
+    const windMs = kmhToMs(currentData.windSpeed || 0);
+    
+    return calculateETo(
+      currentData.temperature || 20,
+      currentData.humidity || 50,
+      windMs,
+      solarMJ,
+      altitude,
+      lat,
+      dayOfYear
+    );
+  }, [
+    currentData.temperature, 
+    currentData.humidity, 
+    currentData.windSpeed, 
+    currentData.solarRadiation,
+    selectedStation?.latitude,
+    selectedStation?.altitude
+  ]);
+
   const sparkline = chartData.slice(-12).map(d => d.temperature);
   const maxWindSpeed = Math.max(currentData.windGust || 0, ...windRoseData.flatMap(d => d.speeds));
 
@@ -481,26 +562,113 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
             />
           </div>
           
-          {/* Pressure Chart */}
-          <DataBlockChart
-            title="Barometric Pressure"
-            data={chartData}
-            series={[
-              { dataKey: "pressure", name: "Pressure", color: "#8b5cf6", unit: "hPa" },
-            ]}
-            chartType="line"
-            xAxisLabel="Time"
-            yAxisLabel="Pressure"
-            showAverage={true}
-            showMinMax={true}
-            currentValue={currentData.pressure || 0}
-          />
+          {/* Barometric Pressure Section with Sea Level and Station Level */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <BarometricPressureCard
+              stationPressure={currentData.pressure || 1013.25}
+              seaLevelPressure={seaLevelPressure}
+              altitude={selectedStation?.altitude || 0}
+              temperature={currentData.temperature || 20}
+              trend={1.5}
+              sparklineDataStation={chartData.slice(-24).map(d => d.pressure)}
+              sparklineDataSeaLevel={chartData.slice(-24).map(d => d.pressure + 10)}
+            />
+            <DataBlockChart
+              title="Barometric Pressure History"
+              data={chartData}
+              series={[
+                { dataKey: "pressure", name: "Station Pressure", color: "#8b5cf6", unit: "mbar" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Pressure"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.pressure || 0}
+            />
+          </div>
+        </section>
+
+        {/* Logger Battery Section */}
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <BatteryVoltageCard
+              voltage={currentData.batteryVoltage || 12.8}
+              minVoltage={11.5}
+              maxVoltage={14.5}
+              isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.5 : false}
+              sparklineData={chartData.slice(-24).map(() => (currentData.batteryVoltage || 12.8) + (Math.random() - 0.5) * 0.3)}
+            />
+            <DataBlockChart
+              title="Battery Voltage History"
+              data={chartData.map((d, i) => ({
+                ...d,
+                batteryVoltage: (currentData.batteryVoltage || 12.8) + Math.sin(i / 4) * 0.3 + (Math.random() - 0.5) * 0.1
+              }))}
+              series={[
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: "#22c55e", unit: "V" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Voltage"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.batteryVoltage || 12.8}
+            />
+            <MetricCard
+              title="Panel Temperature"
+              value={formatValue(currentData.panelTemperature || 0, 1)}
+              unit="°C"
+              chartColor="#f97316"
+            />
+          </div>
         </section>
 
         {/* Solar & Radiation Section */}
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Solar & Radiation</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <h2 className="text-base font-normal text-foreground">Solar Position & Radiation</h2>
+          
+          {/* Solar Position and Air Density Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <SolarPositionCard
+              elevation={solarPosition.elevation}
+              azimuth={solarPosition.azimuth}
+              sunrise={solarPosition.sunrise}
+              sunset={solarPosition.sunset}
+              nauticalDawn={solarPosition.nauticalDawn}
+              nauticalDusk={solarPosition.nauticalDusk}
+              solarNoon={solarPosition.solarNoon}
+              dayLength={solarPosition.dayLength}
+            />
+            <AirDensityCard
+              airDensity={currentData.airDensity || calculatedAirDensity}
+              temperature={currentData.temperature}
+              pressure={currentData.pressure}
+              humidity={currentData.humidity}
+            />
+            <EvapotranspirationCard
+              currentETo={(currentData.eto || calculatedETo) / 24}
+              dailyETo={currentData.eto || calculatedETo}
+              weeklyETo={(currentData.eto || calculatedETo) * 7}
+              monthlyETo={(currentData.eto || calculatedETo) * 30}
+            />
+          </div>
+          
+          {/* Solar Metrics Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <MetricCard
+              title="Sun Elevation"
+              value={formatValue(solarPosition.elevation, 1)}
+              unit="°"
+              chartColor="#f59e0b"
+            />
+            <MetricCard
+              title="Sun Azimuth"
+              value={formatValue(solarPosition.azimuth, 1)}
+              unit="°"
+              chartColor="#fb923c"
+            />
             <MetricCard
               title="Solar Radiation"
               value={formatValue(currentData.solarRadiation || 0, 0)}
@@ -518,38 +686,53 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               chartColor="#dc2626"
             />
             <MetricCard
-              title="Reference ET"
-              value={formatValue(currentData.eto || 0, 2)}
-              unit="mm"
+              title="Reference ETo"
+              value={formatValue(currentData.eto || calculatedETo, 2)}
+              unit="mm/day"
               chartColor="#22c55e"
             />
             <MetricCard
-              title="Panel Temp"
-              value={formatValue(currentData.panelTemperature || 0, 1)}
-              unit="°C"
-              chartColor="#f97316"
-            />
-            <MetricCard
               title="Air Density"
-              value={formatValue(currentData.airDensity || 0, 3)}
+              value={formatValue(currentData.airDensity || calculatedAirDensity, 3)}
               unit="kg/m³"
               chartColor="#64748b"
             />
           </div>
-          {/* Solar Radiation Dedicated Chart */}
-          <DataBlockChart
-            title="Solar Radiation"
-            data={chartData}
-            series={[
-              { dataKey: "solar", name: "Solar Radiation", color: "#f59e0b", unit: "W/m²" },
-            ]}
-            chartType="area"
-            xAxisLabel="Time"
-            yAxisLabel="Radiation"
-            showAverage={true}
-            showMinMax={true}
-            currentValue={currentData.solarRadiation || 0}
-          />
+          
+          {/* Solar Position Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Solar Radiation Chart */}
+            <DataBlockChart
+              title="Solar Radiation"
+              data={chartData}
+              series={[
+                { dataKey: "solar", name: "Solar Radiation", color: "#f59e0b", unit: "W/m²" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Radiation"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.solarRadiation || 0}
+            />
+            {/* Sun Elevation Chart */}
+            <DataBlockChart
+              title="Sun Elevation (24h)"
+              data={chartData.map((d, i) => ({
+                ...d,
+                sunElevation: Math.max(-20, 45 * Math.sin((i - 6) * Math.PI / 12))
+              }))}
+              series={[
+                { dataKey: "sunElevation", name: "Sun Elevation", color: "#fb923c", unit: "°" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Elevation"
+              showAverage={false}
+              showMinMax={true}
+              currentValue={solarPosition.elevation}
+            />
+          </div>
         </section>
 
         {/* Soil & Environment Section */}

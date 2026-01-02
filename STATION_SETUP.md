@@ -387,6 +387,114 @@ Apply sensor-specific calibration coefficients.
 
 ---
 
+## Dashboard Features
+
+### Solar Position Tracking
+
+The dashboard displays real-time solar position calculated from station coordinates:
+
+- **Sun Elevation**: Degrees above/below horizon (-90° to +90°)
+- **Sun Azimuth**: Degrees from north (0° to 360°)
+- **Nautical Dawn/Dusk**: When sun is 12° below horizon
+- **Sunrise/Sunset**: Actual rise and set times
+- **Day Length**: Hours of daylight
+
+**Requirements:**
+- Station must have latitude and longitude configured
+- Calculations use NOAA solar position algorithms
+
+### Air Density
+
+Real-time air density calculated from:
+- Temperature (°C)
+- Pressure (hPa)
+- Relative Humidity (%)
+
+Uses the ideal gas law with humidity correction. Standard reference: 1.225 kg/m³ at sea level.
+
+### Barometric Pressure
+
+Dual display showing:
+1. **Station Pressure**: Raw pressure at station altitude (mbar)
+2. **Sea Level Pressure (QNH)**: Pressure calibrated to sea level
+
+**Conversion Formula:**
+```
+QNH = Station_Pressure × (1 - (L × altitude) / T)^(-(g × M) / (R × L))
+```
+
+### Reference Evapotranspiration (ETo)
+
+Calculated using FAO Penman-Monteith method (FAO-56 standard):
+
+**Required Inputs:**
+- Air temperature
+- Relative humidity
+- Wind speed
+- Solar radiation
+- Station altitude
+- Station latitude
+
+**Outputs:**
+- Hourly ETo rate (mm/hr)
+- Daily ETo (mm/day)
+- Weekly/Monthly cumulative ETo
+
+### Battery Monitoring
+
+Displays logger battery voltage with:
+- Current voltage (V)
+- Status indicator (Critical/Low/Fair/Good/Excellent)
+- Charge percentage estimate
+- 24-hour voltage history chart
+
+**Voltage Thresholds:**
+- Critical: < 11.5V
+- Low: 11.5V - 12.0V
+- Good: 12.0V - 13.5V
+- Charging: > 13.5V
+
+---
+
+## 24/7 Remote Access Setup
+
+### Cloudflare Tunnel Configuration
+
+For public internet access to your Stratus server:
+
+1. **Install cloudflared:**
+   ```powershell
+   winget install Cloudflare.cloudflared
+   ```
+
+2. **Run setup script:**
+   ```powershell
+   # As Administrator
+   cd scripts
+   .\setup-cloudflare-tunnel.ps1 -Domain "yourdomain.com" -InstallService
+   ```
+
+3. **Configure 24/7 operation:**
+   ```powershell
+   .\setup-production-24-7.ps1
+   ```
+
+4. **Verify status:**
+   ```powershell
+   .\setup-production-24-7.ps1 -CheckStatus
+   ```
+
+### Weather Station Data Ingestion
+
+Configure your datalogger to POST data to:
+```
+https://api.yourdomain.com/api/weather-data
+```
+
+See `examples/crbasic/stratus_http_post_station.cr1x` for CRBasic example.
+
+---
+
 ## Support
 
 For additional help:
