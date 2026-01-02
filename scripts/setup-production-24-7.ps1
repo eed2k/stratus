@@ -185,10 +185,12 @@ Write-Info "Removing old service configuration..."
 cloudflared service uninstall 2>&1 | Out-Null
 Start-Sleep -Seconds 2
 
-# Check for config file
-$configPath = "$env:USERPROFILE\.cloudflared\config.yml"
-if (-not (Test-Path $configPath)) {
-    Write-Warn "No tunnel configuration found at: $configPath"
+# Check for config file in user profile
+$userConfigPath = "$env:USERPROFILE\.cloudflared\config.yml"
+$systemConfigPath = "C:\Windows\System32\config\systemprofile\.cloudflared"
+
+if (-not (Test-Path $userConfigPath)) {
+    Write-Warn "No tunnel configuration found at: $userConfigPath"
     Write-Info "Creating default configuration..."
     
     # Check if tunnel exists
@@ -230,11 +232,27 @@ ingress:
   - service: http_status:404
 "@
     
-    $configContent | Out-File -FilePath $configPath -Encoding utf8 -Force
+    $configContent | Out-File -FilePath $userConfigPath -Encoding utf8 -Force
     Write-Success "Created tunnel configuration"
 } else {
-    Write-Success "Found tunnel config at: $configPath"
+    Write-Success "Found tunnel config at: $userConfigPath"
 }
+
+# CRITICAL: Copy config files to SYSTEM profile for Windows Service
+Write-Info "Copying tunnel configuration to SYSTEM profile for service access..."
+if (-not (Test-Path $systemConfigPath)) {
+    New-Item -Path $systemConfigPath -ItemType Directory -Force | Out-Null
+}
+
+# Copy all cloudflared files (config.yml and credentials JSON)
+Copy-Item "$env:USERPROFILE\.cloudflared\config.yml" "$systemConfigPath\" -Force
+Copy-Item "$env:USERPROFILE\.cloudflared\*.json" "$systemConfigPath\" -Force -ErrorAction SilentlyContinue
+
+# Update the config in SYSTEM profile to use SYSTEM profile paths for credentials
+$systemConfig = Get-Content "$systemConfigPath\config.yml" -Raw
+$systemConfig = $systemConfig -replace [regex]::Escape($env:USERPROFILE), "C:\Windows\System32\config\systemprofile"
+$systemConfig | Out-File -FilePath "$systemConfigPath\config.yml" -Encoding utf8 -Force
+Write-Success "Copied configuration to SYSTEM profile"
 
 # Install service with proper configuration
 Write-Info "Installing Cloudflare service with tunnel configuration..."
