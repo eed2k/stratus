@@ -50,9 +50,7 @@ import {
   getDayOfYear,
   kmhToMs,
   wattsToMJPerDay,
-  calculateFireDanger,
-  FIRE_DANGER_RATINGS,
-  type FireDangerResult
+  calculateFireDanger
 } from "@shared/utils/calc";
 import { DEFAULT_DASHBOARD_CONFIG, type DashboardConfig } from "../../../shared/dashboardConfig";
 
@@ -443,15 +441,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
     selectedStation?.altitude
   ]);
 
-  // Calculate fire danger index
-  const fireDanger: FireDangerResult = useMemo(() => {
-    return calculateFireDanger(
-      currentData.temperature || 25,
-      currentData.humidity || 40,
-      currentData.windSpeed || 10
-    );
-  }, [currentData.temperature, currentData.humidity, currentData.windSpeed]);
-
   // Generate fire danger chart data from historical data
   const fireDangerChartData = useMemo(() => {
     return chartData.map((d) => {
@@ -459,7 +448,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
       return {
         timestamp: d.timestamp,
         ffdi: fd.ffdi,
-        gfdi: fd.gfdi,
+        gfdi: fd.grasslandFDI,
         temperature: d.temperature,
         humidity: d.humidity,
         windSpeed: d.windSpeed,
@@ -1084,13 +1073,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
           </p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FireDangerCard
-              ffdi={fireDanger.ffdi}
-              rating={fireDanger.rating}
-              fuelMoisture={fireDanger.fuelMoisture}
-              spreadPotential={fireDanger.spreadPotential}
-              warningLevel={fireDanger.warningLevel}
-              gfdi={fireDanger.gfdi}
-              droughtIndex={fireDanger.droughtIndex}
+              temperature={currentData.temperature || 25}
+              humidity={currentData.humidity || 40}
+              windSpeed={currentData.windSpeed || 10}
             />
             <FireDangerChart
               data={fireDangerChartData}
