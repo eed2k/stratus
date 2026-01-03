@@ -403,6 +403,43 @@ The dashboard displays real-time solar position calculated from station coordina
 - Station must have latitude and longitude configured
 - Calculations use NOAA solar position algorithms
 
+### Wind Analysis (WMO/Beaufort Scale)
+
+The dashboard provides comprehensive wind analysis with multiple visualization types:
+
+#### Wind Rose Charts
+Traditional wind direction frequency distribution showing:
+- **Wind Rose (Last 60 min)**: Recent wind patterns
+- **Wind Rose (Today)**: Daily wind direction distribution
+- **Wind Rose (Yesterday)**: Previous day comparison
+
+Each rose displays direction frequency with speed-coded segments using WMO/Beaufort scale colors.
+
+#### Wind Speed Scatter Plots
+Individual wind speed observations plotted on a polar coordinate system:
+- **Wind Speed (Last 30 min)**: Recent observations with tight clustering
+- **Wind Speed (Today)**: All today's observations
+- **Wind Speed (Yesterday)**: Previous day observations
+
+**Features:**
+- Points are plotted by direction (angle) and speed (radius)
+- Color-coded by wind speed according to WMO/Beaufort scale:
+  - Light blue: Calm/Light (0-6 km/h)
+  - Sky blue: Light Breeze (6-12 km/h)
+  - Blue: Gentle Breeze (12-20 km/h)
+  - Deep blue: Moderate (20-29 km/h)
+  - Dark blue: Fresh (29-39 km/h)
+  - Green: Strong (39-50 km/h)
+  - Yellow: Near Gale (50-62 km/h)
+  - Orange: Gale (62-75 km/h)
+  - Red: Strong Gale (75-89 km/h)
+  - Dark red: Storm+ (>89 km/h)
+- Statistics: Average, Max, Min speed, Dominant direction
+- Interactive tooltips showing exact values
+
+#### Wind Compass
+Real-time wind direction and speed display with compass rose.
+
 ### Air Density
 
 Real-time air density calculated from:
@@ -453,6 +490,20 @@ Displays logger battery voltage with:
 - Low: 11.5V - 12.0V
 - Good: 12.0V - 13.5V
 - Charging: > 13.5V
+
+### Dashboard Export
+
+Export the complete dashboard as a multi-page PDF report:
+
+1. Click the **Export** button in the dashboard header
+2. Select **Save as PDF**
+3. The system will:
+   - Capture the full dashboard with white background
+   - Split content across multiple A4 pages
+   - Add station name, date, and page numbers
+   - Generate a downloadable PDF file
+
+**Note:** Image export (PNG) has been removed in favor of the more comprehensive PDF export which captures the entire dashboard across multiple pages.
 
 ---
 

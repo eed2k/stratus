@@ -647,8 +647,10 @@ export class DatabaseStorage {
       timestamp: new Date(record.timestamp),
       data,
       collectedAt: new Date(record.collected_at),
-      // Map data fields
+      // Map all data fields for dashboard display
       temperature: data.temperature,
+      temperatureMax: data.temperatureMax,
+      temperatureMin: data.temperatureMin,
       humidity: data.humidity,
       pressure: data.pressure,
       windSpeed: data.windSpeed,
@@ -657,7 +659,20 @@ export class DatabaseStorage {
       rainfall: data.rainfall,
       solarRadiation: data.solarRadiation,
       dewPoint: data.dewPoint,
-      batteryVoltage: data.batteryVoltage
+      batteryVoltage: data.batteryVoltage,
+      panelVoltage: data.panelVoltage,
+      panelTemperature: data.panelTemperature,
+      // Soil sensors
+      soilMoisture: data.soilMoisture,
+      soilTemperature: data.soilTemperature,
+      // Air quality
+      pm25: data.pm25,
+      pm10: data.pm10,
+      co2: data.co2,
+      // Additional fields
+      uvIndex: data.uvIndex,
+      leafWetness: data.leafWetness,
+      evapotranspiration: data.evapotranspiration,
     };
   }
 }

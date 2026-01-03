@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindRose } from "@/components/charts/WindRose";
+import { WindRoseScatter } from "@/components/charts/WindRoseScatter";
 import { WindCompass } from "@/components/dashboard/WindCompass";
 import { WindPowerCard } from "@/components/dashboard/WindPowerCard";
 import { WeatherChart } from "@/components/charts/WeatherChart";
@@ -24,6 +25,8 @@ import { BarometricPressureCard } from "@/components/dashboard/BarometricPressur
 import { EvapotranspirationCard } from "@/components/dashboard/EvapotranspirationCard";
 import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
 import { WindDirectionChart } from "@/components/dashboard/WindDirectionChart";
+import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
+import { FireDangerChart } from "@/components/charts/FireDangerChart";
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +49,10 @@ import {
   calculateETo,
   getDayOfYear,
   kmhToMs,
-  wattsToMJPerDay
+  wattsToMJPerDay,
+  calculateFireDanger,
+  FIRE_DANGER_RATINGS,
+  type FireDangerResult
 } from "@shared/utils/calc";
 import { DEFAULT_DASHBOARD_CONFIG, type DashboardConfig } from "../../../shared/dashboardConfig";
 
@@ -132,6 +138,66 @@ const generateLast60MinutesWindRoseData = () => {
 };
 
 /**
+ * Generate wind scatter data (individual wind speed observations)
+ * Creates points with direction and speed for scatter plot visualization
+ */
+const generateWindScatterData = (numPoints: number, hoursBack: number = 24) => {
+  const now = new Date();
+  const data = [];
+  // Create a dominant wind direction (SSW - around 200-220°)
+  const dominantDirection = 210;
+  
+  for (let i = 0; i < numPoints; i++) {
+    // Most observations cluster around dominant direction with some spread
+    const directionSpread = Math.random() < 0.7 
+      ? (Math.random() - 0.5) * 60 // 70% within ±30° of dominant
+      : Math.random() * 360; // 30% random
+    const direction = (dominantDirection + directionSpread + 360) % 360;
+    
+    // Speed distribution - mostly moderate with occasional gusts
+    const baseSpeed = 8 + Math.random() * 15;
+    const gustChance = Math.random();
+    const speed = gustChance > 0.9 
+      ? baseSpeed + Math.random() * 20 // 10% gusts
+      : baseSpeed;
+    
+    const timestamp = new Date(now.getTime() - (hoursBack * 60 * 60 * 1000 * Math.random()));
+    
+    data.push({
+      direction,
+      speed,
+      timestamp,
+    });
+  }
+  return data;
+};
+
+const generateTodayWindScatterData = () => generateWindScatterData(150, 24);
+
+const generateYesterdayWindScatterData = () => {
+  const data = generateWindScatterData(200, 24);
+  // Shift timestamps to yesterday
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  return data.map(d => ({
+    ...d,
+    timestamp: new Date(d.timestamp.getTime() - oneDayMs),
+    // Slightly different wind pattern for yesterday (more easterly)
+    direction: (d.direction - 30 + 360) % 360,
+  }));
+};
+
+const generateLast30MinWindScatterData = () => {
+  const data = generateWindScatterData(30, 0.5);
+  // Tighter clustering for short period
+  return data.map(d => ({
+    ...d,
+    // More consistent direction over 30 minutes
+    direction: 215 + (Math.random() - 0.5) * 30,
+    speed: 12 + Math.random() * 8,
+  }));
+};
+
+/**
  * Calculate wind power density using P = 0.5 * ρ * v³
  * @param windSpeed Wind speed in km/h
  * @param airDensity Air density in kg/m³ (default 1.225)
@@ -185,6 +251,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
   const yesterdayWindRoseData = useMemo(() => generateYesterdayWindRoseData(), []);
   const last60MinutesWindRoseData = useMemo(() => generateLast60MinutesWindRoseData(), []);
   const windEnergyData = useMemo(() => generateWindEnergyData(dashboardConfig.chartTimeRange), [dashboardConfig.chartTimeRange]);
+  
+  // Wind scatter data for speed visualization
+  const todayWindScatterData = useMemo(() => generateTodayWindScatterData(), []);
+  const yesterdayWindScatterData = useMemo(() => generateYesterdayWindScatterData(), []);
+  const last30MinWindScatterData = useMemo(() => generateLast30MinWindScatterData(), []);
 
   const { data: allStations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
@@ -371,6 +442,30 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
     selectedStation?.latitude,
     selectedStation?.altitude
   ]);
+
+  // Calculate fire danger index
+  const fireDanger: FireDangerResult = useMemo(() => {
+    return calculateFireDanger(
+      currentData.temperature || 25,
+      currentData.humidity || 40,
+      currentData.windSpeed || 10
+    );
+  }, [currentData.temperature, currentData.humidity, currentData.windSpeed]);
+
+  // Generate fire danger chart data from historical data
+  const fireDangerChartData = useMemo(() => {
+    return chartData.map((d) => {
+      const fd = calculateFireDanger(d.temperature, d.humidity, d.windSpeed);
+      return {
+        timestamp: d.timestamp,
+        ffdi: fd.ffdi,
+        gfdi: fd.gfdi,
+        temperature: d.temperature,
+        humidity: d.humidity,
+        windSpeed: d.windSpeed,
+      };
+    });
+  }, [chartData]);
 
   const sparkline = chartData.slice(-12).map(d => d.temperature);
   const maxWindSpeed = Math.max(currentData.windGust || 0, ...windRoseData.flatMap(d => d.speeds));
@@ -877,7 +972,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
             />
           </div>
           
-          {/* Bottom Row: Today and Yesterday Wind Roses */}
+          {/* Wind Rose Row: Today and Yesterday */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Wind Rose Today */}
             <WindRose 
@@ -890,6 +985,36 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
             <WindRose 
               data={yesterdayWindRoseData} 
               title="Wind Rose (Yesterday)"
+              maxWindSpeed={maxWindSpeed}
+            />
+          </div>
+
+          {/* Wind Speed Scatter Section */}
+          <h3 className="text-sm font-normal text-muted-foreground mt-6">Wind Speed Scatter Plots</h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Individual wind speed observations plotted by direction. Points are color-coded by speed according to WMO/Beaufort scale.
+          </p>
+          
+          {/* Wind Scatter Row: 30min, Today, Yesterday */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Wind Scatter Last 30 Minutes */}
+            <WindRoseScatter 
+              data={last30MinWindScatterData} 
+              title="Wind Speed (Last 30 min)" 
+              maxWindSpeed={maxWindSpeed}
+            />
+            
+            {/* Wind Scatter Today */}
+            <WindRoseScatter 
+              data={todayWindScatterData} 
+              title="Wind Speed (Today)" 
+              maxWindSpeed={maxWindSpeed}
+            />
+            
+            {/* Wind Scatter Yesterday */}
+            <WindRoseScatter 
+              data={yesterdayWindScatterData} 
+              title="Wind Speed (Yesterday)"
               maxWindSpeed={maxWindSpeed}
             />
           </div>
@@ -948,6 +1073,30 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
             showMinMax={true}
             currentValue={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225)}
           />
+        </section>
+
+        {/* Fire Danger Section */}
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Fire Danger Index</h2>
+          <p className="text-xs text-muted-foreground">
+            McArthur Forest Fire Danger Index (FFDI) calculated from temperature, humidity, and wind speed. 
+            Based on Australian Bureau of Meteorology standards.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <FireDangerCard
+              ffdi={fireDanger.ffdi}
+              rating={fireDanger.rating}
+              fuelMoisture={fireDanger.fuelMoisture}
+              spreadPotential={fireDanger.spreadPotential}
+              warningLevel={fireDanger.warningLevel}
+              gfdi={fireDanger.gfdi}
+              droughtIndex={fireDanger.droughtIndex}
+            />
+            <FireDangerChart
+              data={fireDangerChartData}
+              title="Fire Danger History"
+            />
+          </div>
         </section>
 
         {/* Rainfall Section */}

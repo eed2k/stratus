@@ -25,9 +25,16 @@ A professional desktop application for Campbell Scientific weather station manag
 - **Alerts & Alarms** - Configurable alerts for data thresholds and connection issues
 - **Data Validation** - Automatic QC checks on incoming data
 
+### Wind Analysis (WMO/Beaufort Scale)
+- **Wind Rose Charts** - Traditional wind direction frequency distribution (Today, Yesterday, 60 min)
+- **Wind Speed Scatter Plots** - Individual wind observations plotted on polar chart with color-coded speed (Today, Yesterday, 30 min)
+- **Wind Compass** - Real-time wind direction and speed display
+- **Wind Power Analysis** - Wind energy potential calculations
+
 ### Data Management
 - **Local SQLite Database** - All data stored locally for offline access
 - **Data Export** - Export to CSV, JSON, or connect to external databases
+- **PDF Export** - Multi-page PDF dashboard reports with white background
 - **Historical Charts** - View and analyze historical weather data
 - **Backup & Restore** - Backup station configurations and data
 
@@ -105,6 +112,8 @@ stratus/
 ├── client/              # React frontend application
 │   └── src/
 │       ├── components/  # UI components
+│       │   ├── charts/  # Wind rose, scatter plots, weather charts
+│       │   └── dashboard/  # Dashboard cards and panels
 │       ├── pages/       # Application pages
 │       ├── hooks/       # Custom React hooks
 │       └── lib/         # Utility libraries

@@ -339,8 +339,7 @@ export function StationMap({
       <Card className="h-full">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-normal flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
+            <CardTitle className="text-lg font-normal">
               Station Location
             </CardTitle>
           </div>
@@ -363,8 +362,7 @@ export function StationMap({
     <Card className={`transition-all duration-300 ${isExpanded ? "col-span-full" : ""}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-normal flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
+          <CardTitle className="text-lg font-normal">
             Station Location
           </CardTitle>
           <div className="flex items-center gap-2">

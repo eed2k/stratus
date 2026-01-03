@@ -161,8 +161,7 @@ export function SolarPowerHarvestCard({
     return (
       <Card className="border border-gray-300 bg-white">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-normal text-black flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            <Sun className="h-4 w-4 text-yellow-500" />
+          <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Solar Power Harvesting Potential
           </CardTitle>
         </CardHeader>
@@ -182,8 +181,7 @@ export function SolarPowerHarvestCard({
   return (
     <Card className="border border-gray-300 bg-white">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-normal text-black flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          <Sun className="h-4 w-4 text-yellow-500" />
+        <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Solar Power Harvesting Potential
           <Badge variant="outline" className="ml-auto text-xs">
             {(panelEfficiency * 100).toFixed(0)}% efficiency

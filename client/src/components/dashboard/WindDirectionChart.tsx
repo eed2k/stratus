@@ -138,8 +138,7 @@ export function WindDirectionChart({
     return (
       <Card className="border border-gray-300 bg-white">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-normal text-black flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            <Compass className="h-4 w-4 text-blue-500" />
+          <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Wind Direction Distribution
           </CardTitle>
         </CardHeader>
@@ -159,8 +158,7 @@ export function WindDirectionChart({
   return (
     <Card className="border border-gray-300 bg-white">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-normal text-black flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          <Compass className="h-4 w-4 text-blue-500" />
+        <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Wind Direction Distribution
           <Badge variant="outline" className="ml-auto text-xs">
             {period}

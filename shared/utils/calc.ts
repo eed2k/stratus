@@ -488,3 +488,315 @@ export function calculateHeatIndex(temperature: number, humidity: number): numbe
     
     return convertFahrenheitToCelsius(HI);
 }
+
+// ============================================================================
+// Fire Danger Index Calculations
+// McArthur Forest Fire Danger Index (FFDI) - Australian Standard
+// ============================================================================
+
+/**
+ * Fire Danger Rating levels based on FFDI value
+ */
+export interface FireDangerRating {
+    level: 'low-moderate' | 'high' | 'very-high' | 'severe' | 'extreme' | 'catastrophic';
+    label: string;
+    color: string;
+    description: string;
+    minValue: number;
+    maxValue: number;
+    actionAdvice: string;
+}
+
+/**
+ * Fire Danger Index result
+ */
+export interface FireDangerResult {
+    ffdi: number;                    // Forest Fire Danger Index value
+    rating: FireDangerRating;        // Current danger rating
+    grasslandFDI: number;            // Grassland Fire Danger Index
+    keetchByramIndex: number;        // Drought index approximation
+    fuelMoisture: number;            // Estimated fuel moisture content (%)
+    spreadPotential: 'low' | 'moderate' | 'high' | 'very-high' | 'extreme';
+    warningLevel: 0 | 1 | 2 | 3;     // 0=none, 1=watch, 2=warning, 3=emergency
+    warningMessage: string | null;
+}
+
+/**
+ * Fire danger rating thresholds and definitions
+ * Based on Australian Fire Danger Rating System (AFDRS)
+ */
+export const FIRE_DANGER_RATINGS: FireDangerRating[] = [
+    {
+        level: 'low-moderate',
+        label: 'Low-Moderate',
+        color: '#22c55e', // green
+        description: 'Plan and prepare',
+        minValue: 0,
+        maxValue: 11,
+        actionAdvice: 'Be aware of fire conditions. Have a fire plan ready.'
+    },
+    {
+        level: 'high',
+        label: 'High',
+        color: '#eab308', // yellow
+        description: 'Be ready to act',
+        minValue: 12,
+        maxValue: 24,
+        actionAdvice: 'Be ready to act. Fires may be difficult to control.'
+    },
+    {
+        level: 'very-high',
+        label: 'Very High',
+        color: '#f97316', // orange
+        description: 'Take action now to protect life and property',
+        minValue: 25,
+        maxValue: 49,
+        actionAdvice: 'Take action now. Fires will spread quickly and be difficult to control.'
+    },
+    {
+        level: 'severe',
+        label: 'Severe',
+        color: '#ef4444', // red
+        description: 'For your survival, leave bushfire risk areas',
+        minValue: 50,
+        maxValue: 74,
+        actionAdvice: 'Leave bushfire risk areas early. Fires will be uncontrollable and fast-moving.'
+    },
+    {
+        level: 'extreme',
+        label: 'Extreme',
+        color: '#dc2626', // dark red
+        description: 'For your survival, leave bushfire risk areas',
+        minValue: 75,
+        maxValue: 99,
+        actionAdvice: 'Leaving early is the only safe option. Fires will be extremely dangerous.'
+    },
+    {
+        level: 'catastrophic',
+        label: 'Catastrophic',
+        color: '#7f1d1d', // darkest red / maroon
+        description: 'For your survival, leave bushfire risk areas',
+        minValue: 100,
+        maxValue: Infinity,
+        actionAdvice: 'These are the most dangerous conditions. If fire starts, lives and homes will be at risk.'
+    }
+];
+
+/**
+ * Get fire danger rating from FFDI value
+ */
+export function getFireDangerRating(ffdi: number): FireDangerRating {
+    for (const rating of FIRE_DANGER_RATINGS) {
+        if (ffdi >= rating.minValue && ffdi <= rating.maxValue) {
+            return rating;
+        }
+    }
+    return FIRE_DANGER_RATINGS[FIRE_DANGER_RATINGS.length - 1]; // Catastrophic
+}
+
+/**
+ * Estimate Drought Factor (DF) from recent rainfall data
+ * DF ranges from 0 (wet) to 10 (extreme drought)
+ * 
+ * @param rainfall7day Total rainfall in last 7 days (mm)
+ * @param rainfall30day Total rainfall in last 30 days (mm)
+ * @param daysSinceRain Days since last significant rain (>2mm)
+ * @returns Drought factor (0-10)
+ */
+export function estimateDroughtFactor(
+    rainfall7day: number = 0,
+    rainfall30day: number = 0,
+    daysSinceRain: number = 7
+): number {
+    // Simplified drought factor estimation
+    // In production, this would use Keetch-Byram Drought Index (KBDI) or Mount's Soil Dryness Index
+    
+    let df = 10; // Start at maximum drought
+    
+    // Reduce DF based on recent rainfall
+    if (rainfall7day > 25) df -= 4;
+    else if (rainfall7day > 10) df -= 3;
+    else if (rainfall7day > 5) df -= 2;
+    else if (rainfall7day > 2) df -= 1;
+    
+    if (rainfall30day > 100) df -= 3;
+    else if (rainfall30day > 50) df -= 2;
+    else if (rainfall30day > 25) df -= 1;
+    
+    // Increase DF based on days since rain
+    if (daysSinceRain > 14) df += 1;
+    if (daysSinceRain > 30) df += 1;
+    
+    // Clamp to valid range
+    return Math.max(0, Math.min(10, df));
+}
+
+/**
+ * Calculate McArthur Forest Fire Danger Index (FFDI)
+ * 
+ * Formula: FFDI = 2 × exp(-0.45 + 0.987×ln(DF) - 0.0345×RH + 0.0338×T + 0.0234×V)
+ * 
+ * Reference: McArthur, A.G. (1967). Fire Behaviour in Eucalypt Forests
+ * 
+ * @param temperature Air temperature in Celsius
+ * @param humidity Relative humidity in percent (0-100)
+ * @param windSpeed Wind speed in km/h
+ * @param droughtFactor Drought factor (0-10), default 5 if not provided
+ * @returns Forest Fire Danger Index (0-150+)
+ */
+export function calculateFFDI(
+    temperature: number,
+    humidity: number,
+    windSpeed: number,
+    droughtFactor: number = 5
+): number {
+    // Clamp inputs to valid ranges
+    const T = Math.max(-10, Math.min(50, temperature));
+    const RH = Math.max(1, Math.min(100, humidity)); // Avoid log(0) issues
+    const V = Math.max(0, windSpeed);
+    const DF = Math.max(0.1, Math.min(10, droughtFactor)); // Avoid log(0)
+    
+    // McArthur Mark 5 Forest Fire Danger Meter equation
+    const ffdi = 2 * Math.exp(
+        -0.45 + 
+        0.987 * Math.log(DF) - 
+        0.0345 * RH + 
+        0.0338 * T + 
+        0.0234 * V
+    );
+    
+    return Math.max(0, ffdi);
+}
+
+/**
+ * Calculate Grassland Fire Danger Index (GFDI)
+ * Simplified Mark 4 equation for grassland fires
+ * 
+ * @param temperature Air temperature in Celsius
+ * @param humidity Relative humidity in percent (0-100)
+ * @param windSpeed Wind speed in km/h
+ * @param curing Grass curing percentage (0-100), default 80%
+ * @returns Grassland Fire Danger Index
+ */
+export function calculateGFDI(
+    temperature: number,
+    humidity: number,
+    windSpeed: number,
+    curing: number = 80
+): number {
+    const T = Math.max(-10, Math.min(50, temperature));
+    const RH = Math.max(1, Math.min(100, humidity));
+    const V = Math.max(0, windSpeed);
+    const C = Math.max(0, Math.min(100, curing));
+    
+    // Mark 4 Grassland Fire Danger equation (simplified)
+    const gfdi = 2 * Math.exp(
+        -0.906 + 
+        0.0275 * T - 
+        0.0239 * RH + 
+        0.0234 * V + 
+        0.0063 * C
+    );
+    
+    return Math.max(0, gfdi);
+}
+
+/**
+ * Estimate fuel moisture content from weather conditions
+ * 
+ * @param temperature Air temperature in Celsius
+ * @param humidity Relative humidity in percent
+ * @returns Estimated fine fuel moisture content (%)
+ */
+export function estimateFuelMoisture(temperature: number, humidity: number): number {
+    // Simplified fuel moisture estimation based on equilibrium moisture content
+    // Reference: Simard, A.J. (1968)
+    const T = temperature;
+    const RH = humidity;
+    
+    let fuelMoisture: number;
+    
+    if (RH <= 10) {
+        fuelMoisture = 0.03229 + 0.281073 * RH - 0.000578 * RH * T;
+    } else if (RH <= 50) {
+        fuelMoisture = 2.22749 + 0.160107 * RH - 0.01478 * T;
+    } else {
+        fuelMoisture = 21.0606 + 0.005565 * RH * RH - 0.00035 * RH * T - 0.483199 * RH;
+    }
+    
+    return Math.max(2, Math.min(35, fuelMoisture));
+}
+
+/**
+ * Calculate comprehensive Fire Danger Index with all parameters
+ * 
+ * @param temperature Air temperature in Celsius
+ * @param humidity Relative humidity in percent (0-100)
+ * @param windSpeed Wind speed in km/h
+ * @param rainfall7day Total rainfall in last 7 days (mm), optional
+ * @param rainfall30day Total rainfall in last 30 days (mm), optional
+ * @param daysSinceRain Days since last significant rain, optional
+ * @returns Complete fire danger assessment
+ */
+export function calculateFireDanger(
+    temperature: number,
+    humidity: number,
+    windSpeed: number,
+    rainfall7day: number = 0,
+    rainfall30day: number = 0,
+    daysSinceRain: number = 7
+): FireDangerResult {
+    // Estimate drought factor from rainfall
+    const droughtFactor = estimateDroughtFactor(rainfall7day, rainfall30day, daysSinceRain);
+    
+    // Calculate main indices
+    const ffdi = calculateFFDI(temperature, humidity, windSpeed, droughtFactor);
+    const grasslandFDI = calculateGFDI(temperature, humidity, windSpeed);
+    const fuelMoisture = estimateFuelMoisture(temperature, humidity);
+    
+    // Get rating based on FFDI
+    const rating = getFireDangerRating(ffdi);
+    
+    // Estimate Keetch-Byram Index (simplified approximation)
+    const keetchByramIndex = Math.min(800, droughtFactor * 80);
+    
+    // Determine spread potential
+    let spreadPotential: 'low' | 'moderate' | 'high' | 'very-high' | 'extreme';
+    if (ffdi < 12) spreadPotential = 'low';
+    else if (ffdi < 25) spreadPotential = 'moderate';
+    else if (ffdi < 50) spreadPotential = 'high';
+    else if (ffdi < 75) spreadPotential = 'very-high';
+    else spreadPotential = 'extreme';
+    
+    // Determine warning level and message
+    let warningLevel: 0 | 1 | 2 | 3 = 0;
+    let warningMessage: string | null = null;
+    
+    if (rating.level === 'catastrophic') {
+        warningLevel = 3;
+        warningMessage = 'EMERGENCY: Catastrophic fire danger. Leave bushfire risk areas immediately.';
+    } else if (rating.level === 'extreme') {
+        warningLevel = 3;
+        warningMessage = 'EMERGENCY: Extreme fire danger conditions. Leaving early is the only safe option.';
+    } else if (rating.level === 'severe') {
+        warningLevel = 2;
+        warningMessage = 'WARNING: Severe fire danger. For your survival, leave bushfire risk areas.';
+    } else if (rating.level === 'very-high') {
+        warningLevel = 1;
+        warningMessage = 'WATCH: Very high fire danger. Be prepared to take action.';
+    } else if (rating.level === 'high') {
+        warningLevel = 1;
+        warningMessage = 'WATCH: High fire danger conditions. Stay alert.';
+    }
+    
+    return {
+        ffdi: Math.round(ffdi * 10) / 10,
+        rating,
+        grasslandFDI: Math.round(grasslandFDI * 10) / 10,
+        keetchByramIndex: Math.round(keetchByramIndex),
+        fuelMoisture: Math.round(fuelMoisture * 10) / 10,
+        spreadPotential,
+        warningLevel,
+        warningMessage
+    };
+}
