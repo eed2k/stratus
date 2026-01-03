@@ -152,12 +152,38 @@ const generateWindScatterData = (numPoints: number, hoursBack: number = 24) => {
       : Math.random() * 360; // 30% random
     const direction = (dominantDirection + directionSpread + 360) % 360;
     
-    // Speed distribution - mostly moderate with occasional gusts
-    const baseSpeed = 8 + Math.random() * 15;
-    const gustChance = Math.random();
-    const speed = gustChance > 0.9 
-      ? baseSpeed + Math.random() * 20 // 10% gusts
-      : baseSpeed;
+    // Speed distribution - varied across Beaufort scale for better color demonstration
+    // Create a more varied distribution to show different colors
+    const speedRandom = Math.random();
+    let speed: number;
+    if (speedRandom < 0.15) {
+      // 15% calm/light (0-6 km/h)
+      speed = Math.random() * 6;
+    } else if (speedRandom < 0.35) {
+      // 20% light breeze (6-12 km/h)
+      speed = 6 + Math.random() * 6;
+    } else if (speedRandom < 0.55) {
+      // 20% gentle breeze (12-20 km/h)
+      speed = 12 + Math.random() * 8;
+    } else if (speedRandom < 0.70) {
+      // 15% moderate (20-29 km/h)
+      speed = 20 + Math.random() * 9;
+    } else if (speedRandom < 0.82) {
+      // 12% fresh (29-39 km/h)
+      speed = 29 + Math.random() * 10;
+    } else if (speedRandom < 0.90) {
+      // 8% strong (39-50 km/h)
+      speed = 39 + Math.random() * 11;
+    } else if (speedRandom < 0.95) {
+      // 5% near gale (50-62 km/h)
+      speed = 50 + Math.random() * 12;
+    } else if (speedRandom < 0.98) {
+      // 3% gale (62-75 km/h)
+      speed = 62 + Math.random() * 13;
+    } else {
+      // 2% strong gale+ (75+ km/h)
+      speed = 75 + Math.random() * 20;
+    }
     
     const timestamp = new Date(now.getTime() - (hoursBack * 60 * 60 * 1000 * Math.random()));
     
@@ -186,12 +212,11 @@ const generateYesterdayWindScatterData = () => {
 
 const generateLast30MinWindScatterData = () => {
   const data = generateWindScatterData(30, 0.5);
-  // Tighter clustering for short period
+  // Tighter clustering for short period but still show varied speeds
   return data.map(d => ({
     ...d,
     // More consistent direction over 30 minutes
     direction: 215 + (Math.random() - 0.5) * 30,
-    speed: 12 + Math.random() * 8,
   }));
 };
 
@@ -836,6 +861,24 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
           </div>
         </section>
 
+        {/* Station Status Section - Battery */}
+        {hasValidData(currentData.batteryVoltage) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Station Status</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <MetricCard
+              title="Battery Voltage"
+              value={formatValue(currentData.batteryVoltage || 0, 2)}
+              unit="V"
+              subMetrics={[
+                { label: "Status", value: (currentData.batteryVoltage || 0) > 12.5 ? "Good" : (currentData.batteryVoltage || 0) > 11.5 ? "Low" : "Critical" },
+              ]}
+              chartColor="#22c55e"
+            />
+          </div>
+        </section>
+        )}
+
         {/* Soil & Environment Section */}
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
@@ -876,17 +919,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               value={formatValue(currentData.pm10 || 0, 1)}
               unit="µg/m³"
               chartColor="#9ca3af"
-            />
-            )}
-            {hasValidData(currentData.batteryVoltage) && (
-            <MetricCard
-              title="Battery"
-              value={formatValue(currentData.batteryVoltage || 0, 2)}
-              unit="V"
-              subMetrics={[
-                { label: "Status", value: (currentData.batteryVoltage || 0) > 12 ? "Good" : "Low" },
-              ]}
-              chartColor="#22c55e"
             />
             )}
           </div>
