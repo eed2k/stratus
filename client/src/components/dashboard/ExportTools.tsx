@@ -25,8 +25,7 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
 
   /**
    * Export dashboard as multi-page PDF with white background
-   * Captures the full dashboard and splits it across multiple pages
-   * Uses a simpler, more reliable approach
+   * Captures individual sections/cards to avoid cutting content at page breaks
    */
   const handlePDF = async () => {
     setIsExporting(true);
@@ -42,105 +41,6 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         throw new Error("Dashboard content not found");
       }
 
-      // Store original styles
-      const originalStyles = {
-        bg: element.style.backgroundColor,
-        color: element.style.color,
-        overflow: element.style.overflow,
-      };
-      
-      // Temporarily set white background and dark text for PDF
-      element.style.backgroundColor = "#ffffff";
-      element.style.color = "#000000";
-      
-      // Add class for print styling
-      element.classList.add("pdf-export-mode");
-      
-      // Hide no-print elements throughout the document
-      const noPrintEls = element.querySelectorAll('.no-print');
-      const hiddenEls: HTMLElement[] = [];
-      noPrintEls.forEach(el => {
-        const htmlEl = el as HTMLElement;
-        if (htmlEl.style.display !== 'none') {
-          hiddenEls.push(htmlEl);
-          htmlEl.style.display = 'none';
-        }
-      });
-
-      // Wait a moment for styles to apply
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Capture the entire dashboard as one canvas
-      const canvas = await html2canvas(element, {
-        backgroundColor: "#ffffff",
-        scale: 1.5, // Lower scale for better performance and smaller file size
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
-        onclone: (clonedDoc, clonedElement) => {
-          // Apply white background to all elements in cloned document
-          clonedElement.style.backgroundColor = "#ffffff";
-          clonedElement.style.color = "#1a1a1a";
-          
-          // Force white backgrounds on cards
-          const cards = clonedElement.querySelectorAll('[class*="card"], [class*="Card"]');
-          cards.forEach((card: Element) => {
-            const cardEl = card as HTMLElement;
-            cardEl.style.backgroundColor = "#ffffff";
-            cardEl.style.borderColor = "#e5e7eb";
-            cardEl.style.color = "#1a1a1a";
-          });
-          
-          // Fix dark mode text colors
-          const allElements = clonedElement.querySelectorAll('*');
-          allElements.forEach((el: Element) => {
-            const htmlEl = el as HTMLElement;
-            const computedStyle = window.getComputedStyle(el);
-            
-            // Fix white/light text
-            const color = computedStyle.color;
-            if (color === 'rgb(255, 255, 255)' || 
-                color === 'rgba(255, 255, 255, 1)' ||
-                color.includes('255, 255, 255')) {
-              htmlEl.style.color = "#1a1a1a";
-            }
-            
-            // Fix dark backgrounds
-            const bgColor = computedStyle.backgroundColor;
-            if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-              const rgb = bgColor.match(/\d+/g);
-              if (rgb && rgb.length >= 3) {
-                const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                if (brightness < 128) {
-                  htmlEl.style.backgroundColor = "#ffffff";
-                }
-              }
-            }
-          });
-          
-          // Hide no-print elements in cloned doc
-          const clonedNoPrint = clonedElement.querySelectorAll('.no-print');
-          clonedNoPrint.forEach((el: Element) => {
-            (el as HTMLElement).style.display = 'none';
-          });
-        }
-      });
-      
-      // Restore hidden elements
-      hiddenEls.forEach(el => {
-        el.style.display = '';
-      });
-      
-      // Restore original styles
-      element.style.backgroundColor = originalStyles.bg;
-      element.style.color = originalStyles.color;
-      element.style.overflow = originalStyles.overflow;
-      element.classList.remove("pdf-export-mode");
-
       // A4 page dimensions in mm
       const pageWidth = 210;
       const pageHeight = 297;
@@ -149,16 +49,6 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
       const footerHeight = 8;
       const contentWidth = pageWidth - margin * 2;
       const contentHeightPerPage = pageHeight - margin * 2 - headerHeight - footerHeight;
-      
-      // Calculate image dimensions to fit page width
-      const imgWidthPx = canvas.width;
-      const imgHeightPx = canvas.height;
-      const imgRatio = imgHeightPx / imgWidthPx;
-      const imgWidthMm = contentWidth;
-      const imgHeightMm = contentWidth * imgRatio;
-      
-      // Calculate number of pages needed
-      const totalPages = Math.ceil(imgHeightMm / contentHeightPerPage);
       
       // Create PDF
       const pdf = new jsPDF({
@@ -175,7 +65,137 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         hour: "2-digit",
         minute: "2-digit",
       });
+
+      // Find all exportable sections - look for cards, sections, and grid containers
+      const sections: HTMLElement[] = [];
       
+      // Get sections, grids with cards, and standalone cards
+      const sectionElements = element.querySelectorAll('section:not(.no-print)');
+      const gridElements = element.querySelectorAll('.grid:not(.no-print)');
+      const cardElements = element.querySelectorAll('[data-testid^="card-"]:not(.no-print)');
+      
+      // If we have sections, use those
+      if (sectionElements.length > 0) {
+        sectionElements.forEach(el => sections.push(el as HTMLElement));
+      } else if (gridElements.length > 0) {
+        // Use grid containers
+        gridElements.forEach(el => sections.push(el as HTMLElement));
+      } else if (cardElements.length > 0) {
+        // Fall back to individual cards
+        cardElements.forEach(el => sections.push(el as HTMLElement));
+      } else {
+        // Last resort: use the entire element
+        sections.push(element);
+      }
+
+      // If still no sections found, capture whole element
+      if (sections.length === 0) {
+        sections.push(element);
+      }
+
+      // Capture each section as a separate image
+      const sectionImages: { imgData: string; heightMm: number }[] = [];
+      
+      for (const section of sections) {
+        // Hide no-print elements temporarily
+        const noPrintEls = section.querySelectorAll('.no-print');
+        const hiddenEls: HTMLElement[] = [];
+        noPrintEls.forEach(el => {
+          const htmlEl = el as HTMLElement;
+          if (htmlEl.style.display !== 'none') {
+            hiddenEls.push(htmlEl);
+            htmlEl.style.display = 'none';
+          }
+        });
+
+        try {
+          const canvas = await html2canvas(section, {
+            backgroundColor: "#ffffff",
+            scale: 2,
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            onclone: (clonedDoc, clonedElement) => {
+              clonedElement.style.backgroundColor = "#ffffff";
+              clonedElement.style.color = "#1a1a1a";
+              
+              // Force white backgrounds on cards
+              const cards = clonedElement.querySelectorAll('[class*="card"], [class*="Card"]');
+              cards.forEach((card: Element) => {
+                const cardEl = card as HTMLElement;
+                cardEl.style.backgroundColor = "#ffffff";
+                cardEl.style.borderColor = "#e5e7eb";
+                cardEl.style.color = "#1a1a1a";
+              });
+              
+              // Fix dark mode text colors
+              const allElements = clonedElement.querySelectorAll('*');
+              allElements.forEach((el: Element) => {
+                const htmlEl = el as HTMLElement;
+                const computedStyle = window.getComputedStyle(el);
+                const color = computedStyle.color;
+                if (color === 'rgb(255, 255, 255)' || 
+                    color === 'rgba(255, 255, 255, 1)' ||
+                    color.includes('255, 255, 255')) {
+                  htmlEl.style.color = "#1a1a1a";
+                }
+                const bgColor = computedStyle.backgroundColor;
+                if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+                  const rgb = bgColor.match(/\d+/g);
+                  if (rgb && rgb.length >= 3) {
+                    const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                    if (brightness < 128) {
+                      htmlEl.style.backgroundColor = "#ffffff";
+                    }
+                  }
+                }
+              });
+              
+              const clonedNoPrint = clonedElement.querySelectorAll('.no-print');
+              clonedNoPrint.forEach((el: Element) => {
+                (el as HTMLElement).style.display = 'none';
+              });
+            }
+          });
+
+          const imgData = canvas.toDataURL("image/jpeg", 0.92);
+          const imgRatio = canvas.height / canvas.width;
+          const heightMm = contentWidth * imgRatio;
+          
+          sectionImages.push({ imgData, heightMm });
+        } finally {
+          // Restore hidden elements
+          hiddenEls.forEach(el => {
+            el.style.display = '';
+          });
+        }
+      }
+
+      // Now layout the images across pages, avoiding cutting sections
+      let currentPage = 1;
+      let currentY = margin + headerHeight;
+      let totalPages = 1;
+
+      // First pass: calculate total pages needed
+      let tempY = margin + headerHeight;
+      for (const section of sectionImages) {
+        if (tempY + section.heightMm > pageHeight - margin - footerHeight) {
+          // Would overflow - check if section fits on a new page
+          if (section.heightMm <= contentHeightPerPage) {
+            // Section fits on new page
+            totalPages++;
+            tempY = margin + headerHeight + section.heightMm + 3;
+          } else {
+            // Section too tall - will need to be split (rare case)
+            const pagesNeeded = Math.ceil(section.heightMm / contentHeightPerPage);
+            totalPages += pagesNeeded;
+            tempY = margin + headerHeight;
+          }
+        } else {
+          tempY += section.heightMm + 3;
+        }
+      }
+
       // Helper to add header
       const addHeader = (pageNum: number) => {
         pdf.setFontSize(14);
@@ -187,7 +207,6 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         pdf.text(`Generated: ${dateStr}`, margin, margin + 10);
         pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margin - 20, margin + 10);
         
-        // Header line
         pdf.setDrawColor(200, 200, 200);
         pdf.line(margin, margin + 14, pageWidth - margin, margin + 14);
       };
@@ -203,57 +222,116 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
           { align: "center" }
         );
       };
-      
-      // Create temporary canvas for slicing
-      const tempCanvas = document.createElement('canvas');
-      const tempCtx = tempCanvas.getContext('2d');
-      
-      if (!tempCtx) {
-        throw new Error("Could not create canvas context");
-      }
-      
-      // Calculate pixels per page
-      const pxPerMm = imgWidthPx / imgWidthMm;
-      const pxPerPage = contentHeightPerPage * pxPerMm;
-      
-      // Add each page
-      for (let page = 0; page < totalPages; page++) {
-        if (page > 0) {
+
+      // Add first page header/footer
+      addHeader(currentPage);
+      addFooter();
+
+      // Second pass: add sections to PDF
+      for (const section of sectionImages) {
+        const spaceRemaining = pageHeight - margin - footerHeight - currentY;
+        
+        if (section.heightMm <= spaceRemaining) {
+          // Section fits on current page
+          pdf.addImage(
+            section.imgData,
+            "JPEG",
+            margin,
+            currentY,
+            contentWidth,
+            section.heightMm
+          );
+          currentY += section.heightMm + 3; // 3mm gap between sections
+        } else if (section.heightMm <= contentHeightPerPage) {
+          // Section doesn't fit but will fit on new page - move to new page
           pdf.addPage();
+          currentPage++;
+          addHeader(currentPage);
+          addFooter();
+          currentY = margin + headerHeight;
+          
+          pdf.addImage(
+            section.imgData,
+            "JPEG",
+            margin,
+            currentY,
+            contentWidth,
+            section.heightMm
+          );
+          currentY += section.heightMm + 3;
+        } else {
+          // Section is too tall - must split it (rare case for very tall charts)
+          // This uses canvas slicing as a fallback
+          const img = new Image();
+          img.src = section.imgData;
+          
+          await new Promise<void>((resolve) => {
+            img.onload = () => {
+              const pxPerMm = img.width / contentWidth;
+              let remainingHeightMm = section.heightMm;
+              let sourceY = 0;
+              
+              while (remainingHeightMm > 0) {
+                const availableHeight = currentPage === 1 && currentY === margin + headerHeight 
+                  ? contentHeightPerPage 
+                  : pageHeight - margin - footerHeight - currentY;
+                
+                if (availableHeight < 20) {
+                  // Not enough space, start new page
+                  pdf.addPage();
+                  currentPage++;
+                  addHeader(currentPage);
+                  addFooter();
+                  currentY = margin + headerHeight;
+                  continue;
+                }
+                
+                const sliceHeightMm = Math.min(remainingHeightMm, availableHeight);
+                const sliceHeightPx = sliceHeightMm * pxPerMm;
+                
+                // Create slice canvas
+                const sliceCanvas = document.createElement('canvas');
+                sliceCanvas.width = img.width;
+                sliceCanvas.height = Math.ceil(sliceHeightPx);
+                const ctx = sliceCanvas.getContext('2d');
+                
+                if (ctx) {
+                  ctx.fillStyle = '#ffffff';
+                  ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+                  ctx.drawImage(
+                    img,
+                    0, sourceY, img.width, sliceHeightPx,
+                    0, 0, img.width, sliceHeightPx
+                  );
+                  
+                  const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
+                  pdf.addImage(
+                    sliceData,
+                    "JPEG",
+                    margin,
+                    currentY,
+                    contentWidth,
+                    sliceHeightMm
+                  );
+                }
+                
+                sourceY += sliceHeightPx;
+                remainingHeightMm -= sliceHeightMm;
+                currentY += sliceHeightMm;
+                
+                if (remainingHeightMm > 0) {
+                  pdf.addPage();
+                  currentPage++;
+                  addHeader(currentPage);
+                  addFooter();
+                  currentY = margin + headerHeight;
+                }
+              }
+              resolve();
+            };
+            img.onerror = () => resolve();
+          });
         }
-        
-        // Add header and footer
-        addHeader(page + 1);
-        addFooter();
-        
-        // Calculate the slice of the original canvas for this page
-        const sourceY = page * pxPerPage;
-        const sourceHeight = Math.min(pxPerPage, imgHeightPx - sourceY);
-        const destHeightMm = (sourceHeight / pxPerMm);
-        
-        // Create a slice of the canvas for this page
-        tempCanvas.width = imgWidthPx;
-        tempCanvas.height = Math.ceil(sourceHeight);
-        
-        // Draw the slice
-        tempCtx.fillStyle = '#ffffff';
-        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-        tempCtx.drawImage(
-          canvas,
-          0, sourceY, imgWidthPx, sourceHeight,
-          0, 0, imgWidthPx, sourceHeight
-        );
-        
-        // Add to PDF
-        const sliceData = tempCanvas.toDataURL("image/jpeg", 0.92);
-        pdf.addImage(
-          sliceData,
-          "JPEG",
-          margin,
-          margin + headerHeight,
-          contentWidth,
-          destHeightMm
-        );
       }
 
       // Save the PDF
