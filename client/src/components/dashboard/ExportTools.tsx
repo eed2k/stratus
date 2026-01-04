@@ -26,6 +26,7 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
   /**
    * Export dashboard as multi-page PDF with white background
    * Captures the full dashboard and splits it across multiple pages
+   * Ensures sections are not cut off - moves them to new pages if needed
    */
   const handlePDF = async () => {
     setIsExporting(true);
@@ -52,74 +53,17 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
       // Add class for print styling
       element.classList.add("pdf-export-mode");
       
-      // Capture with white background at high resolution
-      const canvas = await html2canvas(element, {
-        backgroundColor: "#ffffff",
-        scale: 2, // High resolution
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
-        onclone: (clonedDoc) => {
-          // Apply white background to all elements in cloned document
-          const clonedElement = clonedDoc.getElementById(targetId);
-          if (clonedElement) {
-            clonedElement.style.backgroundColor = "#ffffff";
-            clonedElement.style.color = "#1a1a1a";
-            
-            // Force white backgrounds on cards and sections
-            const cards = clonedElement.querySelectorAll('[class*="card"], [class*="Card"]');
-            cards.forEach((card: Element) => {
-              (card as HTMLElement).style.backgroundColor = "#ffffff";
-              (card as HTMLElement).style.borderColor = "#e5e7eb";
-              (card as HTMLElement).style.color = "#1a1a1a";
-            });
-            
-            // Make text visible on white
-            const textElements = clonedElement.querySelectorAll('*');
-            textElements.forEach((el: Element) => {
-              const htmlEl = el as HTMLElement;
-              const computedStyle = window.getComputedStyle(el);
-              // If text color is light (for dark mode), make it dark
-              if (computedStyle.color === 'rgb(255, 255, 255)' || 
-                  computedStyle.color === 'rgba(255, 255, 255, 1)') {
-                htmlEl.style.color = "#1a1a1a";
-              }
-            });
-            
-            // Hide no-print elements
-            const noPrintElements = clonedElement.querySelectorAll('.no-print');
-            noPrintElements.forEach((el: Element) => {
-              (el as HTMLElement).style.display = 'none';
-            });
-          }
-        }
-      });
-
-      // Restore original styles
-      element.style.backgroundColor = originalBg;
-      element.style.color = originalColor;
-      element.classList.remove("pdf-export-mode");
-
-      const imgData = canvas.toDataURL("image/png", 1.0);
+      // Get all sections (semantic sections within the dashboard)
+      const sections = element.querySelectorAll('section:not(.no-print)');
       
       // A4 page dimensions in mm
       const pageWidth = 210;
       const pageHeight = 297;
-      const margin = 10; // 10mm margins
-      
-      // Calculate image dimensions to fit page width (minus margins)
-      const contentWidth = pageWidth - (margin * 2);
-      const imgRatio = canvas.height / canvas.width;
-      const scaledWidth = contentWidth;
-      const scaledHeight = contentWidth * imgRatio;
-      
-      // Calculate how many pages we need
-      const contentHeight = pageHeight - (margin * 2) - 20; // Extra space for header/footer
-      const totalPages = Math.ceil(scaledHeight / contentHeight);
+      const margin = 10;
+      const headerHeight = 20;
+      const footerHeight = 10;
+      const contentHeight = pageHeight - margin * 2 - headerHeight - footerHeight;
+      const contentWidth = pageWidth - margin * 2;
       
       // Create PDF
       const pdf = new jsPDF({
@@ -127,8 +71,8 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         unit: "mm",
         format: "a4",
       });
-
-      // Add header info
+      
+      // Date string for headers
       const dateStr = new Date().toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
@@ -136,13 +80,12 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         hour: "2-digit",
         minute: "2-digit",
       });
-
-      for (let page = 0; page < totalPages; page++) {
-        if (page > 0) {
-          pdf.addPage();
-        }
-
-        // Add header on each page
+      
+      let currentPage = 1;
+      let currentY = margin + headerHeight;
+      
+      // Helper to add header
+      const addHeader = (pageNum: number, totalPages: number) => {
         pdf.setFontSize(16);
         pdf.setTextColor(0, 0, 0);
         pdf.text(`${stationName} - Dashboard Report`, margin, margin + 5);
@@ -150,44 +93,11 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         pdf.setFontSize(9);
         pdf.setTextColor(100, 100, 100);
         pdf.text(`Generated: ${dateStr}`, margin, margin + 11);
-        pdf.text(`Page ${page + 1} of ${totalPages}`, pageWidth - margin - 25, margin + 11);
-
-        // Calculate source and destination rectangles
-        const sourceY = page * contentHeight * (canvas.height / scaledHeight);
-        const sourceHeight = Math.min(
-          contentHeight * (canvas.height / scaledHeight),
-          canvas.height - sourceY
-        );
-        
-        // Create a temporary canvas for this page section
-        const pageCanvas = document.createElement("canvas");
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = sourceHeight;
-        const ctx = pageCanvas.getContext("2d");
-        
-        if (ctx) {
-          ctx.drawImage(
-            canvas,
-            0, sourceY, // Source x, y
-            canvas.width, sourceHeight, // Source width, height
-            0, 0, // Dest x, y
-            canvas.width, sourceHeight // Dest width, height
-          );
-          
-          const pageImgData = pageCanvas.toDataURL("image/png", 1.0);
-          const destHeight = sourceHeight * (scaledWidth / canvas.width);
-          
-          pdf.addImage(
-            pageImgData,
-            "PNG",
-            margin,
-            margin + 15, // Below header
-            scaledWidth,
-            destHeight
-          );
-        }
-
-        // Add footer
+        pdf.text(`Page ${pageNum}`, pageWidth - margin - 15, margin + 11);
+      };
+      
+      // Helper to add footer
+      const addFooter = () => {
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
         pdf.text(
@@ -196,7 +106,98 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
           pageHeight - 5,
           { align: "center" }
         );
+      };
+      
+      // Add first page header
+      addHeader(currentPage, 1);
+      
+      // Process each section individually to avoid cutting them off
+      for (const section of Array.from(sections)) {
+        const sectionEl = section as HTMLElement;
+        
+        // Hide no-print elements temporarily
+        const noPrintEls = sectionEl.querySelectorAll('.no-print');
+        noPrintEls.forEach(el => {
+          (el as HTMLElement).style.display = 'none';
+        });
+        
+        // Capture this section
+        const sectionCanvas = await html2canvas(sectionEl, {
+          backgroundColor: "#ffffff",
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          onclone: (clonedDoc) => {
+            const clonedSection = clonedDoc.body.querySelector('section');
+            if (clonedSection) {
+              clonedSection.style.backgroundColor = "#ffffff";
+              clonedSection.style.color = "#1a1a1a";
+              
+              // Force white backgrounds on cards
+              const cards = clonedSection.querySelectorAll('[class*="card"], [class*="Card"]');
+              cards.forEach((card: Element) => {
+                (card as HTMLElement).style.backgroundColor = "#ffffff";
+                (card as HTMLElement).style.borderColor = "#e5e7eb";
+                (card as HTMLElement).style.color = "#1a1a1a";
+              });
+              
+              // Make text visible on white
+              const textElements = clonedSection.querySelectorAll('*');
+              textElements.forEach((el: Element) => {
+                const htmlEl = el as HTMLElement;
+                const computedStyle = window.getComputedStyle(el);
+                if (computedStyle.color === 'rgb(255, 255, 255)' || 
+                    computedStyle.color === 'rgba(255, 255, 255, 1)') {
+                  htmlEl.style.color = "#1a1a1a";
+                }
+              });
+            }
+          }
+        });
+        
+        // Restore no-print elements
+        noPrintEls.forEach(el => {
+          (el as HTMLElement).style.display = '';
+        });
+        
+        const sectionImgData = sectionCanvas.toDataURL("image/png", 1.0);
+        const imgRatio = sectionCanvas.height / sectionCanvas.width;
+        const sectionWidthMm = contentWidth;
+        const sectionHeightMm = contentWidth * imgRatio;
+        
+        // Check if section fits on current page
+        const spaceRemaining = pageHeight - margin - footerHeight - currentY;
+        
+        if (sectionHeightMm > spaceRemaining) {
+          // Section doesn't fit - start new page
+          addFooter();
+          pdf.addPage();
+          currentPage++;
+          currentY = margin + headerHeight;
+          addHeader(currentPage, currentPage);
+        }
+        
+        // Add the section image to PDF
+        pdf.addImage(
+          sectionImgData,
+          "PNG",
+          margin,
+          currentY,
+          sectionWidthMm,
+          sectionHeightMm
+        );
+        
+        currentY += sectionHeightMm + 5; // 5mm gap between sections
       }
+      
+      // Add final footer
+      addFooter();
+
+      // Restore original styles
+      element.style.backgroundColor = originalBg;
+      element.style.color = originalColor;
+      element.classList.remove("pdf-export-mode");
 
       // Save the PDF
       const filename = `${stationName.replace(/\s+/g, "_")}_Dashboard_${new Date().toISOString().split("T")[0]}.pdf`;
@@ -204,7 +205,7 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
 
       toast({
         title: "PDF saved",
-        description: `Dashboard exported as ${totalPages}-page PDF.`,
+        description: `Dashboard exported as ${currentPage}-page PDF.`,
       });
     } catch (error) {
       console.error("PDF export error:", error);

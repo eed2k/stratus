@@ -1235,8 +1235,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
           </div>
         </section>
 
-        {/* Station Administration - Admin Only */}
-        {selectedStation && (
+        {/* Station Administration - Admin Only (hidden in PDF export) */}
+        {isAdmin && selectedStation && (
+          <section className="no-print">
           <StationInfoPanel
             station={{
               id: selectedStation.id,
@@ -1282,6 +1283,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
               }
             }}
           />
+          </section>
         )}
       </div>
     </div>

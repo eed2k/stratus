@@ -1,21 +1,46 @@
-# Ignore for Docker builds
+# Ignore for Docker/Railway builds
 node_modules
 .git
 .gitignore
-*.md
+
+# Docs (keep README for reference)
+STATION_SETUP.md
+CHANGELOG.md
+
+# Build outputs (will be created during Docker build)
 output/
+dist/
+client/dist/
+
+# Logs and data
 logs/
 *.log
-.env
-.env.*
+demo_data/
 *.db
 *.sqlite
 *.sqlite3
-demo_data/
+
+# Environment files
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Desktop app files (not needed for cloud deployment)
 electron/
 *.exe
 *.dmg
 *.AppImage
+*.blockmap
+builder-*.yml
+builder-*.yaml
+
+# Development files
 .vscode/
 coverage/
 .nyc_output/
+*.tsbuildinfo
+
+# Assets for desktop only (icons)
+assets/icons/

@@ -6,7 +6,8 @@ import { Flame, AlertTriangle, Info, Droplets, Wind, Thermometer } from "lucide-
 import { 
   calculateFireDanger, 
   FIRE_DANGER_RATINGS,
-  type FireDangerResult 
+  type FireDangerResult,
+  type FireDangerRating 
 } from "@shared/utils/calc";
 
 interface FireDangerCardProps {
@@ -114,7 +115,7 @@ export function FireDangerCard({
             {/* Gauge Background */}
             <svg viewBox="0 0 200 100" className="w-full h-full">
               {/* Background arc segments for each danger level */}
-              {FIRE_DANGER_RATINGS.map((rating, index) => {
+              {FIRE_DANGER_RATINGS.map((rating: FireDangerRating) => {
                 const startAngle = (rating.minValue / 150) * 180;
                 const endAngle = Math.min((rating.maxValue / 150) * 180, 180);
                 const startRad = (startAngle * Math.PI) / 180;

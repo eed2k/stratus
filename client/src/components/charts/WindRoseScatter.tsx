@@ -118,11 +118,15 @@ export function WindRoseScatter({
   const center = size / 2;
   const maxRadius = size / 2 - 45;
 
-  // Convert polar to cartesian coordinates
-  const polarToCart = (direction: number, speed: number) => {
+  // Convert polar to cartesian coordinates - clamp to stay inside circle
+  const polarToCart = (direction: number, speed: number, clampToCircle: boolean = false) => {
     // Direction: 0° = North (up), clockwise
     const rad = ((direction - 90) * Math.PI) / 180;
-    const radius = (speed / calculatedMaxSpeed) * maxRadius;
+    let radius = (speed / calculatedMaxSpeed) * maxRadius;
+    // Clamp radius to ensure points stay inside the outer circle
+    if (clampToCircle) {
+      radius = Math.min(radius, maxRadius);
+    }
     return {
       x: center + radius * Math.cos(rad),
       y: center + radius * Math.sin(rad),
@@ -208,9 +212,9 @@ export function WindRoseScatter({
             );
           })}
 
-          {/* Data points - colored by speed */}
+          {/* Data points - colored by speed, clamped to circle boundary */}
           {data.map((point, i) => {
-            const pos = polarToCart(point.direction, point.speed);
+            const pos = polarToCart(point.direction, point.speed, true); // Clamp to circle
             const color = getSpeedColor(point.speed);
             return (
               <circle

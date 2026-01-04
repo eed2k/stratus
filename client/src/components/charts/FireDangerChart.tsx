@@ -13,7 +13,7 @@ import {
   ReferenceArea,
 } from "recharts";
 import { Flame } from "lucide-react";
-import { FIRE_DANGER_RATINGS, calculateFireDanger } from "@shared/utils/calc";
+import { FIRE_DANGER_RATINGS, calculateFireDanger, type FireDangerRating } from "@shared/utils/calc";
 
 interface FireDangerDataPoint {
   timestamp: string;
@@ -73,11 +73,11 @@ export function FireDangerChart({
     
     // Find peak danger rating
     const peakRating = FIRE_DANGER_RATINGS.find(
-      r => max >= r.minValue && max <= r.maxValue
+      (r: FireDangerRating) => max >= r.minValue && max <= r.maxValue
     ) || FIRE_DANGER_RATINGS[0];
     
     // Count time in each danger zone
-    const timeInDanger = FIRE_DANGER_RATINGS.map(rating => ({
+    const timeInDanger = FIRE_DANGER_RATINGS.map((rating: FireDangerRating) => ({
       ...rating,
       count: chartData.filter(d => 
         d.ffdi >= rating.minValue && d.ffdi <= rating.maxValue
@@ -103,7 +103,7 @@ export function FireDangerChart({
     
     const data = payload[0].payload;
     const rating = FIRE_DANGER_RATINGS.find(
-      r => data.ffdi >= r.minValue && data.ffdi <= r.maxValue
+      (r: FireDangerRating) => data.ffdi >= r.minValue && data.ffdi <= r.maxValue
     );
     
     return (
@@ -302,8 +302,8 @@ export function FireDangerChart({
             <p className="text-xs text-muted-foreground mb-2">Time in danger zones:</p>
             <div className="flex flex-wrap gap-2">
               {statistics.timeInDanger
-                .filter(t => t.count > 0)
-                .map(zone => (
+                .filter((t: FireDangerRating & { count: number }) => t.count > 0)
+                .map((zone: FireDangerRating & { count: number; percentage: string }) => (
                   <Badge 
                     key={zone.level}
                     variant="outline"
@@ -324,7 +324,7 @@ export function FireDangerChart({
 
         {/* Legend */}
         <div className="mt-3 flex flex-wrap justify-center gap-3 text-xs">
-          {FIRE_DANGER_RATINGS.slice(0, 5).map(rating => (
+          {FIRE_DANGER_RATINGS.slice(0, 5).map((rating: FireDangerRating) => (
             <div key={rating.level} className="flex items-center gap-1">
               <div 
                 className="w-3 h-3 rounded-sm" 
