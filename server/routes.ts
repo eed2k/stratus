@@ -563,6 +563,80 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================================================
+  // PUBLIC DATA INGEST ENDPOINT FOR DATALOGGERS
+  // ============================================================================
+  // This endpoint allows Campbell Scientific dataloggers and other devices to
+  // POST weather data without authentication (uses station ID + optional API key)
+  // 
+  // POST /api/ingest/:stationId
+  // Headers:
+  //   Content-Type: application/json
+  //   X-API-Key: optional API key for additional security
+  // Body:
+  //   { "data": { "temperature": 22.5, "humidity": 65, ... }, "timestamp": "ISO8601" }
+  // ============================================================================
+  app.post("/api/ingest/:stationId", async (req, res) => {
+    try {
+      const stationId = parseInt(req.params.stationId);
+      
+      // Verify station exists
+      const station = await storage.getStation(stationId);
+      if (!station) {
+        return res.status(404).json({ 
+          success: false,
+          message: "Station not found",
+          stationId 
+        });
+      }
+      
+      // Optional API key validation (if station has apiKey configured)
+      const providedKey = req.headers['x-api-key'] as string;
+      const stationConfig = station.connectionConfig as any;
+      if (stationConfig?.apiKey && stationConfig.apiKey !== providedKey) {
+        return res.status(401).json({ 
+          success: false,
+          message: "Invalid API key" 
+        });
+      }
+      
+      // Parse and validate data
+      const { data, timestamp, source } = req.body;
+      
+      if (!data || typeof data !== 'object') {
+        return res.status(400).json({ 
+          success: false,
+          message: "Missing or invalid 'data' object" 
+        });
+      }
+      
+      // Insert weather data
+      const weatherData = await storage.insertWeatherData({
+        stationId,
+        timestamp: timestamp ? new Date(timestamp) : new Date(),
+        tableName: source || 'datalogger',
+        data
+      });
+      
+      // Broadcast to connected WebSocket clients
+      broadcastWeatherData(stationId, weatherData);
+      
+      res.status(201).json({ 
+        success: true,
+        message: "Data received",
+        id: weatherData.id,
+        timestamp: weatherData.timestamp
+      });
+      
+    } catch (error) {
+      console.error("Error ingesting weather data:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to ingest weather data" 
+      });
+    }
+  });
+
   // File import endpoint for Campbell Scientific data files
   app.post("/api/stations/:stationId/import", optionalAuth, async (req, res) => {
     try {

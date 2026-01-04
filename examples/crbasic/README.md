@@ -4,8 +4,8 @@
 
 Stratus Weather Server supports multiple methods for connecting to Campbell Scientific dataloggers. This guide explains each connection method and provides example CRBASIC programs.
 
-**Production Server:** https://meteotronics.com  
-**API Endpoint:** https://api.meteotronics.com
+**Cloud Server:** Deploy to Railway for 24/7 access (https://railway.app)  
+**API Endpoint:** `https://your-app.up.railway.app/api/ingest/{stationId}`
 
 ## WMO Compliance
 
@@ -31,7 +31,7 @@ All data transmitted to Stratus follows **WMO (World Meteorological Organization
 
 ---
 
-## Method 1: PakBus Protocol (Recommended)
+## Method 1: PakBus Protocol (Recommended for Local)
 
 **How it works:** Stratus acts as a PakBus client and polls data from your datalogger's data tables. This is the native Campbell Scientific protocol and provides the most reliable connection.
 
@@ -68,36 +68,58 @@ Datalogger CS I/O Port → SC32B Interface → PC COM Port
 
 ---
 
-## Method 2: HTTP POST (For Internet-Connected Stations)
+## Method 2: HTTP POST (Recommended for Cloud/Remote Stations)
 
-**How it works:** The datalogger pushes data to Stratus's REST API at regular intervals. Best for remote stations with cellular or WiFi connectivity.
+**How it works:** The datalogger pushes data to Stratus's REST API at regular intervals. Best for remote stations with cellular or WiFi connectivity. Works with Railway cloud deployment.
 
 ### CRBASIC Program
-Use `stratus_http_post_station.cr1x` - Configure your Stratus server IP and station ID.
+Use `stratus_http_post_station.cr1x` - Configure your Railway server URL and station ID.
 
 ### Configuration in CRBASIC
 ```basic
-' For cloud deployment via Cloudflare Tunnel:
-Const STRATUS_SERVER = "api.meteotronics.com"
+' For Railway cloud deployment (recommended for 24/7 access):
+Const STRATUS_SERVER = "your-app.up.railway.app"  ' Get from Railway dashboard
 Const STRATUS_PORT = 443
-Const USE_HTTPS = True
+Const USE_TLS = True
+Const STATION_ID = 1  ' Numeric ID from Stratus dashboard
 
-' For local network:
+' For local network testing:
 Const STRATUS_SERVER = "192.168.1.100"
 Const STRATUS_PORT = 5000
-Const USE_HTTPS = False
+Const USE_TLS = False
+Const STATION_ID = 1
 
-Const STATION_ID = "CR1000X_001"
-Const API_KEY = "your-api-key"  ' Optional
+Const API_KEY = ""  ' Optional, only if station has API key configured
 ```
 
-### Stratus API Endpoints
+### Stratus API Endpoint
 ```
-# Cloud (via Cloudflare Tunnel)
-POST https://api.meteotronics.com/api/weather-data
-POST https://api.meteotronics.com/api/campbell/data
+POST https://your-app.up.railway.app/api/ingest/{stationId}
 
-# Local Network
+Headers:
+  Content-Type: application/json
+  X-API-Key: your-api-key (optional)
+
+Body:
+{
+  "timestamp": "2025-01-04T12:00:00Z",
+  "source": "campbell-crbasic",
+  "data": {
+    "temperature": 22.5,
+    "humidity": 65,
+    "windSpeed": 3.2,
+    "windDirection": 180,
+    ...
+  }
+}
+```
+
+### Setup Steps
+1. Deploy Stratus to Railway (https://railway.app)
+2. Get your Railway public URL from the deployment dashboard
+3. Create a station in Stratus dashboard and note the numeric Station ID
+4. Update `STRATUS_SERVER` and `STATION_ID` in the CRBASIC program
+5. Upload program to datalogger
 POST http://stratus-server:5000/api/weather-data
 
 Headers:

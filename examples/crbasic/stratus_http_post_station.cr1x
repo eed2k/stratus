@@ -16,8 +16,7 @@
 '   - Built-in WiFi (CR300)
 '
 ' Protocol: HTTP/HTTPS POST to Stratus API
-' Server: https://meteotronics.com (Cloudflare)
-' Fallback: http://stratusweather1.dynv6.net:5000 (Direct)
+' Server: Railway Cloud (https://your-app.up.railway.app)
 '
 ' WMO Compliance: All data follows WMO standards (SI units)
 '===============================================================================
@@ -27,24 +26,21 @@
 '===============================================================================
 ' Choose ONE server configuration:
 
-' OPTION 1: Cloud Server (Recommended for remote stations)
-Const STRATUS_SERVER = "api.meteotronics.com"
+' OPTION 1: Railway Cloud Server (Recommended for 24/7 access)
+' Replace with your actual Railway URL from the deployment dashboard
+Const STRATUS_SERVER = "stratus-production.up.railway.app"
 Const STRATUS_PORT = 443
 Const USE_TLS = True
 
-' OPTION 2: Direct/Local Server (Testing or LAN)
-'Const STRATUS_SERVER = "stratusweather1.dynv6.net"
-'Const STRATUS_PORT = 5000
-'Const USE_TLS = False
-
-' OPTION 3: Local IP (LAN only)
+' OPTION 2: Local Server (Testing or LAN)
 'Const STRATUS_SERVER = "192.168.1.100"
 'Const STRATUS_PORT = 5000
 'Const USE_TLS = False
 
 '--- Station Identification ---
-Const STATION_ID = "STATION_001"         'Unique station ID (match Stratus config)
-Const API_KEY = ""                       'Optional: API key if authentication enabled
+' IMPORTANT: This must match the Station ID in your Stratus dashboard
+Const STATION_ID = 1                     'Numeric station ID from Stratus
+Const API_KEY = ""                       'Optional: API key if configured in station settings
 
 '--- Modem Configuration ---
 ' Set MODEM_TYPE based on your hardware:
@@ -203,7 +199,6 @@ EndSub
 ' Build JSON payload (WMO-compliant format)
 Sub BuildJSONPayload
   JSONPayload = "{"
-  JSONPayload = JSONPayload & """stationId"":""" & STATION_ID & ""","
   JSONPayload = JSONPayload & """timestamp"":""" & Public.Timestamp(1,1) & ""","
   JSONPayload = JSONPayload & """source"":""campbell-crbasic"","
   JSONPayload = JSONPayload & """data"":{"
@@ -231,14 +226,13 @@ Sub PostToStratus
     Call InitializeModem
   EndIf
   
-  ' Build URI and headers
-  URI = "/api/weather-data"
+  ' Build URI - uses public ingest endpoint with station ID
+  URI = "/api/ingest/" & STATION_ID
   
   Headers = "Content-Type: application/json" & CHR(13) & CHR(10)
-  Headers = Headers & "X-Station-ID: " & STATION_ID & CHR(13) & CHR(10)
   Headers = Headers & "User-Agent: CampbellScientific-CRBasic/1.0" & CHR(13) & CHR(10)
   If API_KEY <> "" Then
-    Headers = Headers & "Authorization: Bearer " & API_KEY & CHR(13) & CHR(10)
+    Headers = Headers & "X-API-Key: " & API_KEY & CHR(13) & CHR(10)
   EndIf
   
   ' Build JSON payload
@@ -355,17 +349,17 @@ EndProg
 ' STRATUS API REFERENCE
 '===============================================================================
 ' 
-' ENDPOINTS:
-'   Cloud:  https://api.meteotronics.com/api/weather-data
-'   Direct: http://stratusweather1.dynv6.net:5000/api/weather-data
+' ENDPOINT:
+'   POST /api/ingest/{stationId}
+'   Example: https://your-app.up.railway.app/api/ingest/1
+'
+' HEADERS:
+'   Content-Type: application/json
+'   X-API-Key: your-api-key (optional, if configured in station settings)
+'   User-Agent: CampbellScientific-CRBasic/1.0
 '
 ' REQUEST FORMAT:
-'   POST /api/weather-data
-'   Content-Type: application/json
-'   X-Station-ID: STATION_001
-'
 '   {
-'     "stationId": "STATION_001",
 '     "timestamp": "2025-01-01T12:00:00",
 '     "source": "campbell-crbasic",
 '     "data": {
@@ -384,11 +378,18 @@ EndProg
 '   }
 '
 ' RESPONSE CODES:
-'   200 OK          - Data accepted
-'   201 Created     - New record created  
+'   201 Created     - Data accepted successfully
 '   400 Bad Request - Invalid data format
 '   401 Unauthorized- Invalid API key
-'   503 Unavailable - Server temporarily unavailable
+'   404 Not Found   - Station ID not found
+'   500 Error       - Server error
+'
+' SETUP STEPS:
+'   1. Deploy Stratus to Railway (railway.app)
+'   2. Get your Railway URL from the dashboard
+'   3. Create a station in Stratus dashboard and note the Station ID
+'   4. Update STRATUS_SERVER and STATION_ID constants in this program
+'   5. Upload program to datalogger
 '
 ' MODEM SETUP GUIDES:
 '   CELL215/220: Configure APN via Device Config Utility
