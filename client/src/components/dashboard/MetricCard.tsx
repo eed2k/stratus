@@ -16,6 +16,7 @@ interface MetricCardProps {
   sparklineData?: number[];
   isFaulty?: boolean;
   chartColor?: string;
+  showChart?: boolean; // Control whether to show the mini chart
 }
 
 // Generate default sparkline data if none provided
@@ -37,13 +38,15 @@ export function MetricCard({
   sparklineData,
   isFaulty = false,
   chartColor = "#3b82f6",
+  showChart = true, // Default to showing chart for backward compatibility
 }: MetricCardProps) {
-  // Always generate sparkline data if not provided
+  // Generate sparkline data if showing chart and not provided
   const chartData = useMemo(() => {
+    if (!showChart) return [];
     if (sparklineData && sparklineData.length > 0) return sparklineData;
     const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
     return generateDefaultSparkline(numValue);
-  }, [sparklineData, value]);
+  }, [sparklineData, value, showChart]);
 
   if (isFaulty) {
     return (
@@ -86,22 +89,24 @@ export function MetricCard({
           </p>
         )}
 
-        {/* Always show mini chart */}
-        <div className="mt-3 h-12 flex items-end gap-0.5">
-          {chartData.map((val, i) => {
-            const max = Math.max(...chartData);
-            const min = Math.min(...chartData);
-            const range = max - min || 1;
-            const height = ((val - min) / range) * 100;
-            return (
-              <div
-                key={i}
-                className="flex-1 rounded-t-sm"
-                style={{ height: `${Math.max(height, 5)}%`, backgroundColor: chartColor }}
-              />
-            );
-          })}
-        </div>
+        {/* Mini chart - only show if enabled */}
+        {showChart && chartData.length > 0 && (
+          <div className="mt-3 h-12 flex items-end gap-0.5">
+            {chartData.map((val, i) => {
+              const max = Math.max(...chartData);
+              const min = Math.min(...chartData);
+              const range = max - min || 1;
+              const height = ((val - min) / range) * 100;
+              return (
+                <div
+                  key={i}
+                  className="flex-1 rounded-t-sm"
+                  style={{ height: `${Math.max(height, 5)}%`, backgroundColor: chartColor }}
+                />
+              );
+            })}
+          </div>
+        )}
 
         {subMetrics && subMetrics.length > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-300 pt-3">

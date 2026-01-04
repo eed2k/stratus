@@ -6,7 +6,6 @@ interface WindPowerCardProps {
   airDensity: number;
   avgSpeed: number;
   avgPower: number;
-  sparklineData?: number[];
 }
 
 export function WindPowerCard({
@@ -15,13 +14,7 @@ export function WindPowerCard({
   airDensity,
   avgSpeed,
   avgPower,
-  sparklineData,
 }: WindPowerCardProps) {
-  // Generate default sparkline data if not provided
-  const chartData = sparklineData && sparklineData.length > 0 
-    ? sparklineData 
-    : Array.from({ length: 12 }, () => currentPower * (0.7 + Math.random() * 0.6));
-
   return (
     <Card data-testid="card-wind-power">
       <CardHeader className="pb-2">
@@ -32,23 +25,6 @@ export function WindPowerCard({
           <div className="flex items-baseline gap-2">
             <span className="font-mono text-3xl font-normal">{currentPower.toFixed(1)}</span>
             <span className="text-sm text-muted-foreground">W/m²</span>
-          </div>
-
-          {/* Mini chart */}
-          <div className="h-12 flex items-end gap-0.5">
-            {chartData.map((val, i) => {
-              const max = Math.max(...chartData);
-              const min = Math.min(...chartData);
-              const range = max - min || 1;
-              const height = ((val - min) / range) * 100;
-              return (
-                <div
-                  key={i}
-                  className="flex-1 bg-teal-500 rounded-t-sm"
-                  style={{ height: `${Math.max(height, 5)}%` }}
-                />
-              );
-            })}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -11,6 +11,10 @@ import { getAllUsers, addUser, type StoredUser } from "@/hooks/useAuth";
 const ADMIN_EMAIL = "esterhuizen2k@proton.me";
 const ADMIN_PASSWORD_HASH = "THVrYXNANjEwMw=="; // Base64 encoded "Lukas@6103"
 
+// Test user credentials for demo purposes
+const TEST_USER_EMAIL = "testuser@stratus.app";
+const TEST_USER_PASSWORD_HASH = "VGVzdFVzZXJAMjAyNA=="; // Base64 encoded "TestUser@2024"
+
 function verifyPassword(password: string, hash: string): boolean {
   return btoa(password) === hash;
 }
@@ -35,10 +39,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Setup default admin on first load
+  // Setup default admin and test user on first load
   useEffect(() => {
     const users = getAllUsers();
     const adminExists = users.some(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+    const testUserExists = users.some(u => u.email.toLowerCase() === TEST_USER_EMAIL.toLowerCase());
     
     if (!adminExists) {
       // Set up default admin account
@@ -52,6 +57,21 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         createdAt: new Date().toISOString(),
       };
       addUser(adminUser);
+    }
+    
+    if (!testUserExists) {
+      // Set up test user account for demonstration
+      const testUser: StoredUser = {
+        email: TEST_USER_EMAIL,
+        firstName: "Test",
+        lastName: "User",
+        passwordHash: TEST_USER_PASSWORD_HASH,
+        role: 'user',
+        assignedStations: [1], // Assigned to first station by default
+        createdAt: new Date().toISOString(),
+        createdBy: ADMIN_EMAIL,
+      };
+      addUser(testUser);
     }
   }, []);
 
@@ -225,7 +245,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           {loginType === 'admin' ? (
             <p>Administrators have full access to all settings and stations.</p>
           ) : (
-            <p>Users can only view dashboards assigned by an administrator.</p>
+            <div className="space-y-2">
+              <p>Users can only view dashboards assigned by an administrator.</p>
+              <div className="mt-3 p-3 bg-gray-100 rounded-lg text-xs text-left">
+                <p className="font-medium text-gray-700 mb-1">Demo User Credentials:</p>
+                <p className="text-gray-600">Email: <span className="font-mono bg-white px-1 rounded">testuser@stratus.app</span></p>
+                <p className="text-gray-600">Password: <span className="font-mono bg-white px-1 rounded">TestUser@2024</span></p>
+              </div>
+            </div>
           )}
         </div>
 

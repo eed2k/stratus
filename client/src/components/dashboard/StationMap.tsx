@@ -205,10 +205,25 @@ export function StationMap({
         });
 
         // Add OpenStreetMap tiles (free, no API key needed)
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        // Using multiple subdomains for better reliability
+        const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
+          minZoom: 1,
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }).addTo(map);
+          subdomains: ['a', 'b', 'c'],
+          crossOrigin: 'anonymous',
+          updateWhenIdle: false,
+          updateWhenZooming: false,
+          keepBuffer: 4,
+          tileSize: 256,
+          zoomOffset: 0,
+        });
+        
+        tileLayer.on('tileerror', (error: any) => {
+          console.warn('Tile load error:', error);
+        });
+        
+        tileLayer.addTo(map);
 
         // Custom marker icon
         const stationIcon = L.divIcon({
@@ -273,11 +288,23 @@ export function StationMap({
         markerRef.current = marker;
 
         // Invalidate size after render to fix display issues
-        setTimeout(() => {
-          if (isMounted && map) {
-            map.invalidateSize();
+        // Multiple calls ensure tiles load properly
+        const invalidateSizes = [100, 250, 500, 1000];
+        invalidateSizes.forEach(delay => {
+          setTimeout(() => {
+            if (isMounted && map && map._container) {
+              map.invalidateSize({ animate: false, pan: false });
+            }
+          }, delay);
+        });
+        
+        // Also invalidate on window resize
+        const handleResize = () => {
+          if (map && map._container) {
+            map.invalidateSize({ animate: false });
           }
-        }, 250);
+        };
+        window.addEventListener('resize', handleResize);
         
         setError(null);
       } catch (err) {

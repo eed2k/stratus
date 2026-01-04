@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wind } from "lucide-react";
 
 interface AirDensityCardProps {
   airDensity: number;           // kg/m³
@@ -7,7 +6,6 @@ interface AirDensityCardProps {
   pressure?: number;            // hPa
   humidity?: number;            // %
   standardDensity?: number;     // Reference at sea level (default 1.225)
-  sparklineData?: number[];
 }
 
 function getDensityStatus(density: number): { status: string; color: string } {
@@ -24,15 +22,9 @@ export function AirDensityCard({
   pressure,
   humidity,
   standardDensity = 1.225,
-  sparklineData = [],
 }: AirDensityCardProps) {
   const densityStatus = getDensityStatus(airDensity);
   const deviationPercent = ((airDensity - standardDensity) / standardDensity) * 100;
-  
-  // Generate sparkline if not provided
-  const chartData = sparklineData.length > 0 
-    ? sparklineData 
-    : Array.from({ length: 12 }, () => airDensity + (Math.random() - 0.5) * 0.02);
 
   return (
     <Card className="border border-gray-300 bg-white" data-testid="card-air-density">
@@ -59,23 +51,6 @@ export function AirDensityCard({
             <span className={`text-sm ${deviationPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {deviationPercent >= 0 ? '+' : ''}{deviationPercent.toFixed(1)}% vs std
             </span>
-          </div>
-
-          {/* Mini sparkline chart */}
-          <div className="h-12 flex items-end gap-0.5">
-            {chartData.map((val, i) => {
-              const max = Math.max(...chartData);
-              const min = Math.min(...chartData);
-              const range = max - min || 0.01;
-              const height = ((val - min) / range) * 100;
-              return (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t-sm bg-blue-500 transition-all duration-300"
-                  style={{ height: `${Math.max(height, 5)}%` }}
-                />
-              );
-            })}
           </div>
 
           {/* Contributing factors */}

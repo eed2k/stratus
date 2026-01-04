@@ -19,6 +19,11 @@ interface WindRoseProps {
  * WMO (World Meteorological Organization) Standard Wind Speed Classes
  * Based on the Beaufort Scale with metric (km/h) values
  * Reference: WMO-No. 8, Guide to Meteorological Instruments and Methods of Observation
+ * Colors follow a proper thermal gradient progression:
+ * - Blues for light winds (cool/calm)
+ * - Greens for moderate winds (comfortable)
+ * - Yellows/Oranges for strong winds (caution)
+ * - Reds for severe winds (danger)
  */
 const WMO_SPEED_CLASSES = [
   { min: 0, max: 1, color: "#e0f2fe", label: "Calm", beaufort: "0", description: "Smoke rises vertically" },
@@ -26,8 +31,8 @@ const WMO_SPEED_CLASSES = [
   { min: 6, max: 12, color: "#7dd3fc", label: "Light Breeze", beaufort: "2", description: "Wind felt on face, leaves rustle" },
   { min: 12, max: 20, color: "#38bdf8", label: "Gentle Breeze", beaufort: "3", description: "Leaves and small twigs in motion" },
   { min: 20, max: 29, color: "#0ea5e9", label: "Moderate Breeze", beaufort: "4", description: "Raises dust and loose paper" },
-  { min: 29, max: 39, color: "#0284c7", label: "Fresh Breeze", beaufort: "5", description: "Small trees begin to sway" },
-  { min: 39, max: 50, color: "#22c55e", label: "Strong Breeze", beaufort: "6", description: "Large branches in motion" },
+  { min: 29, max: 39, color: "#22c55e", label: "Fresh Breeze", beaufort: "5", description: "Small trees begin to sway" },
+  { min: 39, max: 50, color: "#84cc16", label: "Strong Breeze", beaufort: "6", description: "Large branches in motion" },
   { min: 50, max: 62, color: "#eab308", label: "Near Gale", beaufort: "7", description: "Whole trees in motion" },
   { min: 62, max: 75, color: "#f97316", label: "Gale", beaufort: "8", description: "Twigs break off trees" },
   { min: 75, max: 89, color: "#ef4444", label: "Strong Gale", beaufort: "9", description: "Slight structural damage" },
@@ -38,12 +43,13 @@ const WMO_SPEED_CLASSES = [
 
 /**
  * Simplified WMO classes for wind rose display (6 categories)
+ * Uses same thermal gradient color scheme
  */
 const WMO_SIMPLIFIED_CLASSES = [
   { min: 0, max: 6, color: "#bae6fd", label: "Calm/Light (0-6 km/h)", beaufort: "0-1" },
   { min: 6, max: 20, color: "#38bdf8", label: "Light/Gentle (6-20 km/h)", beaufort: "2-3" },
-  { min: 20, max: 39, color: "#0284c7", label: "Moderate/Fresh (20-39 km/h)", beaufort: "4-5" },
-  { min: 39, max: 62, color: "#22c55e", label: "Strong/Near Gale (39-62 km/h)", beaufort: "6-7" },
+  { min: 20, max: 39, color: "#22c55e", label: "Moderate/Fresh (20-39 km/h)", beaufort: "4-5" },
+  { min: 39, max: 62, color: "#eab308", label: "Strong/Near Gale (39-62 km/h)", beaufort: "6-7" },
   { min: 62, max: 89, color: "#f97316", label: "Gale/Strong Gale (62-89 km/h)", beaufort: "8-9" },
   { min: 89, max: Infinity, color: "#dc2626", label: "Storm+ (>89 km/h)", beaufort: "10+" },
 ];
