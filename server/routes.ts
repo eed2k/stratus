@@ -293,6 +293,25 @@ export async function registerRoutes(
     }
   });
 
+  // Update user profile
+  app.patch("/api/auth/user", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { firstName, lastName, email } = req.body;
+      
+      const updates: any = {};
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+      if (email !== undefined) updates.email = email;
+      
+      const user = await storage.updateUser(userId, updates);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
   // Weather Stations routes (demo mode bypasses auth)
   app.get("/api/stations", optionalAuth, async (req, res) => {
     try {

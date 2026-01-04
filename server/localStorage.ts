@@ -168,6 +168,22 @@ export interface Organization {
 export class DatabaseStorage {
   // User operations - simplified for desktop
   async getUser(id: string): Promise<User | undefined> {
+    // Load from stored profile if available
+    const storedProfile = db.getSetting('user_profile');
+    if (storedProfile) {
+      try {
+        const profile = JSON.parse(storedProfile);
+        return {
+          id: 'local-user',
+          email: profile.email || 'user@localhost',
+          firstName: profile.firstName || 'Local',
+          lastName: profile.lastName || 'User',
+          createdAt: new Date()
+        };
+      } catch (e) {
+        // Fall through to default
+      }
+    }
     return {
       id: 'local-user',
       email: 'user@localhost',
@@ -184,6 +200,21 @@ export class DatabaseStorage {
       firstName: user.firstName,
       lastName: user.lastName,
       profileImageUrl: user.profileImageUrl,
+      createdAt: new Date()
+    };
+  }
+
+  async updateUser(userId: string, updates: Partial<User>): Promise<User> {
+    // Store user updates in settings
+    const existingUser = JSON.parse(db.getSetting('user_profile') || '{}');
+    const updatedUser = { ...existingUser, ...updates, id: userId };
+    db.setSetting('user_profile', JSON.stringify(updatedUser));
+    
+    return {
+      id: userId,
+      email: updatedUser.email || 'user@localhost',
+      firstName: updatedUser.firstName || 'Local',
+      lastName: updatedUser.lastName || 'User',
       createdAt: new Date()
     };
   }
@@ -340,22 +371,47 @@ export class DatabaseStorage {
     return true;
   }
 
-  // User Preferences - simplified
+  // User Preferences - full settings storage
   async getUserPreferences(userId: string): Promise<any> {
-    const settings = db.getAllSettings();
-    return {
+    const storedPrefs = db.getSetting('user_preferences');
+    const defaults = {
       userId,
       temperatureUnit: 'celsius',
       windSpeedUnit: 'ms',
       pressureUnit: 'hpa',
       precipitationUnit: 'mm',
-      theme: settings['theme'] || 'system'
+      theme: 'system',
+      emailNotifications: true,
+      pushNotifications: false,
+      tempHighAlert: 35,
+      windHighAlert: 50,
+      units: 'metric',
+      timezone: 'auto',
+      serverAddress: ''
     };
+    
+    if (storedPrefs) {
+      try {
+        return { ...defaults, ...JSON.parse(storedPrefs), userId };
+      } catch (e) {
+        return defaults;
+      }
+    }
+    return defaults;
   }
 
   async upsertUserPreferences(prefs: any): Promise<any> {
+    // Get existing preferences
+    const existing = await this.getUserPreferences(prefs.userId);
+    const updated = { ...existing, ...prefs };
+    
+    // Store to database
+    db.setSetting('user_preferences', JSON.stringify(updated));
+    
+    // Also store theme separately for backwards compatibility
     if (prefs.theme) db.setSetting('theme', prefs.theme);
-    return prefs;
+    
+    return updated;
   }
 
   // Sensor operations - stubs for desktop app
@@ -400,6 +456,11 @@ export class DatabaseStorage {
   // Alarm operations - stubs
   async getAlarms(stationId: number): Promise<Alarm[]> {
     return [];
+  }
+
+  async getAlarm(alarmId: number): Promise<Alarm | undefined> {
+    // Stub - returns undefined for now
+    return undefined;
   }
 
   async createAlarm(alarm: any): Promise<Alarm> {

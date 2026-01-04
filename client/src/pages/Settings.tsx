@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { User, Bell, Globe, Shield, Save, Server, Loader2 } from "lucide-react";
+import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle } from "lucide-react";
 
 // User profile settings interface
 interface UserProfile {
@@ -36,30 +37,12 @@ interface UnitSettings {
   timezone: string;
 }
 
-// Load settings from localStorage
-const loadUserProfile = (): UserProfile => {
-  const saved = localStorage.getItem('stratus_user_profile');
-  return saved ? JSON.parse(saved) : { firstName: '', lastName: '', email: '' };
-};
-
-const loadNotificationSettings = (): NotificationSettings => {
-  const saved = localStorage.getItem('stratus_notification_settings');
-  return saved ? JSON.parse(saved) : { 
-    emailNotifications: true, 
-    pushNotifications: false,
-    tempHighAlert: 35,
-    windHighAlert: 50
-  };
-};
-
-const loadUnitSettings = (): UnitSettings => {
-  const saved = localStorage.getItem('stratus_unit_settings');
-  return saved ? JSON.parse(saved) : { units: 'metric', timezone: 'auto' };
-};
-
 export default function Settings() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [isSendingTest, setIsSendingTest] = useState(false);
   
   // Profile state
   const [firstName, setFirstName] = useState('');
@@ -79,32 +62,76 @@ export default function Settings() {
   // Server state
   const [serverAddress, setServerAddress] = useState('');
 
-  // Load all settings on mount
-  useEffect(() => {
-    const profile = loadUserProfile();
-    setFirstName(profile.firstName);
-    setLastName(profile.lastName);
-    setEmail(profile.email);
-    
-    const notifications = loadNotificationSettings();
-    setEmailNotifications(notifications.emailNotifications);
-    setPushNotifications(notifications.pushNotifications);
-    setTempHighAlert(notifications.tempHighAlert);
-    setWindHighAlert(notifications.windHighAlert);
-    
-    const unitPrefs = loadUnitSettings();
-    setUnits(unitPrefs.units);
-    setTimezone(unitPrefs.timezone);
-    
-    setServerAddress(localStorage.getItem('stratus_server_address') || '');
-  }, []);
+  // Fetch user profile from server
+  const { data: userProfile } = useQuery({
+    queryKey: ['/api/auth/user'],
+    queryFn: async () => {
+      const res = await fetch('/api/auth/user');
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
 
-  // Save profile to localStorage
-  const handleSaveProfile = () => {
+  // Fetch preferences from server
+  const { data: preferences } = useQuery({
+    queryKey: ['/api/user/preferences'],
+    queryFn: async () => {
+      const res = await fetch('/api/user/preferences');
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  // Fetch email status
+  const { data: emailStatus } = useQuery({
+    queryKey: ['/api/email/status'],
+    queryFn: async () => {
+      const res = await fetch('/api/email/status');
+      if (!res.ok) return { configured: false };
+      return res.json();
+    },
+  });
+
+  // Load profile from server when data arrives
+  useEffect(() => {
+    if (userProfile) {
+      setFirstName(userProfile.firstName || '');
+      setLastName(userProfile.lastName || '');
+      setEmail(userProfile.email || '');
+    }
+  }, [userProfile]);
+
+  // Load preferences from server when data arrives
+  useEffect(() => {
+    if (preferences) {
+      setEmailNotifications(preferences.emailNotifications ?? true);
+      setPushNotifications(preferences.pushNotifications ?? false);
+      setTempHighAlert(preferences.tempHighAlert ?? 35);
+      setWindHighAlert(preferences.windHighAlert ?? 50);
+      setUnits(preferences.units ?? 'metric');
+      setTimezone(preferences.timezone ?? 'auto');
+      setServerAddress(preferences.serverAddress ?? '');
+    }
+  }, [preferences]);
+
+  // Save profile to server
+  const handleSaveProfile = async () => {
     setIsLoading(true);
     try {
-      const profile: UserProfile = { firstName, lastName, email };
-      localStorage.setItem('stratus_user_profile', JSON.stringify(profile));
+      const res = await fetch('/api/auth/user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName, lastName, email }),
+      });
+      
+      if (!res.ok) throw new Error('Failed to save');
+      
+      // Also save to localStorage for offline access
+      localStorage.setItem('stratus_user_profile', JSON.stringify({ firstName, lastName, email }));
+      
+      // Invalidate query to refresh
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      
       toast({
         title: "Profile Saved",
         description: "Your profile information has been saved successfully.",
@@ -120,25 +147,60 @@ export default function Settings() {
     }
   };
 
-  // Save notification settings
-  const handleSaveNotifications = () => {
+  // Save notification and unit settings to server
+  const handleSavePreferences = async (section: 'notifications' | 'units' | 'server') => {
     setIsLoading(true);
     try {
-      const settings: NotificationSettings = {
-        emailNotifications,
-        pushNotifications,
-        tempHighAlert,
-        windHighAlert
+      const prefsToSave: any = {};
+      
+      if (section === 'notifications') {
+        prefsToSave.emailNotifications = emailNotifications;
+        prefsToSave.pushNotifications = pushNotifications;
+        prefsToSave.tempHighAlert = tempHighAlert;
+        prefsToSave.windHighAlert = windHighAlert;
+      } else if (section === 'units') {
+        prefsToSave.units = units;
+        prefsToSave.timezone = timezone;
+      } else if (section === 'server') {
+        prefsToSave.serverAddress = serverAddress;
+      }
+      
+      const res = await fetch('/api/user/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefsToSave),
+      });
+      
+      if (!res.ok) throw new Error('Failed to save');
+      
+      // Also save to localStorage for offline access
+      const localKey = section === 'notifications' ? 'stratus_notification_settings' 
+        : section === 'units' ? 'stratus_unit_settings' 
+        : 'stratus_server_address';
+      
+      if (section === 'server') {
+        localStorage.setItem(localKey, serverAddress);
+      } else {
+        localStorage.setItem(localKey, JSON.stringify(prefsToSave));
+      }
+      
+      // Invalidate query to refresh
+      queryClient.invalidateQueries({ queryKey: ['/api/user/preferences'] });
+      
+      const sectionNames = {
+        notifications: 'Notification settings',
+        units: 'Unit preferences',
+        server: 'Server address'
       };
-      localStorage.setItem('stratus_notification_settings', JSON.stringify(settings));
+      
       toast({
-        title: "Notifications Saved",
-        description: "Your notification preferences have been updated.",
+        title: "Settings Saved",
+        description: `${sectionNames[section]} have been updated.`,
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save notification settings.",
+        description: "Failed to save settings. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -146,40 +208,47 @@ export default function Settings() {
     }
   };
 
-  // Save unit preferences
-  const handleSaveUnits = () => {
-    setIsLoading(true);
+  // Send test email
+  const handleSendTestEmail = async () => {
+    if (!testEmailAddress || !testEmailAddress.includes('@')) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSendingTest(true);
     try {
-      const settings: UnitSettings = { units, timezone };
-      localStorage.setItem('stratus_unit_settings', JSON.stringify(settings));
-      toast({
-        title: "Units Saved",
-        description: "Your measurement preferences have been updated.",
+      const res = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: testEmailAddress }),
       });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast({
+          title: "Test Email Sent",
+          description: `A test email has been sent to ${testEmailAddress}`,
+        });
+      } else {
+        toast({
+          title: "Email Failed",
+          description: data.message || "Could not send test email.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save unit preferences.",
+        description: "Failed to send test email.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSaveServerAddress = () => {
-    if (serverAddress.trim()) {
-      localStorage.setItem('stratus_server_address', serverAddress.trim());
-      toast({
-        title: "Server Address Saved",
-        description: "Share links will now use this address for external access.",
-      });
-    } else {
-      localStorage.removeItem('stratus_server_address');
-      toast({
-        title: "Server Address Cleared",
-        description: "Share links will prompt for manual configuration.",
-      });
+      setIsSendingTest(false);
     }
   };
 
@@ -307,10 +376,71 @@ export default function Settings() {
                 </div>
               </div>
             </div>
-            <Button onClick={handleSaveNotifications} disabled={isLoading}>
+            <Button onClick={() => handleSavePreferences('notifications')} disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Notifications
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Email Configuration Card */}
+        <Card data-testid="card-email-settings">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-lg">Email Alerts</CardTitle>
+            </div>
+            <CardDescription>Configure email notifications for alarms</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center gap-2">
+              {emailStatus?.configured ? (
+                <>
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span className="text-sm text-green-600 font-medium">Email service configured</span>
+                </>
+              ) : (
+                <>
+                  <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                  <span className="text-sm text-muted-foreground">Email service not configured</span>
+                </>
+              )}
+            </div>
+            
+            {!emailStatus?.configured && (
+              <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-3 text-sm">
+                <p className="text-yellow-800 dark:text-yellow-200">
+                  To enable email alerts, set <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">SENDGRID_API_KEY</code> and{' '}
+                  <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">SENDGRID_FROM_EMAIL</code> in your environment variables.
+                </p>
+              </div>
+            )}
+            
+            {emailStatus?.configured && (
+              <div className="space-y-3">
+                <Label htmlFor="testEmail">Send Test Email</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="testEmail"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={testEmailAddress}
+                    onChange={(e) => setTestEmailAddress(e.target.value)}
+                    data-testid="input-test-email"
+                  />
+                  <Button 
+                    onClick={handleSendTestEmail} 
+                    disabled={isSendingTest}
+                    variant="outline"
+                  >
+                    {isSendingTest ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Test'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Test your email configuration by sending a sample alert.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -337,7 +467,7 @@ export default function Settings() {
                 dashboard links with clients so they can access the dashboard remotely.
               </p>
             </div>
-            <Button onClick={handleSaveServerAddress} data-testid="button-save-server">
+            <Button onClick={() => handleSavePreferences('server')} data-testid="button-save-server">
               <Save className="mr-2 h-4 w-4" />
               Save Server Address
             </Button>
@@ -355,7 +485,7 @@ export default function Settings() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label>Measurement Units</Label>
-              <Select value={units} onValueChange={setUnits}>
+              <Select value={units} onValueChange={(v) => setUnits(v as "metric" | "imperial")}>
                 <SelectTrigger data-testid="select-units">
                   <SelectValue />
                 </SelectTrigger>
@@ -379,7 +509,7 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleSaveUnits} disabled={isLoading}>
+            <Button onClick={() => handleSavePreferences('units')} disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Preferences
             </Button>

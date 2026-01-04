@@ -3,6 +3,7 @@ import { dataCollectionService } from "./dataCollectionService";
 import { isAuthenticated } from "../localAuth";
 import { storage } from "../localStorage";
 import { z } from "zod";
+import { sendTestEmail, sendAlarmEmail, isEmailConfigured } from "../services/emailService";
 
 // Local schema definitions
 const insertSensorSchema = z.object({
@@ -34,7 +35,9 @@ const insertAlarmSchema = z.object({
   name: z.string(),
   condition: z.string(),
   threshold: z.number(),
-  severity: z.enum(['info', 'warning', 'error', 'critical'])
+  severity: z.enum(['info', 'warning', 'error', 'critical']),
+  notificationEmails: z.array(z.string().email()).optional(), // Email recipients
+  enabled: z.boolean().optional()
 });
 
 const insertDataQualityFlagSchema = z.object({
@@ -571,6 +574,96 @@ export function registerCampbellRoutes(app: Express): void {
     } catch (error: any) {
       console.error("Error removing station from group:", error);
       res.status(500).json({ message: "Failed to remove station from group" });
+    }
+  });
+
+  // ========== Email Notification Routes ==========
+
+  /**
+   * Check email configuration status
+   */
+  app.get("/api/email/status", async (req, res) => {
+    res.json({
+      configured: isEmailConfigured(),
+      provider: 'SendGrid',
+    });
+  });
+
+  /**
+   * Send test email to verify configuration
+   */
+  app.post("/api/email/test", isAuthenticated, async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        return res.status(400).json({ message: "Valid email address required" });
+      }
+
+      if (!isEmailConfigured()) {
+        return res.status(503).json({ 
+          message: "Email not configured. Set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables in Railway.",
+          configured: false
+        });
+      }
+
+      const success = await sendTestEmail(email);
+      
+      if (success) {
+        res.json({ message: "Test email sent successfully", email });
+      } else {
+        res.status(500).json({ message: "Failed to send test email" });
+      }
+    } catch (error: any) {
+      console.error("Error sending test email:", error);
+      res.status(500).json({ message: "Failed to send test email" });
+    }
+  });
+
+  /**
+   * Manually trigger an alarm email notification (for testing)
+   */
+  app.post("/api/alarms/:alarmId/notify", isAuthenticated, async (req, res) => {
+    try {
+      const alarmId = parseInt(req.params.alarmId);
+      const { emails, currentValue } = req.body;
+
+      if (!emails || !Array.isArray(emails) || emails.length === 0) {
+        return res.status(400).json({ message: "At least one email recipient required" });
+      }
+
+      // Get alarm details
+      const alarm = await storage.getAlarm(alarmId);
+      if (!alarm) {
+        return res.status(404).json({ message: "Alarm not found" });
+      }
+
+      // Get station details
+      const station = await storage.getStation(alarm.stationId);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+
+      const success = await sendAlarmEmail(emails, {
+        stationName: station.name,
+        stationId: station.id,
+        alarmName: alarm.name,
+        severity: alarm.severity as any,
+        condition: alarm.condition,
+        threshold: alarm.threshold,
+        currentValue: currentValue ?? alarm.threshold,
+        unit: '', // Would come from sensor config
+        triggeredAt: new Date(),
+      });
+
+      if (success) {
+        res.json({ message: "Alarm notification sent", recipients: emails });
+      } else {
+        res.status(500).json({ message: "Failed to send alarm notification" });
+      }
+    } catch (error: any) {
+      console.error("Error sending alarm notification:", error);
+      res.status(500).json({ message: "Failed to send alarm notification" });
     }
   });
 }
