@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sun, Sunrise, Sunset, Moon, Navigation2 } from "lucide-react";
 import { useMemo } from "react";
+import { getWindDirectionLabel } from "@/lib/windConstants";
 
 interface SolarPositionCardProps {
   elevation: number;         // degrees above horizon
@@ -27,9 +28,7 @@ function formatDayLength(minutes: number | undefined): string {
 }
 
 function getAzimuthDirection(azimuth: number): string {
-  const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-  const index = Math.round(azimuth / 22.5) % 16;
-  return directions[index];
+  return getWindDirectionLabel(azimuth);
 }
 
 export function SolarPositionCard({

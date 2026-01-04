@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { WIND_DIRECTIONS, WMO_SPEED_CLASSES } from "@/lib/windConstants";
 
 interface WindRoseData {
   direction: number;
@@ -12,16 +13,13 @@ interface WindRose3DProps {
   title?: string;
 }
 
-const DEFAULT_SPEED_CLASSES = [
-  { min: 0, max: 2, color: "#bfdbfe", label: "0-2 km/h" },
-  { min: 2, max: 10, color: "#60a5fa", label: "2-10 km/h" },
-  { min: 10, max: 25, color: "#22c55e", label: "10-25 km/h" },
-  { min: 25, max: 50, color: "#facc15", label: "25-50 km/h" },
-  { min: 50, max: 100, color: "#f97316", label: "50-100 km/h" },
-  { min: 100, max: Infinity, color: "#dc2626", label: ">100 km/h" },
-];
-
-const DIRECTIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+// Use WMO-compliant speed classes
+const DEFAULT_SPEED_CLASSES = WMO_SPEED_CLASSES.map(c => ({
+  min: c.min,
+  max: c.max,
+  color: c.color,
+  label: c.label,
+}));
 
 export function WindRose3D({ data, speedClasses = DEFAULT_SPEED_CLASSES, title = "Wind Rose 3D" }: WindRose3DProps) {
   const [rotationX, setRotationX] = useState(55);
@@ -169,7 +167,7 @@ export function WindRose3D({ data, speedClasses = DEFAULT_SPEED_CLASSES, title =
             />
           ))}
 
-          {DIRECTIONS.filter((_, i) => i % 2 === 0).map((dir, i) => {
+          {WIND_DIRECTIONS.filter((_, i) => i % 2 === 0).map((dir, i) => {
             const angle = i * 45;
             const pos = polarToCart3D(angle, maxRadius + 25, 0);
             return (

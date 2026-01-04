@@ -63,6 +63,7 @@ import { protocolManager } from "./protocols/protocolManager";
 import { registerStationSetupRoutes } from "./station-setup/routes";
 import { registerSerialMonitorRoutes } from "./serial/routes";
 import shareRoutes from "./shares/routes";
+import complianceRoutes from "./compliance/routes";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -106,6 +107,9 @@ export async function registerRoutes(
 
   // Register share routes
   app.use('/api', shareRoutes);
+
+  // Register compliance routes (GDPR, ISO 17025, ISO 19157)
+  app.use('/api/compliance', complianceRoutes);
 
   // Initialize data collection service
   try {

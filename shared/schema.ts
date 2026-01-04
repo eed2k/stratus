@@ -296,7 +296,7 @@ export const insertUserPreferencesSchema = createInsertSchema(userPreferences).o
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 export type UserPreferences = typeof userPreferences.$inferSelect;
 
-// Sensors table - Track individual sensors at each station
+// Sensors table - Track individual sensors at each station (ISO 19115 Metadata Compliant)
 export const sensors = pgTable("sensors", {
   id: serial("id").primaryKey(),
   stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
@@ -304,18 +304,44 @@ export const sensors = pgTable("sensors", {
   manufacturer: text("manufacturer"),
   model: text("model"),
   serialNumber: text("serial_number"),
+  firmwareVersion: text("firmware_version"),
   measurementType: varchar("measurement_type", { length: 50 }).notNull(),
+  // ISO 19115 Lineage/Provenance
+  dataProducer: text("data_producer"), // Organization responsible for data
+  dataProcessingLevel: varchar("data_processing_level", { length: 20 }).default("raw"), // raw, qc, calibrated
+  // Measurement Specifications
+  measurementRange: jsonb("measurement_range"), // {min, max, unit}
+  measurementResolution: real("measurement_resolution"),
+  measurementAccuracy: real("measurement_accuracy"),
+  measurementUncertainty: real("measurement_uncertainty"),
+  measurementUnit: text("measurement_unit"),
+  samplingInterval: integer("sampling_interval"), // seconds
+  averagingPeriod: integer("averaging_period"), // seconds
+  // Installation Details
   installationDate: timestamp("installation_date"),
   installationHeight: real("installation_height"),
   installationDepth: real("installation_depth"),
   orientation: text("orientation"),
   boomPosition: text("boom_position"),
+  boomAzimuth: real("boom_azimuth"), // degrees from north
+  shieldingType: text("shielding_type"), // e.g., "Stevenson screen", "radiation shield"
+  // Calibration Status
+  lastCalibrationDate: timestamp("last_calibration_date"),
+  nextCalibrationDue: timestamp("next_calibration_due"),
+  calibrationInterval: integer("calibration_interval"), // months
+  calibrationStatus: varchar("calibration_status", { length: 20 }).default("unknown"), // valid, expired, due_soon
+  // Documentation
   wiringDiagram: text("wiring_diagram"),
+  datasheet: text("datasheet_url"),
+  manualUrl: text("manual_url"),
   notes: text("notes"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("IDX_sensors_station").on(table.stationId),
+  index("IDX_sensors_calibration_due").on(table.nextCalibrationDue),
+]);
 
 export const insertSensorSchema = createInsertSchema(sensors).omit({
   id: true,
@@ -326,30 +352,55 @@ export const insertSensorSchema = createInsertSchema(sensors).omit({
 export type InsertSensor = z.infer<typeof insertSensorSchema>;
 export type Sensor = typeof sensors.$inferSelect;
 
-// Calibration Records table
+// Calibration Records table - ISO/IEC 17025 & NIST Traceability Compliant
 export const calibrationRecords = pgTable("calibration_records", {
   id: serial("id").primaryKey(),
   sensorId: integer("sensor_id").notNull().references(() => sensors.id, { onDelete: "cascade" }),
   calibrationDate: timestamp("calibration_date").notNull(),
   nextCalibrationDue: timestamp("next_calibration_due"),
+  // Calibrating Laboratory (ISO 17025)
   calibratingInstitution: text("calibrating_institution"),
+  laboratoryAccreditation: text("laboratory_accreditation"), // e.g., "ISO/IEC 17025:2017", "NVLAP", "A2LA"
+  accreditationNumber: text("accreditation_number"),
+  accreditationScope: text("accreditation_scope"),
   certificateNumber: text("certificate_number"),
   certificateFileUrl: text("certificate_file_url"),
+  // NIST Traceability Chain
   calibrationStandard: text("calibration_standard"),
+  referenceStandardId: text("reference_standard_id"), // ID of reference standard used
+  referenceStandardTraceability: text("reference_standard_traceability"), // Chain back to NIST/national standard
+  referenceStandardCertificateNumber: text("reference_standard_certificate_number"),
+  referenceStandardCalibrationDate: timestamp("reference_standard_calibration_date"),
+  // Measurement Uncertainty (ISO/IEC 17025 requirement)
   uncertaintyValue: real("uncertainty_value"),
   uncertaintyUnit: text("uncertainty_unit"),
+  uncertaintyConfidenceLevel: real("uncertainty_confidence_level").default(95), // % confidence (typically 95%)
+  uncertaintyCoverageFactor: real("uncertainty_coverage_factor").default(2), // k-factor (typically k=2)
+  uncertaintyBudget: jsonb("uncertainty_budget"), // Detailed uncertainty components
+  // Environmental Conditions During Calibration
+  calibrationTemperature: real("calibration_temperature"),
+  calibrationHumidity: real("calibration_humidity"),
+  calibrationPressure: real("calibration_pressure"),
   temperatureCoefficient: real("temperature_coefficient"),
+  // Calibration Results
   preCalibrationReading: real("pre_calibration_reading"),
   postCalibrationReading: real("post_calibration_reading"),
   adjustmentFactor: real("adjustment_factor"),
-  calibrationStatus: varchar("calibration_status", { length: 50 }).default("valid"),
+  correctionPolynomial: jsonb("correction_polynomial"), // For multi-point calibration curves
+  calibrationPoints: jsonb("calibration_points"), // Array of {reference, measured, deviation}
+  // Status and Compliance
+  calibrationStatus: varchar("calibration_status", { length: 50 }).default("valid"), // valid, expired, due_soon, suspended
+  calibrationMethod: text("calibration_method"), // Reference to calibration procedure
+  complianceStandard: text("compliance_standard"), // e.g., "ISO 17714:2007" for meteorological instruments
   notes: text("notes"),
   performedBy: text("performed_by"),
+  verifiedBy: text("verified_by"), // Second signatory for ISO 17025
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("IDX_calibration_sensor_date").on(table.sensorId, table.calibrationDate),
   index("IDX_calibration_due_date").on(table.nextCalibrationDue),
+  index("IDX_calibration_status").on(table.calibrationStatus),
 ]);
 
 export const insertCalibrationRecordSchema = createInsertSchema(calibrationRecords).omit({
@@ -418,25 +469,46 @@ export const insertConfigurationChangeSchema = createInsertSchema(configurationC
 export type InsertConfigurationChange = z.infer<typeof insertConfigurationChangeSchema>;
 export type ConfigurationChange = typeof configurationChanges.$inferSelect;
 
-// Data Quality Flags table
+// Data Quality Flags table - ISO 19157 (Data Quality) Compliant
 export const dataQualityFlags = pgTable("data_quality_flags", {
   id: serial("id").primaryKey(),
   stationId: integer("station_id").notNull().references(() => weatherStations.id, { onDelete: "cascade" }),
+  sensorId: integer("sensor_id").references(() => sensors.id, { onDelete: "set null" }),
+  // Time range affected
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
-  flagType: varchar("flag_type", { length: 50 }).notNull(),
-  severity: varchar("severity", { length: 20 }).default("warning"),
-  affectedParameters: jsonb("affected_parameters"),
+  // ISO 19157 Data Quality Elements
+  flagType: varchar("flag_type", { length: 50 }).notNull(), // missing, suspect, estimated, interpolated, aggregated, validated, rejected
+  qualityDimension: varchar("quality_dimension", { length: 50 }), // completeness, logical_consistency, positional_accuracy, temporal_accuracy, thematic_accuracy
+  qualityMeasure: varchar("quality_measure", { length: 100 }), // e.g., "rate of missing items", "value domain non-conformance"
+  qualityResult: jsonb("quality_result"), // {value, unit, pass_fail, conformance_level}
+  // WMO Quality Control Levels
+  qcLevel: integer("qc_level").default(0), // 0=raw, 1=automatic_qc, 2=manual_qc, 3=validated
+  // Severity and scope
+  severity: varchar("severity", { length: 20 }).default("warning"), // info, warning, error, critical
+  affectedParameters: jsonb("affected_parameters"), // Array of parameter names
+  affectedRecordCount: integer("affected_record_count"),
+  // Cause and resolution
   reason: text("reason"),
+  causeCategory: varchar("cause_category", { length: 50 }), // sensor_failure, maintenance, calibration, environmental, communication, unknown
+  correctionApplied: boolean("correction_applied").default(false),
+  correctionMethod: text("correction_method"),
+  correctedValue: jsonb("corrected_value"),
+  // Related records
   relatedMaintenanceId: integer("related_maintenance_id").references(() => maintenanceEvents.id),
   relatedCalibrationId: integer("related_calibration_id").references(() => calibrationRecords.id),
+  // Review workflow
   flaggedBy: text("flagged_by"),
+  flaggedMethod: varchar("flagged_method", { length: 20 }).default("automatic"), // automatic, manual
   reviewedBy: text("reviewed_by"),
   reviewedAt: timestamp("reviewed_at"),
+  reviewStatus: varchar("review_status", { length: 20 }).default("pending"), // pending, approved, rejected, deferred
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("IDX_quality_flags_station_time").on(table.stationId, table.startTime, table.endTime),
+  index("IDX_quality_flags_type").on(table.flagType),
+  index("IDX_quality_flags_qc_level").on(table.qcLevel),
 ]);
 
 export const insertDataQualityFlagSchema = createInsertSchema(dataQualityFlags).omit({
@@ -623,3 +695,225 @@ export const insertStationShareSchema = createInsertSchema(stationShares).omit({
 
 export type InsertStationShare = z.infer<typeof insertStationShareSchema>;
 export type StationShare = typeof stationShares.$inferSelect;
+
+// ============================================================================
+// COMPLIANCE & AUDIT TABLES (GDPR Art. 32, ISO 27001, ISO 27701)
+// ============================================================================
+
+// Audit Log table - Comprehensive data access and modification tracking
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
+  // Event identification
+  eventType: varchar("event_type", { length: 50 }).notNull(), // create, read, update, delete, export, login, logout, share
+  eventCategory: varchar("event_category", { length: 50 }).notNull(), // data_access, data_modification, authentication, configuration, export
+  // Actor information
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  userEmail: text("user_email"),
+  userRole: varchar("user_role", { length: 50 }),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: text("session_id"),
+  // Target information
+  resourceType: varchar("resource_type", { length: 50 }).notNull(), // station, sensor, weather_data, user, calibration, etc.
+  resourceId: text("resource_id"),
+  resourceName: text("resource_name"),
+  stationId: integer("station_id").references(() => weatherStations.id, { onDelete: "set null" }),
+  // Event details
+  action: text("action").notNull(),
+  description: text("description"),
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  affectedFields: jsonb("affected_fields"), // Array of field names changed
+  // Data export specifics (GDPR Art. 20 - Right to data portability)
+  exportFormat: varchar("export_format", { length: 20 }),
+  exportDataRange: jsonb("export_data_range"), // {startDate, endDate, parameters}
+  exportRecordCount: integer("export_record_count"),
+  // Request tracking
+  requestId: text("request_id"), // For correlation
+  requestMethod: varchar("request_method", { length: 10 }),
+  requestPath: text("request_path"),
+  responseStatus: integer("response_status"),
+  // Compliance metadata
+  legalBasis: varchar("legal_basis", { length: 50 }), // consent, contract, legal_obligation, vital_interest, public_task, legitimate_interest
+  dataProcessingPurpose: text("data_processing_purpose"),
+  retentionPeriod: integer("retention_period"), // days
+  // Timestamps
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  processedAt: timestamp("processed_at"),
+}, (table) => [
+  index("IDX_audit_log_timestamp").on(table.timestamp),
+  index("IDX_audit_log_user").on(table.userId),
+  index("IDX_audit_log_station").on(table.stationId),
+  index("IDX_audit_log_event_type").on(table.eventType),
+  index("IDX_audit_log_resource").on(table.resourceType, table.resourceId),
+]);
+
+export const insertAuditLogSchema = createInsertSchema(auditLog).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLog.$inferSelect;
+
+// Data Retention Policies table (GDPR Art. 5(1)(e) - Storage limitation)
+export const dataRetentionPolicies = pgTable("data_retention_policies", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  // Scope
+  organizationId: integer("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
+  stationId: integer("station_id").references(() => weatherStations.id, { onDelete: "cascade" }),
+  dataType: varchar("data_type", { length: 50 }).notNull(), // weather_data, audit_log, calibration, maintenance, etc.
+  // Retention rules
+  retentionPeriodDays: integer("retention_period_days").notNull(),
+  retentionPeriodType: varchar("retention_period_type", { length: 20 }).default("rolling"), // rolling, fixed_date
+  archiveBeforeDelete: boolean("archive_before_delete").default(true),
+  archiveLocation: text("archive_location"),
+  // Aggregation rules (keep aggregated data longer than raw data)
+  aggregationLevel: varchar("aggregation_level", { length: 20 }), // none, hourly, daily, monthly
+  aggregatedRetentionDays: integer("aggregated_retention_days"),
+  // Legal basis
+  legalBasis: text("legal_basis"),
+  regulatoryRequirement: text("regulatory_requirement"),
+  // Execution
+  lastExecuted: timestamp("last_executed"),
+  nextExecution: timestamp("next_execution"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_retention_policies_station").on(table.stationId),
+  index("IDX_retention_policies_next_exec").on(table.nextExecution),
+]);
+
+export const insertDataRetentionPolicySchema = createInsertSchema(dataRetentionPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastExecuted: true,
+});
+
+export type InsertDataRetentionPolicy = z.infer<typeof insertDataRetentionPolicySchema>;
+export type DataRetentionPolicy = typeof dataRetentionPolicies.$inferSelect;
+
+// Data Subject Requests table (GDPR Art. 15-22 - Rights of the data subject)
+export const dataSubjectRequests = pgTable("data_subject_requests", {
+  id: serial("id").primaryKey(),
+  // Request identification
+  requestType: varchar("request_type", { length: 50 }).notNull(), // access, rectification, erasure, restriction, portability, objection
+  requestReference: text("request_reference").notNull().unique(),
+  // Data subject information
+  dataSubjectEmail: text("data_subject_email").notNull(),
+  dataSubjectName: text("data_subject_name"),
+  dataSubjectId: varchar("data_subject_id").references(() => users.id, { onDelete: "set null" }),
+  // Request details
+  requestDate: timestamp("request_date").notNull().defaultNow(),
+  requestDetails: text("request_details"),
+  scopeDescription: text("scope_description"),
+  affectedStations: jsonb("affected_stations"), // Array of station IDs
+  // Processing
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, in_progress, completed, rejected
+  assignedTo: varchar("assigned_to").references(() => users.id, { onDelete: "set null" }),
+  dueDate: timestamp("due_date").notNull(), // GDPR requires response within 30 days
+  completedDate: timestamp("completed_date"),
+  // Response
+  responseDetails: text("response_details"),
+  rejectionReason: text("rejection_reason"),
+  dataExportUrl: text("data_export_url"), // For access/portability requests
+  dataExportExpiry: timestamp("data_export_expiry"),
+  // Audit trail
+  verificationMethod: varchar("verification_method", { length: 50 }), // email, id_document, etc.
+  verifiedAt: timestamp("verified_at"),
+  verifiedBy: varchar("verified_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_dsr_email").on(table.dataSubjectEmail),
+  index("IDX_dsr_status").on(table.status),
+  index("IDX_dsr_due_date").on(table.dueDate),
+]);
+
+export const insertDataSubjectRequestSchema = createInsertSchema(dataSubjectRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedDate: true,
+});
+
+export type InsertDataSubjectRequest = z.infer<typeof insertDataSubjectRequestSchema>;
+export type DataSubjectRequest = typeof dataSubjectRequests.$inferSelect;
+
+// Consent Records table (GDPR Art. 7 - Conditions for consent)
+export const consentRecords = pgTable("consent_records", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Consent type
+  consentType: varchar("consent_type", { length: 50 }).notNull(), // data_processing, marketing, third_party_sharing, analytics
+  consentPurpose: text("consent_purpose").notNull(),
+  // Consent details
+  consentGiven: boolean("consent_given").notNull(),
+  consentDate: timestamp("consent_date").notNull().defaultNow(),
+  consentMethod: varchar("consent_method", { length: 50 }).notNull(), // explicit_opt_in, checkbox, verbal, written
+  consentText: text("consent_text"), // The actual consent text shown to user
+  consentVersion: text("consent_version"),
+  // Withdrawal
+  withdrawnAt: timestamp("withdrawn_at"),
+  withdrawalMethod: varchar("withdrawal_method", { length: 50 }),
+  // Metadata
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  source: varchar("source", { length: 50 }), // registration, settings, popup, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_consent_user").on(table.userId),
+  index("IDX_consent_type").on(table.consentType),
+]);
+
+export const insertConsentRecordSchema = createInsertSchema(consentRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertConsentRecord = z.infer<typeof insertConsentRecordSchema>;
+export type ConsentRecord = typeof consentRecords.$inferSelect;
+
+// Compliance Certifications table - Track station/organization compliance status
+export const complianceCertifications = pgTable("compliance_certifications", {
+  id: serial("id").primaryKey(),
+  // Scope
+  organizationId: integer("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
+  stationId: integer("station_id").references(() => weatherStations.id, { onDelete: "cascade" }),
+  // Certification details
+  standardName: text("standard_name").notNull(), // ISO 17025, ISO 27001, ISO 19115, WMO OSCAR, etc.
+  standardVersion: text("standard_version"),
+  certificationNumber: text("certification_number"),
+  certifyingBody: text("certifying_body"),
+  // Validity
+  issueDate: timestamp("issue_date").notNull(),
+  expiryDate: timestamp("expiry_date"),
+  status: varchar("status", { length: 20 }).default("active"), // active, expired, suspended, pending
+  // Documentation
+  certificateUrl: text("certificate_url"),
+  scopeDescription: text("scope_description"),
+  // Audit history
+  lastAuditDate: timestamp("last_audit_date"),
+  nextAuditDate: timestamp("next_audit_date"),
+  auditNotes: text("audit_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_certifications_station").on(table.stationId),
+  index("IDX_certifications_expiry").on(table.expiryDate),
+]);
+
+export const insertComplianceCertificationSchema = createInsertSchema(complianceCertifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertComplianceCertification = z.infer<typeof insertComplianceCertificationSchema>;
+export type ComplianceCertification = typeof complianceCertifications.$inferSelect;

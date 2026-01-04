@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { WIND_DIRECTIONS, WMO_SPEED_CLASSES, getSpeedColor } from "@/lib/windConstants";
 
 /**
  * Wind speed scatter point data - individual wind observations
@@ -17,41 +18,6 @@ interface WindRoseScatterProps {
   maxWindSpeed?: number;
   showLegend?: boolean;
 }
-
-/**
- * WMO (World Meteorological Organization) Standard Wind Speed Classes
- * Based on the Beaufort Scale with metric (km/h) values
- * Colors follow a proper thermal gradient progression:
- * - Blues for light winds (cool/calm)
- * - Greens for moderate winds (comfortable)
- * - Yellows/Oranges for strong winds (caution)
- * - Reds for severe winds (danger)
- */
-const SPEED_COLOR_CLASSES = [
-  { min: 0, max: 1, color: "#e0f2fe", label: "Calm (0-1 km/h)", beaufort: "0" },
-  { min: 1, max: 6, color: "#bae6fd", label: "Light Air (1-6 km/h)", beaufort: "1" },
-  { min: 6, max: 12, color: "#7dd3fc", label: "Light Breeze (6-12 km/h)", beaufort: "2" },
-  { min: 12, max: 20, color: "#38bdf8", label: "Gentle Breeze (12-20 km/h)", beaufort: "3" },
-  { min: 20, max: 29, color: "#0ea5e9", label: "Moderate (20-29 km/h)", beaufort: "4" },
-  { min: 29, max: 39, color: "#22c55e", label: "Fresh (29-39 km/h)", beaufort: "5" },
-  { min: 39, max: 50, color: "#84cc16", label: "Strong (39-50 km/h)", beaufort: "6" },
-  { min: 50, max: 62, color: "#eab308", label: "Near Gale (50-62 km/h)", beaufort: "7" },
-  { min: 62, max: 75, color: "#f97316", label: "Gale (62-75 km/h)", beaufort: "8" },
-  { min: 75, max: 89, color: "#ef4444", label: "Strong Gale (75-89 km/h)", beaufort: "9" },
-  { min: 89, max: 103, color: "#dc2626", label: "Storm (89-103 km/h)", beaufort: "10" },
-  { min: 103, max: 118, color: "#b91c1c", label: "Violent Storm (103-118 km/h)", beaufort: "11" },
-  { min: 118, max: Infinity, color: "#7f1d1d", label: "Hurricane (>118 km/h)", beaufort: "12" },
-];
-
-const DIRECTIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-
-/**
- * Get color for a given wind speed based on WMO classes
- */
-const getSpeedColor = (speed: number): string => {
-  const colorClass = SPEED_COLOR_CLASSES.find(c => speed >= c.min && speed < c.max);
-  return colorClass?.color || "#dc2626";
-};
 
 /**
  * Calculate wind statistics from scatter data
@@ -85,7 +51,7 @@ const calculateScatterStats = (data: WindSpeedPoint[]) => {
     maxSpeed,
     minSpeed,
     observations: data.length,
-    dominantDirection: DIRECTIONS[dominantIndex],
+    dominantDirection: WIND_DIRECTIONS[dominantIndex],
   };
 };
 
@@ -116,10 +82,10 @@ export function WindRoseScatter({
   const activeClasses = useMemo(() => {
     const present = new Set<number>();
     data.forEach(d => {
-      const idx = SPEED_COLOR_CLASSES.findIndex(c => d.speed >= c.min && d.speed < c.max);
+      const idx = WMO_SPEED_CLASSES.findIndex(c => d.speed >= c.min && d.speed < c.max);
       if (idx >= 0) present.add(idx);
     });
-    return SPEED_COLOR_CLASSES.filter((_, i) => present.has(i));
+    return WMO_SPEED_CLASSES.filter((_, i) => present.has(i));
   }, [data]);
 
   const size = 320;
@@ -190,7 +156,7 @@ export function WindRoseScatter({
           ))}
 
           {/* Direction lines and labels */}
-          {DIRECTIONS.map((dir, i) => {
+          {WIND_DIRECTIONS.map((dir, i) => {
             const angle = i * 22.5;
             const endPos = polarToCart(angle, calculatedMaxSpeed);
             const labelPos = polarToCart(angle, calculatedMaxSpeed * 1.15);
@@ -293,4 +259,5 @@ export function WindRoseScatter({
   );
 }
 
-export { SPEED_COLOR_CLASSES, getSpeedColor };
+// Re-export constants from shared module for backward compatibility
+export { WMO_SPEED_CLASSES as SPEED_COLOR_CLASSES, getSpeedColor } from "@/lib/windConstants";

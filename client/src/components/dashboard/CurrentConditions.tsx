@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getWindDirectionLabel } from "@/lib/windConstants";
 
 interface CurrentConditionsProps {
   stationName: string;
@@ -21,12 +22,6 @@ interface CurrentConditionsProps {
  */
 const fmt = (value: number, maxDecimals: number = 1): string => {
   return parseFloat(value.toFixed(maxDecimals)).toString();
-};
-
-const getWindDirectionLabel = (deg: number): string => {
-  const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-  const index = Math.round(deg / 22.5) % 16;
-  return directions[index];
 };
 
 export function CurrentConditions({
