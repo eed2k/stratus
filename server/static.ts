@@ -3,29 +3,46 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
-  // In packaged Electron app (asar disabled):
-  // - Server runs from: resources/app/dist/server/
-  // - Client is at: resources/app/client/dist/
-  // __dirname in compiled server: .../dist/server
+  // Railway/Docker: Server runs from /app/dist/server/, client at /app/client/dist/
+  // Electron: Server runs from resources/app/dist/server/, client at resources/app/client/dist/
+  // __dirname in compiled server: /app/dist/server (Docker) or .../dist/server (Electron)
   
   const possiblePaths = [
-    path.resolve(__dirname, "..", "..", "client", "dist"),  // Packaged: dist/server/../../client/dist
-    path.resolve(__dirname, "..", "client", "dist"),        // Alternative
-    path.resolve(process.cwd(), "client", "dist"),          // CWD/client/dist
+    path.resolve(__dirname, "..", "..", "client", "dist"),  // Docker/Railway: /app/dist/server -> /app/client/dist
+    path.resolve(process.cwd(), "client", "dist"),          // CWD/client/dist (fallback)
+    path.resolve(__dirname, "..", "client", "dist"),        // Alternative layout
   ];
   
   let distPath: string | null = null;
   for (const p of possiblePaths) {
     console.log(`Checking for client dist at: ${p}`);
-    if (fs.existsSync(p) && fs.existsSync(path.join(p, "index.html"))) {
-      distPath = p;
-      console.log(`Found client dist at: ${p}`);
-      break;
+    if (fs.existsSync(p)) {
+      const indexPath = path.join(p, "index.html");
+      if (fs.existsSync(indexPath)) {
+        distPath = p;
+        console.log(`Found client dist at: ${p}`);
+        break;
+      } else {
+        console.log(`Found directory but no index.html at: ${p}`);
+      }
     }
   }
   
   if (!distPath) {
     console.error("Could not find client dist directory. Tried:", possiblePaths);
+    console.error("Current __dirname:", __dirname);
+    console.error("Current cwd:", process.cwd());
+    // List what's in the current directory for debugging
+    try {
+      const cwdContents = fs.readdirSync(process.cwd());
+      console.error("CWD contents:", cwdContents);
+      if (fs.existsSync(path.join(process.cwd(), 'client'))) {
+        const clientContents = fs.readdirSync(path.join(process.cwd(), 'client'));
+        console.error("Client folder contents:", clientContents);
+      }
+    } catch (e) {
+      console.error("Error listing directories:", e);
+    }
     throw new Error(
       `Could not find the build directory, make sure to build the client first`,
     );
