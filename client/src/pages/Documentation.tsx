@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   FileText, 
   Download, 
-  BookOpen, 
-  Settings2, 
+  BookOpen,
   ExternalLink,
   CloudSun,
   FileCode,

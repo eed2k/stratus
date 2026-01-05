@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Battery, BatteryCharging, BatteryLow, BatteryWarning, Zap } from "lucide-react";
+import { Battery, BatteryCharging, BatteryLow, BatteryWarning } from "lucide-react";
 
 interface BatteryVoltageCardProps {
   voltage: number;             // Volts

@@ -30,6 +30,25 @@ export interface WindSpeedClass {
  * Based on the Beaufort Scale with metric (km/h) values
  * Reference: WMO-No. 8, Guide to Meteorological Instruments and Methods of Observation
  * 
+ * Official Beaufort scale values converted from knots to km/h:
+ * 1 knot = 1.852 km/h (rounded to nearest km/h)
+ * 
+ * Beaufort | Knots   | km/h
+ * ---------|---------|----------
+ *    0     | <1      | <1
+ *    1     | 1-3     | 1-5
+ *    2     | 4-6     | 6-11
+ *    3     | 7-10    | 12-19
+ *    4     | 11-16   | 20-28
+ *    5     | 17-21   | 29-38
+ *    6     | 22-27   | 39-49
+ *    7     | 28-33   | 50-61
+ *    8     | 34-40   | 62-74
+ *    9     | 41-47   | 75-88
+ *    10    | 48-55   | 89-102
+ *    11    | 56-63   | 103-117
+ *    12    | ≥64     | ≥118
+ * 
  * Colors follow a proper thermal gradient progression:
  * - Blues for light winds (cool/calm)
  * - Greens for moderate winds (comfortable)

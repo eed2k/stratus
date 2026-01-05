@@ -53,7 +53,7 @@ const SENSOR_ICONS: Record<string, typeof Thermometer> = {
   rain: Droplets,
 };
 
-const COMMON_LOGGERS = [
+const _COMMON_LOGGERS = [
   { name: "Campbell Scientific CR1000X", category: "campbell" },
   { name: "Campbell Scientific CR1000XE (Ethernet)", category: "campbell" },
   { name: "Campbell Scientific CR6 (WiFi)", category: "campbell" },
@@ -82,7 +82,7 @@ const COMMON_LOGGERS = [
   { name: "Custom Logger (NB-IoT)", category: "generic" },
 ];
 
-const CONNECTION_TYPES = [
+const _CONNECTION_TYPES = [
   { value: "http", label: "HTTP/REST API", description: "Standard web API connection" },
   { value: "https", label: "HTTPS (Secure)", description: "Encrypted web API connection" },
   { value: "mqtt", label: "MQTT", description: "Lightweight IoT messaging protocol" },
@@ -120,7 +120,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
   const [addSensorOpen, setAddSensorOpen] = useState(false);
   const [editPersonnelOpen, setEditPersonnelOpen] = useState(false);
   const [newSensor, setNewSensor] = useState({
-    name: "",
+    sensorType: "",
     manufacturer: "",
     model: "",
     serialNumber: "",
@@ -145,22 +145,19 @@ export function StationHardware({ stationId }: StationHardwareProps) {
 
   const addSensorMutation = useMutation({
     mutationFn: async (sensorData: typeof newSensor) => {
-      return apiRequest(`/api/stations/${stationId}/sensors`, {
-        method: "POST",
-        body: JSON.stringify({
-          ...sensorData,
-          stationId,
-          installationHeight: sensorData.installationHeight
-            ? parseFloat(sensorData.installationHeight)
-            : null,
-        }),
+      return apiRequest("POST", `/api/stations/${stationId}/sensors`, {
+        ...sensorData,
+        stationId,
+        installationHeight: sensorData.installationHeight
+          ? parseFloat(sensorData.installationHeight)
+          : null,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/stations", stationId, "sensors"] });
       setAddSensorOpen(false);
       setNewSensor({
-        name: "",
+        sensorType: "",
         manufacturer: "",
         model: "",
         serialNumber: "",
@@ -173,10 +170,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
 
   const updatePersonnelMutation = useMutation({
     mutationFn: async (personnelData: typeof personnel) => {
-      return apiRequest(`/api/stations/${stationId}`, {
-        method: "PATCH",
-        body: JSON.stringify(personnelData),
-      });
+      return apiRequest("PATCH", `/api/stations/${stationId}`, personnelData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/stations", stationId] });
@@ -186,7 +180,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
 
   const handleQuickAddSensor = (sensor: typeof COMMON_SENSORS[0]) => {
     setNewSensor({
-      name: sensor.name,
+      sensorType: sensor.name,
       manufacturer: sensor.manufacturer,
       model: sensor.name,
       serialNumber: "",
@@ -326,9 +320,9 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                           <Label htmlFor="sensor-name">Sensor Name</Label>
                           <Input
                             id="sensor-name"
-                            value={newSensor.name}
+                            value={newSensor.sensorType}
                             onChange={(e) =>
-                              setNewSensor({ ...newSensor, name: e.target.value })
+                              setNewSensor({ ...newSensor, sensorType: e.target.value })
                             }
                             placeholder="e.g., RM Young Response One Pro"
                             data-testid="input-sensor-name"
@@ -416,7 +410,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                       <Button
                         className="w-full"
                         onClick={() => addSensorMutation.mutate(newSensor)}
-                        disabled={!newSensor.name || addSensorMutation.isPending}
+                        disabled={!newSensor.sensorType || addSensorMutation.isPending}
                         data-testid="button-submit-sensor"
                       >
                         {addSensorMutation.isPending ? "Adding..." : "Add Sensor"}
@@ -442,7 +436,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                       <div className="flex items-center gap-2">
                         {getSensorIcon(sensor.measurementType)}
                         <div>
-                          <p className="text-sm font-medium">{sensor.name}</p>
+                          <p className="text-sm font-medium">{sensor.model || sensor.sensorType}</p>
                           <p className="text-xs text-muted-foreground">
                             {sensor.manufacturer} {sensor.serialNumber && `- ${sensor.serialNumber}`}
                           </p>

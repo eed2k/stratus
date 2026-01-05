@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   WIND_DIRECTIONS, 
-  WMO_SPEED_CLASSES, 
   WMO_SIMPLIFIED_CLASSES, 
   getWindDescription,
   type WindSpeedClass 

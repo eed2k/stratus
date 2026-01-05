@@ -1,6 +1,4 @@
-﻿import React from "react";
-
-export default function CloudAnimation({ className = "" }: { className?: string }) {
+﻿export default function CloudAnimation({ className = "" }: { className?: string }) {
   return (
     <div className={`relative overflow-hidden ${className}`} aria-hidden="true">
       <div className="clouds absolute inset-0 pointer-events-none">

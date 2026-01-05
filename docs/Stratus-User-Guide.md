@@ -2,37 +2,42 @@
 
 ## Professional Weather Station Management Software
 
-Stratus is a professional desktop application for Campbell Scientific weather station management, data collection, and real-time monitoring using the PakBus protocol.
+Stratus is a professional desktop and server application for weather station management, data collection, and real-time monitoring. Built with modern web technologies, Stratus provides comprehensive weather data visualization and analysis capabilities.
 
 ---
 
 ## Features & Capabilities
 
-### Campbell Scientific Integration
+### Weather Station Integration
 
-- **PakBus Protocol Support** - Native implementation of Campbell Scientific's PakBus protocol
-- **Multi-Connection Types** - Serial (RS232/RS485), TCP/IP, GSM modems, LoRa, RF407
-- **Data Collection** - Scheduled and on-demand data collection from datalogger tables
-- **Program Management** - Upload, download, and manage CRBasic programs
-- **File Operations** - Browse, transfer, and manage datalogger files
-- **Clock Synchronization** - Automatic and manual clock sync with stations
+- **Multi-Protocol Support** - PakBus, HTTP/REST, MQTT, Modbus, Serial
+- **Multi-Connection Types** - Serial (RS232/RS485), TCP/IP, WiFi, GSM, LoRa, Satellite
+- **Data Collection** - Scheduled and on-demand data collection from stations
+- **Real-Time Monitoring** - Live data updates with configurable refresh intervals
+- **Multi-Station Support** - Manage multiple stations from a single dashboard
 
-### Supported Dataloggers
+### Supported Hardware
 
-- CR1000X, CR1000
-- CR6
-- CR3000
-- CR800, CR850
-- CR300
-- CR200X
+**Campbell Scientific Dataloggers:**
+- CR1000X, CR1000, CR6, CR3000
+- CR800, CR850, CR300
+- CR200X series
+
+**Other Platforms:**
+- Arduino IoT Cloud compatible devices
+- ESP32/ESP8266 WiFi stations
+- Davis Vantage series
+- Generic HTTP/MQTT stations
+- Custom industrial sensors via Modbus
 
 ### Communication Options
 
 - **Serial** - RS232, RS485 direct connection
 - **TCP/IP** - Ethernet, WiFi via NL121 or similar
 - **RF** - RF407/RF412 spread spectrum radios
-- **Cellular** - CELL200 series modems
-- **LoRa** - Long-range IoT connectivity
+- **Cellular** - 2G/3G/4G/LTE modems
+- **LoRa/LoRaWAN** - Long-range IoT connectivity
+- **Satellite** - Remote area connectivity
 
 ---
 
@@ -40,69 +45,127 @@ Stratus is a professional desktop application for Campbell Scientific weather st
 
 ### Live Weather Display
 
-- Real-time weather data visualization
+- Real-time weather data visualization with auto-refresh
 - Connection health monitoring
-- Data validation with automatic QC checks
-- Alerts & alarms for data thresholds and connection issues
+- Data validation with automatic quality control checks
+- Configurable alerts & alarms for data thresholds
 
-### Solar Position Tracking
+### Measured Parameters
 
-The dashboard displays real-time solar position calculated from station coordinates:
+**Atmospheric:**
+- Temperature (°C/°F)
+- Relative Humidity (%)
+- Barometric Pressure (hPa/mbar)
+- Dew Point (°C/°F)
+- Air Density (kg/m³)
+
+**Wind:**
+- Wind Speed (km/h, m/s, mph, knots)
+- Wind Direction (degrees, compass)
+- Wind Gust (instantaneous maximum)
+- Wind Power Density (W/m²)
+
+**Solar:**
+- Solar Radiation (W/m²)
+- UV Index
+- Photosynthetically Active Radiation (PAR)
+- Sunshine Duration
+
+**Precipitation:**
+- Rainfall (mm/inch)
+- Rain Rate (mm/hr)
+- Daily/Monthly/Yearly Totals
+
+**Soil (Agriculture):**
+- Soil Temperature at multiple depths
+- Soil Moisture (volumetric water content)
+- Leaf Wetness
+
+**Air Quality:**
+- PM2.5 and PM10 particulate matter
+- CO2 concentration
+- Atmospheric visibility
+
+**System:**
+- Battery voltage and charge status
+- Solar panel voltage
+- Logger internal temperature
+
+---
+
+## Solar Position Tracking
+
+Real-time solar position calculated from station coordinates:
 
 - **Sun Elevation** - Degrees above/below horizon (-90° to +90°)
 - **Sun Azimuth** - Degrees from north (0° to 360°)
 - **Nautical Dawn/Dusk** - When sun is 12° below horizon
 - **Sunrise/Sunset** - Actual rise and set times
+- **Solar Noon** - Time of maximum sun elevation
 - **Day Length** - Hours of daylight
 
-*Calculations use NOAA solar position algorithms.*
+*Calculations use NOAA solar position algorithms with millisecond precision.*
 
-### Air Density
+---
+
+## Air Density Calculation
 
 Real-time air density calculated from:
 - Temperature (°C)
-- Pressure (hPa)
+- Barometric Pressure (hPa)
 - Relative Humidity (%)
 
-Uses the ideal gas law with humidity correction. Standard reference: 1.225 kg/m³ at sea level.
+Uses the ideal gas law with humidity correction. Standard reference: 1.225 kg/m³ at sea level, 15°C.
 
-### Barometric Pressure
+---
+
+## Barometric Pressure
 
 Dual display showing:
 
 1. **Station Pressure** - Raw pressure at station altitude (hPa)
-2. **Sea Level Pressure (QNH)** - Pressure calibrated to sea level (hPa)
+2. **Sea Level Pressure (QNH)** - Pressure calibrated to mean sea level (hPa)
 
-### Reference Evapotranspiration (ETo)
+The sea level correction uses the hypsometric equation accounting for station altitude and temperature.
 
-Calculated using FAO Penman-Monteith method (FAO-56 standard):
+---
+
+## Reference Evapotranspiration (ETo)
+
+Calculated using the **FAO Penman-Monteith method** (FAO-56 standard), the internationally recognized standard for agricultural water management:
 
 **Required Inputs:**
 - Air temperature
 - Relative humidity
-- Wind speed
+- Wind speed at 2m height
 - Solar radiation
 - Station altitude
 - Station latitude
 
 **Outputs:**
-- Hourly ETo rate (mm/hr)
+- Instantaneous ETo rate (mm/hr)
 - Daily ETo (mm/day)
-- Weekly/Monthly cumulative ETo
+- Weekly cumulative ETo (mm)
+- Monthly cumulative ETo (mm)
 
-### Battery Monitoring
+*Essential for irrigation scheduling, crop water requirements, and agricultural planning.*
 
-Displays logger battery voltage with:
-- Current voltage (V)
-- Status indicator (Critical/Low/Fair/Good/Excellent)
-- Charge percentage estimate
+---
+
+## Battery Monitoring
+
+Comprehensive battery status monitoring:
+
+- Current voltage display (V)
+- Visual status indicator (Critical/Low/Fair/Good/Excellent)
+- Charge percentage estimation
 - 24-hour voltage history chart
 
-**Voltage Thresholds:**
-- Critical: < 11.5V
-- Low: 11.5V - 12.0V
-- Good: 12.0V - 13.5V
-- Charging: > 13.5V
+**Voltage Thresholds (12V systems):**
+- 🔴 Critical: < 11.5V
+- 🟠 Low: 11.5V - 12.0V
+- 🟢 Good: 12.0V - 13.5V
+- ⚡ Charging: > 13.5V
 
 ---
 
@@ -115,38 +178,66 @@ Traditional wind direction frequency distribution showing:
 - **Wind Rose (Today)** - Daily wind direction distribution
 - **Wind Rose (Yesterday)** - Previous day comparison
 
-Each rose displays direction frequency with speed-coded segments using WMO/Beaufort scale colors.
+Each rose displays direction frequency with speed-coded segments using official WMO/Beaufort scale colors.
 
 ### Wind Speed Scatter Plots
 
-Individual wind speed observations plotted on a polar coordinate system:
-- **Wind Speed (Last 30 min)** - Recent observations with tight clustering
+Individual wind speed observations plotted on polar coordinates:
+- **Wind Speed (Last 30 min)** - Recent observations
 - **Wind Speed (Today)** - All today's observations
 - **Wind Speed (Yesterday)** - Previous day observations
 
 **Features:**
 - Points plotted by direction (angle) and speed (radius)
-- Color-coded by wind speed according to WMO/Beaufort scale:
-  - Light blue: Calm/Light (0-6 km/h)
-  - Sky blue: Light Breeze (6-12 km/h)
-  - Blue: Gentle Breeze (12-20 km/h)
-  - Deep blue: Moderate (20-29 km/h)
-  - Dark blue: Fresh (29-39 km/h)
-  - Green: Strong (39-50 km/h)
-  - Yellow: Near Gale (50-62 km/h)
-  - Orange: Gale (62-75 km/h)
-  - Red: Strong Gale (75-89 km/h)
-  - Dark red: Storm+ (>89 km/h)
+- Color-coded by WMO/Beaufort scale:
+
+| Beaufort | Description | km/h | Color |
+|----------|-------------|------|-------|
+| 0 | Calm | < 1 | Light Blue |
+| 1 | Light Air | 1-6 | Sky Blue |
+| 2 | Light Breeze | 6-12 | Blue |
+| 3 | Gentle Breeze | 12-20 | Cyan |
+| 4 | Moderate | 20-29 | Deep Blue |
+| 5 | Fresh | 29-39 | Green |
+| 6 | Strong | 39-50 | Yellow-Green |
+| 7 | Near Gale | 50-62 | Yellow |
+| 8 | Gale | 62-75 | Orange |
+| 9 | Strong Gale | 75-89 | Red |
+| 10 | Storm | 89-103 | Dark Red |
+| 11 | Violent Storm | 103-118 | Maroon |
+| 12 | Hurricane | > 118 | Black-Red |
+
 - Statistics: Average, Max, Min speed, Dominant direction
-- Interactive tooltips showing exact values
+- Interactive tooltips with exact values
 
 ### Wind Compass
 
-Real-time wind direction and speed display with compass rose.
+Real-time wind direction and speed display with animated compass rose and direction arrow.
 
 ### Wind Power Analysis
 
-Wind energy potential calculations for assessment purposes.
+Wind energy potential calculations for renewable energy assessment:
+- Wind Power Density (W/m²)
+- Available wind energy based on air density and wind speed cubed
+
+---
+
+## Fire Danger Index
+
+McArthur Forest Fire Danger Index (FFDI) calculation for fire weather monitoring:
+
+**Input Parameters:**
+- Temperature (°C)
+- Relative Humidity (%)
+- Wind Speed (km/h)
+- Drought Factor
+
+**Danger Categories:**
+- 🟢 Low: 0-12
+- 🟡 Moderate: 12-25
+- 🟠 High: 25-50
+- 🔴 Very High: 50-75
+- ⚫ Extreme: > 75
 
 ---
 
@@ -154,181 +245,129 @@ Wind energy potential calculations for assessment purposes.
 
 ### Local Database
 
-- **SQLite Storage** - All data stored locally for offline access
-- **Data Export** - Export to CSV, JSON, or connect to external databases
-- **Historical Charts** - View and analyze historical weather data
-- **Backup & Restore** - Backup station configurations and data
+- **SQLite Storage** - All data stored locally for complete offline access
+- **Data Export** - Export to CSV, JSON formats
+- **Historical Charts** - Interactive charts with zoom and pan
+- **Data Retention** - Configurable retention policies
 
 ### Dashboard Export
 
-Export the complete dashboard as a multi-page PDF report:
+Export the complete dashboard as a professional multi-page PDF report:
 
 1. Click the **Export** button in the dashboard header
 2. Select **Save as PDF**
 3. The system will:
-   - Capture the full dashboard with white background
+   - Capture the full dashboard with print-optimized styling
    - Split content across multiple A4 pages
    - Add station name, date, and page numbers
    - Generate a downloadable PDF file
 
 ---
 
-## Station Setup
+## Interactive Charts
 
-### Adding a Station
+### Weather Time Series
 
-1. **Open Station Manager** - Click `Station → Add Station` or press `Ctrl+N`
+- Temperature, humidity, pressure trends
+- Wind speed and direction history
+- Solar radiation curves
+- Precipitation accumulation
 
-2. **Enter Basic Information**
-   - Station Name: Descriptive name (e.g., "Main Campus Weather")
-   - PakBus Address: Match datalogger setting (typically 1-4094)
+### Data Block Charts
 
-3. **Configure Connection**
-   
-   **For Serial:**
-   - Connection Type: Serial
-   - COM Port: Select from dropdown
-   - Baud Rate: 115200 (default)
-   
-   **For TCP/IP:**
-   - Connection Type: TCP/IP
-   - Host: IP address or hostname
-   - Port: 6785 (default PakBus port)
+Condensed multi-parameter display showing recent values with mini-sparklines.
 
-4. **Security Settings** (if required)
-   - Security Code: Enter datalogger security code
-   - Leave empty if no security
+### Heat Maps
 
-5. **Test Connection**
-   - Click "Test Connection"
-   - Verify "Hello" response from datalogger
-   - Check table definitions are retrieved
-
-6. **Save Station** - Click "Add Station"
-
-### Data Collection Setup
-
-**Automatic Collection:**
-1. Select Station from the list
-2. Go to Data Collection tab
-3. Configure Schedule:
-   - Table: Select table name (e.g., "WeatherData")
-   - Interval: Collection frequency (e.g., every 5 minutes)
-   - Mode: Most Recent or Since Last Collection
-4. Enable Collection - Toggle "Enable Automatic Collection"
-
-**Collection Modes:**
-- **Most Recent Records** - Collects latest N records (good for real-time monitoring)
-- **Since Last Collection** - Collects all new records since last time (ensures no data gaps)
-- **Specific Range** - Collect records between dates/record numbers
+24-hour × 7-day matrix showing parameter variations by time of day and day of week.
 
 ---
 
-## Remote Access (Cloudflare Tunnel)
+## Station Map
 
-### 24/7 Public Access Features
-
-- Secure HTTPS access via Cloudflare Tunnel
-- Custom domain support (e.g., api.yourdomain.com)
-- Auto-restart Windows services for reliability
-
-### Setup
-
-```powershell
-# Run as Administrator
-cd scripts
-
-# 1. Initial tunnel setup
-.\setup-cloudflare-tunnel.ps1 -Domain "yourdomain.com" -InstallService
-
-# 2. Configure 24/7 production mode
-.\setup-production-24-7.ps1
-
-# 3. Check status
-.\setup-production-24-7.ps1 -CheckStatus
-```
-
-### Endpoints
-
-- **Dashboard**: `https://yourdomain.com`
-- **API**: `https://api.yourdomain.com`
-- **Data Ingestion**: `https://api.yourdomain.com/api/weather-data`
+Interactive OpenStreetMap integration showing:
+- Station location marker
+- Coordinates display
+- Altitude indicator
+- Click-to-set location for new stations
 
 ---
 
 ## Settings & Configuration
 
-### User Preferences
+### Display Units
 
-- **Temperature Unit** - Celsius or Fahrenheit
-- **Wind Speed Unit** - km/h, m/s, mph, knots
-- **Pressure Unit** - hPa, mbar, inHg, mmHg
-- **Precipitation Unit** - mm or inches
-- **Theme** - Light or Dark mode
+| Parameter | Options |
+|-----------|---------|
+| Temperature | Celsius, Fahrenheit |
+| Wind Speed | km/h, m/s, mph, knots |
+| Pressure | hPa, mbar, inHg, mmHg |
+| Precipitation | mm, inches |
+| Solar Radiation | W/m², MJ/m²/day |
 
-### Notification Settings
+### Dashboard Configuration
 
-- Email notifications for alerts
-- Push notifications
-- Configurable temperature and wind thresholds
+- Configurable auto-refresh interval (5s to 60min)
+- Chart time range selection (1hr to 7 days)
+- Enable/disable individual parameter cards
+- Light and Dark theme support
 
-### Data Processing Rules
+### Data Quality Settings
 
-**Scaling:**
-- Scale Factor and Offset configuration
-- Sensor-specific calibration coefficients
-
-**Quality Control:**
-- Min/Max bounds checking
+- Minimum/Maximum bounds checking
 - Rate-of-change limits
 - Stuck sensor detection
+- Gap filling options
 
 ---
 
-## Troubleshooting
+## Deployment Options
 
-### Connection Issues
+### Desktop Application
 
-| Problem | Solution |
-|---------|----------|
-| Connection Timeout | Check physical connection, verify IP/port, ensure datalogger is powered |
-| Invalid Security Code | Verify code matches datalogger, check security level setting |
-| PakBus Address Not Found | Verify address matches, check for conflicts, ensure port is enabled |
-| COM Port Not Found | Check USB cable, install/update drivers, verify in Device Manager |
-| Communication Error | Verify baud rate, check cable wiring (TX/RX crossover) |
+- Windows installer (EXE)
+- Single-user local deployment
+- No internet connection required
+- All data stored locally
 
-### Data Collection Issues
+### Server Deployment
 
-| Problem | Solution |
-|---------|----------|
-| Table Not Found | Verify table name in program, refresh table definitions |
-| No New Data | Check datalogger scan interval, verify data is being logged |
-| Host Unreachable | Check network connectivity, verify IP address, check firewall |
-| Connection Refused | Verify PakBus/TCP is enabled, check port number (default 6785) |
+- Docker container support
+- Railway, Render, or self-hosted
+- Multi-user web access
+- Remote station monitoring
+
+### Remote Access
+
+- Cloudflare Tunnel integration for secure public access
+- Custom domain support
+- Auto-restart Windows services for 24/7 reliability
+- HTTPS encryption
 
 ---
 
-## Best Practices
+## Technical Specifications
 
-### Connection Reliability
-- Use static IP addresses when possible
-- Configure reasonable timeout values
-- Enable automatic reconnection
+### Technology Stack
 
-### Data Integrity
-- Use "Since Last Collection" mode for critical data
-- Configure gap filling
-- Regular backup of database
+- **Frontend:** React, TypeScript, Tailwind CSS, Recharts
+- **Backend:** Node.js, Express, SQLite
+- **Desktop:** Electron for native Windows application
+- **Maps:** Leaflet with OpenStreetMap tiles
+- **PDF Export:** jsPDF with html2canvas
 
-### Security
-- Enable PakBus security on remote stations
-- Use VPN for cellular connections
-- Limit API access to trusted clients
+### System Requirements
 
-### Performance
-- Collect data at appropriate intervals
-- Don't poll faster than datalogger scan rate
-- Use efficient table structures
+**Desktop:**
+- Windows 10/11 (64-bit)
+- 4GB RAM minimum
+- 100MB disk space
+- USB port for serial connections
+
+**Server:**
+- Node.js 18+
+- 512MB RAM minimum
+- SQLite or PostgreSQL database
 
 ---
 
@@ -341,8 +380,6 @@ Version 1.0.0
 **Contact:** esterhuizen2k@proton.me  
 **License:** MIT
 
-Campbell Scientific and PakBus are trademarks of Campbell Scientific, Inc.
-
 ---
 
-*For additional help, visit Campbell Scientific Support at campbellsci.com/support*
+*Stratus is designed for professional meteorological monitoring, agricultural weather services, and environmental data collection.*

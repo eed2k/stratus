@@ -116,15 +116,6 @@ export function WindRose3D({ data, speedClasses = DEFAULT_SPEED_CLASSES, title =
     return bars.sort((a, b) => a.z - b.z);
   }, [data, rotationX, rotationZ, speedClasses, maxValue]);
 
-  const baseCirclePoints = useMemo(() => {
-    const points: string[] = [];
-    for (let i = 0; i <= 360; i += 5) {
-      const p = polarToCart3D(i, maxRadius + 10, 0);
-      points.push(`${p.x},${p.y}`);
-    }
-    return points.join(' ');
-  }, [rotationX, rotationZ]);
-
   return (
     <Card data-testid="card-wind-rose-3d">
       <CardHeader className="pb-2">
@@ -153,7 +144,7 @@ export function WindRose3D({ data, speedClasses = DEFAULT_SPEED_CLASSES, title =
             strokeWidth={1}
           />
 
-          {[0.33, 0.66, 1].map((ratio, i) => (
+          {[0.33, 0.66, 1].map((ratio) => (
             <ellipse
               key={ratio}
               cx={center}
@@ -167,7 +158,7 @@ export function WindRose3D({ data, speedClasses = DEFAULT_SPEED_CLASSES, title =
             />
           ))}
 
-          {WIND_DIRECTIONS.filter((_, i) => i % 2 === 0).map((dir, i) => {
+          {WIND_DIRECTIONS.filter((_, idx) => idx % 2 === 0).map((dir, i) => {
             const angle = i * 45;
             const pos = polarToCart3D(angle, maxRadius + 25, 0);
             return (

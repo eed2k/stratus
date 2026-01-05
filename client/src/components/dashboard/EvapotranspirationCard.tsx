@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Droplets, TrendingUp, Calendar } from "lucide-react";
+import { TrendingUp, Calendar } from "lucide-react";
 
 interface EvapotranspirationCardProps {
   currentETo: number;           // mm/hour (instantaneous rate)

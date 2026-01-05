@@ -62,7 +62,7 @@ function getColorForValue(value: number, scale: typeof COLOR_SCALES.temperature)
 }
 
 export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatMapProps) {
-  const { grid, days, hours, minValue, maxValue } = useMemo(() => {
+  const { grid, hours, minValue, maxValue } = useMemo(() => {
     const hourlyData: Record<string, Record<number, number[]>> = {};
     let min = Infinity;
     let max = -Infinity;

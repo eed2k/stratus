@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -28,11 +28,9 @@ import { WindDirectionChart } from "@/components/dashboard/WindDirectionChart";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { FireDangerChart } from "@/components/charts/FireDangerChart";
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
@@ -258,14 +256,13 @@ interface DashboardProps {
   assignedStations?: number[];
 }
 
-export default function Dashboard({ isAdmin = true, canAccessStation, assignedStations = [] }: DashboardProps) {
+export default function Dashboard({ isAdmin = true, canAccessStation }: DashboardProps) {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
     // Load config from localStorage if available
     const saved = localStorage.getItem('dashboardConfig');
     return saved ? JSON.parse(saved) : DEFAULT_DASHBOARD_CONFIG;
   });
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -308,13 +305,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
   // Manual refresh handler
   const handleRefresh = useCallback(() => {
     refetch();
-    setLastRefresh(new Date());
   }, [refetch]);
-
-  // Check if a parameter is enabled
-  const isParameterEnabled = useCallback((paramId: string) => {
-    return dashboardConfig.enabledParameters.includes(paramId);
-  }, [dashboardConfig.enabledParameters]);
 
   const selectedStation = stations.find(s => s.id === activeStationId);
 
@@ -376,27 +367,36 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
     );
   }
 
+  // Check if viewing demo station (hide admin panels for demo)
+  const isDemoStation = selectedStation?.name?.toLowerCase().includes('demo') || 
+                        selectedStation?.connectionType === 'demo';
+
+  // Demo data for Potchefstroom, South Africa (altitude ~1351m, semi-arid climate)
   const currentData = latestData || {
-    temperature: 23.5,
-    humidity: 68,
-    pressure: 1013.25,
-    windSpeed: 15,
-    windGust: 22,
-    windDirection: 225,
-    solarRadiation: 456,
-    rainfall: 2.4,
-    dewPoint: 16.8,
-    airDensity: 1.225,
-    eto: 4.85,
-    batteryVoltage: 12.8,
-    particulateCount: 42,
-    pm25: 12.5,
-    pm10: 25.3,
-    atmosphericVisibility: 18.5,
-    panelTemperature: 28.5,
-    soilTemperature: 18.2,
-    soilMoisture: 32.5,
-    uvIndex: 6.2,
+    temperature: 26.4,           // Typical summer temp for Potchefstroom
+    humidity: 52,                // Moderate humidity
+    pressure: 865.2,             // Lower pressure at altitude
+    windSpeed: 14.5,             // km/h - typical NE wind
+    windGust: 21.8,              // km/h
+    windDirection: 48,           // NE - prevailing direction
+    solarRadiation: 892,         // W/m² - high altitude = strong solar
+    rainfall: 0,                 // Summer afternoon before rain
+    dewPoint: 14.2,              // °C
+    airDensity: 1.025,           // Lower at altitude
+    eto: 5.82,                   // mm/day - high due to sun + wind
+    batteryVoltage: 13.1,        // Good charge
+    particulateCount: 35,
+    pm25: 11.2,                  // µg/m³ - good air quality
+    pm10: 22.8,                  // µg/m³
+    atmosphericVisibility: 24.5, // km - good visibility
+    panelTemperature: 34.2,      // °C - panels run hot
+    soilTemperature: 22.5,       // °C - soil at 10cm
+    soilMoisture: 28.4,          // % - moderate moisture
+    uvIndex: 9.8,                // High UV at altitude
+    co2: 418,                    // ppm - ambient CO2
+    leafWetness: 0,              // % - dry conditions
+    evapotranspiration: 0.42,    // mm/hr
+    panelVoltage: 15.2,          // V - solar panel charging
   };
 
   // Calculate solar position based on station coordinates
@@ -508,13 +508,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
             onConfigChange={handleConfigChange}
             onRefresh={handleRefresh}
           />
-          {activeStationId && (
+          {activeStationId && !isDemoStation && (
             <DataImport 
               stationId={activeStationId} 
               stationName={selectedStation?.name || "Weather Station"} 
             />
           )}
-          {activeStationId && selectedStation && (
+          {activeStationId && selectedStation && !isDemoStation && (
             <ShareDashboard 
               stationId={activeStationId} 
               stationName={selectedStation.name} 
@@ -549,10 +549,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
           <h2 className="text-base font-normal text-foreground">Station Location</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <StationMap
-              latitude={selectedStation?.latitude || undefined}
-              longitude={selectedStation?.longitude || undefined}
+              latitude={selectedStation?.latitude ?? undefined}
+              longitude={selectedStation?.longitude ?? undefined}
               stationName={selectedStation?.name || "Weather Station"}
-              altitude={selectedStation?.altitude || undefined}
+              altitude={selectedStation?.altitude ?? undefined}
             />
             <Card>
               <CardHeader className="pb-2">
@@ -1235,8 +1235,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, assignedSt
           </div>
         </section>
 
-        {/* Station Administration - Admin Only (hidden in PDF export) */}
-        {isAdmin && selectedStation && (
+        {/* Station Administration - Admin Only (hidden in PDF export and for demo stations) */}
+        {isAdmin && selectedStation && !isDemoStation && (
           <section className="no-print">
           <StationInfoPanel
             station={{
