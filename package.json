@@ -19,7 +19,8 @@
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
-    "db:push": "drizzle-kit push --dialect=postgresql --schema=shared/schema.ts --url=$DATABASE_URL"
+    "db:push": "drizzle-kit push --dialect=postgresql --schema=shared/schema.ts --url=$DATABASE_URL",
+    "docs:pdf": "node scripts/generate-docs-pdf.js"
   },
   "build": {
     "appId": "com.stratus.weather-server",
@@ -176,6 +177,7 @@
     "concurrently": "^8.2.2",
     "electron": "^28.1.0",
     "electron-builder": "^24.9.1",
+    "md-to-pdf": "^5.2.5",
     "png-to-ico": "^3.0.1",
     "postcss": "^8.5.6",
     "sharp": "^0.34.5",

@@ -36,12 +36,14 @@ const adminNavItems = [
   { title: "Alarms", url: "/alarms" },
   { title: "Reports", url: "/reports" },
   { title: "Settings", url: "/settings" },
+  { title: "Documentation", url: "/docs" },
 ];
 
 // User navigation items - limited access
 const userNavItems = [
   { title: "Dashboard", url: "/" },
   { title: "Account Settings", url: "/account" },
+  { title: "Documentation", url: "/docs" },
 ];
 
 export function AppSidebar({ user, onLogout }: AppSidebarProps) {

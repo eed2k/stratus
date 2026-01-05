@@ -21,6 +21,7 @@ import SerialMonitor from "@/pages/SerialMonitor";
 import SharedDashboard from "@/pages/SharedDashboard";
 import UserManagement from "@/pages/UserManagement";
 import AccountSettings from "@/pages/AccountSettings";
+import Documentation from "@/pages/Documentation";
 import { LoginPage } from "@/pages/LoginPage";
 import { Loader2 } from "lucide-react";
 
@@ -118,6 +119,9 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
               {!isAdmin && (
                 <Route path="/account" component={AccountSettings} />
               )}
+              
+              {/* Documentation - available to all users */}
+              <Route path="/docs" component={Documentation} />
               
               <Route component={NotFound} />
             </Switch>

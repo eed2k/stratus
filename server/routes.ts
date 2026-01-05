@@ -4,6 +4,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage, type WeatherData } from "./localStorage";
 import { setupAuth, isAuthenticated, getUserId } from "./localAuth";
 import { z } from "zod";
+import path from "path";
+import fs from "fs";
 
 // Local schema definitions for validation
 const insertWeatherStationSchema = z.object({
@@ -1256,6 +1258,78 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting alarm:", error);
       res.status(500).json({ message: "Failed to delete alarm" });
+    }
+  });
+
+  // Documentation download routes
+  const docsDir = path.join(__dirname, '..', 'docs');
+  
+  app.get("/api/docs", async (req, res) => {
+    try {
+      const docs = [
+        { 
+          id: 'readme', 
+          name: 'Stratus Weather Server - User Guide', 
+          filename: 'Stratus-Weather-Server-README.pdf',
+          description: 'Complete user guide for Stratus Weather Server'
+        },
+        { 
+          id: 'station-setup', 
+          name: 'Station Setup Guide', 
+          filename: 'Stratus-Station-Setup-Guide.pdf',
+          description: 'Campbell Scientific station setup and configuration guide'
+        }
+      ];
+      
+      // Check which PDFs exist
+      const availableDocs = docs.map(doc => {
+        const filePath = path.join(docsDir, doc.filename);
+        const exists = fs.existsSync(filePath);
+        let size = 0;
+        if (exists) {
+          const stats = fs.statSync(filePath);
+          size = stats.size;
+        }
+        return { ...doc, available: exists, size };
+      });
+      
+      res.json(availableDocs);
+    } catch (error) {
+      console.error("Error listing documentation:", error);
+      res.status(500).json({ message: "Failed to list documentation" });
+    }
+  });
+
+  app.get("/api/docs/:docId/download", async (req, res) => {
+    try {
+      const { docId } = req.params;
+      
+      const docMap: Record<string, string> = {
+        'readme': 'Stratus-Weather-Server-README.pdf',
+        'station-setup': 'Stratus-Station-Setup-Guide.pdf'
+      };
+      
+      const filename = docMap[docId];
+      if (!filename) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const filePath = path.join(docsDir, filename);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ 
+          message: "PDF not generated yet. Run 'npm run docs:pdf' to generate documentation." 
+        });
+      }
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error downloading documentation:", error);
+      res.status(500).json({ message: "Failed to download documentation" });
     }
   });
 
