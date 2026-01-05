@@ -66,10 +66,8 @@ export default function Documentation() {
 
   const getDocIcon = (docId: string) => {
     switch (docId) {
-      case 'readme':
+      case 'user-guide':
         return <CloudSun className="h-8 w-8 text-blue-500" />;
-      case 'station-setup':
-        return <Settings2 className="h-8 w-8 text-green-500" />;
       default:
         return <FileText className="h-8 w-8 text-gray-500" />;
     }

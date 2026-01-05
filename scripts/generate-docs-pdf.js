@@ -19,14 +19,9 @@ if (!fs.existsSync(outputDir)) {
 
 const documents = [
   {
-    input: path.join(rootDir, 'README.md'),
-    output: path.join(outputDir, 'Stratus-Weather-Server-README.pdf'),
-    title: 'Stratus Weather Server - User Guide'
-  },
-  {
-    input: path.join(rootDir, 'STATION_SETUP.md'),
-    output: path.join(outputDir, 'Stratus-Station-Setup-Guide.pdf'),
-    title: 'Campbell Scientific Station Setup Guide'
+    input: path.join(outputDir, 'Stratus-User-Guide.md'),
+    output: path.join(outputDir, 'Stratus-Complete-User-Guide.pdf'),
+    title: 'Stratus Weather Server - Complete User Guide'
   }
 ];
 

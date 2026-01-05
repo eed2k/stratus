@@ -1268,16 +1268,10 @@ export async function registerRoutes(
     try {
       const docs = [
         { 
-          id: 'readme', 
-          name: 'Stratus Weather Server - User Guide', 
-          filename: 'Stratus-Weather-Server-README.pdf',
-          description: 'Complete user guide for Stratus Weather Server'
-        },
-        { 
-          id: 'station-setup', 
-          name: 'Station Setup Guide', 
-          filename: 'Stratus-Station-Setup-Guide.pdf',
-          description: 'Campbell Scientific station setup and configuration guide'
+          id: 'user-guide', 
+          name: 'Stratus Weather Server - Complete User Guide', 
+          filename: 'Stratus-Complete-User-Guide.pdf',
+          description: 'Complete guide covering features, capabilities, station setup, and configuration'
         }
       ];
       
@@ -1305,8 +1299,7 @@ export async function registerRoutes(
       const { docId } = req.params;
       
       const docMap: Record<string, string> = {
-        'readme': 'Stratus-Weather-Server-README.pdf',
-        'station-setup': 'Stratus-Station-Setup-Guide.pdf'
+        'user-guide': 'Stratus-Complete-User-Guide.pdf'
       };
       
       const filename = docMap[docId];

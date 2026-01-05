@@ -104,7 +104,7 @@ export function BarometricPressureCard({
                 <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {stationPressure.toFixed(1)}
                 </span>
-                <span className="text-sm text-gray-500">mbar</span>
+                <span className="text-sm text-gray-500">hPa</span>
               </div>
               {renderSparkline(stationChartData, "#8b5cf6")}
             </div>
@@ -119,7 +119,7 @@ export function BarometricPressureCard({
                 <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {calculatedSeaLevel.toFixed(1)}
                 </span>
-                <span className="text-sm text-gray-500">mbar</span>
+                <span className="text-sm text-gray-500">hPa</span>
               </div>
               {renderSparkline(seaLevelChartData, "#3b82f6")}
             </div>
