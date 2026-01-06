@@ -4,6 +4,24 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initDatabase } from "./db";
 
+// Environment validation
+const validateEnvironment = () => {
+  const port = parseInt(process.env.PORT || "5000", 10);
+  if (isNaN(port) || port < 0 || port > 65535) {
+    console.error("Invalid PORT environment variable. Must be a number between 0 and 65535.");
+    process.exit(1);
+  }
+  
+  // Validate VITE_DEMO_MODE if set
+  if (process.env.VITE_DEMO_MODE && !['true', 'false'].includes(process.env.VITE_DEMO_MODE)) {
+    console.warn("VITE_DEMO_MODE should be 'true' or 'false'. Defaulting to false.");
+  }
+  
+  return { port };
+};
+
+const { port: validatedPort } = validateEnvironment();
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -94,7 +112,7 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
+  const port = validatedPort;
   
   httpServer.on('error', (err) => {
     console.error('Server error:', err);

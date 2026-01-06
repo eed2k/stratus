@@ -45,6 +45,7 @@ export function LoginForm({ onLogin, onSocialLogin, onSignUp }: LoginFormProps) 
             variant="outline"
             onClick={() => handleSocialLogin("google")}
             data-testid="button-login-google"
+            aria-label="Sign in with Google"
           >
             <SiGoogle className="h-4 w-4" />
           </Button>
@@ -52,6 +53,7 @@ export function LoginForm({ onLogin, onSocialLogin, onSignUp }: LoginFormProps) 
             variant="outline"
             onClick={() => handleSocialLogin("github")}
             data-testid="button-login-github"
+            aria-label="Sign in with GitHub"
           >
             <SiGithub className="h-4 w-4" />
           </Button>
@@ -59,6 +61,7 @@ export function LoginForm({ onLogin, onSocialLogin, onSignUp }: LoginFormProps) 
             variant="outline"
             onClick={() => handleSocialLogin("apple")}
             data-testid="button-login-apple"
+            aria-label="Sign in with Apple"
           >
             <SiApple className="h-4 w-4" />
           </Button>

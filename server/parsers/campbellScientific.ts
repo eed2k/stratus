@@ -306,8 +306,14 @@ function parseGenericCSV(content: string): ParsedFile {
 
 /**
  * Map Campbell Scientific field names to standard weather data fields
+ * Includes comprehensive null safety checks for all field lookups
  */
 export function mapToWeatherData(record: ParsedRecord): Record<string, number | null> {
+  // Early return if record or data is null/undefined
+  if (!record || !record.data) {
+    return {};
+  }
+
   const fieldMappings: Record<string, string[]> = {
     temperature: ["AirTC", "AirTC_Avg", "Temp_C", "Temperature", "T_Avg", "Air_Temp"],
     humidity: ["RH", "RH_Avg", "Humidity", "RelHumidity", "RH_pct"],
@@ -327,12 +333,30 @@ export function mapToWeatherData(record: ParsedRecord): Record<string, number | 
   const result: Record<string, number | null> = {};
 
   for (const [standardField, possibleNames] of Object.entries(fieldMappings)) {
+    if (!Array.isArray(possibleNames)) continue;
+    
     for (const name of possibleNames) {
-      if (record.data[name] !== undefined) {
-        const value = record.data[name];
-        result[standardField] = typeof value === "number" ? value : null;
-        break;
+      if (!name) continue;
+      
+      const value = record.data[name];
+      if (value !== undefined && value !== null) {
+        // Safely convert to number with validation
+        if (typeof value === "number" && !isNaN(value) && isFinite(value)) {
+          result[standardField] = value;
+          break;
+        } else if (typeof value === "string") {
+          const parsed = parseFloat(value);
+          if (!isNaN(parsed) && isFinite(parsed)) {
+            result[standardField] = parsed;
+            break;
+          }
+        }
       }
+    }
+    
+    // Initialize to null if not found
+    if (result[standardField] === undefined) {
+      result[standardField] = null;
     }
   }
 

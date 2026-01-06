@@ -6,6 +6,28 @@ import { setupAuth, isAuthenticated, getUserId } from "./localAuth";
 import { z } from "zod";
 import path from "path";
 import fs from "fs";
+import rateLimit from "express-rate-limit";
+
+// Helper function to safely parse integer parameters with NaN validation
+function parseIntSafe(value: string | undefined, paramName: string): { value: number | null; error: string | null } {
+  if (value === undefined || value === '') {
+    return { value: null, error: `Missing required parameter: ${paramName}` };
+  }
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) {
+    return { value: null, error: `Invalid ${paramName}: must be a valid integer` };
+  }
+  return { value: parsed, error: null };
+}
+
+// Rate limiter for public ingest endpoint
+const ingestRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: 60, // Max 60 requests per minute per IP
+  message: { success: false, message: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Local schema definitions for validation
 const insertWeatherStationSchema = z.object({
@@ -57,6 +79,24 @@ const insertOrganizationInvitationSchema = z.object({
   organizationId: z.number(),
   email: z.string(),
   role: z.string()
+});
+
+// Alarm validation schema
+const insertAlarmSchema = z.object({
+  stationId: z.number(),
+  name: z.string().min(1, "Alarm name is required"),
+  parameter: z.string().min(1, "Parameter is required"),
+  condition: z.enum(['above', 'below', 'equals', 'not_equals'], {
+    errorMap: () => ({ message: "Condition must be one of: above, below, equals, not_equals" })
+  }),
+  threshold: z.number({
+    required_error: "Threshold is required",
+    invalid_type_error: "Threshold must be a number"
+  }),
+  unit: z.string().optional(),
+  enabled: z.boolean().optional().default(true),
+  notifyEmail: z.boolean().optional().default(true),
+  notifyPush: z.boolean().optional().default(false)
 });
 import { nanoid } from "nanoid";
 import { registerCampbellRoutes } from "./campbell/routes";
@@ -145,7 +185,10 @@ export async function registerRoutes(
 
   app.get("/api/protocols/status/:stationId", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const status = protocolManager.getStationStatus(stationId);
       if (!status) {
         return res.status(404).json({ message: "Station not found" });
@@ -158,7 +201,10 @@ export async function registerRoutes(
 
   app.post("/api/protocols/test/:stationId", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ success: false, message: error });
+      }
       const result = await protocolManager.testConnection(stationId);
       res.json(result);
     } catch (error: any) {
@@ -168,7 +214,10 @@ export async function registerRoutes(
 
   app.post("/api/protocols/reconnect/:stationId", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const station = await storage.getWeatherStation(stationId);
       if (!station) {
         return res.status(404).json({ message: "Station not found" });
@@ -331,7 +380,11 @@ export async function registerRoutes(
 
   app.get("/api/stations/:id", optionalAuth, async (req, res) => {
     try {
-      const station = await storage.getStation(parseInt(req.params.id));
+      const { value: stationId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const station = await storage.getStation(stationId);
       if (!station) {
         return res.status(404).json({ message: "Station not found" });
       }
@@ -393,7 +446,11 @@ export async function registerRoutes(
 
   app.patch("/api/stations/:id", isAuthenticated, async (req, res) => {
     try {
-      const station = await storage.updateStation(parseInt(req.params.id), req.body);
+      const { value: stationId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const station = await storage.updateStation(stationId, req.body);
       if (!station) {
         return res.status(404).json({ message: "Station not found" });
       }
@@ -445,7 +502,10 @@ export async function registerRoutes(
 
   app.delete("/api/stations/:id", isAuthenticated, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.id);
+      const { value: stationId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       
       // Unregister from Protocol Manager first
       try {
@@ -495,7 +555,10 @@ export async function registerRoutes(
   app.delete("/api/user/stations/:stationId", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const deleted = await storage.removeUserStation(userId, stationId);
       if (!deleted) {
         return res.status(404).json({ message: "User station not found" });
@@ -510,7 +573,10 @@ export async function registerRoutes(
   app.patch("/api/user/stations/:stationId/default", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const success = await storage.setDefaultStation(userId, stationId);
       if (!success) {
         return res.status(404).json({ message: "User station not found" });
@@ -525,7 +591,10 @@ export async function registerRoutes(
   // Weather Data routes (demo mode bypasses auth)
   app.get("/api/stations/:stationId/data/latest", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const data = await storage.getLatestWeatherData(stationId);
       if (!data) {
         return res.status(404).json({ message: "No weather data found" });
@@ -539,7 +608,10 @@ export async function registerRoutes(
 
   app.get("/api/stations/:stationId/data", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const { startTime, endTime } = req.query;
       
       if (!startTime || !endTime) {
@@ -560,7 +632,10 @@ export async function registerRoutes(
 
   app.post("/api/stations/:stationId/data", isAuthenticated, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const parsed = insertWeatherDataSchema.safeParse({
         ...req.body,
         stationId,
@@ -601,9 +676,15 @@ export async function registerRoutes(
   // Body:
   //   { "data": { "temperature": 22.5, "humidity": 65, ... }, "timestamp": "ISO8601" }
   // ============================================================================
-  app.post("/api/ingest/:stationId", async (req, res) => {
+  app.post("/api/ingest/:stationId", ingestRateLimiter, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ 
+          success: false,
+          message: error 
+        });
+      }
       
       // Verify station exists
       const station = await storage.getStation(stationId);
@@ -665,7 +746,10 @@ export async function registerRoutes(
   // File import endpoint for Campbell Scientific data files
   app.post("/api/stations/:stationId/import", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const { content, filename } = req.body;
       
       if (!content) {
@@ -766,26 +850,16 @@ export async function registerRoutes(
     }
   });
 
-  // Update station (for personnel, etc.)
-  app.patch("/api/stations/:id", optionalAuth, async (req, res) => {
-    try {
-      const stationId = parseInt(req.params.id);
-      const station = await storage.getStation(stationId);
-      if (!station) {
-        return res.status(404).json({ message: "Station not found" });
-      }
-      const updated = await storage.updateStation(stationId, req.body);
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating station:", error);
-      res.status(500).json({ message: "Failed to update station" });
-    }
-  });
+  // NOTE: Station PATCH route is defined above with isAuthenticated middleware
+  // Removed duplicate route here to avoid route conflict
 
   // Sensors routes
   app.get("/api/stations/:stationId/sensors", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const sensors = await storage.getSensors(stationId);
       res.json(sensors);
     } catch (error) {
@@ -796,7 +870,10 @@ export async function registerRoutes(
 
   app.post("/api/stations/:stationId/sensors", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const sensor = await storage.createSensor({
         ...req.body,
         stationId,
@@ -811,9 +888,12 @@ export async function registerRoutes(
   // Station Logs routes
   app.get("/api/stations/:stationId/logs", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const logs = await storage.getStationLogs(stationId, limit);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      const logs = await storage.getStationLogs(stationId, isNaN(limit) ? 50 : limit);
       res.json(logs);
     } catch (error) {
       console.error("Error fetching station logs:", error);
@@ -823,7 +903,10 @@ export async function registerRoutes(
 
   app.post("/api/stations/:stationId/logs", optionalAuth, async (req, res) => {
     try {
-      const stationId = parseInt(req.params.stationId);
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
       const parsed = insertStationLogSchema.safeParse({
         ...req.body,
         stationId,
@@ -874,7 +957,10 @@ export async function registerRoutes(
 
   app.get("/api/organizations/:id", optionalAuth, async (req, res) => {
     try {
-      const orgId = parseInt(req.params.id);
+      const { value: orgId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       const org = await storage.getOrganization(orgId);
       if (!org) {
         return res.status(404).json({ message: "Organization not found" });
@@ -937,7 +1023,10 @@ export async function registerRoutes(
   app.patch("/api/organizations/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const orgId = parseInt(req.params.id);
+      const { value: orgId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       
       // Only admins can update organization
       if (!(await isOrgAdmin(orgId, userId))) {
@@ -964,7 +1053,10 @@ export async function registerRoutes(
   app.delete("/api/organizations/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const orgId = parseInt(req.params.id);
+      const { value: orgId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       
       // Only owner can delete organization
       const org = await storage.getOrganization(orgId);
@@ -986,7 +1078,10 @@ export async function registerRoutes(
   // Organization Members routes
   app.get("/api/organizations/:orgId/members", optionalAuth, async (req, res) => {
     try {
-      const orgId = parseInt(req.params.orgId);
+      const { value: orgId, error } = parseIntSafe(req.params.orgId, 'orgId');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       
       // Check membership unless demo mode
       if (!DEMO_MODE) {
@@ -1007,7 +1102,10 @@ export async function registerRoutes(
   app.post("/api/organizations/:orgId/members", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const orgId = parseInt(req.params.orgId);
+      const { value: orgId, error } = parseIntSafe(req.params.orgId, 'orgId');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       
       // Only admins can add members directly
       if (!(await isOrgAdmin(orgId, userId))) {
@@ -1036,7 +1134,10 @@ export async function registerRoutes(
   app.patch("/api/organizations/:orgId/members/:userId/role", isAuthenticated, async (req, res) => {
     try {
       const currentUserId = getUserId(req);
-      const orgId = parseInt(req.params.orgId);
+      const { value: orgId, error } = parseIntSafe(req.params.orgId, 'orgId');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       const targetUserId = req.params.userId;
       
       // Only admins can update roles
@@ -1063,7 +1164,10 @@ export async function registerRoutes(
   app.delete("/api/organizations/:orgId/members/:userId", isAuthenticated, async (req, res) => {
     try {
       const currentUserId = getUserId(req);
-      const orgId = parseInt(req.params.orgId);
+      const { value: orgId, error } = parseIntSafe(req.params.orgId, 'orgId');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       const targetUserId = req.params.userId;
       
       // Only admins can remove members (or user can remove themselves)
@@ -1091,7 +1195,10 @@ export async function registerRoutes(
   // Organization Invitations routes
   app.get("/api/organizations/:orgId/invitations", optionalAuth, async (req, res) => {
     try {
-      const orgId = parseInt(req.params.orgId);
+      const { value: orgId, error } = parseIntSafe(req.params.orgId, 'orgId');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       
       // Check membership unless demo mode
       if (!DEMO_MODE) {
@@ -1112,7 +1219,10 @@ export async function registerRoutes(
   app.post("/api/organizations/:orgId/invitations", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const orgId = parseInt(req.params.orgId);
+      const { value: orgId, error } = parseIntSafe(req.params.orgId, 'orgId');
+      if (error || orgId === null) {
+        return res.status(400).json({ message: error });
+      }
       
       // Only admins can create invitations
       if (!(await isOrgAdmin(orgId, userId))) {
@@ -1182,6 +1292,7 @@ export async function registerRoutes(
   });
 
   // In-memory alarms storage (for demo - would use database in production)
+  // TODO: Move to persistent database storage
   const alarms: Map<number, any> = new Map();
   let alarmIdCounter = 1;
 
@@ -1202,7 +1313,17 @@ export async function registerRoutes(
   app.post("/api/alarms", optionalAuth, async (req, res) => {
     try {
       const userId = DEMO_MODE ? "demo" : getUserId(req);
-      const { stationId, name, parameter, condition, threshold, unit, enabled, notifyEmail, notifyPush } = req.body;
+      
+      // Validate alarm data using Zod schema
+      const parsed = insertAlarmSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ 
+          message: "Invalid alarm data", 
+          errors: parsed.error.errors 
+        });
+      }
+      
+      const { stationId, name, parameter, condition, threshold, unit, enabled, notifyEmail, notifyPush } = parsed.data;
       
       const alarm = {
         id: alarmIdCounter++,
@@ -1231,7 +1352,10 @@ export async function registerRoutes(
 
   app.patch("/api/alarms/:id", optionalAuth, async (req, res) => {
     try {
-      const alarmId = parseInt(req.params.id);
+      const { value: alarmId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || alarmId === null) {
+        return res.status(400).json({ message: error });
+      }
       const alarm = alarms.get(alarmId);
       
       if (!alarm) {
@@ -1249,7 +1373,10 @@ export async function registerRoutes(
 
   app.delete("/api/alarms/:id", optionalAuth, async (req, res) => {
     try {
-      const alarmId = parseInt(req.params.id);
+      const { value: alarmId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || alarmId === null) {
+        return res.status(400).json({ message: error });
+      }
       if (!alarms.has(alarmId)) {
         return res.status(404).json({ message: "Alarm not found" });
       }

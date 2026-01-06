@@ -11,6 +11,7 @@ import { WindRose } from "@/components/charts/WindRose";
 import { WeatherChart } from "@/components/charts/WeatherChart";
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   Cloud,
   Lock,
@@ -63,7 +64,8 @@ const generateWindRoseData = () => {
   return data;
 };
 
-export default function SharedDashboard() {
+// Internal component that may throw errors
+function SharedDashboardContent() {
   const params = useParams();
   const shareToken = params.shareToken as string;
   
@@ -449,5 +451,14 @@ export default function SharedDashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+// Export with ErrorBoundary wrapper
+export default function SharedDashboard() {
+  return (
+    <ErrorBoundary>
+      <SharedDashboardContent />
+    </ErrorBoundary>
   );
 }

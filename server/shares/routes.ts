@@ -1,21 +1,38 @@
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
+import bcrypt from "bcrypt";
 import { createShare, getShareByToken, getSharesByStation, updateShare, deleteShare, Share } from "../db";
 
 const router = Router();
+
+// Number of salt rounds for bcrypt
+const SALT_ROUNDS = 10;
 
 // Generate a unique share token
 const generateShareToken = (): string => {
   return randomBytes(16).toString('hex');
 };
 
+// Hash a password using bcrypt
+const hashPassword = async (password: string): Promise<string> => {
+  return bcrypt.hash(password, SALT_ROUNDS);
+};
+
+// Verify a password against a hash
+const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
+  return bcrypt.compare(password, hash);
+};
+
 // Create a new share link for a station
-router.post('/stations/:stationId/shares', (req: Request, res: Response) => {
+router.post('/stations/:stationId/shares', async (req: Request, res: Response) => {
   try {
     const { stationId } = req.params;
     const { name, email, accessLevel = 'viewer', password, expiresAt } = req.body;
     
     const shareToken = generateShareToken();
+    
+    // Hash password if provided
+    const hashedPassword = password ? await hashPassword(password) : undefined;
     
     const share: Share = {
       station_id: parseInt(stationId),
@@ -23,7 +40,7 @@ router.post('/stations/:stationId/shares', (req: Request, res: Response) => {
       name: name || 'Shared Dashboard',
       email,
       access_level: accessLevel,
-      password,
+      password: hashedPassword,
       expires_at: expiresAt || undefined,
       is_active: 1,
       access_count: 0,
@@ -42,7 +59,7 @@ router.post('/stations/:stationId/shares', (req: Request, res: Response) => {
         name: share.name,
         email: share.email,
         accessLevel: share.access_level,
-        password: share.password ? '••••••' : undefined,
+        password: password ? '••••••' : undefined,
         expiresAt: share.expires_at,
         isActive: share.is_active === 1,
         accessCount: share.access_count,
@@ -89,7 +106,7 @@ router.get('/stations/:stationId/shares', (req: Request, res: Response) => {
 });
 
 // Validate a share token and get access
-router.post('/shares/:shareToken/validate', (req: Request, res: Response) => {
+router.post('/shares/:shareToken/validate', async (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
     const { password } = req.body;
@@ -108,8 +125,15 @@ router.post('/shares/:shareToken/validate', (req: Request, res: Response) => {
       return res.status(403).json({ success: false, error: 'Share link has expired' });
     }
     
-    if (share.password && share.password !== password) {
-      return res.status(401).json({ success: false, error: 'Invalid password', requiresPassword: true });
+    // Verify password using bcrypt if share has a password
+    if (share.password) {
+      if (!password) {
+        return res.status(401).json({ success: false, error: 'Password required', requiresPassword: true });
+      }
+      const isValidPassword = await verifyPassword(password, share.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ success: false, error: 'Invalid password', requiresPassword: true });
+      }
     }
     
     // Update access stats
@@ -166,7 +190,7 @@ router.get('/shares/:shareToken', (req: Request, res: Response) => {
 });
 
 // Update a share
-router.patch('/shares/:shareToken', (req: Request, res: Response) => {
+router.patch('/shares/:shareToken', async (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
     const share = getShareByToken(shareToken);
@@ -181,7 +205,10 @@ router.patch('/shares/:shareToken', (req: Request, res: Response) => {
     if (name !== undefined) updates.name = name;
     if (email !== undefined) updates.email = email;
     if (accessLevel !== undefined) updates.access_level = accessLevel;
-    if (password !== undefined) updates.password = password;
+    if (password !== undefined) {
+      // Hash new password if provided
+      updates.password = password ? await hashPassword(password) : undefined;
+    }
     if (expiresAt !== undefined) updates.expires_at = expiresAt || undefined;
     if (isActive !== undefined) updates.is_active = isActive ? 1 : 0;
     
