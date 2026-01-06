@@ -5,6 +5,11 @@
 
 import { storage } from '../localStorage';
 
+// Potchefstroom coordinates
+const POTCHEFSTROOM_LAT = -26.7145;
+const POTCHEFSTROOM_LON = 27.0970;
+const POTCHEFSTROOM_ALT = 1351;
+
 /**
  * Initialize a demo station with sample data
  * Creates a station named "Elsa" with realistic weather data in Potchefstroom
@@ -13,8 +18,22 @@ export async function initializeDemoStation() {
   // Check if demo station already exists
   const existingStations = await storage.getStations();
   const demoStation = existingStations.find(s => s.name === 'Elsa - Demo Station');
+  
   if (demoStation) {
-    console.log('Skipping demo station: Elsa - Demo Station');
+    // Update coordinates if they differ (ensures Potchefstroom location)
+    if (demoStation.latitude !== POTCHEFSTROOM_LAT || 
+        demoStation.longitude !== POTCHEFSTROOM_LON ||
+        demoStation.altitude !== POTCHEFSTROOM_ALT) {
+      console.log('Updating demo station coordinates to Potchefstroom...');
+      await storage.updateStation(demoStation.id, {
+        latitude: POTCHEFSTROOM_LAT,
+        longitude: POTCHEFSTROOM_LON,
+        altitude: POTCHEFSTROOM_ALT,
+        location: 'Potchefstroom, South Africa'
+      });
+      return { ...demoStation, latitude: POTCHEFSTROOM_LAT, longitude: POTCHEFSTROOM_LON, altitude: POTCHEFSTROOM_ALT };
+    }
+    console.log('Demo station exists with correct coordinates');
     return demoStation;
   }
 
@@ -29,9 +48,9 @@ export async function initializeDemoStation() {
       stationType: 'demo'
     },
     location: 'Potchefstroom, South Africa',
-    latitude: -26.7145, // Potchefstroom coordinates
-    longitude: 27.0970,
-    altitude: 1351, // Potchefstroom elevation in meters
+    latitude: POTCHEFSTROOM_LAT,
+    longitude: POTCHEFSTROOM_LON,
+    altitude: POTCHEFSTROOM_ALT,
     description: 'Demo weather station for testing and visualization - All sensors enabled',
     securityCode: 0,
     isActive: true

@@ -537,16 +537,6 @@ export default function Settings() {
             <Separator />
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-medium">Two-Factor Authentication</p>
-                <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
-              </div>
-              <Button variant="outline" data-testid="button-enable-2fa" onClick={() => showComingSoon("Two-Factor Authentication")}>
-                Enable 2FA
-              </Button>
-            </div>
-            <Separator />
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
                 <p className="font-medium text-destructive">Delete Account</p>
                 <p className="text-sm text-muted-foreground">Permanently delete your account and data</p>
               </div>
