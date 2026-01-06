@@ -24,8 +24,56 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
   };
 
   /**
+   * Capture a single element to canvas with white background
+   */
+  const captureElement = async (element: HTMLElement): Promise<HTMLCanvasElement> => {
+    return html2canvas(element, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      logging: false,
+      useCORS: true,
+      allowTaint: true,
+      scrollY: -window.scrollY,
+      windowHeight: document.documentElement.scrollHeight,
+      onclone: (_clonedDoc, clonedElement) => {
+        clonedElement.style.backgroundColor = "#ffffff";
+        clonedElement.style.color = "#1a1a1a";
+        
+        // Force white backgrounds on all elements
+        const allElements = clonedElement.querySelectorAll('*');
+        allElements.forEach((el: Element) => {
+          const htmlEl = el as HTMLElement;
+          const computedStyle = window.getComputedStyle(el);
+          const color = computedStyle.color;
+          if (color === 'rgb(255, 255, 255)' || 
+              color === 'rgba(255, 255, 255, 1)' ||
+              color.includes('255, 255, 255')) {
+            htmlEl.style.color = "#1a1a1a";
+          }
+          const bgColor = computedStyle.backgroundColor;
+          if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+            const rgb = bgColor.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+              if (brightness < 128) {
+                htmlEl.style.backgroundColor = "#ffffff";
+              }
+            }
+          }
+        });
+        
+        // Hide no-print elements
+        const clonedNoPrint = clonedElement.querySelectorAll('.no-print');
+        clonedNoPrint.forEach((el: Element) => {
+          (el as HTMLElement).style.display = 'none';
+        });
+      }
+    });
+  };
+
+  /**
    * Export dashboard as multi-page PDF with white background
-   * Captures individual cards to avoid cutting content at page breaks
+   * Captures INDIVIDUAL CARDS separately to prevent page breaks cutting through content
    */
   const handlePDF = async () => {
     setIsExporting(true);
@@ -46,10 +94,10 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
       const pageHeight = 210;
       const margin = 10;
       const headerHeight = 18;
-      const footerHeight = 8;
+      const footerHeight = 10;
       const contentWidth = pageWidth - margin * 2;
       const contentHeightPerPage = pageHeight - margin * 2 - headerHeight - footerHeight;
-      const sectionGap = 4; // Gap between sections in mm
+      const itemGap = 3; // Gap between items in mm
       
       // Create PDF in landscape orientation
       const pdf = new jsPDF({
@@ -67,159 +115,95 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         minute: "2-digit",
       });
 
-      // Find all exportable items - prioritize individual cards and smaller chunks
-      const exportItems: HTMLElement[] = [];
+      // Collect ALL individual exportable items (cards, sections headers, etc.)
+      interface ExportItem {
+        element: HTMLElement;
+        type: 'card' | 'section-header' | 'grid' | 'other';
+        sectionTitle?: string;
+      }
+      const exportItems: ExportItem[] = [];
       
-      // Get all cards (individual components that shouldn't be split)
-      const cardElements = element.querySelectorAll('[data-testid^="card-"]:not(.no-print)');
+      // First, get the current conditions card (top priority)
+      const currentConditions = element.querySelector('[data-testid="card-current-conditions"]');
+      if (currentConditions) {
+        exportItems.push({ element: currentConditions as HTMLElement, type: 'card' });
+      }
       
-      // If we have individual cards, capture them for better page break control
-      if (cardElements.length > 0) {
-        // First, capture any current conditions header
-        const currentConditions = element.querySelector('[class*="CurrentConditions"], [data-testid="current-conditions"]');
-        if (currentConditions) {
-          exportItems.push(currentConditions as HTMLElement);
+      // Then process each section
+      const sections = element.querySelectorAll('section:not(.no-print)');
+      sections.forEach(section => {
+        // Capture section header (h2) separately
+        const sectionHeader = section.querySelector('h2');
+        if (sectionHeader) {
+          exportItems.push({ 
+            element: sectionHeader as HTMLElement, 
+            type: 'section-header',
+            sectionTitle: sectionHeader.textContent || ''
+          });
         }
         
-        // Then capture section headers followed by their content
-        const sections = element.querySelectorAll('section:not(.no-print)');
-        sections.forEach(section => {
-          // Check if this section has cards or grids
-          const sectionCards = section.querySelectorAll('[data-testid^="card-"]:not(.no-print)');
-          const sectionGrids = section.querySelectorAll('.grid:not(.no-print)');
-          
-          if (sectionCards.length > 0 || sectionGrids.length > 0) {
-            // Add the whole section as one block if it contains cards
-            exportItems.push(section as HTMLElement);
-          }
+        // Capture each individual card in this section
+        const cards = section.querySelectorAll('[data-testid^="card-"]:not(.no-print)');
+        cards.forEach(card => {
+          exportItems.push({ element: card as HTMLElement, type: 'card' });
         });
         
-        // If no sections with cards found, fall back to individual cards
-        if (exportItems.length === 0) {
-          cardElements.forEach(el => exportItems.push(el as HTMLElement));
-        }
-      } else {
-        // Fall back to sections or the entire element
-        const sectionElements = element.querySelectorAll('section:not(.no-print)');
-        if (sectionElements.length > 0) {
-          sectionElements.forEach(el => exportItems.push(el as HTMLElement));
-        } else {
-          exportItems.push(element);
-        }
-      }
+        // Capture grids that contain MetricCards (they don't have data-testid)
+        const grids = section.querySelectorAll('.grid:not(.no-print)');
+        grids.forEach(grid => {
+          // Check if this grid has cards we already captured
+          const hasCards = grid.querySelectorAll('[data-testid^="card-"]').length > 0;
+          if (!hasCards) {
+            // This grid has items without data-testid (like MetricCards)
+            exportItems.push({ element: grid as HTMLElement, type: 'grid' });
+          }
+        });
+      });
 
-      // If still no items found, capture whole element
+      // If no items found, fall back to capturing the whole element
       if (exportItems.length === 0) {
-        exportItems.push(element);
+        exportItems.push({ element, type: 'other' });
       }
 
       // Capture each item as a separate image
-      const itemImages: { imgData: string; heightMm: number; isSection: boolean }[] = [];
+      interface CapturedItem {
+        imgData: string;
+        heightMm: number;
+        widthMm: number;
+        type: ExportItem['type'];
+        sectionTitle?: string;
+      }
+      const capturedItems: CapturedItem[] = [];
       
       for (const item of exportItems) {
-        // Hide no-print elements temporarily
-        const noPrintEls = item.querySelectorAll('.no-print');
-        const hiddenEls: HTMLElement[] = [];
-        noPrintEls.forEach(el => {
-          const htmlEl = el as HTMLElement;
-          if (htmlEl.style.display !== 'none') {
-            hiddenEls.push(htmlEl);
-            htmlEl.style.display = 'none';
-          }
-        });
-
         try {
-          const canvas = await html2canvas(item, {
-            backgroundColor: "#ffffff",
-            scale: 2,
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            scrollY: -window.scrollY,
-            windowHeight: document.documentElement.scrollHeight,
-            onclone: (_clonedDoc, clonedElement) => {
-              clonedElement.style.backgroundColor = "#ffffff";
-              clonedElement.style.color = "#1a1a1a";
-              clonedElement.style.padding = "8px";
-              
-              // Force white backgrounds on cards
-              const cards = clonedElement.querySelectorAll('[class*="card"], [class*="Card"]');
-              cards.forEach((card: Element) => {
-                const cardEl = card as HTMLElement;
-                cardEl.style.backgroundColor = "#ffffff";
-                cardEl.style.borderColor = "#d1d5db";
-                cardEl.style.color = "#1a1a1a";
-                cardEl.style.marginBottom = "8px";
-              });
-              
-              // Fix dark mode text colors and backgrounds
-              const allElements = clonedElement.querySelectorAll('*');
-              allElements.forEach((el: Element) => {
-                const htmlEl = el as HTMLElement;
-                const computedStyle = window.getComputedStyle(el);
-                const color = computedStyle.color;
-                if (color === 'rgb(255, 255, 255)' || 
-                    color === 'rgba(255, 255, 255, 1)' ||
-                    color.includes('255, 255, 255')) {
-                  htmlEl.style.color = "#1a1a1a";
-                }
-                const bgColor = computedStyle.backgroundColor;
-                if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-                  const rgb = bgColor.match(/\d+/g);
-                  if (rgb && rgb.length >= 3) {
-                    const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                    if (brightness < 128) {
-                      htmlEl.style.backgroundColor = "#ffffff";
-                    }
-                  }
-                }
-              });
-              
-              const clonedNoPrint = clonedElement.querySelectorAll('.no-print');
-              clonedNoPrint.forEach((el: Element) => {
-                (el as HTMLElement).style.display = 'none';
-              });
-            }
-          });
-
-          const imgData = canvas.toDataURL("image/jpeg", 0.95);
+          const canvas = await captureElement(item.element);
+          const imgData = canvas.toDataURL("image/jpeg", 0.92);
           const imgRatio = canvas.height / canvas.width;
           const heightMm = contentWidth * imgRatio;
-          const isSection = item.tagName.toLowerCase() === 'section';
           
-          itemImages.push({ imgData, heightMm, isSection });
-        } finally {
-          // Restore hidden elements
-          hiddenEls.forEach(el => {
-            el.style.display = '';
+          capturedItems.push({ 
+            imgData, 
+            heightMm, 
+            widthMm: contentWidth,
+            type: item.type,
+            sectionTitle: item.sectionTitle
           });
+        } catch (err) {
+          console.warn('Failed to capture element:', err);
         }
       }
 
-      // Now layout the images across pages, avoiding cutting sections
-      let currentPage = 1;
-      let currentY = margin + headerHeight;
+      // Calculate total pages needed for progress display
       let totalPages = 1;
-
-      // First pass: calculate total pages needed
       let tempY = margin + headerHeight;
-      for (const item of itemImages) {
-        const itemHeightWithGap = item.heightMm + sectionGap;
-        if (tempY + item.heightMm > pageHeight - margin - footerHeight) {
-          // Would overflow - check if item fits on a new page
-          if (item.heightMm <= contentHeightPerPage) {
-            // Item fits on new page
-            totalPages++;
-            tempY = margin + headerHeight + itemHeightWithGap;
-          } else {
-            // Item too tall - will need to be split
-            const pagesNeeded = Math.ceil(item.heightMm / contentHeightPerPage);
-            totalPages += pagesNeeded;
-            tempY = margin + headerHeight;
-          }
-        } else {
-          tempY += itemHeightWithGap;
+      for (const item of capturedItems) {
+        const itemHeight = item.type === 'section-header' ? 8 : item.heightMm;
+        if (tempY + itemHeight > pageHeight - margin - footerHeight) {
+          totalPages++;
+          tempY = margin + headerHeight;
         }
+        tempY += itemHeight + itemGap;
       }
 
       // Helper to add header
@@ -249,16 +233,43 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         );
       };
 
+      // Layout items across pages - NEVER split a card across pages
+      let currentPage = 1;
+      let currentY = margin + headerHeight;
+      
       // Add first page header/footer
       addHeader(currentPage);
       addFooter();
 
-      // Second pass: add items to PDF with proper spacing
-      for (const item of itemImages) {
+      // Add each item to PDF
+      for (const item of capturedItems) {
+        // For section headers, add them as text rather than image
+        if (item.type === 'section-header' && item.sectionTitle) {
+          const headerHeightMm = 8;
+          const spaceRemaining = pageHeight - margin - footerHeight - currentY;
+          
+          // If not enough space for header + some content, start new page
+          if (spaceRemaining < headerHeightMm + 30) {
+            pdf.addPage();
+            currentPage++;
+            addHeader(currentPage);
+            addFooter();
+            currentY = margin + headerHeight;
+          }
+          
+          // Add section header as text
+          pdf.setFontSize(12);
+          pdf.setTextColor(30, 30, 30);
+          pdf.text(item.sectionTitle, margin, currentY + 5);
+          currentY += headerHeightMm;
+          continue;
+        }
+        
         const spaceRemaining = pageHeight - margin - footerHeight - currentY;
         
-        if (item.heightMm <= spaceRemaining - sectionGap) {
-          // Item fits on current page with gap
+        // Check if item fits on current page
+        if (item.heightMm <= spaceRemaining - itemGap) {
+          // Item fits - add it
           pdf.addImage(
             item.imgData,
             "JPEG",
@@ -267,9 +278,9 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
             contentWidth,
             item.heightMm
           );
-          currentY += item.heightMm + sectionGap;
+          currentY += item.heightMm + itemGap;
         } else if (item.heightMm <= contentHeightPerPage) {
-          // Item doesn't fit but will fit on new page - move to new page
+          // Item doesn't fit but will fit on a fresh page - move to new page
           pdf.addPage();
           currentPage++;
           addHeader(currentPage);
@@ -284,79 +295,35 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
             contentWidth,
             item.heightMm
           );
-          currentY += item.heightMm + sectionGap;
+          currentY += item.heightMm + itemGap;
         } else {
-          // Item is too tall - must split it (for very tall sections)
-          // This uses canvas slicing as a fallback
-          const img = new Image();
-          img.src = item.imgData;
+          // Item is too tall for a single page - must scale it down to fit
+          // This ensures NO content is cut across pages
+          const scaleFactor = contentHeightPerPage / item.heightMm;
+          const scaledWidth = contentWidth * scaleFactor;
+          const scaledHeight = contentHeightPerPage;
           
-          await new Promise<void>((resolve) => {
-            img.onload = () => {
-              const pxPerMm = img.width / contentWidth;
-              let remainingHeightMm = item.heightMm;
-              let sourceY = 0;
-              
-              while (remainingHeightMm > 0) {
-                const availableHeight = currentPage === 1 && currentY === margin + headerHeight 
-                  ? contentHeightPerPage 
-                  : pageHeight - margin - footerHeight - currentY - sectionGap;
-                
-                if (availableHeight < 30) {
-                  // Not enough space, start new page
-                  pdf.addPage();
-                  currentPage++;
-                  addHeader(currentPage);
-                  addFooter();
-                  currentY = margin + headerHeight;
-                  continue;
-                }
-                
-                const sliceHeightMm = Math.min(remainingHeightMm, availableHeight);
-                const sliceHeightPx = sliceHeightMm * pxPerMm;
-                
-                // Create slice canvas
-                const sliceCanvas = document.createElement('canvas');
-                sliceCanvas.width = img.width;
-                sliceCanvas.height = Math.ceil(sliceHeightPx);
-                const ctx = sliceCanvas.getContext('2d');
-                
-                if (ctx) {
-                  ctx.fillStyle = '#ffffff';
-                  ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-                  ctx.drawImage(
-                    img,
-                    0, sourceY, img.width, sliceHeightPx,
-                    0, 0, img.width, sliceHeightPx
-                  );
-                  
-                  const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.95);
-                  pdf.addImage(
-                    sliceData,
-                    "JPEG",
-                    margin,
-                    currentY,
-                    contentWidth,
-                    sliceHeightMm
-                  );
-                }
-                
-                sourceY += sliceHeightPx;
-                remainingHeightMm -= sliceHeightMm;
-                currentY += sliceHeightMm;
-                
-                if (remainingHeightMm > 0) {
-                  pdf.addPage();
-                  currentPage++;
-                  addHeader(currentPage);
-                  addFooter();
-                  currentY = margin + headerHeight;
-                }
-              }
-              resolve();
-            };
-            img.onerror = () => resolve();
-          });
+          // Move to new page for large item
+          if (currentY > margin + headerHeight + 10) {
+            pdf.addPage();
+            currentPage++;
+            addHeader(currentPage);
+            addFooter();
+            currentY = margin + headerHeight;
+          }
+          
+          // Center the scaled image horizontally
+          const xOffset = margin + (contentWidth - scaledWidth) / 2;
+          
+          pdf.addImage(
+            item.imgData,
+            "JPEG",
+            xOffset,
+            currentY,
+            scaledWidth,
+            scaledHeight
+          );
+          currentY += scaledHeight + itemGap;
         }
       }
 
@@ -366,7 +333,7 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
 
       toast({
         title: "PDF saved",
-        description: `Dashboard exported as ${totalPages}-page PDF.`,
+        description: `Dashboard exported as ${currentPage}-page PDF.`,
       });
     } catch (error) {
       console.error("PDF export error:", error);
