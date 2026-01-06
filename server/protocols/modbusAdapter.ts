@@ -1,6 +1,9 @@
 /**
  * Modbus Protocol Adapter
  * Wraps ModbusProtocol with IProtocolAdapter interface
+ * 
+ * CLOUD DEPLOYMENT NOTE:
+ * Modbus connections use TCP/IP only in cloud deployment.
  */
 
 import { BaseProtocolAdapter, ProtocolConfig, NormalizedWeatherData } from "./adapter";
@@ -13,12 +16,10 @@ export class ModbusAdapter extends BaseProtocolAdapter {
     super(config);
     
     const modbusConfig: ModbusConfig = {
-      mode: config.connectionType === "serial" ? "rtu" : "tcp",
+      mode: "tcp", // Only TCP mode supported in cloud deployment
       slaveId: config.slaveId || 1,
       host: config.host,
       port: config.port || 502,
-      serialPort: config.serialPort,
-      baudRate: config.baudRate || 9600,
       timeout: config.timeout || 5000,
     };
 
@@ -29,12 +30,12 @@ export class ModbusAdapter extends BaseProtocolAdapter {
   private setupEventHandlers(): void {
     this.protocol.on("connected", () => {
       this.setConnected(true);
-      console.log(`[Modbus] Connected to ${this.config.host || this.config.serialPort}`);
+      console.log(`[Modbus] Connected to ${this.config.host}`);
     });
 
     this.protocol.on("disconnected", () => {
       this.setConnected(false);
-      console.warn(`[Modbus] Disconnected from ${this.config.host || this.config.serialPort}`);
+      console.warn(`[Modbus] Disconnected from ${this.config.host}`);
     });
 
     this.protocol.on("error", (error) => {

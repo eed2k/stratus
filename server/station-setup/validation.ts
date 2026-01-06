@@ -242,9 +242,7 @@ export function buildProtocolConfig(
     lora: "lora",
     satellite: "satellite",
     modbus: "modbus",
-    serial: "modbus",
     dnp3: "dnp3",
-    ble: "http", // BLE adapter uses HTTP protocol for now
     gsm: "http",
     "4g": "http",
   };
@@ -256,12 +254,10 @@ export function buildProtocolConfig(
     mqtt: "mqtt",
     lora: "lora",
     satellite: "satellite",
-    modbus: "serial",
-    serial: "serial",
+    modbus: "tcp",
     dnp3: "tcp",
-    ble: "http",
-    gsm: "tcp",
-    "4g": "tcp",
+    gsm: "gsm",
+    "4g": "gsm",
   };
 
   return {

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { createShare, getShareByToken, getSharesByStation, updateShare, deleteShare, Share } from "../db";
 
 const router = Router();

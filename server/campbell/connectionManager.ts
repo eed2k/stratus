@@ -300,14 +300,6 @@ export class ConnectionManager extends EventEmitter {
         throw new Error(`Unknown connection type: ${config.type}`);
     }
   }
-      
-      case "ble":
-        throw new Error("BLE transport not yet implemented");
-      
-      default:
-        throw new Error(`Unknown connection type: ${config.type}`);
-    }
-  }
 
   /**
    * Create TCP socket transport

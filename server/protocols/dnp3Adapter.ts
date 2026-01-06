@@ -1,6 +1,9 @@
 /**
  * DNP3 Protocol Adapter
  * Wraps DNP3Protocol with IProtocolAdapter interface
+ * 
+ * CLOUD DEPLOYMENT NOTE:
+ * DNP3 connections use TCP/IP only in cloud deployment.
  */
 
 import { BaseProtocolAdapter, ProtocolConfig, NormalizedWeatherData } from "./adapter";
@@ -13,13 +16,11 @@ export class DNP3Adapter extends BaseProtocolAdapter {
     super(config);
     
     const dnp3Config: DNP3Config = {
-      mode: config.connectionType === "serial" ? "serial" : "tcp",
+      mode: "tcp", // Only TCP mode supported in cloud deployment
       masterAddress: config.masterAddress || 1,
       outstationAddress: config.outstationAddress || 10,
       host: config.host,
       port: config.port || 20000,
-      serialPort: config.serialPort,
-      baudRate: config.baudRate || 9600,
       timeout: config.timeout || 5000,
     };
 

@@ -472,10 +472,11 @@ export class StationManager extends EventEmitter {
   }
 
   /**
-   * List available serial ports
+   * List available connection endpoints
+   * Note: Serial ports not available in cloud deployment
    */
-  async listSerialPorts(): Promise<Array<{ path: string; manufacturer?: string }>> {
-    return connectionManager.listSerialPorts();
+  async listAvailableEndpoints(): Promise<Array<{ type: string; description: string }>> {
+    return connectionManager.listAvailableEndpoints();
   }
 }
 

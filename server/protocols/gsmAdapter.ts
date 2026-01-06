@@ -257,7 +257,7 @@ export class GSMAdapter extends BaseProtocolAdapter {
         throw new Error(`HTTP error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as Record<string, number | null>;
       this.lastData = this.normalizeData(data);
       return this.lastData;
     } catch (error) {

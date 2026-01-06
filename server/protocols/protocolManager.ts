@@ -100,7 +100,6 @@ class ProtocolManagerClass extends EventEmitter {
       'weatherlink_local': 'http',
       'arduino_iot': 'http',
       'blynk': 'http',
-      'ble': 'http',
       '4g': 'http',
       'gsm': 'http',
       'satellite': 'satellite',
@@ -115,8 +114,9 @@ class ProtocolManagerClass extends EventEmitter {
       'ip': 'http',
       'wifi': 'http',
       'lora': 'lora',
-      'serial': 'serial',
       'tcp': 'tcp',
+      'gsm': 'gsm',
+      '4g': 'gsm',
       'satellite': 'satellite',
     };
     return mappings[connectionType] || 'http';
@@ -165,8 +165,8 @@ class ProtocolManagerClass extends EventEmitter {
   }
 
   private requiresSimulation(config: ProtocolConfig): boolean {
-    const hardwareProtocols = ['serial', 'ble'];
-    return hardwareProtocols.includes(config.connectionType) && this.config.enableSimulation;
+    // No hardware protocols require simulation in cloud deployment
+    return false;
   }
 
   private async createAdapter(config: ProtocolConfig, isSimulation: boolean): Promise<IProtocolAdapter | null> {
@@ -193,17 +193,19 @@ class ProtocolManagerClass extends EventEmitter {
           const { SatelliteAdapter } = await import("./satelliteAdapter");
           return new SatelliteAdapter(config);
         
-        case 'serial':
-          const { ModbusAdapter } = await import("./modbusAdapter");
-          return new ModbusAdapter(config);
+        case 'gsm':
+          const { GSMAdapter } = await import("./gsmAdapter");
+          return new GSMAdapter(config);
         
         case 'tcp':
           // TCP could be DNP3, Modbus TCP, or generic
           if (config.protocol === 'dnp3') {
             const { DNP3Adapter } = await import("./dnp3Adapter");
             return new DNP3Adapter(config);
+          } else if (config.protocol === 'modbus') {
+            const { ModbusAdapter } = await import("./modbusAdapter");
+            return new ModbusAdapter(config);
           } else {
-            // For BLE, GSM, 4G coming through HTTP fallback
             const { HTTPAdapter: DefaultHTTP } = await import("./httpAdapter");
             return new DefaultHTTP(config);
           }

@@ -1,6 +1,9 @@
 /**
  * Satellite Protocol Adapter
  * Wraps SatelliteProtocol with IProtocolAdapter interface
+ * 
+ * CLOUD DEPLOYMENT NOTE:
+ * Satellite connections use TCP/IP gateway or API endpoints in cloud deployment.
  */
 
 import { BaseProtocolAdapter, ProtocolConfig, NormalizedWeatherData } from "./adapter";
@@ -26,8 +29,8 @@ export class SatelliteAdapter extends BaseProtocolAdapter {
     const satConfig: SatelliteConfig = {
       provider,
       imei: config.imei,
-      serialPort: config.serialPort,
-      baudRate: config.baudRate || 19200,
+      gatewayHost: config.gatewayHost,
+      gatewayPort: config.gatewayPort,
       apiEndpoint: config.apiEndpoint,
       apiKey: config.apiKey,
     };

@@ -1,6 +1,10 @@
 /**
  * Satellite Communication Protocol Implementation
  * Supports Iridium, Globalstar, and GOES satellite systems for remote weather stations
+ * 
+ * CLOUD DEPLOYMENT NOTE:
+ * Satellite connections use TCP/IP gateway or API endpoints in cloud deployment.
+ * Direct serial connections to satellite modems are not available.
  */
 
 import { EventEmitter } from "events";
@@ -10,9 +14,9 @@ export interface SatelliteConfig {
   // Iridium SBD settings
   imei?: string;
   modemType?: "9602" | "9603" | "9522B";
-  // Serial settings
-  serialPort?: string;
-  baudRate?: number;
+  // TCP Gateway settings (for cloud deployment)
+  gatewayHost?: string;
+  gatewayPort?: number;
   // API settings (for cloud services)
   apiEndpoint?: string;
   apiKey?: string;
@@ -47,14 +51,13 @@ const IRIDIUM_AT = {
 export class SatelliteProtocol extends EventEmitter {
   private config: SatelliteConfig;
   private connected: boolean = false;
-  private serialPort: any = null;
+  private socket: any = null;
   private httpClient: any = null;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: SatelliteConfig) {
     super();
     this.config = {
-      baudRate: 19200,
       modemType: "9603",
       ...config,
     };
@@ -84,9 +87,11 @@ export class SatelliteProtocol extends EventEmitter {
     if (this.config.apiEndpoint) {
       // Connect via Rock7/CloudLoop API
       return await this.connectIridiumAPI();
+    } else if (this.config.gatewayHost) {
+      // Connect via TCP gateway
+      return await this.connectIridiumGateway();
     } else {
-      // Direct serial connection to modem
-      return await this.connectIridiumSerial();
+      throw new Error("Either API endpoint or gateway host is required for Iridium in cloud deployment");
     }
   }
 
@@ -105,6 +110,47 @@ export class SatelliteProtocol extends EventEmitter {
     await this.pollIridiumMessages();
     this.emit("connected");
     return true;
+  }
+
+  private async connectIridiumGateway(): Promise<boolean> {
+    // Connect via TCP gateway (cloud deployment)
+    const { Socket } = await import("net");
+    
+    return new Promise((resolve) => {
+      this.socket = new Socket();
+      
+      this.socket.on("error", (error: Error) => {
+        this.emit("error", error);
+        resolve(false);
+      });
+      
+      this.socket.on("data", (data: Buffer) => {
+        this.handleGatewayData(data);
+      });
+      
+      this.socket.connect(
+        this.config.gatewayPort || 10800,
+        this.config.gatewayHost!,
+        () => {
+          this.connected = true;
+          this.emit("connected");
+          resolve(true);
+        }
+      );
+    });
+  }
+
+  private handleGatewayData(data: Buffer): void {
+    const satMessage: SatelliteMessage = {
+      id: Date.now().toString(),
+      timestamp: new Date(),
+      imei: this.config.imei,
+      payload: data,
+    };
+    
+    satMessage.decoded = this.decodeWeatherPayload(data);
+    this.emit("message", satMessage);
+    this.emit("data", satMessage.decoded);
   }
 
   private async pollIridiumMessages(): Promise<void> {
@@ -141,44 +187,33 @@ export class SatelliteProtocol extends EventEmitter {
     }
   }
 
-  private async connectIridiumSerial(): Promise<boolean> {
-    // Request serial port connection
-    this.emit("serial-connect-request", {
-      port: this.config.serialPort,
-      baudRate: this.config.baudRate,
-    });
-    return true;
-  }
+  async sendSatelliteCommand(command: string): Promise<string> {
+    if (this.socket) {
+      return new Promise((resolve, reject) => {
+        let response = "";
+        const timeout = setTimeout(() => {
+          reject(new Error("Command timeout"));
+        }, 30000);
 
-  async sendIridiumCommand(command: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      if (!this.serialPort) {
-        reject(new Error("Serial port not connected"));
-        return;
-      }
+        const dataHandler = (data: Buffer) => {
+          response += data.toString();
+          if (response.includes("OK") || response.includes("ERROR")) {
+            clearTimeout(timeout);
+            this.socket.removeListener("data", dataHandler);
+            resolve(response);
+          }
+        };
 
-      let response = "";
-      const timeout = setTimeout(() => {
-        reject(new Error("Command timeout"));
-      }, 30000);
-
-      const dataHandler = (data: Buffer) => {
-        response += data.toString();
-        if (response.includes("OK") || response.includes("ERROR")) {
-          clearTimeout(timeout);
-          this.serialPort.removeListener("data", dataHandler);
-          resolve(response);
-        }
-      };
-
-      this.serialPort.on("data", dataHandler);
-      this.serialPort.write(command + "\r\n");
-    });
+        this.socket.on("data", dataHandler);
+        this.socket.write(command + "\r\n");
+      });
+    }
+    throw new Error("No active satellite connection");
   }
 
   async checkSignalStrength(): Promise<number> {
     try {
-      const response = await this.sendIridiumCommand(IRIDIUM_AT.CHECK_SIGNAL);
+      const response = await this.sendSatelliteCommand(IRIDIUM_AT.CHECK_SIGNAL);
       const match = response.match(/\+CSQ:(\d+)/);
       return match ? parseInt(match[1]) : 0;
     } catch {
@@ -187,23 +222,27 @@ export class SatelliteProtocol extends EventEmitter {
   }
 
   async sendMessage(payload: Buffer): Promise<boolean> {
+    if (!this.socket) {
+      throw new Error("No active satellite connection");
+    }
+    
     try {
       // Clear buffers
-      await this.sendIridiumCommand(IRIDIUM_AT.CLEAR_BUFFERS);
+      await this.sendSatelliteCommand(IRIDIUM_AT.CLEAR_BUFFERS);
       
       // Write binary message
-      await this.sendIridiumCommand(`${IRIDIUM_AT.SEND_BINARY}${payload.length}`);
+      await this.sendSatelliteCommand(`${IRIDIUM_AT.SEND_BINARY}${payload.length}`);
       
-      // Send payload
+      // Send payload with checksum
       const checksum = payload.reduce((a, b) => a + b, 0) & 0xffff;
       const fullPayload = Buffer.concat([payload, Buffer.from([checksum >> 8, checksum & 0xff])]);
-      this.serialPort.write(fullPayload);
+      this.socket.write(fullPayload);
       
       // Wait for acknowledgment
       await new Promise((resolve) => setTimeout(resolve, 1000));
       
       // Initiate SBD session
-      const response = await this.sendIridiumCommand(IRIDIUM_AT.INITIATE_SESSION);
+      const response = await this.sendSatelliteCommand(IRIDIUM_AT.INITIATE_SESSION);
       
       // Parse SBDIX response
       const match = response.match(/\+SBDIX:\s*(\d+)/);
@@ -374,31 +413,14 @@ export class SatelliteProtocol extends EventEmitter {
     return decoded;
   }
 
-  handleSerialData(data: Buffer): void {
-    try {
-      const message: SatelliteMessage = {
-        id: `local-${Date.now()}`,
-        timestamp: new Date(),
-        imei: this.config.imei,
-        payload: data,
-      };
-
-      message.decoded = this.decodeWeatherPayload(data);
-      this.emit("message", message);
-      this.emit("data", message.decoded);
-    } catch (error) {
-      this.emit("error", error);
-    }
-  }
-
   async disconnect(): Promise<void> {
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
       this.pollInterval = null;
     }
-    if (this.serialPort) {
-      this.serialPort.close();
-      this.serialPort = null;
+    if (this.socket) {
+      this.socket.destroy();
+      this.socket = null;
     }
     this.connected = false;
     this.emit("disconnected");

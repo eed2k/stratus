@@ -111,8 +111,6 @@ export class DataCollectionService extends EventEmitter {
       mode: 'pull',
       host: config.host,
       port: config.port || 6785,
-      serialPort: config.serialPort,
-      baudRate: config.baudRate || 115200,
       pakbusAddress: config.pakbusAddress || 1,
       securityCode: config.securityCode || 0,
     };

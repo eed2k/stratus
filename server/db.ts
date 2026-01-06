@@ -40,9 +40,6 @@ function validateColumnName(column: string): boolean {
   return VALID_STATION_COLUMNS.has(column);
 }
 
-let db: Database | null = null;
-const DB_FILE = 'stratus.db';
-
 /**
  * Get the database file path
  * Uses standard app data location for the platform
