@@ -279,6 +279,112 @@ export async function registerRoutes(
     }
   });
 
+  // Server-side PDF export endpoint (optimized for Railway - no DOM capture needed)
+  app.post("/api/export/pdf", optionalAuth, async (req, res) => {
+    try {
+      const { generateDashboardPDF } = await import("./services/pdfExportService");
+      
+      const { stationId, enabledParameters, title } = req.body;
+      
+      if (!stationId) {
+        return res.status(400).json({ message: "Station ID is required" });
+      }
+      
+      // Get station info
+      const station = await storage.getWeatherStation(parseInt(stationId, 10));
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      
+      // Get latest weather data
+      const weatherData = await storage.getWeatherData(station.id, 1);
+      const latestData = weatherData.length > 0 ? {
+        timestamp: weatherData[0].timestamp?.toISOString() || new Date().toISOString(),
+        data: weatherData[0].data as Record<string, any>
+      } : null;
+      
+      // Use provided parameters or get from dashboard config
+      const params = enabledParameters || [];
+      
+      // Generate PDF
+      const pdfBuffer = await generateDashboardPDF({
+        station: {
+          name: station.name,
+          location: station.location || undefined,
+          latitude: station.latitude || undefined,
+          longitude: station.longitude || undefined,
+          altitude: station.altitude || undefined,
+        },
+        latestData,
+        enabledParameters: params,
+        title,
+      });
+      
+      // Send PDF response
+      const filename = `${station.name.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+      
+    } catch (error: any) {
+      console.error("PDF export error:", error);
+      res.status(500).json({ 
+        message: "Failed to generate PDF", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Server-side CSV export endpoint
+  app.post("/api/export/csv", optionalAuth, async (req, res) => {
+    try {
+      const { generateCSV } = await import("./services/pdfExportService");
+      
+      const { stationId, parameters, limit = 100 } = req.body;
+      
+      if (!stationId) {
+        return res.status(400).json({ message: "Station ID is required" });
+      }
+      
+      // Get station info
+      const station = await storage.getWeatherStation(parseInt(stationId, 10));
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      
+      // Get weather data
+      const weatherData = await storage.getWeatherData(station.id, Math.min(limit, 10000));
+      const formattedData = weatherData.map(d => ({
+        timestamp: d.timestamp?.toISOString() || '',
+        data: d.data as Record<string, any>
+      }));
+      
+      // Generate CSV
+      const csv = generateCSV(
+        {
+          name: station.name,
+          location: station.location || undefined,
+        },
+        formattedData,
+        parameters || []
+      );
+      
+      // Send CSV response
+      const filename = `${station.name.replace(/\s+/g, '_')}_Data_${new Date().toISOString().split('T')[0]}.csv`;
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(csv);
+      
+    } catch (error: any) {
+      console.error("CSV export error:", error);
+      res.status(500).json({ 
+        message: "Failed to generate CSV", 
+        error: error.message 
+      });
+    }
+  });
+
   // Setup WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 

@@ -523,7 +523,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
           )}
           <ExportTools 
             targetId="dashboard-content" 
-            stationName={selectedStation?.name || "Weather Station"} 
+            stationName={selectedStation?.name || "Weather Station"}
+            stationId={activeStationId ?? undefined}
+            enabledParameters={dashboardConfig.enabledParameters || []}
           />
         </div>
       </div>

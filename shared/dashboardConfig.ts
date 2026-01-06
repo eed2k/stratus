@@ -48,7 +48,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Pressure adjusted to mean sea level',
         dataField: 'pressureSeaLevel',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       }
     ]
@@ -77,7 +77,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Minimum temperature for the period',
         dataField: 'temperatureMin',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -88,7 +88,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Maximum temperature for the period',
         dataField: 'temperatureMax',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -121,7 +121,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Derived air density from temperature, pressure, and humidity',
         dataField: 'airDensity',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 3
       }
     ]
@@ -161,7 +161,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: '10-minute maximum wind gust',
         dataField: 'windGust10min',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -183,7 +183,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Wind power density',
         dataField: 'windPower',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       }
     ]
@@ -212,7 +212,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Rainfall in last 10 minutes',
         dataField: 'rainfall10min',
         chartType: 'bar',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 2
       },
       {
@@ -234,7 +234,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Total rainfall in last 7 days',
         dataField: 'rainfall7d',
         chartType: 'bar',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -245,7 +245,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Total rainfall in last 30 days',
         dataField: 'rainfall30d',
         chartType: 'bar',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -256,7 +256,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Total rainfall this year',
         dataField: 'rainfallYearly',
         chartType: 'bar',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       }
     ]
@@ -285,7 +285,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Maximum solar radiation for the period',
         dataField: 'solarRadiationMax',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -296,7 +296,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Ultraviolet radiation index',
         dataField: 'uvIndex',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -307,7 +307,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Sun azimuth angle',
         dataField: 'sunAzimuth',
         chartType: 'none',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -318,7 +318,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Sun elevation angle',
         dataField: 'sunElevation',
         chartType: 'none',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       }
     ]
@@ -347,7 +347,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Total evapotranspiration today',
         dataField: 'eto24h',
         chartType: 'bar',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 2
       },
       {
@@ -358,7 +358,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Total evapotranspiration in last 7 days',
         dataField: 'eto7d',
         chartType: 'bar',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -369,7 +369,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Total evapotranspiration in last 30 days',
         dataField: 'eto30d',
         chartType: 'bar',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       }
     ]
@@ -387,7 +387,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Soil temperature at sensor depth',
         dataField: 'soilTemperature',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -398,7 +398,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Volumetric soil moisture content',
         dataField: 'soilMoisture',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -409,7 +409,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Leaf wetness sensor reading',
         dataField: 'leafWetness',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 0
       }
     ]
@@ -427,7 +427,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Particulate matter 2.5 microns',
         dataField: 'pm25',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -438,7 +438,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Particulate matter 10 microns',
         dataField: 'pm10',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -449,7 +449,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Particulate matter 1 micron',
         dataField: 'pm1',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -460,7 +460,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Calculated air quality index',
         dataField: 'aqi',
         chartType: 'gauge',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 0
       },
       {
@@ -471,7 +471,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Carbon dioxide concentration',
         dataField: 'co2',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 0
       },
       {
@@ -482,7 +482,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Total volatile organic compounds',
         dataField: 'tvoc',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 0
       }
     ]
@@ -500,7 +500,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Meteorological visibility',
         dataField: 'visibility',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -511,7 +511,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Atmospheric visibility range',
         dataField: 'atmosphericVisibility',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       },
       {
@@ -522,7 +522,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Cloud base height',
         dataField: 'cloudBase',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 0
       },
       {
@@ -533,7 +533,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Cloud cover percentage',
         dataField: 'cloudCover',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 0
       }
     ]
@@ -562,7 +562,7 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         description: 'Datalogger panel temperature',
         dataField: 'panelTemperature',
         chartType: 'line',
-        defaultEnabled: false,
+        defaultEnabled: true,
         precision: 1
       }
     ]
@@ -584,7 +584,7 @@ export const UPDATE_PERIOD_OPTIONS = [
   { value: 3600, label: '1 hour' }
 ];
 
-// Default dashboard configuration
+// Default dashboard configuration - ALL parameters enabled for demo
 export interface DashboardConfig {
   enabledParameters: string[];
   updatePeriod: number; // in seconds
@@ -594,14 +594,14 @@ export interface DashboardConfig {
   compactMode: boolean;
 }
 
+// Get all parameter IDs for full demo experience
+function getAllParameterIds(): string[] {
+  return DASHBOARD_CATEGORIES.flatMap(cat => cat.parameters.map(p => p.id));
+}
+
 export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
-  enabledParameters: [
-    'pressure', 'temperature', 'dewPoint', 'humidity',
-    'windSpeed', 'windGust', 'windDirection',
-    'rainfall', 'rainfall24h',
-    'solarRadiation', 'eto',
-    'batteryVoltage'
-  ],
+  // Enable ALL 43 parameters by default for demo dashboard
+  enabledParameters: getAllParameterIds(),
   updatePeriod: 60,
   chartTimeRange: 24,
   showTrendCharts: true,

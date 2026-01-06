@@ -4,6 +4,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -13,14 +14,87 @@ import jsPDF from "jspdf";
 interface ExportToolsProps {
   targetId?: string;
   stationName?: string;
+  stationId?: number;
+  enabledParameters?: string[];
 }
 
-export function ExportTools({ targetId = "dashboard-content", stationName = "Weather Station" }: ExportToolsProps) {
+export function ExportTools({ 
+  targetId = "dashboard-content", 
+  stationName = "Weather Station",
+  stationId,
+  enabledParameters = []
+}: ExportToolsProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
   const handlePrint = () => {
     window.print();
+  };
+
+  /**
+   * Fast server-side PDF export (optimized for Railway)
+   * Generates PDF from data directly without DOM capture
+   */
+  const handleServerPDF = async () => {
+    if (!stationId) {
+      toast({
+        title: "Export error",
+        description: "Station ID is required for server-side export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    
+    try {
+      toast({
+        title: "Generating PDF...",
+        description: "Processing on server for faster export",
+      });
+
+      const response = await fetch('/api/export/pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          stationId,
+          enabledParameters,
+          title: `${stationName} - Dashboard Report`,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate PDF');
+      }
+
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${stationName.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "PDF saved",
+        description: "Dashboard report exported successfully.",
+      });
+    } catch (error: any) {
+      console.error("Server PDF export error:", error);
+      toast({
+        title: "Export failed",
+        description: error.message || "Could not generate PDF. Try visual export instead.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   /**
@@ -72,10 +146,10 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
   };
 
   /**
-   * Export dashboard as multi-page PDF with white background
-   * Captures INDIVIDUAL CARDS separately to prevent page breaks cutting through content
+   * Visual PDF export (captures dashboard exactly as displayed)
+   * Uses html2canvas - may be slower but captures charts and visual elements
    */
-  const handlePDF = async () => {
+  const handleVisualPDF = async () => {
     setIsExporting(true);
     
     toast({
@@ -328,7 +402,7 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
       }
 
       // Save the PDF
-      const filename = `${stationName.replace(/\s+/g, "_")}_Dashboard_${new Date().toISOString().split("T")[0]}.pdf`;
+      const filename = `${stationName.replace(/\s+/g, "_")}_Dashboard_Visual_${new Date().toISOString().split("T")[0]}.pdf`;
       pdf.save(filename);
 
       toast({
@@ -363,8 +437,12 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         <DropdownMenuItem onClick={handlePrint} data-testid="menu-print">
           Print
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handlePDF} data-testid="menu-pdf">
-          Save as PDF
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleServerPDF} data-testid="menu-pdf-fast">
+          📄 Quick PDF (Fast)
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleVisualPDF} data-testid="menu-pdf-visual">
+          🖼️ Visual PDF (With Charts)
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
