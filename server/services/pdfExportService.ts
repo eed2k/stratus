@@ -4,7 +4,59 @@
  */
 
 import jsPDF from 'jspdf';
-import { getAllParameters, getParameterById, type DashboardParameter } from '../../shared/dashboardConfig';
+
+// Parameter definitions (inline to avoid shared folder import issues with tsconfig)
+interface DashboardParameter {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+}
+
+// Core parameter definitions for PDF export
+const PARAMETER_CONFIG: Record<string, DashboardParameter> = {
+  temperature: { id: 'temperature', name: 'Air Temperature', category: 'Temperature', unit: '°C' },
+  temperatureMin: { id: 'temperatureMin', name: 'Min Temperature', category: 'Temperature', unit: '°C' },
+  temperatureMax: { id: 'temperatureMax', name: 'Max Temperature', category: 'Temperature', unit: '°C' },
+  dewPoint: { id: 'dewPoint', name: 'Dew Point', category: 'Temperature', unit: '°C' },
+  heatIndex: { id: 'heatIndex', name: 'Heat Index', category: 'Temperature', unit: '°C' },
+  windChill: { id: 'windChill', name: 'Wind Chill', category: 'Temperature', unit: '°C' },
+  humidity: { id: 'humidity', name: 'Relative Humidity', category: 'Humidity', unit: '%' },
+  humidityMin: { id: 'humidityMin', name: 'Min Humidity', category: 'Humidity', unit: '%' },
+  humidityMax: { id: 'humidityMax', name: 'Max Humidity', category: 'Humidity', unit: '%' },
+  pressure: { id: 'pressure', name: 'Barometric Pressure', category: 'Pressure', unit: 'hPa' },
+  pressureSeaLevel: { id: 'pressureSeaLevel', name: 'Sea Level Pressure', category: 'Pressure', unit: 'hPa' },
+  windSpeed: { id: 'windSpeed', name: 'Wind Speed', category: 'Wind', unit: 'km/h' },
+  windDirection: { id: 'windDirection', name: 'Wind Direction', category: 'Wind', unit: '°' },
+  windGust: { id: 'windGust', name: 'Wind Gust', category: 'Wind', unit: 'km/h' },
+  windSpeedAvg: { id: 'windSpeedAvg', name: 'Avg Wind Speed', category: 'Wind', unit: 'km/h' },
+  rainfall: { id: 'rainfall', name: 'Rainfall', category: 'Precipitation', unit: 'mm' },
+  rainfallRate: { id: 'rainfallRate', name: 'Rainfall Rate', category: 'Precipitation', unit: 'mm/h' },
+  rainfallDaily: { id: 'rainfallDaily', name: 'Daily Rainfall', category: 'Precipitation', unit: 'mm' },
+  solarRadiation: { id: 'solarRadiation', name: 'Solar Radiation', category: 'Solar', unit: 'W/m²' },
+  solarRadiationMax: { id: 'solarRadiationMax', name: 'Max Solar Radiation', category: 'Solar', unit: 'W/m²' },
+  uvIndex: { id: 'uvIndex', name: 'UV Index', category: 'UV', unit: '' },
+  uvDose: { id: 'uvDose', name: 'UV Dose', category: 'UV', unit: 'MED' },
+  soilMoisture: { id: 'soilMoisture', name: 'Soil Moisture', category: 'Soil', unit: '%' },
+  soilTemperature: { id: 'soilTemperature', name: 'Soil Temperature', category: 'Soil', unit: '°C' },
+  soilMoisture10cm: { id: 'soilMoisture10cm', name: 'Soil Moisture 10cm', category: 'Soil', unit: '%' },
+  soilMoisture30cm: { id: 'soilMoisture30cm', name: 'Soil Moisture 30cm', category: 'Soil', unit: '%' },
+  soilTemperature10cm: { id: 'soilTemperature10cm', name: 'Soil Temp 10cm', category: 'Soil', unit: '°C' },
+  pm25: { id: 'pm25', name: 'PM2.5', category: 'Air Quality', unit: 'µg/m³' },
+  pm10: { id: 'pm10', name: 'PM10', category: 'Air Quality', unit: 'µg/m³' },
+  co2: { id: 'co2', name: 'CO₂', category: 'Air Quality', unit: 'ppm' },
+  airQualityIndex: { id: 'airQualityIndex', name: 'Air Quality Index', category: 'Air Quality', unit: '' },
+  leafWetness: { id: 'leafWetness', name: 'Leaf Wetness', category: 'Agricultural', unit: '%' },
+  evapotranspiration: { id: 'evapotranspiration', name: 'Evapotranspiration', category: 'Agricultural', unit: 'mm' },
+  growingDegreeDays: { id: 'growingDegreeDays', name: 'Growing Degree Days', category: 'Agricultural', unit: '°C·d' },
+  batteryVoltage: { id: 'batteryVoltage', name: 'Battery Voltage', category: 'System', unit: 'V' },
+  panelVoltage: { id: 'panelVoltage', name: 'Panel Voltage', category: 'System', unit: 'V' },
+  signalStrength: { id: 'signalStrength', name: 'Signal Strength', category: 'System', unit: 'dBm' },
+};
+
+function getParameterById(id: string): DashboardParameter | undefined {
+  return PARAMETER_CONFIG[id];
+}
 
 interface WeatherDataPoint {
   timestamp: string;

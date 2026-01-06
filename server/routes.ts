@@ -297,10 +297,10 @@ export async function registerRoutes(
       }
       
       // Get latest weather data
-      const weatherData = await storage.getWeatherData(station.id, 1);
-      const latestData = weatherData.length > 0 ? {
-        timestamp: weatherData[0].timestamp?.toISOString() || new Date().toISOString(),
-        data: weatherData[0].data as Record<string, any>
+      const latestRecord = await storage.getLatestWeatherData(station.id);
+      const latestData = latestRecord ? {
+        timestamp: latestRecord.timestamp?.toISOString() || new Date().toISOString(),
+        data: latestRecord.data as Record<string, any>
       } : null;
       
       // Use provided parameters or get from dashboard config
@@ -353,9 +353,11 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Station not found" });
       }
       
-      // Get weather data
-      const weatherData = await storage.getWeatherData(station.id, Math.min(limit, 10000));
-      const formattedData = weatherData.map(d => ({
+      // Get weather data - fetch last N days of data
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - (limit * 60 * 1000)); // limit in minutes
+      const weatherData = await storage.getWeatherDataRange(station.id, startTime, endTime);
+      const formattedData = weatherData.map((d: any) => ({
         timestamp: d.timestamp?.toISOString() || '',
         data: d.data as Record<string, any>
       }));
