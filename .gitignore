@@ -13,6 +13,10 @@ out/
 output/
 release/
 
+# Compiled shared files (these are compiled from .ts sources)
+shared/*.js
+shared/*.d.ts
+
 # Environment variables
 .env
 .env.local
