@@ -162,9 +162,12 @@ The Elsa demo station has been verified with correct Potchefstroom, South Africa
 
 | Component | Status |
 |-----------|--------|
-| Client Build (Vite) | ✅ Successful |
+| Client Build (Vite) | ✅ Successful (3399 modules, 2m 3s) |
 | Server Build (TypeScript) | ✅ Successful |
-| Electron Packaging | 🔄 In Progress |
+| Electron Packaging | ✅ Unpacked build ready in `output/win-unpacked/` |
+| NSIS Installer | ⚠️ Build interrupted - unpacked version available |
+
+**Note:** The unpacked Windows build is available at `output/win-unpacked/Stratus Weather Server.exe`. The NSIS installer build was interrupted but can be completed by running `npm run dist:win` without interruptions.
 
 ---
 
