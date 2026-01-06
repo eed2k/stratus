@@ -140,18 +140,12 @@ export class ServiceDetector {
 
   /**
    * Get provider-specific configuration template
-   * For Campbell Scientific connections
+   * For Campbell Scientific connections (cloud deployment - TCP/IP only)
    */
   private static getProviderConfig(
     provider: string
   ): Record<string, any> {
     const configs: Record<string, Record<string, any>> = {
-      campbell_serial: {
-        port: "COM3",
-        baudRate: 115200,
-        timeout: 30000,
-        requiredFields: ["serialPort", "baudRate"],
-      },
       campbell_tcp: {
         port: 6785,
         timeout: 30000,
@@ -164,7 +158,7 @@ export class ServiceDetector {
       },
       campbell_gsm: {
         timeout: 60000,
-        requiredFields: ["apn"],
+        requiredFields: ["gatewayHost", "gatewayPort"],
       },
       campbell_mqtt: {
         port: 1883,

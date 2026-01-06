@@ -18,7 +18,6 @@ import Settings from "@/pages/Settings";
 import Organizations from "@/pages/Organizations";
 import Alarms from "@/pages/Alarms";
 import Reports from "@/pages/Reports";
-import SerialMonitor from "@/pages/SerialMonitor";
 import SharedDashboard from "@/pages/SharedDashboard";
 import UserManagement from "@/pages/UserManagement";
 import AccountSettings from "@/pages/AccountSettings";
@@ -113,7 +112,6 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                   <Route path="/history" component={History} />
                   <Route path="/alarms" component={Alarms} />
                   <Route path="/reports" component={Reports} />
-                  <Route path="/serial-monitor" component={SerialMonitor} />
                   <Route path="/settings" component={Settings} />
                 </>
               )}

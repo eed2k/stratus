@@ -1,6 +1,10 @@
 /**
  * Protocol Adapter Interface
  * Common interface for all communication protocols to integrate with the connection manager
+ * 
+ * CLOUD DEPLOYMENT NOTE:
+ * All adapters use TCP/IP based connections for Railway/cloud deployment.
+ * Serial/RS232 connections are not available in cloud environments.
  */
 
 import { EventEmitter } from "events";
@@ -9,14 +13,16 @@ import type { WeatherData } from "../localStorage";
 export interface ProtocolConfig {
   stationId: number;
   protocol: "pakbus" | "modbus" | "dnp3" | "lora" | "satellite" | "mqtt" | "http";
-  connectionType: "tcp" | "serial" | "mqtt" | "http" | "lora" | "satellite";
+  connectionType: "tcp" | "mqtt" | "http" | "lora" | "satellite" | "gsm";
   
-  // Connection settings
+  // Connection settings (TCP/IP based)
   host?: string;
   port?: number;
-  serialPort?: string;
-  baudRate?: number;
   timeout?: number;
+  
+  // Gateway settings (for cellular/LoRa via TCP gateway)
+  gatewayHost?: string;
+  gatewayPort?: number;
   
   // Protocol-specific settings
   slaveId?: number;           // Modbus

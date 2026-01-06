@@ -2,6 +2,10 @@
 
 Complete guide for connecting and configuring Campbell Scientific dataloggers with Stratus Weather Server.
 
+> **CLOUD DEPLOYMENT NOTE**
+> Stratus Weather Server is designed for cloud deployment on Railway or similar platforms.
+> All connections use TCP/IP - serial/RS232 connections are not available in cloud environments.
+
 ## Table of Contents
 1. [Quick Start](#quick-start)
 2. [Connection Types](#connection-types)
@@ -16,12 +20,12 @@ Complete guide for connecting and configuring Campbell Scientific dataloggers wi
 
 ### Minimum Requirements
 - Campbell Scientific datalogger (CR1000X, CR6, CR1000, CR300, CR800, etc.)
-- Connection to datalogger via Serial, TCP/IP, or RF
+- Network connectivity (Ethernet, Cellular/4G, or LoRaWAN)
 - Datalogger running a CRBasic program with data tables
 
 ### Basic Setup Steps
 1. Configure datalogger with PakBus address
-2. Connect datalogger to computer/network
+2. Connect datalogger to network (TCP/IP, cellular, or LoRa)
 3. Add station in Stratus
 4. Test connection
 5. Configure data collection schedule
@@ -30,82 +34,19 @@ Complete guide for connecting and configuring Campbell Scientific dataloggers wi
 
 ## Connection Types
 
-### CR200/CR200X Serial & Modem Setup
+Stratus supports the following connection methods for cloud deployment:
 
-**Supported Methods:**
-- Direct Serial (RS232, null modem cable)
-- Modem (GSM, cellular, or dial-up)
-
-**Serial Connection:**
-- Use a 9-pin null modem cable or direct RS232 cable from the CR200(X) to your PC or a USB-to-Serial adapter.
-- In Stratus, set:
-   - Connection Type: Serial
-   - COM Port: (e.g., COM3)
-   - Baud Rate: Match logger (default 9600 or 115200)
-   - PakBus Address: Match logger
-- On the logger, set matching baud rate and PakBus address in Device Config Utility.
-
-**Modem Connection:**
-- Connect a compatible modem (e.g., Campbell CELL200, Sierra Wireless, or standard AT-command modem) to the CR200(X) RS232 port.
-- In Stratus, set:
-   - Connection Type: Serial (for direct dial) or TCP/IP (for cellular modems with IP)
-   - COM Port: (for direct serial modem)
-   - Phone Number: (for dial-up)
-   - APN: (for cellular, if required)
-   - PakBus Address: Match logger
-- Stratus will:
-   - Initialize the modem using AT commands
-   - Dial the configured number (for dial-up)
-   - Wait for CONNECT
-   - Start PakBus or Modbus protocol over the serial stream
-
-**How Stratus Handles Modem Connections:**
-- Stratus backend (see gsmAdapter.ts, connectionManager.ts) manages modem negotiation:
-   - Sends AT commands to configure and dial
-   - Waits for CONNECT response
-   - On connection, switches to PakBus/Modbus protocol for data collection
-   - Handles disconnection and retries automatically
-- For cellular modems with IP, use TCP/IP connection as above.
-
-**Troubleshooting:**
-- Ensure baud rate and PakBus address match on both sides
-- Use null modem cable for direct serial
-- For modems, verify SIM card, APN, and signal
-- Check Stratus logs for connection and AT command errors
-
-### Serial Connection (RS232/RS485)
-
-**Hardware Required:**
-- RS232 cable (9-pin null modem or direct)
-- USB-to-Serial adapter (if no COM port available)
-- For RS485: RS485-to-USB converter
-
-**Configuration in Stratus:**
-```
-Connection Type: Serial
-COM Port: COM3 (or your port)
-Baud Rate: 115200 (match datalogger setting)
-PakBus Address: 1 (match datalogger setting)
-```
-
-**Datalogger Settings (Device Configuration Utility):**
-1. Open Device Configuration Utility
-2. Connect to datalogger
-3. Go to Settings → ComPorts Settings
-4. Set: Baud Rate = 115200, PakBus Address = 1
-5. Apply settings
-
-### TCP/IP Connection
+### TCP/IP Connection (Recommended)
 
 **Hardware Required:**
 - NL121 Ethernet Interface, or
 - CR1000X/CR6 with built-in Ethernet, or
-- CELL200 series cellular modem
+- CELL200 series cellular modem with static IP
 
 **Configuration in Stratus:**
 ```
 Connection Type: TCP/IP
-Host: 192.168.1.100 (datalogger IP)
+Host: 192.168.1.100 (datalogger IP) or public IP
 Port: 6785 (PakBus default)
 PakBus Address: 1
 ```
@@ -115,37 +56,79 @@ PakBus Address: 1
 2. Configure static IP or DHCP
 3. Enable PakBus/TCP port (default 6785)
 4. Set PakBus address
+5. For remote access, configure port forwarding or use VPN
 
-### RF Connection (RF407/RF412)
+### Cellular/4G Connection
 
 **Hardware Required:**
-- RF407 or RF412 radio at datalogger
-- RF407 or RF412 base station radio
-- Serial connection to base station
+- CELL210 or CELL220 cellular modem
+- Active SIM card with data plan
+- Static IP address or cellular gateway service
 
 **Configuration in Stratus:**
 ```
-Connection Type: RF
-Serial Port: COM3 (base station port)
-Baud Rate: 115200
-RF Net Address: 100 (base station)
-PakBus Address: 1 (datalogger)
-```
-
-### Cellular/GSM Connection
-
-**Hardware Required:**
-- CELL200 series modem at datalogger
-- Internet connectivity
-- Static IP or callback service
-
-**Configuration in Stratus:**
-```
-Connection Type: TCP/IP
-Host: your-static-ip or callback address
+Connection Type: GSM/Cellular
+Host: your-static-ip or gateway address
 Port: 6785
 PakBus Address: 1
+Gateway Host: cellular-gateway-ip (if using gateway)
+Gateway Port: gateway-port
 ```
+
+**How Stratus Connects to Cellular Modems:**
+- Stratus connects to the modem's TCP/IP endpoint
+- For modems with static IP: direct TCP connection
+- For modems behind gateway: connect via TCP gateway
+- Supports Sierra Wireless RV50/RV55 with Aleos gateway
+- Supports any cellular modem with TCP-to-PakBus bridge
+
+**Cellular Modem Setup:**
+1. Install SIM card in modem
+2. Configure APN settings on modem
+3. Enable TCP server mode or connect to gateway service
+4. Note the public IP address or gateway endpoint
+5. Configure firewall to allow incoming connections on PakBus port
+
+### LoRaWAN Connection
+
+**Hardware Required:**
+- LoRa transceiver at datalogger station
+- LoRaWAN gateway within range
+- Account with LoRaWAN network server (TTN, ChirpStack, etc.)
+
+**Configuration in Stratus:**
+```
+Connection Type: LoRa
+Network Server: eu1.cloud.thethings.network
+Application ID: your-app-id
+Application Key: your-app-key
+Device EUI: your-device-eui
+```
+
+**How LoRaWAN Works with Stratus:**
+- Stratus connects to LoRaWAN network server via MQTT
+- Data is received as uplink messages from your device
+- Supports Cayenne LPP and custom payload formats
+- Automatic decoding of weather data payloads
+
+**LoRaWAN Setup:**
+1. Register your device on The Things Network or ChirpStack
+2. Configure device EUI, Application EUI, and App Key
+3. Program datalogger to encode and send data via LoRa
+4. Enter credentials in Stratus station configuration
+
+### HTTP POST (Push Mode)
+
+**Configuration:**
+```
+Connection Type: HTTP
+API Endpoint: https://your-stratus-server.com/api/weather-data
+API Key: your-api-key
+```
+
+**Datalogger Setup:**
+- Program datalogger to HTTP POST data at intervals
+- See `examples/crbasic/stratus_http_post_station.cr1x` for example
 
 ---
 
@@ -204,15 +187,21 @@ EndTable
 
 3. **Configure Connection**
    
-   For Serial:
-   - Connection Type: Serial
-   - COM Port: Select from dropdown
-   - Baud Rate: 115200 (default)
-   
    For TCP/IP:
    - Connection Type: TCP/IP
    - Host: IP address or hostname
    - Port: 6785 (default PakBus port)
+   
+   For Cellular:
+   - Connection Type: GSM/Cellular
+   - Gateway Host: Cellular gateway IP
+   - Gateway Port: Gateway port
+   
+   For LoRa:
+   - Connection Type: LoRa
+   - Network Server: Your LoRaWAN server
+   - Application ID: Your app credentials
+   - Device EUI: Your device identifier
 
 4. **Security Settings** (if required)
    - Security Code: Enter datalogger security code
@@ -226,12 +215,13 @@ EndTable
 6. **Save Station**
    - Click "Add Station"
    - Station appears in station list
+
 ### Manual Configuration
 
 You can also configure stations via the API:
 
 ```bash
-curl -X POST http://localhost:5000/api/stations \
+curl -X POST https://your-server.com/api/stations \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Test Station",
@@ -310,10 +300,11 @@ Apply sensor-specific calibration coefficients.
 ### Connection Issues
 
 **"Connection Timeout"**
-- Check physical connection (cable, network)
+- Check network connectivity to datalogger
 - Verify IP address and port
 - Ensure datalogger is powered on
-- Try ping test to datalogger IP
+- Test with ping command
+- Check firewall settings
 
 **"Invalid Security Code"**
 - Verify security code matches datalogger
@@ -325,17 +316,45 @@ Apply sensor-specific calibration coefficients.
 - Check for address conflicts on network
 - Ensure datalogger PakBus port is enabled
 
-### Serial Connection Issues
+### TCP/IP Issues
 
-**"COM Port Not Found"**
-- Check USB cable connection
-- Install/update USB-Serial driver
-- Verify port in Device Manager
+**"Host Unreachable"**
+- Check network connectivity
+- Verify IP address is correct
+- Check firewall settings
+- Verify VPN connection (if applicable)
 
-**"Communication Error"**
-- Verify baud rate matches datalogger
-- Check cable wiring (TX/RX crossover)
-- Try lower baud rate (9600)
+**"Connection Refused"**
+- Verify PakBus/TCP is enabled on datalogger
+- Check port number (default 6785)
+- Ensure no port conflicts
+- Check if another application is using the port
+
+### Cellular Connection Issues
+
+**"Gateway Connection Failed"**
+- Verify cellular modem has signal
+- Check APN configuration
+- Verify gateway service is running
+- Check static IP or gateway endpoint
+
+**"Intermittent Connectivity"**
+- Check signal strength
+- Consider external antenna
+- Verify data plan is active
+- Check for network congestion
+
+### LoRaWAN Issues
+
+**"Device Not Found"**
+- Verify device is registered on network server
+- Check device EUI matches
+- Ensure device is transmitting
+
+**"No Uplinks Received"**
+- Check LoRa gateway coverage
+- Verify spreading factor settings
+- Check for interference
 
 ### Data Collection Issues
 
@@ -349,18 +368,6 @@ Apply sensor-specific calibration coefficients.
 - Verify data is being logged
 - Check "Last Collection" timestamp
 
-### Network Issues
-
-**"Host Unreachable"**
-- Check network connectivity
-- Verify IP address is correct
-- Check firewall settings
-
-**"Connection Refused"**
-- Verify PakBus/TCP is enabled
-- Check port number (default 6785)
-- Ensure no port conflicts
-
 ---
 
 ## Best Practices
@@ -369,21 +376,25 @@ Apply sensor-specific calibration coefficients.
 - Use static IP addresses when possible
 - Configure reasonable timeout values
 - Enable automatic reconnection
+- Consider redundant connections for critical stations
 
 ### Data Integrity
 - Use "Since Last Collection" mode
 - Configure gap filling for critical data
 - Regular backup of database
+- Monitor collection success rates
 
 ### Security
 - Enable PakBus security on remote stations
 - Use VPN for cellular connections
 - Limit API access to trusted clients
+- Rotate API keys regularly
 
 ### Performance
 - Collect data at appropriate intervals
 - Don't poll faster than datalogger scan rate
 - Use efficient table structures
+- Monitor network latency
 
 ---
 
@@ -423,22 +434,9 @@ Individual wind speed observations plotted on a polar coordinate system:
 
 **Features:**
 - Points are plotted by direction (angle) and speed (radius)
-- Color-coded by wind speed according to WMO/Beaufort scale:
-  - Light blue: Calm/Light (0-6 km/h)
-  - Sky blue: Light Breeze (6-12 km/h)
-  - Blue: Gentle Breeze (12-20 km/h)
-  - Deep blue: Moderate (20-29 km/h)
-  - Dark blue: Fresh (29-39 km/h)
-  - Green: Strong (39-50 km/h)
-  - Yellow: Near Gale (50-62 km/h)
-  - Orange: Gale (62-75 km/h)
-  - Red: Strong Gale (75-89 km/h)
-  - Dark red: Storm+ (>89 km/h)
+- Color-coded by wind speed according to WMO/Beaufort scale
 - Statistics: Average, Max, Min speed, Dominant direction
 - Interactive tooltips showing exact values
-
-#### Wind Compass
-Real-time wind direction and speed display with compass rose.
 
 ### Air Density
 
@@ -454,11 +452,6 @@ Uses the ideal gas law with humidity correction. Standard reference: 1.225 kg/m�
 Dual display showing:
 1. **Station Pressure**: Raw pressure at station altitude (mbar)
 2. **Sea Level Pressure (QNH)**: Pressure calibrated to sea level
-
-**Conversion Formula:**
-```
-QNH = Station_Pressure × (1 - (L × altitude) / T)^(-(g × M) / (R × L))
-```
 
 ### Reference Evapotranspiration (ETo)
 
@@ -497,13 +490,7 @@ Export the complete dashboard as a multi-page PDF report:
 
 1. Click the **Export** button in the dashboard header
 2. Select **Save as PDF**
-3. The system will:
-   - Capture the full dashboard with white background
-   - Split content across multiple A4 pages
-   - Add station name, date, and page numbers
-   - Generate a downloadable PDF file
-
-**Note:** Image export (PNG) has been removed in favor of the more comprehensive PDF export which captures the entire dashboard across multiple pages.
+3. The system generates a downloadable PDF file with station data
 
 ---
 

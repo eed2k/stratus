@@ -1,28 +1,21 @@
 {
   "name": "stratus-client",
   "version": "1.0.0",
-  "description": "Stratus weather station monitoring frontend",
+  "description": "Stratus weather station monitoring frontend - DEPRECATED: Use root package.json for all dependencies",
+  "private": true,
   "type": "module",
+  "_comment": "DEPRECATION NOTICE (Issue #22): This package.json exists only for legacy tooling compatibility. All dependencies should be managed in the root package.json. Do not add new dependencies here.",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "echo 'Use npm run dev from project root' && exit 1",
+    "build": "echo 'Use npm run build from project root' && exit 1",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx"
   },
-  "dependencies": {
-    "axios": "^1.6.0",
-    "d3": "^7.8.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "three": "^0.156.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react": "^4.1.0",
-    "terser": "^5.44.1",
-    "typescript": "^5.0.0",
-    "vite": "^5.0.0"
+    "typescript": "^5.0.0"
   }
 }

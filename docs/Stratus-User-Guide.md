@@ -4,14 +4,18 @@
 
 Stratus is a professional desktop and server application for weather station management, data collection, and real-time monitoring. Built with modern web technologies, Stratus provides comprehensive weather data visualization and analysis capabilities.
 
+> **CLOUD DEPLOYMENT NOTE**
+> Stratus is designed for cloud deployment on Railway or similar platforms.
+> All connections use TCP/IP - serial/RS232 connections are not available.
+
 ---
 
 ## Features & Capabilities
 
 ### Weather Station Integration
 
-- **Multi-Protocol Support** - PakBus, HTTP/REST, MQTT, Modbus, Serial
-- **Multi-Connection Types** - Serial (RS232/RS485), TCP/IP, WiFi, GSM, LoRa, Satellite
+- **Multi-Protocol Support** - PakBus, HTTP/REST, MQTT, Modbus
+- **Multi-Connection Types** - TCP/IP, WiFi, Cellular (4G/LTE), LoRaWAN, Satellite
 - **Data Collection** - Scheduled and on-demand data collection from stations
 - **Real-Time Monitoring** - Live data updates with configurable refresh intervals
 - **Multi-Station Support** - Manage multiple stations from a single dashboard
@@ -32,12 +36,11 @@ Stratus is a professional desktop and server application for weather station man
 
 ### Communication Options
 
-- **Serial** - RS232, RS485 direct connection
 - **TCP/IP** - Ethernet, WiFi via NL121 or similar
-- **RF** - RF407/RF412 spread spectrum radios
-- **Cellular** - 2G/3G/4G/LTE modems
-- **LoRa/LoRaWAN** - Long-range IoT connectivity
-- **Satellite** - Remote area connectivity
+- **Cellular** - 4G/LTE modems with TCP gateway
+- **LoRa/LoRaWAN** - Long-range IoT connectivity via network server
+- **Satellite** - Remote area connectivity via IP gateway
+- **HTTP API** - Direct REST API integration
 
 ---
 

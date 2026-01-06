@@ -4,6 +4,10 @@
 
 Stratus Weather Server supports multiple methods for connecting to Campbell Scientific dataloggers. This guide explains each connection method and provides example CRBASIC programs.
 
+> **CLOUD DEPLOYMENT NOTE**
+> Stratus is designed for cloud deployment on Railway or similar platforms.
+> All connections use TCP/IP - serial/RS232 is not available in cloud environments.
+
 **Cloud Server:** Deploy to Railway for 24/7 access (https://railway.app)  
 **API Endpoint:** `https://your-app.up.railway.app/api/ingest/{stationId}`
 
@@ -25,50 +29,14 @@ All data transmitted to Stratus follows **WMO (World Meteorological Organization
 
 | Method | Best For | Datalogger Requirements | Stratus Component |
 |--------|----------|------------------------|-------------------|
-| **PakBus** | Direct connection, reliable polling | Any CR series | Campbell Connection Manager |
-| **HTTP POST** | Remote stations with internet | CR1000X, CR6, CR300 with Ethernet/WiFi | REST API |
-| **Serial ASCII** | Simple setup, legacy systems | Any CR series | Serial Monitor |
+| **HTTP POST** | Remote stations with internet | CR1000X, CR6, CR300 with Ethernet/WiFi/Cellular | REST API |
+| **PakBus/TCP** | Stations with Ethernet | Any CR series with NL121 or built-in Ethernet | Campbell Connection Manager |
+| **LoRaWAN** | Long-range remote stations | LoRa-equipped stations | LoRa Protocol Manager |
+| **Cellular** | 4G/LTE connected stations | CR series with CELL210/220 modem | Cellular Gateway |
 
 ---
 
-## Method 1: PakBus Protocol (Recommended for Local)
-
-**How it works:** Stratus acts as a PakBus client and polls data from your datalogger's data tables. This is the native Campbell Scientific protocol and provides the most reliable connection.
-
-### CRBASIC Program
-Use `stratus_pakbus_station.cr1x` - No special communication code needed! Just create your data tables and Stratus will poll them.
-
-### Stratus Configuration
-
-1. **Add Station** → Select "Campbell Scientific"
-2. **Connection Settings:**
-   ```
-   Protocol: PakBus
-   Connection: TCP/IP or Serial
-   Address: 192.168.1.100 (or COM port)
-   PakBus Address: 1
-   Security Code: 0 (or your code)
-   ```
-3. **Data Collection:**
-   ```
-   Table: WeatherData
-   Poll Interval: 60 seconds
-   Collect Mode: Since Last Collection
-   ```
-
-### Wiring (TCP/IP)
-```
-Datalogger Ethernet → Network Switch → PC running Stratus
-```
-
-### Wiring (Serial RS-232)
-```
-Datalogger CS I/O Port → SC32B Interface → PC COM Port
-```
-
----
-
-## Method 2: HTTP POST (Recommended for Cloud/Remote Stations)
+## Method 1: HTTP POST (Recommended for Cloud)
 
 **How it works:** The datalogger pushes data to Stratus's REST API at regular intervals. Best for remote stations with cellular or WiFi connectivity. Works with Railway cloud deployment.
 
@@ -119,61 +87,87 @@ Body:
 2. Get your Railway public URL from the deployment dashboard
 3. Create a station in Stratus dashboard and note the numeric Station ID
 4. Update `STRATUS_SERVER` and `STATION_ID` in the CRBASIC program
-5. Upload program to datalogger
-POST http://stratus-server:5000/api/weather-data
-
-Headers:
-  Content-Type: application/json
-  X-Station-ID: CR1000X_001
-
-Body:
-{
-  "stationId": "CR1000X_001",
-  "timestamp": "2025-01-01T12:00:00",
-  "data": {
-    "temperature": 22.5,
-    "humidity": 65.0,
-    "windSpeed": 3.2,
-    "windDirection": 180,
-    "rainfall": 0.0,
-    "pressure": 1013.25
-  }
-}
-```
+5. Upload program to datalogger with Ethernet/WiFi/Cellular connection
 
 ---
 
-## Method 3: Serial ASCII Output
+## Method 2: PakBus over TCP/IP
 
-**How it works:** Datalogger outputs ASCII text (CSV or JSON) over RS-232. Stratus Serial Monitor reads and parses this data stream.
+**How it works:** Stratus acts as a PakBus client and polls data from your datalogger's data tables over TCP/IP. This uses the native Campbell Scientific protocol over an Ethernet connection.
 
 ### CRBASIC Program
-Use `stratus_serial_output_station.cr1x` - Outputs data in CSV, JSON, or Weather Underground format.
+Use `stratus_pakbus_station.cr1x` - No special communication code needed! Just create your data tables and Stratus will poll them.
 
-### Output Formats
+### Stratus Configuration
 
-**CSV Format:**
+1. **Add Station** → Select "Campbell Scientific"
+2. **Connection Settings:**
+   ```
+   Protocol: PakBus
+   Connection: TCP/IP
+   Host: 192.168.1.100 (datalogger IP)
+   Port: 6785 (default PakBus TCP port)
+   PakBus Address: 1
+   Security Code: 0 (or your code)
+   ```
+3. **Data Collection:**
+   ```
+   Table: WeatherData
+   Poll Interval: 60 seconds
+   Collect Mode: Since Last Collection
+   ```
+
+### Network Setup
+- Connect datalogger Ethernet port (or NL121) to network
+- Configure static IP or DHCP
+- Enable PakBus/TCP on port 6785
+- For remote access, configure port forwarding or VPN
+
+---
+
+## Method 3: Cellular (4G/LTE) via TCP Gateway
+
+**How it works:** The datalogger connects through a cellular modem that provides TCP/IP connectivity. Stratus connects to the modem's public IP or gateway service.
+
+### Hardware Options
+- Campbell CELL210/CELL220 modem
+- Sierra Wireless RV50/RV55 with Aleos gateway
+- Any cellular modem with TCP-to-PakBus bridge
+
+### Stratus Configuration
 ```
-2025-01-01 12:00:00,22.50,65.0,3.20,180,0.00,1013.2,15.80,12.80
+Connection Type: GSM/Cellular
+Gateway Host: your-static-ip or gateway-service.com
+Gateway Port: 6785
+PakBus Address: 1
 ```
 
-**JSON Format:**
-```json
-{"ts":"2025-01-01T12:00:00","t":22.5,"h":65,"ws":3.2,"wd":180,"r":0,"p":1013.2,"dp":15.8,"bv":12.8}
+### Setup Steps
+1. Install and configure cellular modem at station
+2. Obtain static IP or configure gateway service
+3. Configure modem's TCP server mode
+4. Add station in Stratus with gateway details
+
+---
+
+## Method 4: LoRaWAN
+
+**How it works:** Data is transmitted via LoRa radio to a LoRaWAN gateway, then to a network server (like The Things Network). Stratus connects to the network server via MQTT.
+
+### Stratus Configuration
+```
+Connection Type: LoRa
+Network Server: eu1.cloud.thethings.network
+Application ID: your-ttn-app-id
+Application Key: your-app-key
+Device EUI: your-device-eui
 ```
 
-### Stratus Serial Monitor Configuration
-1. Navigate to **Serial Monitor** page
-2. Select COM port and baud rate (9600)
-3. Set parser to CSV or JSON
-4. Map fields to Stratus variables
-
-### Wiring
-```
-Datalogger RS-232 Port → Null Modem Cable → PC COM Port
-   (or)
-Datalogger CS I/O → SC32B → PC COM Port
-```
+### Setup Steps
+1. Register device on The Things Network or ChirpStack
+2. Configure device credentials (EUI, keys)
+3. Program datalogger to encode and transmit via LoRa
+4. Enter network server credentials in Stratus
 
 ---
 
@@ -189,67 +183,6 @@ Datalogger CS I/O → SC32B → PC COM Port
 | `BP_mbar` | pressure | mbar | Barometric pressure |
 | `DewPoint_C` | dewPoint | °C | Dew point |
 | `BattV` | battery | V | Battery voltage |
-
----
-
-## Comparison with Weather Underground
-
-| Feature | Weather Underground | Stratus |
-|---------|--------------------| --------|
-| **Protocol** | HTTP GET/POST | PakBus, HTTP, Serial |
-| **Authentication** | Station ID + Password | API Key (optional) |
-| **Data Storage** | Cloud only | Local SQLite + Optional cloud |
-| **Real-time** | Yes | Yes (WebSocket) |
-| **Historical** | Limited | Unlimited local storage |
-| **Offline** | No | Yes - full offline operation |
-| **Custom Sensors** | Limited | Fully configurable |
-| **Cost** | Free (limited) | Free (self-hosted) |
-
----
-
-## Typical Setup Workflow
-
-1. **Install CRBASIC Program**
-   - Use Device Configuration Utility or LoggerNet
-   - Upload appropriate `.cr1x` file to datalogger
-
-2. **Configure Datalogger Network** (for TCP/IP)
-   - Set static IP or DHCP
-   - Configure PakBus settings
-   - Set security code if needed
-
-3. **Configure Stratus**
-   - Add new station
-   - Select connection type
-   - Configure field mapping
-   - Set polling interval
-
-4. **Verify Connection**
-   - Check Campbell Dashboard in Stratus
-   - Verify data appears on main Dashboard
-   - Test historical data collection
-
----
-
-## Troubleshooting
-
-### PakBus Connection Issues
-- Verify PakBus address matches
-- Check security code
-- Ensure datalogger is reachable (ping test)
-- Check firewall allows port 6785 (default PakBus)
-
-### HTTP POST Issues
-- Verify server IP is correct
-- Check port 5000 is open
-- Review HTTPStatus in datalogger public table
-- Check Stratus server logs
-
-### Serial Connection Issues
-- Verify correct COM port
-- Check baud rate matches (9600)
-- Use null modem cable for direct connection
-- Check Device Manager for port conflicts
 
 ---
 
@@ -277,7 +210,65 @@ BeginProg
 EndProg
 ```
 
-Stratus will automatically discover and poll the `WeatherData` table!
+Stratus will automatically discover and poll the `WeatherData` table over TCP/IP!
+
+---
+
+## Typical Setup Workflow
+
+1. **Install CRBASIC Program**
+   - Use Device Configuration Utility or LoggerNet
+   - Upload appropriate `.cr1x` file to datalogger
+
+2. **Configure Datalogger Network**
+   - Set static IP or DHCP
+   - Configure PakBus settings
+   - Set security code if needed
+
+3. **Ensure Network Connectivity**
+   - Direct Ethernet: Connect to LAN
+   - Cellular: Install SIM, configure APN
+   - LoRaWAN: Ensure gateway coverage
+
+4. **Configure Stratus**
+   - Add new station
+   - Select connection type (TCP, GSM, LoRa)
+   - Configure field mapping
+   - Set polling interval
+
+5. **Verify Connection**
+   - Check Campbell Dashboard in Stratus
+   - Verify data appears on main Dashboard
+   - Test historical data collection
+
+---
+
+## Troubleshooting
+
+### TCP/IP Connection Issues
+- Verify IP address is correct and reachable
+- Check PakBus address matches
+- Verify security code
+- Ensure firewall allows port 6785 (default PakBus)
+- Test with ping command
+
+### HTTP POST Issues
+- Verify server URL is correct
+- Check HTTPS/TLS configuration
+- Review HTTPStatus in datalogger public table
+- Check Stratus server logs
+
+### Cellular Connection Issues
+- Verify SIM card is active with data plan
+- Check APN configuration
+- Verify gateway service is running
+- Check signal strength at station location
+
+### LoRaWAN Issues
+- Verify device is registered on network server
+- Check gateway coverage and signal
+- Verify application credentials
+- Check for interference
 
 ---
 

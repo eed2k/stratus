@@ -231,28 +231,12 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
           });
 
         case "serial":
-          // Serial port discovery
-          try {
-            const { SerialPort } = await import("serialport");
-            const ports = await SerialPort.list();
-            return res.json({
-              devices: ports.map((p) => ({
-                path: p.path,
-                manufacturer: p.manufacturer,
-                serialNumber: p.serialNumber,
-                productId: p.productId,
-                vendorId: p.vendorId,
-              })),
-              message: "Serial ports detected",
-              status: "success",
-            });
-          } catch (error: any) {
-            return res.json({
-              devices: [],
-              message: error.message,
-              status: "error",
-            });
-          }
+          // Serial port discovery - NOT available in cloud deployment
+          return res.json({
+            devices: [],
+            message: "Serial port discovery is not available in cloud deployment. Use TCP/IP, cellular, or LoRa connections instead.",
+            status: "unsupported",
+          });
 
         default:
           return res.status(400).json({
@@ -315,13 +299,12 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         examples: ["Inmarsat", "Iridium", "SatComm services"],
       },
       {
-        name: "Modbus",
-        types: ["modbus", "serial"],
-        description: "Serial Modbus RTU/ASCII protocol",
-        requiredFields: ["serialPort"],
-        optionalFields: ["baudRate", "slaveId", "host"],
-        defaultBaudRate: 9600,
-        examples: ["Modbus RTU over Serial", "Modbus over TCP"],
+        name: "Modbus TCP",
+        types: ["modbus"],
+        description: "Modbus TCP protocol over IP",
+        requiredFields: ["host", "port"],
+        optionalFields: ["slaveId"],
+        examples: ["Modbus TCP devices", "Industrial sensors"],
       },
       {
         name: "DNP3",
@@ -332,20 +315,12 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         examples: ["SCADA systems", "Utility monitoring"],
       },
       {
-        name: "BLE",
-        types: ["ble"],
-        description: "Bluetooth Low Energy for short-range wireless",
-        requiredFields: ["deviceAddress"],
-        optionalFields: ["deviceId", "serviceUUID"],
-        examples: ["BLE weather sensors", "IoT devices"],
-      },
-      {
         name: "GSM/4G",
         types: ["gsm", "4g"],
-        description: "Cellular network communication",
-        requiredFields: [],
-        optionalFields: ["serialPort", "phoneNumber", "apiEndpoint"],
-        examples: ["Cellular modems", "IoT gateways"],
+        description: "Cellular network via TCP gateway",
+        requiredFields: ["gatewayHost"],
+        optionalFields: ["gatewayPort", "apiEndpoint"],
+        examples: ["Cellular modems with TCP gateway", "4G IoT gateways"],
       },
     ];
 
@@ -400,20 +375,10 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
       },
       modbus: {
         connectionType: "modbus",
-        serialPort: "COM3",
-        baudRate: 9600,
-        dataBits: 8,
-        stopBits: 1,
-        parity: "none",
+        host: "192.168.1.100",
+        port: 502,
         slaveId: 1,
-      },
-      serial: {
-        connectionType: "serial",
-        serialPort: "/dev/ttyUSB0",
-        baudRate: 9600,
-        dataBits: 8,
-        stopBits: 1,
-        parity: "none",
+        timeout: 5000,
       },
       dnp3: {
         connectionType: "dnp3",
@@ -422,22 +387,16 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         masterAddress: 0,
         outstationAddress: 1,
       },
-      ble: {
-        connectionType: "ble",
-        deviceAddress: "XX:XX:XX:XX:XX:XX",
-        deviceId: "",
-        serviceUUID: "",
-        characteristicUUID: "",
-      },
       gsm: {
         connectionType: "gsm",
-        serialPort: "COM4",
-        phoneNumber: "",
+        gatewayHost: "your-gateway.com",
+        gatewayPort: 6785,
         apiEndpoint: "",
       },
       "4g": {
         connectionType: "4g",
-        serialPort: "COM4",
+        gatewayHost: "your-gateway.com",
+        gatewayPort: 6785,
         apn: "",
         apiEndpoint: "",
       },

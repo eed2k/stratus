@@ -14,13 +14,11 @@ export class LoRaAdapter extends BaseProtocolAdapter {
     super(config);
     
     const loraConfig: LoRaConfig = {
-      mode: "lorawan",
+      mode: "lorawan", // Only LoRaWAN mode supported in cloud deployment
       networkServer: config.host || "eu1.cloud.thethings.network",
       applicationId: config.apiKey?.split(":")[0],
       applicationKey: config.apiKey?.split(":")[1],
       deviceEUI: config.deviceEUI,
-      serialPort: config.serialPort,
-      baudRate: config.baudRate || 115200,
     };
 
     this.protocol = new LoRaProtocol(loraConfig);

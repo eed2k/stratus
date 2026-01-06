@@ -113,22 +113,13 @@ export function validateModbusConfig(config: any): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  if (!config.serialPort && !config.host) {
-    errors.push("Either serial port or IP address is required for Modbus");
+  // Cloud deployment: Modbus via TCP/IP only
+  if (!config.host) {
+    errors.push("IP address/host is required for Modbus TCP connection");
   }
 
-  if (config.serialPort) {
-    // Validate serial port format
-    const portRegex = /^(COM\d+|\/dev\/ttyUSB\d+|\/dev\/ttyACM\d+)$/i;
-    if (!portRegex.test(config.serialPort)) {
-      errors.push(`Invalid serial port: ${config.serialPort}`);
-    }
-
-    if (!config.baudRate) {
-      errors.push("Baud rate is required for serial Modbus");
-    } else if (![9600, 19200, 38400, 57600, 115200].includes(config.baudRate)) {
-      warnings.push(`Non-standard baud rate: ${config.baudRate}`);
-    }
+  if (!config.port) {
+    warnings.push("Modbus port not specified, using default (502)");
   }
 
   if (config.slaveId && (config.slaveId < 1 || config.slaveId > 247)) {
@@ -192,12 +183,13 @@ export function validateGSMConfig(config: any): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  if (!config.serialPort && !config.host) {
-    errors.push("Either serial port or gateway host is required for GSM");
+  // Cloud deployment: GSM via TCP gateway only
+  if (!config.host && !config.gatewayHost) {
+    errors.push("Gateway host is required for GSM/cellular connection in cloud deployment");
   }
 
-  if (!config.phoneNumber && !config.apiEndpoint) {
-    warnings.push("Phone number or API endpoint recommended for GSM configuration");
+  if (!config.apiEndpoint && !config.gatewayPort) {
+    warnings.push("API endpoint or gateway port recommended for GSM configuration");
   }
 
   return {

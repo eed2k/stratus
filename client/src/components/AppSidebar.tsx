@@ -30,7 +30,6 @@ const adminNavItems = [
   { title: "Dashboard", url: "/" },
   { title: "Stations", url: "/stations" },
   { title: "User Management", url: "/users" },
-  { title: "Serial Monitor", url: "/serial-monitor" },
   { title: "Organizations", url: "/organizations" },
   { title: "History", url: "/history" },
   { title: "Alarms", url: "/alarms" },

@@ -2,28 +2,28 @@
  * Connection Manager
  * Handles multiple connection types for Campbell Scientific stations
  * Supports Pull (active polling) and Push (passive receive) modes
+ * 
+ * CLOUD DEPLOYMENT NOTE:
+ * This version is designed for Railway/cloud deployment where direct serial
+ * connections are not available. All connections use TCP/IP:
+ * - TCP: Direct socket connection to station's TCP interface
+ * - GSM/4G: Connect to cellular modem's TCP gateway endpoint
+ * - LoRa: Connect to LoRaWAN network server via TCP/IP
  */
 
 import { EventEmitter } from "events";
-import { SerialPort } from "serialport";
 import { Socket } from "net";
 import { PakBusProtocol, PakBusConfig } from "./pakbusProtocol";
 
-export type ConnectionType = "serial" | "tcp" | "rf" | "gsm" | "lora" | "ble";
+// Serial type deprecated - kept for backwards compatibility but not functional
+export type ConnectionType = "tcp" | "gsm" | "lora" | "http";
 export type ConnectionMode = "pull" | "push";
 
 export interface ConnectionConfig {
   type: ConnectionType;
   mode: ConnectionMode;
   
-  // Serial/RF/GSM settings
-  serialPort?: string;
-  baudRate?: number;
-  dataBits?: 8 | 7;
-  stopBits?: 1 | 2;
-  parity?: "none" | "even" | "odd";
-  
-  // TCP/IP settings
+  // TCP/IP settings (used for all connection types in cloud deployment)
   host?: string;
   port?: number;
   
@@ -32,10 +32,15 @@ export interface ConnectionConfig {
   securityCode?: number;
   neighborAddress?: number;
   
-  // Modem settings (GSM/LoRa)
-  modemType?: "gsm" | "lora" | "rf407";
-  phoneNumber?: string;
+  // Modem gateway settings (GSM/LoRa via TCP gateway)
+  modemType?: "gsm" | "lora";
+  gatewayHost?: string;
+  gatewayPort?: number;
   apn?: string;
+  
+  // HTTP API settings (for stations with HTTP endpoints)
+  apiEndpoint?: string;
+  apiKey?: string;
   
   // Connection settings
   timeout?: number;
@@ -60,7 +65,7 @@ export interface ConnectionHealth {
 
 interface ActiveConnection {
   config: ConnectionConfig;
-  transport: SerialPort | Socket | null;
+  transport: Socket | null;
   pakbus: PakBusProtocol;
   health: ConnectionHealth;
   retryTimer: NodeJS.Timeout | null;
@@ -181,22 +186,9 @@ export class ConnectionManager extends EventEmitter {
       connection.keepAliveTimer = null;
     }
 
-    // Close transport
+    // Close transport (TCP socket)
     if (connection.transport) {
-      if (connection.transport instanceof SerialPort) {
-        await new Promise<void>((resolve) => {
-          if (connection.transport instanceof SerialPort && connection.transport.isOpen) {
-            connection.transport.close((err) => {
-              if (err) console.error('Error closing serial port:', err);
-              resolve();
-            });
-          } else {
-            resolve();
-          }
-        });
-      } else if (connection.transport instanceof Socket) {
-        connection.transport.destroy();
-      }
+      connection.transport.destroy();
       connection.transport = null;
     }
 
@@ -227,7 +219,7 @@ export class ConnectionManager extends EventEmitter {
   }
 
   /**
-   * Discover stations on the network
+   * Discover stations on the network (TCP only in cloud deployment)
    */
   async discoverStations(
     config: Partial<ConnectionConfig>
@@ -241,27 +233,13 @@ export class ConnectionManager extends EventEmitter {
 
     try {
       // For TCP discovery, scan common ports
-      if (config.type === "tcp" && config.host) {
+      if (config.host) {
         const ports = [6785, 6786, 6787, 6788]; // Common PakBus ports
         for (const port of ports) {
           try {
             const result = await this.probeAddress(config.host, port);
             if (result) {
               discovered.push({ address: result, type: "tcp" });
-            }
-          } catch {
-            // Continue scanning
-          }
-        }
-      }
-
-      // For serial discovery, scan PakBus addresses
-      if (config.type === "serial" && config.serialPort) {
-        for (let addr = 1; addr <= 4094; addr++) {
-          try {
-            const exists = await this.probeSerialAddress(config.serialPort, addr);
-            if (exists) {
-              discovered.push({ address: addr, type: "serial" });
             }
           } catch {
             // Continue scanning
@@ -277,19 +255,16 @@ export class ConnectionManager extends EventEmitter {
   }
 
   /**
-   * List available serial ports
+   * List available connection endpoints
+   * Note: Serial ports not available in cloud deployment
    */
-  async listSerialPorts(): Promise<Array<{ path: string; manufacturer?: string }>> {
-    try {
-      const ports = await SerialPort.list();
-      return ports.map((p) => ({
-        path: p.path,
-        manufacturer: p.manufacturer,
-      }));
-    } catch (error) {
-      console.error("Error listing serial ports:", error);
-      return [];
-    }
+  async listAvailableEndpoints(): Promise<Array<{ type: string; description: string }>> {
+    return [
+      { type: "tcp", description: "Direct TCP/IP connection to station" },
+      { type: "gsm", description: "Cellular modem via TCP gateway" },
+      { type: "lora", description: "LoRaWAN network server via TCP/IP" },
+      { type: "http", description: "HTTP API endpoint" },
+    ];
   }
 
   /**
@@ -301,23 +276,30 @@ export class ConnectionManager extends EventEmitter {
 
   /**
    * Create transport based on connection type
+   * All transports use TCP/IP in cloud deployment
    */
   private async createTransport(
     config: ConnectionConfig
-  ): Promise<SerialPort | Socket> {
+  ): Promise<Socket> {
     switch (config.type) {
-      case "serial":
-      case "rf":
-        return this.createSerialTransport(config);
-      
       case "tcp":
         return this.createTcpTransport(config);
       
       case "gsm":
-        return this.createGsmTransport(config);
+        return this.createGsmGatewayTransport(config);
       
       case "lora":
-        return this.createLoRaTransport(config);
+        return this.createLoRaGatewayTransport(config);
+      
+      case "http":
+        // HTTP connections don't use sockets directly
+        // Return a dummy socket that will be replaced with HTTP fetch
+        throw new Error("HTTP connections use direct API calls, not socket transport");
+      
+      default:
+        throw new Error(`Unknown connection type: ${config.type}`);
+    }
+  }
       
       case "ble":
         throw new Error("BLE transport not yet implemented");
@@ -325,35 +307,6 @@ export class ConnectionManager extends EventEmitter {
       default:
         throw new Error(`Unknown connection type: ${config.type}`);
     }
-  }
-
-  /**
-   * Create serial port transport
-   */
-  private createSerialTransport(config: ConnectionConfig): Promise<SerialPort> {
-    return new Promise((resolve, reject) => {
-      if (!config.serialPort) {
-        reject(new Error("Serial port not specified"));
-        return;
-      }
-
-      const port = new SerialPort({
-        path: config.serialPort,
-        baudRate: config.baudRate || 115200,
-        dataBits: config.dataBits || 8,
-        stopBits: config.stopBits || 1,
-        parity: config.parity || "none",
-        autoOpen: false,
-      });
-
-      port.open((err) => {
-        if (err) {
-          reject(new Error(`Failed to open serial port: ${err.message}`));
-        } else {
-          resolve(port);
-        }
-      });
-    });
   }
 
   /**
@@ -388,40 +341,46 @@ export class ConnectionManager extends EventEmitter {
   }
 
   /**
-   * Create GSM modem transport (via serial with AT commands)
+   * Create GSM/4G gateway transport (via TCP to modem gateway)
+   * Connects to cellular modem's TCP endpoint instead of serial
    */
-  private async createGsmTransport(config: ConnectionConfig): Promise<SerialPort> {
-    const port = await this.createSerialTransport(config);
+  private async createGsmGatewayTransport(config: ConnectionConfig): Promise<Socket> {
+    const host = config.gatewayHost || config.host;
+    const port = config.gatewayPort || config.port || 6785;
     
-    // Initialize modem and dial
-    if (config.phoneNumber) {
-      await this.sendATCommand(port, "ATZ"); // Reset modem
-      await this.sendATCommand(port, "ATE0"); // Disable echo
-      await this.sendATCommand(port, `ATD${config.phoneNumber}`); // Dial
-      
-      // Wait for CONNECT response
-      await this.waitForResponse(port, "CONNECT", 60000);
+    if (!host) {
+      throw new Error("GSM gateway host not specified");
     }
     
-    return port;
+    console.log(`[GSM] Connecting to cellular gateway at ${host}:${port}`);
+    
+    return this.createTcpTransport({
+      ...config,
+      host,
+      port,
+      type: "tcp",
+    });
   }
 
   /**
-   * Create LoRa transport (via serial)
+   * Create LoRa gateway transport (via TCP to LoRaWAN network server)
    */
-  private async createLoRaTransport(config: ConnectionConfig): Promise<SerialPort> {
-    const port = await this.createSerialTransport(config);
+  private async createLoRaGatewayTransport(config: ConnectionConfig): Promise<Socket> {
+    const host = config.gatewayHost || config.host;
+    const port = config.gatewayPort || config.port || 1700;
     
-    // Initialize LoRa module
-    await this.sendATCommand(port, "sys reset");
-    await this.delay(1000);
-    await this.sendATCommand(port, "mac pause");
-    await this.sendATCommand(port, "radio set mod lora");
-    await this.sendATCommand(port, "radio set freq 915000000"); // US frequency
-    await this.sendATCommand(port, "radio set sf sf7");
-    await this.sendATCommand(port, "radio set bw 125");
+    if (!host) {
+      throw new Error("LoRa network server host not specified");
+    }
     
-    return port;
+    console.log(`[LoRa] Connecting to LoRaWAN network server at ${host}:${port}`);
+    
+    return this.createTcpTransport({
+      ...config,
+      host,
+      port,
+      type: "tcp",
+    });
   }
 
   /**
@@ -503,71 +462,6 @@ export class ConnectionManager extends EventEmitter {
   }
 
   /**
-   * Send AT command to modem
-   */
-  private sendATCommand(port: SerialPort, command: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      port.write(`${command}\r`, (err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        
-        let response = "";
-        const timeout = setTimeout(() => {
-          reject(new Error(`AT command timeout: ${command}`));
-        }, 5000);
-
-        const handler = (data: Buffer) => {
-          response += data.toString();
-          if (response.includes("OK") || response.includes("ERROR")) {
-            clearTimeout(timeout);
-            port.removeListener("data", handler);
-            if (response.includes("ERROR")) {
-              reject(new Error(`AT command failed: ${command}`));
-            } else {
-              resolve(response);
-            }
-          }
-        };
-
-        port.on("data", handler);
-      });
-    });
-  }
-
-  /**
-   * Wait for specific response from modem
-   */
-  private waitForResponse(
-    port: SerialPort,
-    expected: string,
-    timeout: number
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      let response = "";
-      const timer = setTimeout(() => {
-        reject(new Error(`Timeout waiting for: ${expected}`));
-      }, timeout);
-
-      const handler = (data: Buffer) => {
-        response += data.toString();
-        if (response.includes(expected)) {
-          clearTimeout(timer);
-          port.removeListener("data", handler);
-          resolve();
-        } else if (response.includes("NO CARRIER") || response.includes("ERROR")) {
-          clearTimeout(timer);
-          port.removeListener("data", handler);
-          reject(new Error("Connection failed"));
-        }
-      };
-
-      port.on("data", handler);
-    });
-  }
-
-  /**
    * Probe TCP address for PakBus device
    */
   private async probeAddress(host: string, port: number): Promise<number | null> {
@@ -595,18 +489,6 @@ export class ConnectionManager extends EventEmitter {
     } catch {
       return null;
     }
-  }
-
-  /**
-   * Probe serial port for PakBus address
-   */
-  private async probeSerialAddress(
-    portPath: string,
-    address: number
-  ): Promise<boolean> {
-    // Implement serial address probing
-    // This would send a hello to a specific address and check for response
-    return false;
   }
 
   /**

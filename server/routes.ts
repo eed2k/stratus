@@ -103,7 +103,6 @@ import { registerCampbellRoutes } from "./campbell/routes";
 import { dataCollectionService } from "./campbell/dataCollectionService";
 import { protocolManager } from "./protocols/protocolManager";
 import { registerStationSetupRoutes } from "./station-setup/routes";
-import { registerSerialMonitorRoutes } from "./serial/routes";
 import shareRoutes from "./shares/routes";
 import complianceRoutes from "./compliance/routes";
 
@@ -143,9 +142,6 @@ export async function registerRoutes(
 
   // Register station setup routes
   await registerStationSetupRoutes(app);
-
-  // Register serial monitor routes
-  registerSerialMonitorRoutes(app, httpServer);
 
   // Register share routes
   app.use('/api', shareRoutes);
@@ -1291,29 +1287,30 @@ export async function registerRoutes(
     }
   });
 
-  // In-memory alarms storage (for demo - would use database in production)
-  // TODO: Move to persistent database storage
-  const alarms: Map<number, any> = new Map();
-  let alarmIdCounter = 1;
+  // Alarms now use persistent database storage (Issue #10 fix)
+  // The storage layer wraps db.ts alarm functions
 
   // Alarms routes
   app.get("/api/alarms", optionalAuth, async (req, res) => {
     try {
-      const userId = DEMO_MODE ? "demo" : getUserId(req);
-      const userAlarms = Array.from(alarms.values()).filter(
-        (a) => a.userId === userId
-      );
+      const stationId = req.query.stationId ? parseInt(req.query.stationId as string, 10) : undefined;
+      
+      let userAlarms;
+      if (stationId && !isNaN(stationId)) {
+        userAlarms = await storage.getAlarms(stationId);
+      } else {
+        userAlarms = await storage.getAllAlarms();
+      }
       res.json(userAlarms);
     } catch (error) {
       console.error("Error fetching alarms:", error);
-      res.status(500).json({ message: "Failed to fetch alarms" });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to fetch alarms", details: errorMessage });
     }
   });
 
   app.post("/api/alarms", optionalAuth, async (req, res) => {
     try {
-      const userId = DEMO_MODE ? "demo" : getUserId(req);
-      
       // Validate alarm data using Zod schema
       const parsed = insertAlarmSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -1325,28 +1322,31 @@ export async function registerRoutes(
       
       const { stationId, name, parameter, condition, threshold, unit, enabled, notifyEmail, notifyPush } = parsed.data;
       
-      const alarm = {
-        id: alarmIdCounter++,
-        userId,
+      const alarm = await storage.createAlarm({
         stationId,
-        name,
+        name: name || parameter,
         parameter,
         condition,
         threshold,
+        severity: 'warning',
+        isEnabled: enabled !== false,
+        emailNotifications: notifyEmail !== false,
+        emailRecipients: notifyEmail ? undefined : undefined // Add recipient handling if needed
+      });
+      
+      res.status(201).json({
+        ...alarm,
+        parameter,
         unit,
-        enabled: enabled !== false,
         notifyEmail: notifyEmail !== false,
         notifyPush: notifyPush === true,
         lastTriggered: null,
-        triggerCount: 0,
-        createdAt: new Date().toISOString(),
-      };
-      
-      alarms.set(alarm.id, alarm);
-      res.status(201).json(alarm);
+        triggerCount: 0
+      });
     } catch (error) {
       console.error("Error creating alarm:", error);
-      res.status(500).json({ message: "Failed to create alarm" });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to create alarm", details: errorMessage });
     }
   });
 
@@ -1356,18 +1356,18 @@ export async function registerRoutes(
       if (error || alarmId === null) {
         return res.status(400).json({ message: error });
       }
-      const alarm = alarms.get(alarmId);
       
-      if (!alarm) {
-        return res.status(404).json({ message: "Alarm not found" });
+      const existingAlarm = await storage.getAlarm(alarmId);
+      if (!existingAlarm) {
+        return res.status(404).json({ message: `Alarm with id ${alarmId} not found` });
       }
       
-      const updated = { ...alarm, ...req.body };
-      alarms.set(alarmId, updated);
+      const updated = await storage.updateAlarm(alarmId, req.body);
       res.json(updated);
     } catch (error) {
       console.error("Error updating alarm:", error);
-      res.status(500).json({ message: "Failed to update alarm" });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to update alarm", details: errorMessage });
     }
   });
 
@@ -1377,14 +1377,51 @@ export async function registerRoutes(
       if (error || alarmId === null) {
         return res.status(400).json({ message: error });
       }
-      if (!alarms.has(alarmId)) {
-        return res.status(404).json({ message: "Alarm not found" });
+      
+      const existingAlarm = await storage.getAlarm(alarmId);
+      if (!existingAlarm) {
+        return res.status(404).json({ message: `Alarm with id ${alarmId} not found` });
       }
-      alarms.delete(alarmId);
+      
+      await storage.deleteAlarm(alarmId);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting alarm:", error);
-      res.status(500).json({ message: "Failed to delete alarm" });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to delete alarm", details: errorMessage });
+    }
+  });
+
+  // Alarm events routes
+  app.get("/api/alarm-events", optionalAuth, async (req, res) => {
+    try {
+      const stationId = req.query.stationId ? parseInt(req.query.stationId as string, 10) : undefined;
+      const alarmId = req.query.alarmId ? parseInt(req.query.alarmId as string, 10) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+      
+      const events = await storage.getAlarmEvents(alarmId, stationId, limit);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching alarm events:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to fetch alarm events", details: errorMessage });
+    }
+  });
+
+  app.post("/api/alarm-events/:id/acknowledge", optionalAuth, async (req, res) => {
+    try {
+      const { value: eventId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || eventId === null) {
+        return res.status(400).json({ message: error });
+      }
+      
+      const userId = DEMO_MODE ? "demo" : getUserId(req);
+      const result = await storage.acknowledgeAlarmEvent(eventId, userId, req.body.notes);
+      res.json(result);
+    } catch (error) {
+      console.error("Error acknowledging alarm event:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to acknowledge alarm event", details: errorMessage });
     }
   });
 

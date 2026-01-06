@@ -1,3 +1,33 @@
+/**
+ * Shared Schema Definitions for Stratus Weather Server
+ * 
+ * ARCHITECTURE NOTE (Issue #17 - Type Alignment):
+ * ================================================
+ * This file defines schemas using Drizzle ORM with PostgreSQL types for
+ * cloud deployment compatibility (Replit, Railway, etc.).
+ * 
+ * For desktop/Electron deployments, the application uses SQLite via sql.js
+ * (see server/db.ts). The actual database schema is defined in db.ts
+ * createTables() and runMigrations() functions.
+ * 
+ * Type mapping between PostgreSQL (this file) and SQLite (db.ts):
+ * - serial/integer -> INTEGER
+ * - varchar/text -> TEXT  
+ * - timestamp -> DATETIME (stored as ISO string)
+ * - jsonb -> TEXT (JSON serialized)
+ * - boolean -> INTEGER (0/1)
+ * - real -> REAL
+ * 
+ * The Zod schemas exported here are used for runtime validation in routes.ts
+ * and are compatible with both storage backends.
+ * 
+ * When adding new tables:
+ * 1. Define PostgreSQL schema here for cloud deployments
+ * 2. Add corresponding SQLite CREATE TABLE in server/db.ts createTables()
+ * 3. Add migration logic in server/db.ts runMigrations() for existing databases
+ * 4. Export Zod schemas for route validation
+ */
+
 import { sql } from "drizzle-orm";
 import {
   index,
@@ -123,8 +153,9 @@ export const weatherStations = pgTable("weather_stations", {
   protocol: varchar("protocol", { length: 50 }).default("pakbus"),
   ipAddress: text("ip_address"),
   port: integer("port").default(6785),
-  serialPort: text("serial_port"),
-  baudRate: integer("baud_rate").default(115200),
+  // DEPRECATED: Serial fields not used in cloud deployment
+  serialPort: text("serial_port"), // Kept for schema compatibility
+  baudRate: integer("baud_rate").default(115200), // Kept for schema compatibility
   pakbusAddress: integer("pakbus_address").default(1),
   securityCode: integer("security_code").default(0),
   username: text("username"),

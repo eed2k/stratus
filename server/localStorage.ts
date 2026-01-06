@@ -3,7 +3,31 @@
  * Wraps the SQLite database operations with an interface compatible with the server routes
  */
 
-import db from './db';
+import db, { 
+  Alarm as DbAlarm, 
+  AlarmEvent as DbAlarmEvent,
+  createAlarm as dbCreateAlarm,
+  getAlarmById as dbGetAlarmById,
+  getAlarmsByStation as dbGetAlarmsByStation,
+  getAllAlarms as dbGetAllAlarms,
+  updateAlarm as dbUpdateAlarm,
+  deleteAlarm as dbDeleteAlarm,
+  triggerAlarm as dbTriggerAlarm,
+  getAlarmEvents as dbGetAlarmEvents,
+  acknowledgeAlarmEvent as dbAcknowledgeAlarmEvent
+} from './db';
+
+// Storage logging utility (Issue #7 fix)
+const storageLog = {
+  info: (message: string, ...args: any[]) => console.log(`[Storage] ${message}`, ...args),
+  warn: (message: string, ...args: any[]) => console.warn(`[Storage] WARNING: ${message}`, ...args),
+  error: (message: string, error?: any) => {
+    console.error(`[Storage] ERROR: ${message}`, error instanceof Error ? error.message : error);
+    if (error instanceof Error && error.stack) {
+      console.error(`[Storage] Stack: ${error.stack}`);
+    }
+  }
+};
 
 // Types for the local desktop app
 export interface WeatherStation {
@@ -181,7 +205,7 @@ export class DatabaseStorage {
           createdAt: new Date()
         };
       } catch (e) {
-        // Fall through to default
+        storageLog.warn('Failed to parse user profile, using defaults', e);
       }
     }
     return {
@@ -394,6 +418,7 @@ export class DatabaseStorage {
       try {
         return { ...defaults, ...JSON.parse(storedPrefs), userId };
       } catch (e) {
+        storageLog.warn('Failed to parse user preferences, using defaults', e);
         return defaults;
       }
     }
@@ -453,34 +478,108 @@ export class DatabaseStorage {
     return { id: Date.now(), createdAt: new Date(), ...event };
   }
 
-  // Alarm operations - stubs
+  // Alarm operations - now with real database persistence (Issue #10 fix)
   async getAlarms(stationId: number): Promise<Alarm[]> {
-    return [];
+    const alarms = dbGetAlarmsByStation(stationId);
+    return alarms.map(a => this.mapDbAlarm(a));
+  }
+
+  async getAllAlarms(): Promise<Alarm[]> {
+    const alarms = dbGetAllAlarms();
+    return alarms.map(a => this.mapDbAlarm(a));
   }
 
   async getAlarm(alarmId: number): Promise<Alarm | undefined> {
-    // Stub - returns undefined for now
-    return undefined;
+    const alarm = dbGetAlarmById(alarmId);
+    if (!alarm) return undefined;
+    return this.mapDbAlarm(alarm);
   }
 
   async createAlarm(alarm: any): Promise<Alarm> {
-    return { id: Date.now(), createdAt: new Date(), isEnabled: true, ...alarm };
+    const id = dbCreateAlarm({
+      station_id: alarm.stationId,
+      parameter: alarm.name || alarm.parameter,
+      condition: alarm.condition || 'above',
+      threshold: alarm.threshold,
+      severity: alarm.severity || 'warning',
+      enabled: alarm.isEnabled !== false,
+      email_notifications: alarm.emailNotifications || false,
+      email_recipients: alarm.emailRecipients
+    });
+    
+    const created = dbGetAlarmById(id);
+    if (!created) throw new Error('Failed to create alarm');
+    return this.mapDbAlarm(created);
   }
 
   async updateAlarm(id: number, data: any): Promise<Alarm | undefined> {
-    return { id, createdAt: new Date(), isEnabled: true, ...data };
+    dbUpdateAlarm(id, {
+      parameter: data.name || data.parameter,
+      condition: data.condition,
+      threshold: data.threshold,
+      severity: data.severity,
+      enabled: data.isEnabled,
+      email_notifications: data.emailNotifications,
+      email_recipients: data.emailRecipients
+    });
+    return this.getAlarm(id);
   }
 
   async deleteAlarm(id: number): Promise<boolean> {
+    dbDeleteAlarm(id);
     return true;
   }
 
   async getActiveAlarmEvents(stationId?: number): Promise<any[]> {
-    return [];
+    const events = dbGetAlarmEvents(undefined, stationId, 100);
+    return events.filter(e => !e.acknowledged).map(e => ({
+      id: e.id,
+      alarmId: e.alarm_id,
+      stationId: e.station_id,
+      triggeredValue: e.triggered_value,
+      message: e.message,
+      acknowledged: e.acknowledged,
+      acknowledgedBy: e.acknowledged_by,
+      acknowledgedAt: e.acknowledged_at ? new Date(e.acknowledged_at) : undefined,
+      createdAt: new Date(e.created_at || Date.now())
+    }));
+  }
+
+  async getAlarmEvents(alarmId?: number, stationId?: number, limit: number = 100): Promise<any[]> {
+    const events = dbGetAlarmEvents(alarmId, stationId, limit);
+    return events.map(e => ({
+      id: e.id,
+      alarmId: e.alarm_id,
+      stationId: e.station_id,
+      triggeredValue: e.triggered_value,
+      message: e.message,
+      acknowledged: e.acknowledged,
+      acknowledgedBy: e.acknowledged_by,
+      acknowledgedAt: e.acknowledged_at ? new Date(e.acknowledged_at) : undefined,
+      createdAt: new Date(e.created_at || Date.now())
+    }));
+  }
+
+  async triggerAlarm(alarmId: number, value: number, message?: string): Promise<number> {
+    return dbTriggerAlarm(alarmId, value, message);
   }
 
   async acknowledgeAlarmEvent(eventId: number, acknowledgedBy: string, notes?: string): Promise<any> {
+    dbAcknowledgeAlarmEvent(eventId, acknowledgedBy);
     return { id: eventId, acknowledgedBy, notes, acknowledgedAt: new Date() };
+  }
+
+  private mapDbAlarm(alarm: DbAlarm): Alarm {
+    return {
+      id: alarm.id!,
+      stationId: alarm.station_id,
+      name: alarm.parameter,
+      condition: alarm.condition,
+      threshold: alarm.threshold,
+      severity: alarm.severity || 'warning',
+      isEnabled: alarm.enabled !== false,
+      createdAt: new Date(alarm.created_at || Date.now())
+    };
   }
 
   // Data quality operations - stubs
@@ -644,7 +743,8 @@ export class DatabaseStorage {
     let connectionConfig: any = {};
     try {
       connectionConfig = JSON.parse(station.connection_config || '{}');
-    } catch {
+    } catch (e) {
+      storageLog.warn(`Failed to parse connection_config for station ${station.id}`, e);
       connectionConfig = {};
     }
 
@@ -696,7 +796,8 @@ export class DatabaseStorage {
     let data: Record<string, any> = {};
     try {
       data = JSON.parse(record.data || '{}');
-    } catch {
+    } catch (e) {
+      storageLog.warn(`Failed to parse weather data for record ${record.id}`, e);
       data = {};
     }
 

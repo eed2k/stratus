@@ -2,6 +2,10 @@
  * Station Integration Service
  * Handles complete station setup flow including validation, testing, and registration
  * Focused on Campbell Scientific stations
+ * 
+ * CLOUD DEPLOYMENT NOTE:
+ * All connections use TCP/IP in cloud deployment (Railway/similar).
+ * Serial/RS232 connections are not available.
  */
 
 import { storage } from "../localStorage";
@@ -16,8 +20,8 @@ export interface StationSetupPayload {
   connectionType: string;
   ipAddress?: string;
   port?: number;
-  serialPort?: string;
-  baudRate?: number;
+  gatewayHost?: string;  // For cellular/LoRa TCP gateway
+  gatewayPort?: number;
   apiKey?: string;
   apiEndpoint?: string;
   connectionConfig?: Record<string, any>;
@@ -82,8 +86,8 @@ export class StationIntegrationService {
           ...(payload.connectionConfig || {}),
           ipAddress: payload.ipAddress,
           port: payload.port,
-          serialPort: payload.serialPort,
-          baudRate: payload.baudRate,
+          gatewayHost: payload.gatewayHost,
+          gatewayPort: payload.gatewayPort,
           apiKey: payload.apiKey,
           apiEndpoint: payload.apiEndpoint,
           description: payload.description || "",
@@ -266,8 +270,6 @@ export class StationIntegrationService {
         connectionType: payload.connectionType,
         ipAddress: payload.ipAddress,
         port: payload.port,
-        serialPort: payload.serialPort,
-        baudRate: payload.baudRate,
         apiKey: payload.apiKey,
         apiEndpoint: payload.apiEndpoint,
         connectionConfig: payload.connectionConfig

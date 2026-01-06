@@ -1,27 +1,32 @@
 /**
  * LoRa/LoRaWAN Protocol Implementation
  * Long Range, Low Power wireless communication for IoT weather stations
+ * 
+ * CLOUD DEPLOYMENT NOTE:
+ * This implementation connects to LoRaWAN network servers via MQTT over TCP/IP.
+ * P2P mode is NOT supported in cloud deployment as it requires direct serial
+ * connection to a local LoRa radio module.
+ * 
+ * Supported modes:
+ * - LoRaWAN: Connect to TTN, ChirpStack, or other network servers via MQTT
  */
 
 import { EventEmitter } from "events";
 
 export interface LoRaConfig {
   mode: "lorawan" | "lora-p2p";
-  // LoRaWAN settings
+  // LoRaWAN settings (TCP/IP via MQTT)
   networkServer?: string;
   applicationId?: string;
   applicationKey?: string;
   deviceEUI?: string;
   appEUI?: string;
   appKey?: string;
-  // P2P settings
+  // P2P settings (NOT supported in cloud deployment)
   frequency?: number;
   spreadingFactor?: number;
   bandwidth?: number;
   codingRate?: string;
-  // Serial settings for local gateway
-  serialPort?: string;
-  baudRate?: number;
 }
 
 export interface LoRaMessage {
@@ -55,7 +60,6 @@ export class LoRaProtocol extends EventEmitter {
       spreadingFactor: 7,
       bandwidth: 125000,
       codingRate: "4/5",
-      baudRate: 115200,
       ...config,
     };
   }
@@ -125,16 +129,12 @@ export class LoRaProtocol extends EventEmitter {
   }
 
   private async connectP2P(): Promise<boolean> {
-    // P2P mode requires serial connection to LoRa module
-    this.emit("serial-connect-request", {
-      port: this.config.serialPort,
-      baudRate: this.config.baudRate,
-      frequency: this.config.frequency,
-      sf: this.config.spreadingFactor,
-      bw: this.config.bandwidth,
-      cr: this.config.codingRate,
-    });
-    return true;
+    // P2P mode NOT supported in cloud deployment
+    // Requires direct serial connection to local LoRa radio module
+    throw new Error(
+      "LoRa P2P mode is not supported in cloud deployment. " +
+      "Use LoRaWAN mode to connect via a network server instead."
+    );
   }
 
   private handleLoRaWANMessage(topic: string, message: Buffer): void {

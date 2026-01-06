@@ -13,6 +13,36 @@ import * as os from 'os';
 let db: Database | null = null;
 const DB_FILE = 'stratus.db';
 
+// Simple logger for database operations
+const dbLog = {
+  info: (message: string, ...args: any[]) => console.log(`[DB] ${message}`, ...args),
+  warn: (message: string, ...args: any[]) => console.warn(`[DB] WARNING: ${message}`, ...args),
+  error: (message: string, error?: any) => {
+    console.error(`[DB] ERROR: ${message}`);
+    if (error) console.error(`[DB] Details:`, error instanceof Error ? error.message : error);
+  }
+};
+
+// Whitelist of valid column names for SQL safety
+const VALID_STATION_COLUMNS = new Set([
+  'id', 'name', 'pakbus_address', 'connection_type', 'connection_config', 
+  'security_code', 'created_at', 'updated_at', 'last_connected', 'is_active',
+  'location', 'latitude', 'longitude', 'altitude', 'datalogger_model',
+  'datalogger_serial_number', 'program_name', 'modem_model', 'modem_serial_number',
+  'site_description', 'notes', 'installation_team', 'station_admin',
+  'station_admin_email', 'station_admin_phone'
+]);
+
+/**
+ * Validates a column name against whitelist to prevent SQL injection
+ */
+function validateColumnName(column: string): boolean {
+  return VALID_STATION_COLUMNS.has(column);
+}
+
+let db: Database | null = null;
+const DB_FILE = 'stratus.db';
+
 /**
  * Get the database file path
  * Uses standard app data location for the platform
@@ -67,13 +97,16 @@ export async function initDatabase(): Promise<Database> {
  * Run database migrations for existing databases
  */
 async function runMigrations(database: Database): Promise<void> {
+  dbLog.info('Running database migrations...');
+  
   // Add personnel columns if they don't exist
   const columns = ['installation_team', 'station_admin', 'station_admin_email', 'station_admin_phone'];
   for (const col of columns) {
     try {
       database.run(`ALTER TABLE stations ADD COLUMN ${col} TEXT`);
+      dbLog.info(`Added column: ${col}`);
     } catch (e) {
-      // Column already exists, ignore
+      // Column already exists, this is expected
     }
   }
 
@@ -82,8 +115,9 @@ async function runMigrations(database: Database): Promise<void> {
   for (const col of locationColumns) {
     try {
       database.run(`ALTER TABLE stations ADD COLUMN ${col} REAL`);
+      dbLog.info(`Added column: ${col}`);
     } catch (e) {
-      // Column already exists, ignore
+      // Column already exists, this is expected
     }
   }
 
@@ -95,8 +129,9 @@ async function runMigrations(database: Database): Promise<void> {
   for (const col of textColumns) {
     try {
       database.run(`ALTER TABLE stations ADD COLUMN ${col} TEXT`);
+      dbLog.info(`Added column: ${col}`);
     } catch (e) {
-      // Column already exists, ignore
+      // Column already exists, this is expected
     }
   }
 
@@ -113,8 +148,9 @@ async function runMigrations(database: Database): Promise<void> {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    dbLog.info('Organizations table ready');
   } catch (e) {
-    // Table already exists
+    dbLog.error('Failed to create organizations table', e);
   }
 
   // Add organization members table if it doesn't exist
@@ -129,8 +165,9 @@ async function runMigrations(database: Database): Promise<void> {
         FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
       )
     `);
+    dbLog.info('Organization members table ready');
   } catch (e) {
-    // Table already exists
+    dbLog.error('Failed to create organization_members table', e);
   }
 
   // Add organization invitations table if it doesn't exist
@@ -147,8 +184,9 @@ async function runMigrations(database: Database): Promise<void> {
         FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
       )
     `);
+    dbLog.info('Organization invitations table ready');
   } catch (e) {
-    // Table already exists
+    dbLog.error('Failed to create organization_invitations table', e);
   }
 
   // Add shares table for dashboard sharing
@@ -172,8 +210,56 @@ async function runMigrations(database: Database): Promise<void> {
         FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
       )
     `);
+    dbLog.info('Shares table ready');
   } catch (e) {
-    // Table already exists
+    dbLog.error('Failed to create shares table', e);
+  }
+
+  // Add alarms table for persistent alarm storage (Issue #10 fix)
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS alarms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        station_id INTEGER NOT NULL,
+        parameter TEXT NOT NULL,
+        condition TEXT NOT NULL,
+        threshold REAL NOT NULL,
+        severity TEXT DEFAULT 'warning',
+        enabled INTEGER DEFAULT 1,
+        email_notifications INTEGER DEFAULT 0,
+        email_recipients TEXT,
+        last_triggered_at DATETIME,
+        trigger_count INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
+      )
+    `);
+    dbLog.info('Alarms table ready');
+  } catch (e) {
+    dbLog.error('Failed to create alarms table', e);
+  }
+
+  // Add alarm_events table to track alarm history
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS alarm_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        alarm_id INTEGER NOT NULL,
+        station_id INTEGER NOT NULL,
+        triggered_value REAL,
+        message TEXT,
+        acknowledged INTEGER DEFAULT 0,
+        acknowledged_by TEXT,
+        acknowledged_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (alarm_id) REFERENCES alarms(id) ON DELETE CASCADE,
+        FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
+      )
+    `);
+    dbLog.info('Alarm events table ready');
+  } catch (e) {
+    dbLog.error('Failed to create alarm_events table', e);
   }
 
   saveDatabase();
@@ -1059,6 +1145,246 @@ export function deleteShare(token: string): void {
   saveDatabase();
 }
 
+// ============ Alarm Functions (Issue #10 fix - persistent alarms) ============
+
+export interface Alarm {
+  id?: number;
+  station_id: number;
+  parameter: string;
+  condition: 'above' | 'below' | 'equal' | 'not_equal';
+  threshold: number;
+  severity?: 'info' | 'warning' | 'critical';
+  enabled?: boolean;
+  email_notifications?: boolean;
+  email_recipients?: string;
+  last_triggered_at?: string;
+  trigger_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AlarmEvent {
+  id?: number;
+  alarm_id: number;
+  station_id: number;
+  triggered_value?: number;
+  message?: string;
+  acknowledged?: boolean;
+  acknowledged_by?: string;
+  acknowledged_at?: string;
+  created_at?: string;
+}
+
+export function createAlarm(alarm: Alarm): number {
+  if (!db) throw new Error('Database not initialized');
+  
+  dbLog.info(`Creating alarm for station ${alarm.station_id}, parameter: ${alarm.parameter}`);
+  
+  db.run(
+    `INSERT INTO alarms (station_id, parameter, condition, threshold, severity, enabled, email_notifications, email_recipients)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      alarm.station_id,
+      alarm.parameter,
+      alarm.condition,
+      alarm.threshold,
+      alarm.severity || 'warning',
+      alarm.enabled !== false ? 1 : 0,
+      alarm.email_notifications ? 1 : 0,
+      alarm.email_recipients || null
+    ]
+  );
+  
+  saveDatabase();
+  
+  const result = db.exec('SELECT last_insert_rowid()');
+  return result[0]?.values[0]?.[0] as number || 0;
+}
+
+export function getAlarmsByStation(stationId: number): Alarm[] {
+  if (!db) return [];
+  
+  const result = db.exec('SELECT * FROM alarms WHERE station_id = ? ORDER BY created_at DESC', [stationId]);
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    station_id: row[1] as number,
+    parameter: row[2] as string,
+    condition: row[3] as Alarm['condition'],
+    threshold: row[4] as number,
+    severity: row[5] as Alarm['severity'],
+    enabled: row[6] === 1,
+    email_notifications: row[7] === 1,
+    email_recipients: row[8] as string | undefined,
+    last_triggered_at: row[9] as string | undefined,
+    trigger_count: row[10] as number,
+    created_at: row[11] as string,
+    updated_at: row[12] as string
+  }));
+}
+
+export function getAllAlarms(): Alarm[] {
+  if (!db) return [];
+  
+  const result = db.exec('SELECT * FROM alarms ORDER BY created_at DESC');
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    station_id: row[1] as number,
+    parameter: row[2] as string,
+    condition: row[3] as Alarm['condition'],
+    threshold: row[4] as number,
+    severity: row[5] as Alarm['severity'],
+    enabled: row[6] === 1,
+    email_notifications: row[7] === 1,
+    email_recipients: row[8] as string | undefined,
+    last_triggered_at: row[9] as string | undefined,
+    trigger_count: row[10] as number,
+    created_at: row[11] as string,
+    updated_at: row[12] as string
+  }));
+}
+
+export function getAlarmById(id: number): Alarm | null {
+  if (!db) return null;
+  
+  const result = db.exec('SELECT * FROM alarms WHERE id = ?', [id]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const row = result[0].values[0];
+  return {
+    id: row[0] as number,
+    station_id: row[1] as number,
+    parameter: row[2] as string,
+    condition: row[3] as Alarm['condition'],
+    threshold: row[4] as number,
+    severity: row[5] as Alarm['severity'],
+    enabled: row[6] === 1,
+    email_notifications: row[7] === 1,
+    email_recipients: row[8] as string | undefined,
+    last_triggered_at: row[9] as string | undefined,
+    trigger_count: row[10] as number,
+    created_at: row[11] as string,
+    updated_at: row[12] as string
+  };
+}
+
+export function updateAlarm(id: number, updates: Partial<Alarm>): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  const fields: string[] = [];
+  const values: any[] = [];
+  
+  if (updates.parameter !== undefined) { fields.push('parameter = ?'); values.push(updates.parameter); }
+  if (updates.condition !== undefined) { fields.push('condition = ?'); values.push(updates.condition); }
+  if (updates.threshold !== undefined) { fields.push('threshold = ?'); values.push(updates.threshold); }
+  if (updates.severity !== undefined) { fields.push('severity = ?'); values.push(updates.severity); }
+  if (updates.enabled !== undefined) { fields.push('enabled = ?'); values.push(updates.enabled ? 1 : 0); }
+  if (updates.email_notifications !== undefined) { fields.push('email_notifications = ?'); values.push(updates.email_notifications ? 1 : 0); }
+  if (updates.email_recipients !== undefined) { fields.push('email_recipients = ?'); values.push(updates.email_recipients); }
+  if (updates.last_triggered_at !== undefined) { fields.push('last_triggered_at = ?'); values.push(updates.last_triggered_at); }
+  if (updates.trigger_count !== undefined) { fields.push('trigger_count = ?'); values.push(updates.trigger_count); }
+  
+  if (fields.length === 0) return;
+  
+  fields.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(id);
+  
+  db.run(`UPDATE alarms SET ${fields.join(', ')} WHERE id = ?`, values);
+  saveDatabase();
+  
+  dbLog.info(`Updated alarm ${id}`);
+}
+
+export function deleteAlarm(id: number): void {
+  if (!db) throw new Error('Database not initialized');
+  db.run('DELETE FROM alarms WHERE id = ?', [id]);
+  saveDatabase();
+  dbLog.info(`Deleted alarm ${id}`);
+}
+
+export function triggerAlarm(alarmId: number, triggeredValue: number, message?: string): number {
+  if (!db) throw new Error('Database not initialized');
+  
+  const alarm = getAlarmById(alarmId);
+  if (!alarm) throw new Error(`Alarm ${alarmId} not found`);
+  
+  // Record the alarm event
+  db.run(
+    `INSERT INTO alarm_events (alarm_id, station_id, triggered_value, message)
+     VALUES (?, ?, ?, ?)`,
+    [alarmId, alarm.station_id, triggeredValue, message || null]
+  );
+  
+  // Update alarm trigger info
+  db.run(
+    `UPDATE alarms SET last_triggered_at = CURRENT_TIMESTAMP, trigger_count = trigger_count + 1 WHERE id = ?`,
+    [alarmId]
+  );
+  
+  saveDatabase();
+  
+  const result = db.exec('SELECT last_insert_rowid()');
+  const eventId = result[0]?.values[0]?.[0] as number || 0;
+  
+  dbLog.warn(`Alarm ${alarmId} triggered with value ${triggeredValue}`);
+  
+  return eventId;
+}
+
+export function getAlarmEvents(alarmId?: number, stationId?: number, limit: number = 100): AlarmEvent[] {
+  if (!db) return [];
+  
+  let query = 'SELECT * FROM alarm_events';
+  const conditions: string[] = [];
+  const params: any[] = [];
+  
+  if (alarmId !== undefined) {
+    conditions.push('alarm_id = ?');
+    params.push(alarmId);
+  }
+  if (stationId !== undefined) {
+    conditions.push('station_id = ?');
+    params.push(stationId);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY created_at DESC LIMIT ?';
+  params.push(limit);
+  
+  const result = db.exec(query, params);
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    alarm_id: row[1] as number,
+    station_id: row[2] as number,
+    triggered_value: row[3] as number | undefined,
+    message: row[4] as string | undefined,
+    acknowledged: row[5] === 1,
+    acknowledged_by: row[6] as string | undefined,
+    acknowledged_at: row[7] as string | undefined,
+    created_at: row[8] as string
+  }));
+}
+
+export function acknowledgeAlarmEvent(eventId: number, acknowledgedBy: string): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  db.run(
+    `UPDATE alarm_events SET acknowledged = 1, acknowledged_by = ?, acknowledged_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [acknowledgedBy, eventId]
+  );
+  saveDatabase();
+  
+  dbLog.info(`Alarm event ${eventId} acknowledged by ${acknowledgedBy}`);
+}
+
 // Export database module
 export default {
   initDatabase,
@@ -1095,5 +1421,15 @@ export default {
   getShareByToken,
   getSharesByStation,
   updateShare,
-  deleteShare
+  deleteShare,
+  // Alarm functions (Issue #10 fix)
+  createAlarm,
+  getAlarmById,
+  getAlarmsByStation,
+  getAllAlarms,
+  updateAlarm,
+  deleteAlarm,
+  triggerAlarm,
+  getAlarmEvents,
+  acknowledgeAlarmEvent
 };
