@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DemoInitializer } from "@/components/DemoInitializer";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
 import { useElectronMenu } from "@/hooks/useElectronMenu";
 import NotFound from "@/pages/not-found";
@@ -53,9 +54,11 @@ function Router() {
 
   // Desktop app - authenticated
   return (
-    <DemoInitializer>
-      <AuthenticatedApp user={user!} logout={logout} isAdmin={isAdmin} canAccessStation={canAccessStation} />
-    </DemoInitializer>
+    <ErrorBoundary>
+      <DemoInitializer>
+        <AuthenticatedApp user={user!} logout={logout} isAdmin={isAdmin} canAccessStation={canAccessStation} />
+      </DemoInitializer>
+    </ErrorBoundary>
   );
 }
 
@@ -134,12 +137,14 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Router />
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Router />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

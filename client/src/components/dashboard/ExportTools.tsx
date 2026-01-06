@@ -41,19 +41,19 @@ export function ExportTools({ targetId = "dashboard-content", stationName = "Wea
         throw new Error("Dashboard content not found");
       }
 
-      // A4 page dimensions in mm
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const margin = 12;
-      const headerHeight = 20;
-      const footerHeight = 10;
+      // A4 landscape page dimensions in mm
+      const pageWidth = 297;
+      const pageHeight = 210;
+      const margin = 10;
+      const headerHeight = 18;
+      const footerHeight = 8;
       const contentWidth = pageWidth - margin * 2;
       const contentHeightPerPage = pageHeight - margin * 2 - headerHeight - footerHeight;
-      const sectionGap = 6; // Gap between sections in mm
+      const sectionGap = 4; // Gap between sections in mm
       
-      // Create PDF
+      // Create PDF in landscape orientation
       const pdf = new jsPDF({
-        orientation: "portrait",
+        orientation: "landscape",
         unit: "mm",
         format: "a4",
       });

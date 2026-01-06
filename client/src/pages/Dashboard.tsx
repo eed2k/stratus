@@ -28,9 +28,10 @@ import { WindDirectionChart } from "@/components/dashboard/WindDirectionChart";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { FireDangerChart } from "@/components/charts/FireDangerChart";
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
@@ -323,7 +324,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center space-y-4">
           <Radio className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-          <h2 className="text-xl font-semibold text-muted-foreground">No Stations Assigned</h2>
+          <h2 className="text-base font-normal text-muted-foreground">No Stations Assigned</h2>
           <p className="text-sm text-muted-foreground max-w-md">
             You don't have any weather stations assigned to your account yet.
             Please contact your administrator to get access to station dashboards.
@@ -347,7 +348,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 px-8">
             <Radio className="h-12 w-12 text-muted-foreground mb-4" />
-            <h2 className="text-base font-semibold mb-2">No Weather Stations</h2>
+            <h2 className="text-base font-normal mb-2">No Weather Stations</h2>
             <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
               {isAdmin 
                 ? "Add a weather station to start monitoring weather data on your dashboard."
@@ -556,7 +557,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
             />
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-normal">Station Details</CardTitle>
+                <CardTitle className="text-base font-normal">Station Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
@@ -615,7 +616,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
             <MetricCard
               title="Pressure"
               value={formatValue(currentData.pressure || 0, 1)}
-              unit="hPa"
+              unit="mbar"
               trend={{ value: 2.1, label: "vs yesterday" }}
               sparklineData={chartData.slice(-12).map(d => d.pressure)}
               chartColor="#8b5cf6"
@@ -1011,8 +1012,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
           </div>
 
           {/* Wind Speed Scatter Section */}
-          <h3 className="text-sm font-normal text-muted-foreground mt-6">Wind Speed Scatter Plots</h3>
-          <p className="text-xs text-muted-foreground mb-4">
+          <h2 className="text-base font-normal text-foreground mt-6">Wind Speed Scatter Plots</h2>
+          <p className="text-sm text-muted-foreground mb-4">
             Individual wind speed observations plotted by direction. Points are color-coded by speed according to WMO/Beaufort scale.
           </p>
           
@@ -1099,7 +1100,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
         {/* Fire Danger Section */}
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Fire Danger Index</h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             McArthur Forest Fire Danger Index (FFDI) calculated from temperature, humidity, and wind speed. 
             Based on Australian Bureau of Meteorology standards.
           </p>
@@ -1168,7 +1169,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
                 title="Barometric Pressure"
                 data={chartData}
                 series={[
-                  { dataKey: "pressure", name: "Pressure (hPa)", color: "#8b5cf6" },
+                  { dataKey: "pressure", name: "Pressure (mbar)", color: "#8b5cf6" },
                 ]}
               />
             </TabsContent>
@@ -1235,9 +1236,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
           </div>
         </section>
 
-        {/* Station Administration - Admin Only (hidden in PDF export and for demo stations) */}
-        {isAdmin && selectedStation && !isDemoStation && (
+        {/* Station Administration - Admin Only (hidden in PDF export) */}
+        {isAdmin && selectedStation && (
           <section className="no-print">
+          {isDemoStation ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base font-normal">Station Administration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Station administration is not available for demo stations. 
+                  Add a real weather station to access configuration options.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
           <StationInfoPanel
             station={{
               id: selectedStation.id,
@@ -1283,6 +1297,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               }
             }}
           />
+          )}
           </section>
         )}
       </div>
