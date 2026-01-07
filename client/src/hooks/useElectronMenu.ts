@@ -66,17 +66,15 @@ export function useElectronMenu() {
         case 'backup-db':
           window.dispatchEvent(new CustomEvent('backup-database'));
           break;
+        // Serial monitor removed - not available in cloud deployment
         case 'serial-monitor':
-          setLocation('/serial-monitor');
-          break;
         case 'pakbus-terminal':
-          setLocation('/serial-monitor');
+        case 'comm-log':
+          // Redirect to stations page instead since serial monitor is not available
+          setLocation('/stations');
           break;
         case 'connection-health':
           setLocation('/stations');
-          break;
-        case 'comm-log':
-          setLocation('/serial-monitor');
           break;
         case 'export-config':
           window.dispatchEvent(new CustomEvent('export-config'));

@@ -182,23 +182,24 @@ function createWindow() {
     {
       label: 'Tools',
       submenu: [
-        {
-          label: 'Serial Monitor',
-          accelerator: 'CmdOrCtrl+Shift+M',
-          click: () => mainWindow.webContents.send('menu-action', 'serial-monitor')
-        },
-        {
-          label: 'PakBus Terminal',
-          click: () => mainWindow.webContents.send('menu-action', 'pakbus-terminal')
-        },
-        { type: 'separator' },
+        // Serial Monitor removed - not available in cloud/Railway deployment
+        // All communication is done via TCP/IP (HTTP, PakBus over TCP, etc.)
         {
           label: 'Connection Health',
           click: () => mainWindow.webContents.send('menu-action', 'connection-health')
         },
         {
-          label: 'Communication Log',
-          click: () => mainWindow.webContents.send('menu-action', 'comm-log')
+          label: 'View Stations',
+          click: () => mainWindow.webContents.send('navigate', '/stations')
+        },
+        { type: 'separator' },
+        {
+          label: 'Export Configuration',
+          click: () => mainWindow.webContents.send('menu-action', 'export-config')
+        },
+        {
+          label: 'Backup Database',
+          click: () => mainWindow.webContents.send('menu-action', 'backup-db')
         }
       ]
     },

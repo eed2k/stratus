@@ -1,9 +1,20 @@
 /**
  * API Client for Stratus Server
  * Handles all communication with the Railway-hosted Stratus server
+ * 
+ * IMPORTANT: Set the VITE_STRATUS_SERVER_URL environment variable in Netlify:
+ * 1. Go to Netlify Dashboard > Site Settings > Environment Variables
+ * 2. Add: VITE_STRATUS_SERVER_URL = https://your-railway-app-url.railway.app
  */
 
-const STRATUS_SERVER = import.meta.env.VITE_STRATUS_SERVER_URL || 'https://stratus.railway.app';
+// Get server URL from environment or use fallback
+// NOTE: Update this fallback to your actual Railway URL
+const STRATUS_SERVER = import.meta.env.VITE_STRATUS_SERVER_URL || 'https://stratus-production.up.railway.app';
+
+// Debug: Log the server URL in development
+if (import.meta.env.DEV) {
+  console.log('[Stratus API] Server URL:', STRATUS_SERVER);
+}
 
 interface LoginResponse {
   success: boolean;
@@ -43,17 +54,84 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+/**
+ * Enhanced fetch with better error handling
+ */
+async function safeFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    return response;
+  } catch (error) {
+    // Network error - server unreachable
+    console.error('[Stratus API] Network error:', error);
+    throw new Error(
+      `Unable to connect to server. Please check:\n` +
+      `1. Your internet connection\n` +
+      `2. The server URL (${STRATUS_SERVER})\n` +
+      `3. If the server is running`
+    );
+  }
+}
+
 export const api = {
+  /**
+   * Get the current server URL (useful for debugging)
+   */
+  getServerUrl(): string {
+    return STRATUS_SERVER;
+  },
+
+  /**
+   * Test server connectivity
+   */
+  async testConnection(): Promise<{ connected: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${STRATUS_SERVER}/api/health`, { 
+        method: 'GET',
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      });
+      return { connected: response.ok };
+    } catch (error) {
+      return { 
+        connected: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  },
+
   /**
    * Login with email and password
    */
   async login(email: string, password: string): Promise<LoginResponse> {
-    const response = await fetch(`${STRATUS_SERVER}/api/client/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    return response.json();
+    try {
+      const response = await safeFetch(`${STRATUS_SERVER}/api/client/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      if (!response.ok) {
+        // Handle HTTP errors
+        if (response.status === 401) {
+          return { success: false, error: 'Invalid email or password' };
+        }
+        if (response.status === 404) {
+          return { success: false, error: 'Server endpoint not found. Please contact support.' };
+        }
+        if (response.status >= 500) {
+          return { success: false, error: 'Server error. Please try again later.' };
+        }
+        return { success: false, error: `Login failed (${response.status})` };
+      }
+      
+      return response.json();
+    } catch (error) {
+      console.error('[Stratus API] Login error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Connection failed. Check your internet connection.'
+      };
+    }
   },
 
   /**
@@ -75,33 +153,45 @@ export const api = {
    * Get station info for the logged-in client
    */
   async getStation(): Promise<StationInfo | null> {
-    const response = await fetch(`${STRATUS_SERVER}/api/client/station`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) return null;
-    return response.json();
+    try {
+      const response = await fetch(`${STRATUS_SERVER}/api/client/station`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) return null;
+      return response.json();
+    } catch {
+      return null;
+    }
   },
 
   /**
    * Get latest weather data
    */
   async getLatestData(): Promise<WeatherData | null> {
-    const response = await fetch(`${STRATUS_SERVER}/api/client/data/latest`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) return null;
-    return response.json();
+    try {
+      const response = await fetch(`${STRATUS_SERVER}/api/client/data/latest`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) return null;
+      return response.json();
+    } catch {
+      return null;
+    }
   },
 
   /**
    * Get historical weather data
    */
   async getHistoricalData(hours: number = 24): Promise<WeatherData[]> {
-    const response = await fetch(`${STRATUS_SERVER}/api/client/data/history?hours=${hours}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) return [];
-    return response.json();
+    try {
+      const response = await fetch(`${STRATUS_SERVER}/api/client/data/history?hours=${hours}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) return [];
+      return response.json();
+    } catch {
+      return [];
+    }
   },
 
   /**

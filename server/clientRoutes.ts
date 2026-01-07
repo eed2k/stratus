@@ -27,19 +27,31 @@ interface ClientAccount {
 // In-memory client accounts (for simplicity - extend to database for production)
 const clientAccounts: Map<string, ClientAccount> = new Map();
 
-// Initialize with a demo client account
-async function initDemoClient() {
-  const hash = await bcryptjs.hash('demo123', 10);
+// Initialize with client accounts
+async function initClientAccounts() {
+  // Main admin/client account
+  const mainHash = await bcryptjs.hash('Lukas@2266', 10);
+  clientAccounts.set('esterhuizen2k@proton.me', {
+    id: 'client-1',
+    email: 'esterhuizen2k@proton.me',
+    passwordHash: mainHash,
+    name: 'Lukas Esterhuizen',
+    stationId: 1,
+    createdAt: new Date(),
+  });
+  
+  // Demo account for testing
+  const demoHash = await bcryptjs.hash('demo123', 10);
   clientAccounts.set('demo@stratus.app', {
     id: 'demo-client-1',
     email: 'demo@stratus.app',
-    passwordHash: hash,
+    passwordHash: demoHash,
     name: 'Demo Client',
-    stationId: 1, // Will be assigned to first station
+    stationId: 1,
     createdAt: new Date(),
   });
 }
-initDemoClient();
+initClientAccounts();
 
 // Middleware to verify client JWT
 interface ClientJwtPayload {
