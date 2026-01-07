@@ -105,6 +105,7 @@ import { protocolManager } from "./protocols/protocolManager";
 import { registerStationSetupRoutes } from "./station-setup/routes";
 import shareRoutes from "./shares/routes";
 import complianceRoutes from "./compliance/routes";
+import clientRoutes from "./clientRoutes";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -148,6 +149,9 @@ export async function registerRoutes(
 
   // Register compliance routes (GDPR, ISO 17025, ISO 19157)
   app.use('/api/compliance', complianceRoutes);
+
+  // Register client dashboard routes (for Netlify frontend)
+  app.use('/api/client', clientRoutes);
 
   // Initialize data collection service
   try {
