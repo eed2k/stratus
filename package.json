@@ -15,16 +15,17 @@
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5000 && electron .\"",
     "pack": "electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
+    "prepare:icons": "node scripts/copy-icon.js",
+    "dist": "npm run build && npm run prepare:icons && electron-builder",
+    "dist:win": "npm run build && npm run prepare:icons && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
     "db:push": "drizzle-kit push --dialect=postgresql --schema=shared/schema.ts --url=$DATABASE_URL",
     "docs:pdf": "node scripts/generate-docs-pdf.js"
   },
   "build": {
-    "appId": "com.stratus.weather-server",
-    "productName": "Stratus Weather Server",
+    "appId": "com.stratus.weather",
+    "productName": "Stratus Weather Station",
     "asar": false,
     "directories": {
       "output": "output"
@@ -65,7 +66,7 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico",
+      "icon": "build/icon.ico",
       "artifactName": "${productName}-${version}-Setup.${ext}",
       "signAndEditExecutable": false
     },
@@ -74,7 +75,16 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Stratus Weather Server"
+      "shortcutName": "Stratus Weather",
+      "license": "LICENSE.txt",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "installerLanguages": ["en_US"],
+      "warningsAsErrors": false
     },
     "mac": {
       "target": [

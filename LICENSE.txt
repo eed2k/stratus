@@ -1,0 +1,38 @@
+Stratus Weather Station - License and Terms of Use
+
+Last updated: January 11, 2026
+
+1. Agreement
+By downloading, installing, or using the Stratus Weather Station ("Software"), you agree to be bound by these Terms and Conditions ("Agreement"). If you do not agree to these terms, do not install or use the Software.
+
+2. License Grant
+Subject to the terms of this Agreement, the author grants you a non-exclusive, non-transferable, revocable license to use the Software for your internal business or personal use.
+
+3. Restrictions
+You shall not: (a) sublicense, sell, rent, lease, redistribute, or transfer the Software; (b) copy or modify the Software except as expressly permitted in documentation; (c) remove proprietary notices.
+
+4. Data, Privacy & Telemetry
+The Software may collect usage data, device metadata, and anonymized telemetry to improve functionality. Collected data will not include passwords or other secrets. By using the Software you consent to necessary data collection described in the project documentation. If the Software is configured to send data to a third-party service, you are responsible for configuring privacy controls.
+
+5. Warranty Disclaimer
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THE AUTHOR DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+6. Limitation of Liability
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, LOSS OF DATA, LOSS OF PROFITS, OR BUSINESS INTERRUPTION), EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+7. Indemnification
+You agree to indemnify, defend and hold harmless the author from and against any claims arising out of your use of the Software or breach of this Agreement.
+
+8. Export Compliance
+You agree to comply with all applicable export laws and regulations.
+
+9. Updates & Support
+The author may provide updates, patches, or new versions of the Software. These may be subject to additional terms.
+
+10. Acceptance
+By clicking "I Agree" during installation or by using the Software, you acknowledge that you have read, understood, and agree to be bound by this Agreement.
+
+11. Governing Law
+This Agreement is governed by the laws of the author's country of residence, without regard to conflict of laws principles.
+
+Contact: esterhuizen2k@proton.me

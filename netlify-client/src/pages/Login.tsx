@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
@@ -41,6 +41,9 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -56,6 +59,43 @@ export default function Login() {
     };
     checkConnection();
   }, []);
+
+  // Handle video loading with timeout fallback
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      // Set a timeout - if video doesn't load in 5 seconds, show fallback
+      const timeout = setTimeout(() => {
+        if (!videoLoaded) {
+          console.warn('[Stratus] Video load timeout - using fallback background');
+          setVideoError(true);
+        }
+      }, 5000);
+
+      const handleCanPlay = () => {
+        clearTimeout(timeout);
+        setVideoLoaded(true);
+        video.play().catch(() => {
+          // Autoplay was prevented, video will remain paused
+          console.warn('[Stratus] Video autoplay prevented by browser');
+        });
+      };
+      const handleError = () => {
+        clearTimeout(timeout);
+        setVideoError(true);
+        console.warn('[Stratus] Video failed to load');
+      };
+      
+      video.addEventListener('canplaythrough', handleCanPlay);
+      video.addEventListener('error', handleError);
+      
+      return () => {
+        clearTimeout(timeout);
+        video.removeEventListener('canplaythrough', handleCanPlay);
+        video.removeEventListener('error', handleError);
+      };
+    }
+  }, [videoLoaded]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,39 +114,109 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* Animated Gradient Fallback Background (always visible as base) */}
+      <div 
+        className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800"
+        style={{
+          backgroundSize: '400% 400%',
+          animation: 'gradientShift 15s ease infinite',
+        }}
+      />
+      
+      {/* Lightning/Storm animated overlay when video fails */}
+      {videoError && (
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Animated rain effect */}
+          <div className="absolute inset-0 opacity-20" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M0 0 L2 10 L0 10' fill='%23fff' opacity='0.3'/%3E%3C/svg%3E")`,
+            backgroundSize: '50px 50px',
+            animation: 'rain 0.5s linear infinite',
+          }} />
+          {/* Cloud shadows */}
+          <div className="absolute top-0 left-1/4 w-96 h-32 bg-white/5 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute top-10 right-1/4 w-80 h-28 bg-blue-300/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        </div>
+      )}
+      
+      {/* Thunderstorm Video Background */}
+      {!videoError && (
+        <video
+          ref={videoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
+        >
+          {/* Primary: Pexels CDN storm video - no auth required */}
+          <source
+            src="https://videos.pexels.com/video-files/2491284/2491284-uhd_2560_1440_24fps.mp4"
+            type="video/mp4"
+          />
+          {/* Fallback 1: Pexels lightning */}
+          <source
+            src="https://videos.pexels.com/video-files/857074/857074-hd_1920_1080_30fps.mp4"
+            type="video/mp4"
+          />
+          {/* Fallback 2: Pexels clouds/storm */}
+          <source
+            src="https://videos.pexels.com/video-files/856356/856356-hd_1920_1080_25fps.mp4"
+            type="video/mp4"
+          />
+        </video>
+      )}
+      
+      {/* Dark overlay for better text readability */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
+      
+      {/* CSS Animation Keyframes */}
+      <style>{`
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes rain {
+          0% { background-position: 0 0; }
+          100% { background-position: 50px 50px; }
+        }
+      `}</style>
+      
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md space-y-6">
         {/* Logo & Branding */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
-            {/* Dark Blue Circle with White Dot Logo */}
-            <div className="w-14 h-14 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-lg">
-              <div className="w-4 h-4 rounded-full bg-white"></div>
+            {/* White Circle with Dark Dot Logo - Inverted for video background */}
+            <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-2xl border-2 border-white">
+              <div className="w-4 h-4 rounded-full bg-blue-600"></div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-white drop-shadow-lg">
                 Stratus
               </h1>
-              <p className="text-sm text-gray-600">Weather Dashboard</p>
+              <p className="text-sm text-white/90 drop-shadow-md">Weather Dashboard</p>
             </div>
           </div>
         </div>
 
         {/* Connection Status Warning */}
         {connectionStatus === 'error' && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+          <div className="p-3 bg-red-900/40 backdrop-blur-sm border-2 border-white/80 rounded-lg text-white text-sm shadow-xl">
             <p className="font-medium">⚠️ Server Connection Issue</p>
-            <p className="text-xs mt-1">Unable to reach the server. Login may fail.</p>
+            <p className="text-xs mt-1 text-white/90">Unable to reach the server. Login may fail.</p>
           </div>
         )}
 
         {/* Login Card */}
-        <div className="bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+        <div className="bg-black/30 backdrop-blur-md rounded-xl shadow-2xl border-2 border-white/80 overflow-hidden">
           <div className="p-6 pb-4 space-y-1 text-center">
-            <h2 className="text-2xl font-semibold text-gray-900">
+            <h2 className="text-2xl font-semibold text-white drop-shadow-lg">
               View-Only Access
             </h2>
-            <p className="text-gray-600 text-sm">
+            <p className="text-white/90 text-sm drop-shadow-md">
               Sign in to view your assigned weather dashboard
             </p>
           </div>
@@ -114,17 +224,17 @@ export default function Login() {
           <div className="p-6 pt-0">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                <div className="p-3 bg-red-900/40 backdrop-blur-sm border-2 border-white/80 rounded-lg text-white text-sm shadow-xl">
                   {error}
                 </div>
               )}
 
               <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="block text-sm font-medium text-white drop-shadow-md">
                   Email
                 </label>
                 <div className="relative">
-                  <div className="absolute left-3 top-2.5 text-gray-400">
+                  <div className="absolute left-3 top-2.5 text-white/80">
                     <MailIcon />
                   </div>
                   <input
@@ -134,17 +244,17 @@ export default function Login() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full pl-9 pr-4 py-2.5 bg-white/10 backdrop-blur-sm border-2 border-white/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-white focus:border-white text-white placeholder-white/60 shadow-xl"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="block text-sm font-medium text-white drop-shadow-md">
                   Password
                 </label>
                 <div className="relative">
-                  <div className="absolute left-3 top-2.5 text-gray-400">
+                  <div className="absolute left-3 top-2.5 text-white/80">
                     <LockIcon />
                   </div>
                   <input
@@ -154,11 +264,11 @@ export default function Login() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full pl-9 pr-10 py-2.5 bg-white/10 backdrop-blur-sm border-2 border-white/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-white focus:border-white text-white placeholder-white/60 shadow-xl"
                   />
                   <button
                     type="button"
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-2.5 text-white/80 hover:text-white transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -169,7 +279,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading || connectionStatus === 'checking'}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border-2 border-white/80 font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:shadow-2xl"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -185,25 +295,28 @@ export default function Login() {
         </div>
 
         {/* Info Text */}
-        <div className="text-center text-sm text-gray-500">
+        <div className="text-center text-sm text-white/90 drop-shadow-md">
           <p>View-only access to your assigned weather dashboard.</p>
           <p className="mt-1">Contact your administrator for login credentials.</p>
         </div>
 
-        {/* Demo Credentials (for testing) */}
-        <div className="p-3 bg-gray-100 rounded-lg text-xs">
-          <p className="font-medium text-gray-700 mb-1">Demo Credentials:</p>
-          <p className="text-gray-600">Email: <span className="font-mono bg-white px-1 rounded">demo@stratus.app</span></p>
-          <p className="text-gray-600">Password: <span className="font-mono bg-white px-1 rounded">demo123</span></p>
+        {/* Login Credentials */}
+        <div className="p-3 bg-white/10 backdrop-blur-md border-2 border-white/80 rounded-lg text-xs shadow-xl">
+          <p className="font-medium text-white mb-1 drop-shadow-md">Your Login:</p>
+          <p className="text-white/90">Email: <span className="font-mono bg-white/20 px-1 rounded">esterhuizen2k@proton.me</span></p>
+          <p className="text-white/90">Password: <span className="font-mono bg-white/20 px-1 rounded">Lukas@2266</span></p>
+          <div className="mt-2 pt-2 border-t border-white/30">
+            <p className="text-white/70">Demo: <span className="font-mono bg-white/20 px-1 rounded">demo@stratus.app</span> / <span className="font-mono bg-white/20 px-1 rounded">demo123</span></p>
+          </div>
         </div>
 
         {/* Footer */}
         <div className="text-center space-y-1">
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-white/90 drop-shadow-md">
             Stratus Weather Station Server v1.0.0
           </p>
-          <p className="text-xs text-gray-500">
-            Developer: <span className="font-medium text-gray-700">Lukas Esterhuizen</span> (esterhuizen2k@proton.me)
+          <p className="text-xs text-white/80 drop-shadow-md">
+            Developer: <span className="font-medium text-white">Lukas Esterhuizen</span> (esterhuizen2k@proton.me)
           </p>
         </div>
       </div>

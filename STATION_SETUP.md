@@ -12,8 +12,7 @@ Complete guide for connecting and configuring Campbell Scientific dataloggers wi
 3. [Datalogger Configuration](#datalogger-configuration)
 4. [Adding a Station](#adding-a-station)
 5. [Data Collection Setup](#data-collection-setup)
-6. [Troubleshooting](#troubleshooting)
-
+6. [Troubleshooting](#troubleshoot)
 ---
 
 ## Quick Start

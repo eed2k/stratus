@@ -77,10 +77,25 @@ function verifyClientToken(req: Request, res: Response, next: NextFunction) {
 }
 
 // Enable CORS for Netlify client
+// Allow both Netlify and local development origins
+const allowedOrigins = [
+  'https://stratus-client.netlify.app',
+  'https://stratus-weather.netlify.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+];
+
 router.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.some(allowed => origin.includes(allowed.replace(/^https?:\/\//, '')))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }

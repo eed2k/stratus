@@ -329,7 +329,7 @@ export default function Alarms() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Badge variant={alarm.enabled ? "default" : "secondary"} size="sm">
+                  <Badge variant={alarm.enabled ? "default" : "secondary"} className="text-sm">
                     {PARAMETERS.find((p) => p.value === alarm.parameter)?.label}
                   </Badge>
                   <span className="text-sm text-muted-foreground">

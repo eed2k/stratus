@@ -1,5 +1,4 @@
 import { MetricCard } from "../dashboard/MetricCard";
-import { Thermometer } from "lucide-react";
 import { ThemeProvider } from "../ThemeProvider";
 
 export default function MetricCardExample() {
@@ -10,7 +9,6 @@ export default function MetricCardExample() {
           title="Temperature"
           value={23.5}
           unit="°C"
-          icon={Thermometer}
           trend={{ value: 1.2, label: "from yesterday" }}
           subMetrics={[
             { label: "Min", value: "18.2°C" },

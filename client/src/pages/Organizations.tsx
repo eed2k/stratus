@@ -309,7 +309,7 @@ export default function Organizations() {
                                   <Users className="h-4 w-4 text-primary" />
                                 </div>
                                 <div>
-                                  <p className="font-medium">{member.user?.firstName || member.user?.username || member.userId}</p>
+                                  <p className="font-medium">{member.user?.firstName || member.user?.lastName || member.userId}</p>
                                   <p className="text-sm text-muted-foreground">{member.user?.email}</p>
                                 </div>
                               </div>
