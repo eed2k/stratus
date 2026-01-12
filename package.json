@@ -83,7 +83,9 @@
       "deleteAppDataOnUninstall": false,
       "perMachine": false,
       "allowElevation": true,
-      "installerLanguages": ["en_US"],
+      "installerLanguages": [
+        "en_US"
+      ],
       "warningsAsErrors": false
     },
     "mac": {
@@ -145,6 +147,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^16.3.1",
     "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.3",
     "embla-carousel-react": "^8.6.0",
     "express": "^4.18.2",
     "express-rate-limit": "^8.2.1",

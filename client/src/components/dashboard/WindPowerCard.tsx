@@ -6,6 +6,7 @@ interface WindPowerCardProps {
   airDensity: number;
   avgSpeed: number;
   avgPower: number;
+  sparklineData?: number[];
 }
 
 export function WindPowerCard({
@@ -14,6 +15,7 @@ export function WindPowerCard({
   airDensity,
   avgSpeed,
   avgPower,
+  sparklineData,
 }: WindPowerCardProps) {
   return (
     <Card data-testid="card-wind-power">
