@@ -107,6 +107,7 @@ export const api = {
     try {
       const response = await safeFetch(`${STRATUS_SERVER}/api/client/login`, {
         method: 'POST',
+        mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });

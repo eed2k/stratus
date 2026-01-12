@@ -79,6 +79,7 @@ function verifyClientToken(req: Request, res: Response, next: NextFunction) {
 // Enable CORS for Netlify client
 // Allow both Netlify and local development origins
 const allowedOrigins = [
+  'https://stratusweb.netlify.app',
   'https://stratus-client.netlify.app',
   'https://stratus-weather.netlify.app',
   'http://localhost:5173',
