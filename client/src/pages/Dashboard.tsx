@@ -12,7 +12,6 @@ import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
 import { EToCard } from "@/components/dashboard/EToCard";
 import { StationSelector } from "@/components/dashboard/StationSelector";
-import { ExportTools } from "@/components/dashboard/ExportTools";
 import { DataImport } from "@/components/dashboard/DataImport";
 import { DashboardConfigPanel } from "@/components/dashboard/DashboardConfigPanel";
 import { ShareDashboard } from "@/components/dashboard/ShareDashboard";
@@ -521,12 +520,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               stationName={selectedStation.name} 
             />
           )}
-          <ExportTools 
-            targetId="dashboard-content" 
-            stationName={selectedStation?.name || "Weather Station"}
-            stationId={activeStationId ?? undefined}
-            enabledParameters={dashboardConfig.enabledParameters || []}
-          />
         </div>
       </div>
 

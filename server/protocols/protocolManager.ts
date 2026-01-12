@@ -87,37 +87,29 @@ class ProtocolManagerClass extends EventEmitter {
   }
 
   private mapProtocol(connectionType: string, stationType: string): ProtocolConfig['protocol'] {
+    // Campbell Scientific stations use PakBus protocol via HTTP/TCP or LoRa
     const mappings: Record<string, ProtocolConfig['protocol']> = {
-      'mqtt': 'mqtt',
       'http': 'http',
       'ip': 'http',
       'wifi': 'http',
       'lora': 'lora',
-      'serial': 'modbus',
-      'campbellcloud': 'http',
-      'rikacloud': 'http',
-      'weatherlink_cloud': 'http',
-      'weatherlink_local': 'http',
-      'arduino_iot': 'http',
-      'blynk': 'http',
+      'tcp': 'http',
       '4g': 'http',
-      'gsm': 'http',
-      'satellite': 'satellite',
+      'pakbus': 'pakbus',
+      'campbellcloud': 'http',
     };
     return mappings[connectionType] || 'http';
   }
 
   private mapConnectionType(connectionType: string): ProtocolConfig['connectionType'] {
+    // All Campbell connections are TCP/IP based (4G, WiFi, etc.) or LoRa
     const mappings: Record<string, ProtocolConfig['connectionType']> = {
-      'mqtt': 'mqtt',
       'http': 'http',
       'ip': 'http',
       'wifi': 'http',
       'lora': 'lora',
       'tcp': 'tcp',
-      'gsm': 'gsm',
-      '4g': 'gsm',
-      'satellite': 'satellite',
+      '4g': 'http',
     };
     return mappings[connectionType] || 'http';
   }
@@ -171,16 +163,8 @@ class ProtocolManagerClass extends EventEmitter {
 
   private async createAdapter(config: ProtocolConfig, isSimulation: boolean): Promise<IProtocolAdapter | null> {
     try {
-      if (isSimulation) {
-        const { SimulationAdapter } = await import("./simulationAdapter");
-        return new SimulationAdapter(config);
-      }
-
+      // Campbell Scientific setups use HTTP/TCP for 4G/cellular and LoRa for remote
       switch (config.connectionType) {
-        case 'mqtt':
-          const { MQTTAdapter } = await import("./mqttAdapter");
-          return new MQTTAdapter(config);
-        
         case 'http':
           const { HTTPAdapter } = await import("./httpAdapter");
           return new HTTPAdapter(config);
@@ -189,26 +173,10 @@ class ProtocolManagerClass extends EventEmitter {
           const { LoRaAdapter } = await import("./loraAdapter");
           return new LoRaAdapter(config);
         
-        case 'satellite':
-          const { SatelliteAdapter } = await import("./satelliteAdapter");
-          return new SatelliteAdapter(config);
-        
-        case 'gsm':
-          const { GSMAdapter } = await import("./gsmAdapter");
-          return new GSMAdapter(config);
-        
         case 'tcp':
-          // TCP could be DNP3, Modbus TCP, or generic
-          if (config.protocol === 'dnp3') {
-            const { DNP3Adapter } = await import("./dnp3Adapter");
-            return new DNP3Adapter(config);
-          } else if (config.protocol === 'modbus') {
-            const { ModbusAdapter } = await import("./modbusAdapter");
-            return new ModbusAdapter(config);
-          } else {
-            const { HTTPAdapter: DefaultHTTP } = await import("./httpAdapter");
-            return new DefaultHTTP(config);
-          }
+          // TCP connections use HTTP adapter for Campbell stations
+          const { HTTPAdapter: TCPAdapter } = await import("./httpAdapter");
+          return new TCPAdapter(config);
         
         default:
           const { HTTPAdapter: DefaultAdapter } = await import("./httpAdapter");

@@ -12,8 +12,8 @@ import type { WeatherData } from "../localStorage";
 
 export interface ProtocolConfig {
   stationId: number;
-  protocol: "pakbus" | "modbus" | "dnp3" | "lora" | "satellite" | "mqtt" | "http";
-  connectionType: "tcp" | "mqtt" | "http" | "lora" | "satellite" | "gsm";
+  protocol: "pakbus" | "lora" | "http";
+  connectionType: "tcp" | "http" | "lora";
   
   // Connection settings (TCP/IP based)
   host?: string;
@@ -25,12 +25,8 @@ export interface ProtocolConfig {
   gatewayPort?: number;
   
   // Protocol-specific settings
-  slaveId?: number;           // Modbus
   pakbusAddress?: number;     // PakBus
-  masterAddress?: number;     // DNP3
-  outstationAddress?: number; // DNP3
   deviceEUI?: string;         // LoRa
-  imei?: string;              // Satellite
   
   // Authentication
   apiKey?: string;
@@ -184,22 +180,17 @@ export abstract class BaseProtocolAdapter extends EventEmitter implements IProto
 
 /**
  * Factory function to create appropriate protocol adapter
+ * Campbell Scientific stations use HTTP/TCP or LoRa
  */
 export function createProtocolAdapter(config: ProtocolConfig): IProtocolAdapter {
   switch (config.protocol) {
-    case "modbus":
-      const { ModbusAdapter } = require("./modbusAdapter");
-      return new ModbusAdapter(config);
-    case "dnp3":
-      const { DNP3Adapter } = require("./dnp3Adapter");
-      return new DNP3Adapter(config);
     case "lora":
       const { LoRaAdapter } = require("./loraAdapter");
       return new LoRaAdapter(config);
-    case "satellite":
-      const { SatelliteAdapter } = require("./satelliteAdapter");
-      return new SatelliteAdapter(config);
+    case "http":
+    case "pakbus":
     default:
-      throw new Error(`Unsupported protocol: ${config.protocol}`);
+      const { HTTPAdapter } = require("./httpAdapter");
+      return new HTTPAdapter(config);
   }
 }

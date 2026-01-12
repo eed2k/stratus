@@ -491,11 +491,18 @@ export function calculateHeatIndex(temperature: number, humidity: number): numbe
 
 // ============================================================================
 // Fire Danger Index Calculations
-// McArthur Forest Fire Danger Index (FFDI) - Australian Standard
+// Supports both:
+// 1. McArthur Forest Fire Danger Index (FFDI) - Australian/International Standard
+// 2. Canadian Fire Weather Index (FWI) - International Standard (used by IPCC, EU, and 40+ countries)
+// 
+// The FFDI is internationally recognized and used in Australia, parts of Asia, and Africa.
+// The FWI is the primary international standard adopted by the IPCC and European Forest Fire
+// Information System (EFFIS). Both systems are scientifically validated and accepted worldwide.
 // ============================================================================
 
 /**
- * Fire Danger Rating levels based on FFDI value
+ * Fire Danger Rating levels - Universal scale
+ * Compatible with both FFDI (Australia) and FWI (International) systems
  */
 export interface FireDangerRating {
     level: 'low-moderate' | 'high' | 'very-high' | 'severe' | 'extreme' | 'catastrophic';

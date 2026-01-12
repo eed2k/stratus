@@ -30,12 +30,46 @@ const ingestRateLimiter = rateLimit({
 });
 
 // Local schema definitions for validation
+// Enhanced for Campbell Scientific and WMO compliance
 const insertWeatherStationSchema = z.object({
-  name: z.string(),
-  pakbusAddress: z.number(),
-  connectionType: z.string(),
-  connectionConfig: z.any(),
-  securityCode: z.number().optional()
+  name: z.string().min(1, "Station name is required").max(100, "Station name too long"),
+  pakbusAddress: z.number()
+    .int("PakBus address must be an integer")
+    .min(1, "PakBus address must be at least 1")
+    .max(4094, "PakBus address must be at most 4094"),
+  connectionType: z.enum(['tcp', 'gsm', 'lora', 'http'], {
+    errorMap: () => ({ message: "Invalid connection type. Must be: tcp, gsm, lora, or http" })
+  }),
+  connectionConfig: z.object({
+    host: z.string().optional(),
+    port: z.number().int().min(1).max(65535).optional(),
+    apn: z.string().optional(),
+    gatewayHost: z.string().optional(),
+    gatewayPort: z.number().int().min(1).max(65535).optional(),
+    timeout: z.number().int().min(1000).max(300000).optional(), // 1s to 5min
+    retryAttempts: z.number().int().min(0).max(10).optional(),
+    retryDelay: z.number().int().min(1000).max(60000).optional(), // 1s to 1min
+  }).passthrough().optional(),
+  securityCode: z.number()
+    .int("Security code must be an integer")
+    .min(0, "Security code must be at least 0")
+    .max(65535, "Security code must be at most 65535")
+    .optional(),
+  // WMO-compliant metadata fields
+  latitude: z.number()
+    .min(-90, "Latitude must be between -90 and 90")
+    .max(90, "Latitude must be between -90 and 90")
+    .optional(),
+  longitude: z.number()
+    .min(-180, "Longitude must be between -180 and 180")
+    .max(180, "Longitude must be between -180 and 180")
+    .optional(),
+  altitude: z.number()
+    .min(-500, "Altitude must be at least -500m (Dead Sea level)")
+    .max(9000, "Altitude must be at most 9000m (above Everest)")
+    .optional(),
+  timezone: z.string().optional(),
+  location: z.string().max(200, "Location description too long").optional(),
 });
 
 const insertWeatherDataSchema = z.object({
@@ -150,10 +184,10 @@ export async function registerRoutes(
   // Register compliance routes (GDPR, ISO 17025, ISO 19157)
   app.use('/api/compliance', complianceRoutes);
 
-  // Register client dashboard routes (for Netlify frontend)
+  // Register client dashboard routes (for external client applications)
   app.use('/api/client', clientRoutes);
 
-  // Public health check endpoint with CORS for Netlify client
+  // Public health check endpoint with CORS for external clients
   app.get('/api/health', (req, res) => {
     // Set CORS headers for cross-origin access
     const origin = req.headers.origin;
@@ -297,113 +331,8 @@ export async function registerRoutes(
     }
   });
 
-  // Server-side PDF export endpoint (optimized for Railway - no DOM capture needed)
-  app.post("/api/export/pdf", optionalAuth, async (req, res) => {
-    try {
-      const { generateDashboardPDF } = await import("./services/pdfExportService");
-      
-      const { stationId, enabledParameters, title } = req.body;
-      
-      if (!stationId) {
-        return res.status(400).json({ message: "Station ID is required" });
-      }
-      
-      // Get station info
-      const station = await storage.getWeatherStation(parseInt(stationId, 10));
-      if (!station) {
-        return res.status(404).json({ message: "Station not found" });
-      }
-      
-      // Get latest weather data
-      const latestRecord = await storage.getLatestWeatherData(station.id);
-      const latestData = latestRecord ? {
-        timestamp: latestRecord.timestamp?.toISOString() || new Date().toISOString(),
-        data: latestRecord.data as Record<string, any>
-      } : null;
-      
-      // Use provided parameters or get from dashboard config
-      const params = enabledParameters || [];
-      
-      // Generate PDF
-      const pdfBuffer = await generateDashboardPDF({
-        station: {
-          name: station.name,
-          location: station.location || undefined,
-          latitude: station.latitude || undefined,
-          longitude: station.longitude || undefined,
-          altitude: station.altitude || undefined,
-        },
-        latestData,
-        enabledParameters: params,
-        title,
-      });
-      
-      // Send PDF response
-      const filename = `${station.name.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-      
-    } catch (error: any) {
-      console.error("PDF export error:", error);
-      res.status(500).json({ 
-        message: "Failed to generate PDF", 
-        error: error.message 
-      });
-    }
-  });
-
-  // Server-side CSV export endpoint
-  app.post("/api/export/csv", optionalAuth, async (req, res) => {
-    try {
-      const { generateCSV } = await import("./services/pdfExportService");
-      
-      const { stationId, parameters, limit = 100 } = req.body;
-      
-      if (!stationId) {
-        return res.status(400).json({ message: "Station ID is required" });
-      }
-      
-      // Get station info
-      const station = await storage.getWeatherStation(parseInt(stationId, 10));
-      if (!station) {
-        return res.status(404).json({ message: "Station not found" });
-      }
-      
-      // Get weather data - fetch last N days of data
-      const endTime = new Date();
-      const startTime = new Date(endTime.getTime() - (limit * 60 * 1000)); // limit in minutes
-      const weatherData = await storage.getWeatherDataRange(station.id, startTime, endTime);
-      const formattedData = weatherData.map((d: any) => ({
-        timestamp: d.timestamp?.toISOString() || '',
-        data: d.data as Record<string, any>
-      }));
-      
-      // Generate CSV
-      const csv = generateCSV(
-        {
-          name: station.name,
-          location: station.location || undefined,
-        },
-        formattedData,
-        parameters || []
-      );
-      
-      // Send CSV response
-      const filename = `${station.name.replace(/\s+/g, '_')}_Data_${new Date().toISOString().split('T')[0]}.csv`;
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.send(csv);
-      
-    } catch (error: any) {
-      console.error("CSV export error:", error);
-      res.status(500).json({ 
-        message: "Failed to generate CSV", 
-        error: error.message 
-      });
-    }
-  });
+  // NOTE: Export functionality has been disabled
+  // If you need to re-enable exports, uncomment the PDF and CSV export endpoints below
 
   // Setup WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });

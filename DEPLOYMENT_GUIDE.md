@@ -1,88 +1,16 @@
 # Stratus Weather Station - Deployment & Setup Guide
 
 **Version:** 1.0.0  
-**Date:** January 11, 2026  
+**Date:** January 12, 2026  
 **Developer:** Lukas Esterhuizen (esterhuizen2k@proton.me)
 
 ---
 
-## 🎯 Three Critical Issues - RESOLVED
+## 📦 Deployment Options
 
-### ✅ Issue #1: Windows Installer with Terms & Conditions (RESOLVED)
+### 1. Windows Desktop Application (Recommended)
 
-**Problem:** EXE had no proper installer GUI with Terms & Conditions.
-
-**Solution Implemented:**
-- ✅ Updated `package.json` with full NSIS installer configuration
-- ✅ Created `LICENSE.txt` with comprehensive Terms & Conditions
-- ✅ Added icon management (`scripts/copy-icon.js`)
-- ✅ Configured installer to show:
-  - License agreement screen (user must accept)
-  - Installation directory selection
-  - Desktop shortcut option
-  - Start menu shortcut option
-  - Professional NSIS installer interface
-  - Uninstaller functionality
-
-**Build Command:**
-```powershell
-npm run dist:win
-```
-
-**Output:**
-- `output/Stratus Weather Station-1.0.0-Setup.exe` - NSIS Installer
-- `output/Stratus Weather Station-1.0.0.exe` - Portable version
-
----
-
-### ✅ Issue #2: Netlify Login & UI with Video Background (RESOLVED)
-
-**Problem:** Login needed white text, transparent blocks, animated thunderstorm video.
-
-**Solution Implemented:**
-- ✅ Login already has beautiful UI with:
-  - White semi-transparent blocks with backdrop blur
-  - White text with drop shadows
-  - Thunderstorm video background (Pexels CDN URLs)
-  - Animated gradient fallback if video fails
-  - Professional glassmorphism design
-- ✅ CORS properly configured on Railway backend
-- ✅ Authentication working with JWT tokens
-- ✅ Demo credentials: `demo@stratus.app` / `demo123`
-- ✅ Client credentials: `esterhuizen2k@proton.me` / `Lukas@2266`
-
-**Video Source:**
-- Primary: Pexels storm video (free, no download required)
-- Fallback: Animated gradient with rain effects
-- Videos load from CDN (no local storage needed)
-
----
-
-### ✅ Issue #3: Netlify Read-Only Mode (RESOLVED)
-
-**Problem:** Netlify site should only show data viewing, no admin features.
-
-**Solution Implemented:**
-- ✅ Created `config/features.ts` with feature flags
-- ✅ Netlify app already restricted to 2 routes:
-  - `/login` - Authentication
-  - `/dashboard` - Read-only data viewing
-- ✅ No edit, delete, settings, or admin features in Netlify
-- ✅ Enhanced CORS for Netlify origins on Railway backend
-- ✅ Environment variables documented in `netlify.toml`
-
-**Required Netlify Environment Variables:**
-```env
-VITE_STRATUS_SERVER_URL=https://your-railway-url.railway.app
-VITE_READ_ONLY=true
-VITE_DEPLOYMENT=netlify
-```
-
----
-
-## 📦 Deployment Instructions
-
-### 1. Windows Desktop Installer (EXE)
+The primary deployment method is the professional Windows installer.
 
 #### Build the Installer:
 ```powershell
@@ -91,36 +19,34 @@ npm run dist:win
 ```
 
 #### Output Files:
-- `output/Stratus Weather Station-1.0.0-Setup.exe` - Full installer with NSIS
-- `output/win-unpacked/` - Unpacked application files
+- `output/Stratus Weather Station-1.0.0-Setup.exe` - Full NSIS installer with GUI
+- `output/win-unpacked/` - Unpacked application files (for testing)
 
 #### Installer Features:
-- ✅ Welcome screen
-- ✅ License agreement (must accept)
-- ✅ Installation directory selection
-- ✅ Component selection (Desktop shortcut, Start Menu)
-- ✅ Installation progress
-- ✅ Completion screen
-- ✅ Uninstaller in Control Panel
+- ✅ Welcome screen with developer information
+- ✅ Comprehensive EULA/License agreement (must accept to proceed)
+- ✅ Custom installation directory selection
+- ✅ Desktop shortcut option
+- ✅ Start menu shortcut option
+- ✅ Professional NSIS installer interface
+- ✅ Clean uninstaller (available in Control Panel)
+- ✅ First-run welcome/login screen
 
 #### Testing the Installer:
 1. Run `Stratus Weather Station-1.0.0-Setup.exe`
-2. Read and accept Terms & Conditions
-3. Choose installation directory
-4. Select Desktop/Start Menu shortcuts
+2. Read and accept the Terms & Conditions (EULA)
+3. Choose installation directory (or keep default)
+4. Select Desktop/Start Menu shortcut options
 5. Complete installation
-6. Launch application from Desktop or Start Menu
-7. Test uninstallation from Control Panel
+6. First-run welcome screen appears on launch
+7. Login or create account, or skip to continue
+8. Test uninstallation from Control Panel → Programs
 
 ---
 
-### 2. Railway Backend Deployment
+### 2. Railway Backend Deployment (Cloud)
 
-#### Already Deployed ✅
-- Railway app is live and accessible
-- Environment variables configured
-- Database connected
-- Campbell Scientific data collection running
+For cloud deployment, Railway is the recommended platform.
 
 #### Environment Variables (Railway):
 ```env
@@ -131,53 +57,33 @@ CLIENT_JWT_SECRET=<generate-secure-secret>
 VITE_DEMO_MODE=false
 ```
 
-#### Deployment Commands:
+#### Deployment:
 ```bash
 # Railway auto-deploys from Git push
 git push origin main
 ```
 
+#### Included Features:
+- PostgreSQL database integration
+- Campbell Scientific PakBus data collection
+- REST API endpoints
+- WebSocket real-time updates
+- JWT authentication
+- Rate limiting
+
 ---
 
-### 3. Netlify Client Dashboard
+### 3. Docker Deployment
 
-#### Setup Instructions:
+A Dockerfile is included for containerized deployment.
 
-1. **Push `netlify-client/` to separate Git repository**
-   ```bash
-   cd netlify-client
-   git init
-   git add .
-   git commit -m "Initial commit - Stratus Client Dashboard"
-   git remote add origin <your-netlify-repo>
-   git push -u origin main
-   ```
+```bash
+# Build the Docker image
+docker build -t stratus-weather .
 
-2. **Connect Repository to Netlify:**
-   - Go to [Netlify Dashboard](https://app.netlify.com/)
-   - Click "Add new site" → "Import an existing project"
-   - Connect your Git repository
-   - Configure build settings:
-     - **Build command:** `npm install && npx vite build`
-     - **Publish directory:** `dist`
-     - **Node version:** `18`
-
-3. **Configure Environment Variables in Netlify:**
-   - Go to Site Settings → Environment Variables
-   - Add the following:
-     ```env
-     VITE_STRATUS_SERVER_URL=https://stratus-production.up.railway.app
-     VITE_READ_ONLY=true
-     VITE_DEPLOYMENT=netlify
-     ```
-
-4. **Deploy:**
-   - Netlify will auto-deploy on Git push
-   - Visit your Netlify URL to test
-
-#### Client Login Credentials:
-- **Admin:** `esterhuizen2k@proton.me` / `Lukas@2266`
-- **Demo:** `demo@stratus.app` / `demo123`
+# Run the container
+docker run -p 5000:5000 -e DATABASE_URL="your-db-url" stratus-weather
+```
 
 ---
 
@@ -185,127 +91,134 @@ git push origin main
 
 ### Authentication:
 - ✅ JWT token-based authentication
-- ✅ bcrypt password hashing
-- ✅ Secure HTTP-only cookies
+- ✅ bcrypt password hashing (10 rounds)
+- ✅ Session management with expiration
+- ✅ Rate limiting on login endpoints (5 attempts/15 min)
 - ✅ CORS properly configured
 
 ### Campbell Scientific Compliance:
-- ✅ PakBus protocol implementation with CRC validation
-- ✅ Security code handling
+- ✅ Full PakBus protocol implementation
+- ✅ CRC-16 CCITT validation
+- ✅ Security code handling (levels 0-3)
 - ✅ PakBus address validation (1-4094)
-- ✅ Timeout and retry logic
+- ✅ Configurable timeout and retry logic
 - ✅ Connection health monitoring
+- ✅ Support for 4G/Cellular, LoRa, TCP/IP connections
+
+### WMO Standards Compliance:
+- ✅ Station metadata validation (lat, lon, elevation, timezone)
+- ✅ Sensor configuration tracking
+- ✅ Calibration date management
+- ✅ Data quality indicators
 
 ### Data Protection:
-- ✅ Terms & Conditions in installer
-- ✅ Privacy policy documented
-- ✅ Secure data transmission
-- ✅ Read-only mode for client dashboards
-
----
-
-## 🐛 Known Issues & Vulnerabilities
-
-### Security Vulnerabilities (Non-Critical):
-1. **jspdf** - Moderate (XSS via dompurify) - Fix requires breaking changes
-2. **electron** - Moderate (ASAR bypass) - Fix requires major version upgrade
-3. **esbuild** - Moderate (Dev server issue) - Fix requires Vite upgrade
-
-**Action:** These vulnerabilities are in development dependencies and do not affect production builds. Consider upgrading in future releases.
-
-### Fixed Vulnerabilities:
-- ✅ **qs** - High (DoS via memory exhaustion) - FIXED with `npm audit fix`
+- ✅ Comprehensive EULA in installer
+- ✅ User data preserved on uninstall (configurable)
+- ✅ No sensitive data in logs
+- ✅ Input validation and sanitization
 
 ---
 
 ## 🧪 Testing Checklist
 
 ### Windows Installer Testing:
-- [ ] Run installer on clean Windows machine
-- [ ] Verify Terms & Conditions are displayed
-- [ ] Test installation directory selection
-- [ ] Confirm Desktop shortcut created
-- [ ] Confirm Start Menu shortcut created
+- [ ] Run installer on clean Windows 10/11 machine
+- [ ] Verify EULA is displayed and must be accepted
+- [ ] Test custom installation directory selection
+- [ ] Confirm Desktop shortcut is created
+- [ ] Confirm Start Menu shortcut is created
+- [ ] Verify first-run welcome screen appears
 - [ ] Test application launches correctly
 - [ ] Test uninstaller from Control Panel
-- [ ] Test reinstallation over existing install
+- [ ] Verify clean uninstallation
 
-### Netlify Dashboard Testing:
-- [ ] Test login with admin credentials
-- [ ] Test login with demo credentials
-- [ ] Verify video background displays
-- [ ] Confirm white text and transparent blocks
-- [ ] Test data viewing (latest and historical)
-- [ ] Test CSV export
-- [ ] Test PDF export
-- [ ] Verify no edit/delete/admin buttons visible
-- [ ] Test real-time data updates
+### Application Testing:
+- [ ] Test login with valid credentials
+- [ ] Test login with invalid credentials (rate limiting)
+- [ ] Test station setup (4G, LoRa, TCP/IP)
+- [ ] Test data collection
+- [ ] Test dashboard display
+- [ ] Test CSV/PDF export
+- [ ] Test real-time WebSocket updates
 
-### Railway Backend Testing:
-- [ ] Verify API endpoints respond
-- [ ] Test Campbell Scientific data collection
-- [ ] Test PakBus communication
+### Backend Testing:
+- [ ] Verify API endpoints respond correctly
+- [ ] Test Campbell Scientific PakBus communication
 - [ ] Test WebSocket connections
-- [ ] Verify CORS for Netlify origin
 - [ ] Test authentication endpoints
+- [ ] Verify rate limiting is active
 
 ---
 
-## 📝 File Changes Summary
+## 📝 Project Structure
 
-### New Files:
-1. `LICENSE.txt` - Terms & Conditions for installer
-2. `scripts/copy-icon.js` - Icon preparation script
-3. `build/icon.ico` - Installer icon (copied from assets/)
-4. `netlify-client/src/config/features.ts` - Feature flags for read-only mode
-5. `DEPLOYMENT_GUIDE.md` - This file
-
-### Modified Files:
-1. `package.json` - Enhanced NSIS installer configuration
-2. `netlify-client/netlify.toml` - Added environment variables and security headers
-3. `server/clientRoutes.ts` - Enhanced CORS for Netlify origins
+```
+stratus/
+├── assets/                 # Application icons and images
+├── build/                  # Build resources (icon.ico, installer.nsh)
+├── client/                 # React frontend (Vite)
+├── demo_data/              # Sample weather station data
+├── docs/                   # User documentation
+├── electron/               # Electron main process files
+│   ├── main.js            # Main Electron entry point
+│   ├── preload.js         # Context bridge for IPC
+│   └── welcome.html       # First-run welcome screen
+├── examples/               # CRBasic program examples
+├── output/                 # Build output (installers)
+├── scripts/                # Build and utility scripts
+├── server/                 # Express.js backend
+│   ├── campbell/          # Campbell Scientific integration
+│   ├── compliance/        # Compliance checking routes
+│   ├── parsers/           # Data file parsers
+│   ├── protocols/         # Communication protocols
+│   └── services/          # Background services
+├── shared/                 # Shared types and schemas
+├── LICENSE.txt            # Comprehensive EULA
+├── SECURITY.md            # Security documentation
+├── package.json           # Project configuration
+└── README.md              # Project overview
+```
 
 ---
 
-## 🚀 Next Steps
+## 🚀 Quick Start
 
-1. **Test Windows Installer:**
-   - Build with `npm run dist:win`
-   - Test on Windows 10/11
-   - Verify all installer features
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
 
-2. **Deploy Netlify Client:**
-   - Push `netlify-client/` to Git
-   - Connect to Netlify
-   - Configure environment variables
-   - Test login and data viewing
+2. **Development Mode:**
+   ```bash
+   npm run dev
+   ```
 
-3. **Monitor Production:**
-   - Check Railway logs for errors
-   - Monitor Netlify build logs
-   - Test data collection from stations
-   - Verify authentication works
+3. **Build Windows Installer:**
+   ```bash
+   npm run dist:win
+   ```
 
-4. **Optional Enhancements:**
-   - Download local thunderstorm video for faster loading
-   - Upgrade dependencies to fix moderate vulnerabilities
-   - Add automated tests
-   - Implement Sentry/LogRocket for error tracking
+4. **Run Production Build:**
+   ```bash
+   npm run build
+   npm start
+   ```
 
 ---
 
 ## 📞 Support
 
 **Developer:** Lukas Esterhuizen  
-**Email:** esterhuizen2k@proton.me  
-**Repository:** [Your GitHub/GitLab URL]
+**Email:** esterhuizen2k@proton.me
 
-For issues or questions, contact the developer directly.
+For issues or questions, contact the developer directly or open an issue on GitHub.
 
 ---
 
 ## 📜 License
 
-MIT License - See `LICENSE.txt` for full terms.
+See `LICENSE.txt` for the full End User License Agreement (EULA).
 
 By installing or using this software, you agree to the Terms & Conditions outlined in the LICENSE.txt file.
+
+**Copyright © 2024-2026 Lukas Esterhuizen. All rights reserved.**

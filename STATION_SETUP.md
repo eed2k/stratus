@@ -12,7 +12,7 @@ Complete guide for connecting and configuring Campbell Scientific dataloggers wi
 3. [Datalogger Configuration](#datalogger-configuration)
 4. [Adding a Station](#adding-a-station)
 5. [Data Collection Setup](#data-collection-setup)
-6. [Troubleshooting](#troubleshoot)
+6. [Troubleshooting](#troubleshoot) 
 ---
 
 ## Quick Start
@@ -483,49 +483,43 @@ Displays logger battery voltage with:
 - Good: 12.0V - 13.5V
 - Charging: > 13.5V
 
-### Dashboard Export
-
-Export the complete dashboard as a multi-page PDF report:
-
-1. Click the **Export** button in the dashboard header
-2. Select **Save as PDF**
-3. The system generates a downloadable PDF file with station data
-
 ---
 
 ## 24/7 Remote Access Setup
 
-### Cloudflare Tunnel Configuration
+### Railway Cloud Deployment (Recommended)
 
-For public internet access to your Stratus server:
+For public internet access to your Stratus server, deploy to Railway:
 
-1. **Install cloudflared:**
-   ```powershell
-   winget install Cloudflare.cloudflared
+1. **Push to GitHub:**
+   ```bash
+   git add -A
+   git commit -m "Deploy to Railway"
+   git push origin main
    ```
 
-2. **Run setup script:**
-   ```powershell
-   # As Administrator
-   cd scripts
-   .\setup-cloudflare-tunnel.ps1 -Domain "yourdomain.com" -InstallService
+2. **Connect Railway to GitHub:**
+   - Go to [Railway](https://railway.app)
+   - Create new project from GitHub repository
+   - Add PostgreSQL database
+
+3. **Configure Environment Variables:**
+   ```env
+   DATABASE_URL=<your-postgresql-url>
+   PORT=5000
+   NODE_ENV=production
+   CLIENT_JWT_SECRET=<generate-secure-secret>
    ```
 
-3. **Configure 24/7 operation:**
-   ```powershell
-   .\setup-production-24-7.ps1
-   ```
-
-4. **Verify status:**
-   ```powershell
-   .\setup-production-24-7.ps1 -CheckStatus
-   ```
+4. **Deploy:**
+   - Railway auto-deploys on git push
+   - Your app will be available at `https://your-app.railway.app`
 
 ### Weather Station Data Ingestion
 
 Configure your datalogger to POST data to:
 ```
-https://api.yourdomain.com/api/weather-data
+https://your-app.railway.app/api/weather-data
 ```
 
 See `examples/crbasic/stratus_http_post_station.cr1x` for CRBasic example.

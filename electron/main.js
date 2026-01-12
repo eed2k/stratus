@@ -1,12 +1,48 @@
 const { app, BrowserWindow, ipcMain, Menu, shell, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs');
 
 // Keep a global reference of the window object
 let mainWindow = null;
+let welcomeWindow = null;
 let serverProcess = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const SERVER_PORT = 5000;
+
+/**
+ * First-run detection
+ * Checks if this is the first time the application is being run
+ */
+function isFirstRun() {
+  const configPath = path.join(app.getPath('userData'), 'app-config.json');
+  return !fs.existsSync(configPath);
+}
+
+/**
+ * Mark the application as configured (first run complete)
+ */
+function markAsConfigured() {
+  const configPath = path.join(app.getPath('userData'), 'app-config.json');
+  const config = {
+    firstRunComplete: true,
+    configuredAt: new Date().toISOString(),
+    version: app.getVersion(),
+    developer: {
+      name: 'Lukas Esterhuizen',
+      email: 'esterhuizen2k@proton.me'
+    }
+  };
+  
+  // Ensure directory exists
+  const configDir = path.dirname(configPath);
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
+  }
+  
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  console.log('First-run configuration saved to:', configPath);
+}
 
 /**
  * Get the correct icon path based on platform and whether app is packaged
@@ -337,6 +373,46 @@ function stopServer() {
   }
 }
 
+/**
+ * Create Welcome Window for first-run experience
+ * Shows login/registration options after fresh installation
+ */
+function createWelcomeWindow() {
+  const iconPath = getIconPath();
+  
+  welcomeWindow = new BrowserWindow({
+    width: 550,
+    height: 700,
+    resizable: false,
+    frame: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    icon: iconPath,
+    title: 'Welcome to Stratus Weather Station',
+    show: false,
+    backgroundColor: '#667eea',
+    center: true
+  });
+
+  // Remove menu for welcome window
+  welcomeWindow.setMenu(null);
+
+  // Load the welcome page
+  const welcomePath = path.join(__dirname, 'welcome.html');
+  welcomeWindow.loadFile(welcomePath);
+
+  welcomeWindow.once('ready-to-show', () => {
+    welcomeWindow.show();
+  });
+
+  welcomeWindow.on('closed', () => {
+    welcomeWindow = null;
+  });
+}
+
 // IPC Handlers
 ipcMain.handle('get-serial-ports', async () => {
   try {
@@ -361,12 +437,127 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
   return dialog.showOpenDialog(mainWindow, options);
 });
 
+// Welcome/First-run IPC Handlers
+ipcMain.on('welcome-complete', () => {
+  console.log('Welcome setup completed');
+  markAsConfigured();
+  
+  if (welcomeWindow) {
+    welcomeWindow.close();
+  }
+  
+  // Start the main application
+  setTimeout(createWindow, isDev ? 0 : 2000);
+});
+
+ipcMain.on('welcome-skip', () => {
+  console.log('Welcome setup skipped');
+  markAsConfigured();
+  
+  if (welcomeWindow) {
+    welcomeWindow.close();
+  }
+  
+  // Start the main application
+  setTimeout(createWindow, isDev ? 0 : 2000);
+});
+
+ipcMain.handle('auth:login', async (event, credentials) => {
+  // Forward login to server API
+  try {
+    const http = require('http');
+    return new Promise((resolve) => {
+      const data = JSON.stringify(credentials);
+      const options = {
+        hostname: 'localhost',
+        port: SERVER_PORT,
+        path: '/api/auth/login',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': data.length
+        }
+      };
+      
+      const req = http.request(options, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch {
+            resolve({ success: false, message: 'Invalid response' });
+          }
+        });
+      });
+      
+      req.on('error', () => {
+        resolve({ success: false, message: 'Server not available' });
+      });
+      
+      req.write(data);
+      req.end();
+    });
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('auth:register', async (event, userData) => {
+  // Forward registration to server API
+  try {
+    const http = require('http');
+    return new Promise((resolve) => {
+      const data = JSON.stringify(userData);
+      const options = {
+        hostname: 'localhost',
+        port: SERVER_PORT,
+        path: '/api/clients/register',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': data.length
+        }
+      };
+      
+      const req = http.request(options, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch {
+            resolve({ success: false, message: 'Invalid response' });
+          }
+        });
+      });
+      
+      req.on('error', () => {
+        resolve({ success: false, message: 'Server not available' });
+      });
+      
+      req.write(data);
+      req.end();
+    });
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
 // App lifecycle
 app.whenReady().then(() => {
   startServer();
   
-  // Wait for server to start
-  setTimeout(createWindow, isDev ? 0 : 2000);
+  // Check for first run
+  if (isFirstRun()) {
+    console.log('First run detected - showing welcome screen');
+    // Wait for server to start, then show welcome
+    setTimeout(createWelcomeWindow, isDev ? 500 : 2500);
+  } else {
+    console.log('Not first run - launching main application');
+    // Wait for server to start
+    setTimeout(createWindow, isDev ? 0 : 2000);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

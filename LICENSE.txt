@@ -1,38 +1,209 @@
-Stratus Weather Station - License and Terms of Use
+END USER LICENSE AGREEMENT (EULA)
+Stratus Weather Station Application
 
-Last updated: January 11, 2026
+================================================================================
+                              IMPORTANT - READ CAREFULLY
+================================================================================
 
-1. Agreement
-By downloading, installing, or using the Stratus Weather Station ("Software"), you agree to be bound by these Terms and Conditions ("Agreement"). If you do not agree to these terms, do not install or use the Software.
+Copyright (c) 2024-2026 Lukas Esterhuizen (esterhuizen2k@proton.me)
+All rights reserved.
 
-2. License Grant
-Subject to the terms of this Agreement, the author grants you a non-exclusive, non-transferable, revocable license to use the Software for your internal business or personal use.
+================================================================================
+DEVELOPER INFORMATION
+================================================================================
 
-3. Restrictions
-You shall not: (a) sublicense, sell, rent, lease, redistribute, or transfer the Software; (b) copy or modify the Software except as expressly permitted in documentation; (c) remove proprietary notices.
+Developer: Lukas Esterhuizen
+Email: esterhuizen2k@proton.me
+Application: Stratus Weather Station
+Version: 1.0.0
 
-4. Data, Privacy & Telemetry
-The Software may collect usage data, device metadata, and anonymized telemetry to improve functionality. Collected data will not include passwords or other secrets. By using the Software you consent to necessary data collection described in the project documentation. If the Software is configured to send data to a third-party service, you are responsible for configuring privacy controls.
+================================================================================
+TERMS AND CONDITIONS
+================================================================================
 
-5. Warranty Disclaimer
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THE AUTHOR DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+1. AGREEMENT
+By downloading, installing, or using the Stratus Weather Station application 
+("Software"), you agree to be bound by this End User License Agreement ("EULA"). 
+If you do not agree to these terms, do not install or use the Software.
 
-6. Limitation of Liability
-IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, LOSS OF DATA, LOSS OF PROFITS, OR BUSINESS INTERRUPTION), EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+2. LICENSE GRANT
+Subject to the terms of this Agreement, the developer grants you a non-exclusive, 
+non-transferable, revocable license to:
+  - Install and use the Software on your computer systems
+  - Use the Software for weather station data collection and monitoring
+  - Connect to Campbell Scientific dataloggers via supported connection methods
+  - View, analyze, and export weather data collected by the Software
 
-7. Indemnification
-You agree to indemnify, defend and hold harmless the author from and against any claims arising out of your use of the Software or breach of this Agreement.
+3. PERMITTED USE
+You may:
+  - Install the Software on multiple computers for your personal or business use
+  - Create backups of the Software for archival purposes
+  - Use collected weather data for research, reporting, and analysis
+  - Configure the Software to connect to your weather station equipment
 
-8. Export Compliance
-You agree to comply with all applicable export laws and regulations.
+4. RESTRICTIONS
+You may not:
+  - Reverse engineer, decompile, disassemble, or attempt to derive source code
+  - Remove, alter, or obscure any copyright, trademark, or proprietary notices
+  - Distribute, sublicense, lease, rent, or transfer the Software to third parties
+  - Use the Software for any illegal, unauthorized, or harmful purpose
+  - Modify, adapt, or create derivative works based on the Software
+  - Use the Software in any manner that could damage or overburden servers
+  - Attempt to gain unauthorized access to connected systems or data
 
-9. Updates & Support
-The author may provide updates, patches, or new versions of the Software. These may be subject to additional terms.
+5. DATA COLLECTION AND PRIVACY
+The Software collects weather data from connected dataloggers. The Software may 
+collect:
+  - Weather measurements and environmental data from stations
+  - Station configuration and metadata
+  - Usage statistics for application improvement (anonymized)
 
-10. Acceptance
-By clicking "I Agree" during installation or by using the Software, you acknowledge that you have read, understood, and agree to be bound by this Agreement.
+The Software does NOT collect:
+  - Personal identification information without consent
+  - Passwords or authentication credentials (stored locally only)
+  - Data transmitted to external servers without explicit configuration
 
-11. Governing Law
-This Agreement is governed by the laws of the author's country of residence, without regard to conflict of laws principles.
+All data remains on your local system unless you explicitly configure cloud 
+storage or data sharing features. You maintain full control over your data.
 
-Contact: esterhuizen2k@proton.me
+6. CAMPBELL SCIENTIFIC INTEGRATION
+This Software integrates with Campbell Scientific dataloggers using the PakBus 
+protocol. By using this Software:
+  - You acknowledge that Campbell Scientific is a trademark of Campbell Scientific
+  - You agree to comply with Campbell Scientific's terms of service
+  - You ensure your datalogger configurations meet manufacturer specifications
+  - You accept responsibility for proper equipment configuration and maintenance
+
+7. WORLD METEOROLOGICAL ORGANIZATION (WMO) STANDARDS
+Weather data collection should adhere to WMO standards for meteorological 
+measurements. Users are responsible for:
+  - Proper sensor placement according to WMO guidelines
+  - Regular calibration and maintenance of equipment
+  - Data quality control and validation procedures
+  - Accurate station metadata (location, elevation, timezone)
+
+The Software provides validation features to assist with WMO compliance, but 
+ultimate responsibility for data quality rests with the user.
+
+8. WARRANTY DISCLAIMER
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT.
+
+THE DEVELOPER MAKES NO REPRESENTATIONS OR WARRANTIES REGARDING:
+  - The accuracy, reliability, or completeness of weather data collected
+  - Continuous, uninterrupted, or error-free operation
+  - Compatibility with all hardware configurations
+  - The results obtained from using the Software
+
+9. LIMITATION OF LIABILITY
+IN NO EVENT SHALL LUKAS ESTERHUIZEN BE LIABLE FOR ANY:
+  - Direct, indirect, incidental, special, or consequential damages
+  - Loss of data, profits, revenue, or business opportunities
+  - Equipment damage or malfunction
+  - Decisions made based on collected weather data
+  - Third-party claims arising from use of the Software
+
+WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, 
+OR IN CONNECTION WITH THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+SUCH DAMAGES.
+
+10. SAFETY AND COMPLIANCE
+Users are solely responsible for ensuring their weather station installations 
+comply with:
+  - Local, state, and national electrical safety codes
+  - Lightning protection and grounding requirements
+  - Building codes, permits, and regulations
+  - Radio frequency regulations (for wireless connections)
+  - Environmental and land use regulations
+  - Occupational health and safety requirements
+
+The developer assumes no liability for injuries, damages, or violations 
+resulting from improper installation or operation of weather station equipment.
+
+11. INDEMNIFICATION
+You agree to indemnify, defend, and hold harmless Lukas Esterhuizen from and 
+against any claims, damages, losses, liabilities, costs, and expenses 
+(including reasonable attorney fees) arising from:
+  - Your use of the Software
+  - Your violation of this Agreement
+  - Your violation of any third-party rights
+  - Weather data you collect, store, or distribute
+
+12. INTELLECTUAL PROPERTY
+The Software and all copies thereof are proprietary to the developer and title 
+remains with the developer. All rights in the Software not specifically granted 
+in this Agreement are reserved to the developer.
+
+Trademarks:
+  - "Stratus Weather Station" is a trademark of Lukas Esterhuizen
+  - "Campbell Scientific" and "PakBus" are trademarks of Campbell Scientific
+  - Other trademarks are property of their respective owners
+
+13. SUPPORT AND UPDATES
+Software support and updates are provided at the developer's discretion.
+  - Email support: esterhuizen2k@proton.me
+  - Updates may be released to fix bugs, add features, or improve security
+  - Major updates may require acceptance of updated terms
+  - Support response times are not guaranteed
+
+14. TERMINATION
+This license is effective until terminated. Your rights under this license 
+will terminate automatically without notice if you:
+  - Fail to comply with any term of this Agreement
+  - Attempt to circumvent technical protection measures
+  - Use the Software in a manner that harms the developer or third parties
+
+Upon termination:
+  - You must destroy all copies of the Software
+  - You may retain weather data you have collected
+  - Sections 8-11 survive termination
+
+15. EXPORT COMPLIANCE
+You agree to comply with all applicable export and import laws and regulations. 
+You may not export or re-export the Software to prohibited countries, entities, 
+or persons.
+
+16. GOVERNING LAW
+This EULA shall be governed by and construed in accordance with applicable 
+international software licensing standards and the laws of the jurisdiction 
+in which the developer resides.
+
+17. SEVERABILITY
+If any provision of this Agreement is found to be unenforceable, the remaining 
+provisions will continue in full force and effect.
+
+18. ENTIRE AGREEMENT
+This Agreement constitutes the entire agreement between you and the developer 
+regarding the Software and supersedes all prior agreements and understandings.
+
+19. AMENDMENTS
+The developer reserves the right to modify this Agreement at any time. 
+Continued use of the Software after changes constitutes acceptance of the 
+modified terms.
+
+20. ACCEPTANCE
+BY CLICKING "I ACCEPT" OR "I AGREE" DURING INSTALLATION, OR BY INSTALLING, 
+COPYING, OR OTHERWISE USING THE SOFTWARE, YOU ACKNOWLEDGE THAT YOU HAVE READ 
+THIS AGREEMENT, UNDERSTAND IT, AND AGREE TO BE BOUND BY ITS TERMS AND CONDITIONS.
+
+IF YOU DO NOT AGREE TO THESE TERMS, CLICK "CANCEL" OR "I DO NOT ACCEPT" AND 
+DO NOT INSTALL OR USE THE SOFTWARE.
+
+================================================================================
+CONTACT INFORMATION
+================================================================================
+
+For questions, support, or concerns regarding this EULA:
+
+  Developer: Lukas Esterhuizen
+  Email: esterhuizen2k@proton.me
+  
+For security vulnerabilities, please email with subject line:
+  [SECURITY] Stratus Weather Station - Description
+
+================================================================================
+
+Version: 1.0
+Last Updated: January 2026
+Document ID: EULA-STRATUS-2026-01

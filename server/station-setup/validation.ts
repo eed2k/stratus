@@ -234,30 +234,24 @@ export function buildProtocolConfig(
   connectionType: string,
   config: any
 ): ProtocolConfig {
+  // Campbell Scientific stations use PakBus via HTTP/TCP or LoRa
   const protocolMap: Record<string, ProtocolConfig['protocol']> = {
     http: "http",
     ip: "http",
     wifi: "http",
-    mqtt: "mqtt",
     lora: "lora",
-    satellite: "satellite",
-    modbus: "modbus",
-    dnp3: "dnp3",
-    gsm: "http",
+    pakbus: "pakbus",
     "4g": "http",
+    tcp: "http",
   };
 
   const connectionTypeMap: Record<string, ProtocolConfig['connectionType']> = {
     http: "http",
     ip: "http",
     wifi: "http",
-    mqtt: "mqtt",
     lora: "lora",
-    satellite: "satellite",
-    modbus: "tcp",
-    dnp3: "tcp",
-    gsm: "gsm",
-    "4g": "gsm",
+    tcp: "tcp",
+    "4g": "http",
   };
 
   return {

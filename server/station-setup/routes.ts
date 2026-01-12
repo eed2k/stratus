@@ -69,6 +69,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
       const testConfig = buildProtocolConfig(9999, connectionType, config);
 
       // Try to create and test adapter without persistence
+      // Campbell Scientific stations use HTTP/TCP for 4G/cellular and LoRa for remote
       try {
         let adapter: any = null;
 
@@ -76,13 +77,11 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
           case "http":
           case "ip":
           case "wifi":
+          case "4g":
+          case "tcp":
+          case "pakbus":
             const { HTTPAdapter } = await import("../protocols/httpAdapter");
             adapter = new HTTPAdapter(testConfig);
-            break;
-
-          case "mqtt":
-            const { MQTTAdapter } = await import("../protocols/mqttAdapter");
-            adapter = new MQTTAdapter(testConfig);
             break;
 
           case "lora":
@@ -90,53 +89,10 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
             adapter = new LoRaAdapter(testConfig);
             break;
 
-          case "satellite":
-            const { SatelliteAdapter } = await import(
-              "../protocols/satelliteAdapter"
-            );
-            adapter = new SatelliteAdapter(testConfig);
-            break;
-
-          case "modbus":
-          case "serial":
-            const { ModbusAdapter } = await import(
-              "../protocols/modbusAdapter"
-            );
-            adapter = new ModbusAdapter(testConfig);
-            break;
-
-          case "dnp3":
-            const { DNP3Adapter } = await import("../protocols/dnp3Adapter");
-            adapter = new DNP3Adapter(testConfig);
-            break;
-
-          case "ble":
-            // BLE requires special handling (device discovery)
-            return res.json({
-              success: true,
-              message:
-                "BLE configuration valid. Run device discovery to complete setup.",
-              warnings: [
-                "BLE requires device to be powered and in discoverable mode",
-              ],
-            });
-
-          case "gsm":
-          case "4g":
-            // GSM/4G requires device availability
-            return res.json({
-              success: true,
-              message:
-                "GSM/4G configuration valid. Test depends on device availability.",
-              warnings: [
-                "Ensure GSM/4G modem is powered and has carrier signal",
-              ],
-            });
-
           default:
             return res.status(400).json({
               success: false,
-              message: `Unknown connection type: ${connectionType}`,
+              message: `Unknown connection type: ${connectionType}. Supported: http, ip, wifi, 4g, tcp, pakbus, lora`,
             });
         }
 

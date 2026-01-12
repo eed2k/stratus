@@ -1,18 +1,48 @@
 /**
  * Client Dashboard API Routes
- * These endpoints are used by the Netlify-hosted client dashboard
+ * These endpoints are used by external client dashboards and applications
  * They provide read-only access to weather data for authenticated clients
+ * 
+ * Developer: Lukas Esterhuizen (esterhuizen2k@proton.me)
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { storage } from './localStorage';
 import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
 // Secret for JWT tokens - in production, use environment variable
 const JWT_SECRET = process.env.CLIENT_JWT_SECRET || 'stratus-client-secret-change-in-production';
+
+// Rate limiter for login attempts - prevent brute force attacks
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minute window
+  max: 5, // Max 5 login attempts per window
+  message: { 
+    success: false, 
+    error: 'Too many login attempts. Please try again in 15 minutes.',
+    retryAfter: 15 * 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Don't count successful logins
+});
+
+// Rate limiter for registration
+const registerRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour window
+  max: 3, // Max 3 registration attempts per hour
+  message: { 
+    success: false, 
+    error: 'Too many registration attempts. Please try again later.',
+    retryAfter: 60 * 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Client accounts storage (in production, use a proper database table)
 interface ClientAccount {
@@ -76,12 +106,11 @@ function verifyClientToken(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// Enable CORS for Netlify client
-// Allow both Netlify and local development origins
+// Enable CORS for external clients
+// Allow configured client origins and local development
 const allowedOrigins = [
-  'https://stratusweb.netlify.app',
-  'https://stratus-client.netlify.app',
-  'https://stratus-weather.netlify.app',
+  // Add your client application URLs here
+  // Example: 'https://your-client-app.example.com',
   'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
@@ -109,7 +138,7 @@ router.use(corsMiddleware);
 /**
  * GET /api/client/health
  * Public health check endpoint - no authentication required
- * Used by Netlify client to verify server connectivity
+ * Used by external clients to verify server connectivity
  */
 router.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -118,8 +147,9 @@ router.get('/health', (req: Request, res: Response) => {
 /**
  * POST /api/client/login
  * Authenticate client with email/password
+ * Protected by rate limiting to prevent brute force attacks
  */
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -257,137 +287,49 @@ router.get('/data/history', verifyClientToken, async (req: Request, res: Respons
   }
 });
 
-/**
- * GET /api/client/export/csv
- * Export data as CSV for the client's station
- */
-router.get('/export/csv', verifyClientToken, async (req: Request, res: Response) => {
-  try {
-    const { stationId } = (req as any).clientAuth;
-    const hours = parseInt(req.query.hours as string) || 168; // Default 7 days
-
-    const endTime = new Date();
-    const startTime = new Date(endTime.getTime() - hours * 60 * 60 * 1000);
-
-    const data = await storage.getWeatherDataRange(stationId, startTime, endTime);
-    const station = await storage.getWeatherStation(stationId);
-
-    // Build CSV
-    const headers = ['timestamp', 'temperature', 'humidity', 'pressure', 'windSpeed', 'windDirection', 'solarRadiation', 'rainfall', 'uvIndex'];
-    const rows = data.map((d) => {
-      const values = d.data as Record<string, any>;
-      return [
-        d.timestamp?.toISOString() || '',
-        values.temperature ?? '',
-        values.humidity ?? '',
-        values.pressure ?? '',
-        values.windSpeed ?? '',
-        values.windDirection ?? '',
-        values.solarRadiation ?? '',
-        values.rainfall ?? '',
-        values.uvIndex ?? '',
-      ].join(',');
-    });
-
-    const csv = [headers.join(','), ...rows].join('\n');
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${station?.name || 'weather'}_data_${new Date().toISOString().split('T')[0]}.csv"`
-    );
-    res.send(csv);
-  } catch (error: any) {
-    console.error('Export CSV error:', error);
-    res.status(500).json({ error: 'Failed to export CSV' });
-  }
-});
-
-/**
- * POST /api/client/export/pdf
- * Export data as PDF for the client's station
- */
-router.post('/export/pdf', verifyClientToken, async (req: Request, res: Response) => {
-  try {
-    const { stationId } = (req as any).clientAuth;
-    const { generateDashboardPDF } = await import('./services/pdfExportService');
-
-    const station = await storage.getWeatherStation(stationId);
-    if (!station) {
-      return res.status(404).json({ error: 'Station not found' });
-    }
-
-    const latestRecord = await storage.getLatestWeatherData(stationId);
-    const latestData = latestRecord
-      ? {
-          timestamp: latestRecord.timestamp?.toISOString() || new Date().toISOString(),
-          data: latestRecord.data as Record<string, any>,
-        }
-      : null;
-
-    // Get all enabled parameters
-    const enabledParameters = [
-      'temperature',
-      'humidity',
-      'pressure',
-      'windSpeed',
-      'windDirection',
-      'solarRadiation',
-      'rainfall',
-      'uvIndex',
-      'dewPoint',
-      'windGust',
-    ];
-
-    const pdfBuffer = await generateDashboardPDF({
-      station: {
-        name: station.name,
-        location: station.location || undefined,
-        latitude: station.latitude || undefined,
-        longitude: station.longitude || undefined,
-        altitude: station.altitude || undefined,
-      },
-      latestData,
-      enabledParameters,
-      title: `${station.name} - Weather Report`,
-    });
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${station.name.replace(/\s+/g, '_')}_Report_${new Date().toISOString().split('T')[0]}.pdf"`
-    );
-    res.send(pdfBuffer);
-  } catch (error: any) {
-    console.error('Export PDF error:', error);
-    res.status(500).json({ error: 'Failed to export PDF' });
-  }
-});
+// NOTE: Export functionality (CSV and PDF) has been disabled
+// The export routes have been removed from client API
 
 /**
  * Admin endpoint to create client accounts
  * POST /api/client/admin/create
+ * Protected by rate limiting to prevent abuse
  */
-router.post('/admin/create', async (req: Request, res: Response) => {
+router.post('/admin/create', registerRateLimiter, async (req: Request, res: Response) => {
   try {
     // In production, add admin authentication here
     const { email, password, name, stationId } = req.body;
 
+    // Input validation
     if (!email || !password || !stationId) {
       return res.status(400).json({ error: 'Email, password, and stationId required' });
+    }
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    
+    // Password strength validation
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
     if (clientAccounts.has(email.toLowerCase())) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
+    // Sanitize name input (remove potential XSS)
+    const sanitizedName = name ? String(name).replace(/<[^>]*>/g, '').trim().substring(0, 100) : undefined;
+
     const hash = await bcryptjs.hash(password, 10);
     const client: ClientAccount = {
       id: `client-${Date.now()}`,
-      email: email.toLowerCase(),
+      email: email.toLowerCase().trim(),
       passwordHash: hash,
-      name,
-      stationId,
+      name: sanitizedName,
+      stationId: typeof stationId === 'number' ? stationId : parseInt(stationId, 10),
       createdAt: new Date(),
     };
 
@@ -405,6 +347,70 @@ router.post('/admin/create', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Create client error:', error);
     res.status(500).json({ error: 'Failed to create client' });
+  }
+});
+
+/**
+ * POST /api/clients/register
+ * Public registration endpoint for new client accounts
+ * Used by the welcome screen for first-run registration
+ */
+router.post('/register', registerRateLimiter, async (req: Request, res: Response) => {
+  try {
+    const { username, email, password } = req.body;
+
+    // Input validation
+    if (!username || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Username, email, and password required' });
+    }
+    
+    // Username validation
+    if (username.length < 3) {
+      return res.status(400).json({ success: false, message: 'Username must be at least 3 characters' });
+    }
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email format' });
+    }
+    
+    // Password strength validation
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    if (clientAccounts.has(email.toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    // Sanitize inputs
+    const sanitizedUsername = String(username).replace(/<[^>]*>/g, '').trim().substring(0, 50);
+
+    const hash = await bcryptjs.hash(password, 10);
+    const client: ClientAccount = {
+      id: `client-${Date.now()}`,
+      email: email.toLowerCase().trim(),
+      passwordHash: hash,
+      name: sanitizedUsername,
+      stationId: 1, // Default station for new registrations
+      createdAt: new Date(),
+    };
+
+    clientAccounts.set(email.toLowerCase(), client);
+
+    res.json({
+      success: true,
+      message: 'Account created successfully',
+      user: {
+        id: client.id,
+        email: client.email,
+        name: client.name,
+      },
+    });
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    res.status(500).json({ success: false, message: 'Registration failed' });
   }
 });
 

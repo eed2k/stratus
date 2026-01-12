@@ -18,6 +18,7 @@
     "prepare:icons": "node scripts/copy-icon.js",
     "dist": "npm run build && npm run prepare:icons && electron-builder",
     "dist:win": "npm run build && npm run prepare:icons && electron-builder --win",
+    "postdist:win": "node scripts/post-build.js",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
     "db:push": "drizzle-kit push --dialect=postgresql --schema=shared/schema.ts --url=$DATABASE_URL",
@@ -58,12 +59,6 @@
           "arch": [
             "x64"
           ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
         }
       ],
       "icon": "build/icon.ico",
@@ -73,9 +68,10 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "Stratus Weather",
+      "shortcutName": "Stratus Weather Station",
+      "menuCategory": "Stratus Weather",
       "license": "LICENSE.txt",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
@@ -83,10 +79,13 @@
       "deleteAppDataOnUninstall": false,
       "perMachine": false,
       "allowElevation": true,
+      "runAfterFinish": true,
       "installerLanguages": [
         "en_US"
       ],
-      "warningsAsErrors": false
+      "language": "1033",
+      "warningsAsErrors": false,
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": [

@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on('import-config', (event, filePath) => callback(filePath));
   },
   
+  // Welcome/First-run functions
+  login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
+  register: (userData) => ipcRenderer.invoke('auth:register', userData),
+  completeWelcome: () => ipcRenderer.send('welcome-complete'),
+  skipWelcome: () => ipcRenderer.send('welcome-skip'),
+  
   // Platform info
   platform: process.platform,
   
