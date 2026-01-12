@@ -4,12 +4,12 @@
  * 
  * IMPORTANT: Set the VITE_STRATUS_SERVER_URL environment variable in Netlify:
  * 1. Go to Netlify Dashboard > Site Settings > Environment Variables
- * 2. Add: VITE_STRATUS_SERVER_URL = https://your-railway-app-url.railway.app
+ * 2. Add: VITE_STRATUS_SERVER_URL = https://stratus.up.railway.app
  */
 
 // Get server URL from environment or use fallback
 // NOTE: Update this fallback to your actual Railway URL
-const STRATUS_SERVER = import.meta.env.VITE_STRATUS_SERVER_URL || 'https://stratus-production.up.railway.app';
+const STRATUS_SERVER = import.meta.env.VITE_STRATUS_SERVER_URL || 'https://stratus.up.railway.app';
 
 // Debug: Log the server URL in development
 if (import.meta.env.DEV) {
@@ -86,9 +86,10 @@ export const api = {
    */
   async testConnection(): Promise<{ connected: boolean; error?: string }> {
     try {
-      const response = await fetch(`${STRATUS_SERVER}/api/health`, { 
+      const response = await fetch(`${STRATUS_SERVER}/api/client/health`, { 
         method: 'GET',
-        signal: AbortSignal.timeout(5000), // 5 second timeout
+        mode: 'cors',
+        signal: AbortSignal.timeout(10000), // 10 second timeout for cold starts
       });
       return { connected: response.ok };
     } catch (error) {

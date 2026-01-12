@@ -86,7 +86,8 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
 ];
 
-router.use((req, res, next) => {
+// CORS middleware - applied to all routes
+const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
   if (origin && allowedOrigins.some(allowed => origin.includes(allowed.replace(/^https?:\/\//, '')))) {
     res.header('Access-Control-Allow-Origin', origin);
@@ -100,6 +101,17 @@ router.use((req, res, next) => {
     return res.sendStatus(200);
   }
   next();
+};
+
+router.use(corsMiddleware);
+
+/**
+ * GET /api/client/health
+ * Public health check endpoint - no authentication required
+ * Used by Netlify client to verify server connectivity
+ */
+router.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 /**

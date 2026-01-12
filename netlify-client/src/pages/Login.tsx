@@ -189,9 +189,9 @@ export default function Login() {
         {/* Logo & Branding */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
-            {/* White Circle with Dark Dot Logo - Inverted for video background */}
-            <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-2xl border-2 border-white">
-              <div className="w-4 h-4 rounded-full bg-blue-600"></div>
+            {/* Dark Blue Circle with White Dot Logo - matches Railway deployment */}
+            <div className="w-14 h-14 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-2xl border-2 border-white/30">
+              <div className="w-4 h-4 rounded-full bg-white"></div>
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white drop-shadow-lg">
@@ -298,16 +298,6 @@ export default function Login() {
         <div className="text-center text-sm text-white/90 drop-shadow-md">
           <p>View-only access to your assigned weather dashboard.</p>
           <p className="mt-1">Contact your administrator for login credentials.</p>
-        </div>
-
-        {/* Login Credentials */}
-        <div className="p-3 bg-white/10 backdrop-blur-md border-2 border-white/80 rounded-lg text-xs shadow-xl">
-          <p className="font-medium text-white mb-1 drop-shadow-md">Your Login:</p>
-          <p className="text-white/90">Email: <span className="font-mono bg-white/20 px-1 rounded">esterhuizen2k@proton.me</span></p>
-          <p className="text-white/90">Password: <span className="font-mono bg-white/20 px-1 rounded">Lukas@2266</span></p>
-          <div className="mt-2 pt-2 border-t border-white/30">
-            <p className="text-white/70">Demo: <span className="font-mono bg-white/20 px-1 rounded">demo@stratus.app</span> / <span className="font-mono bg-white/20 px-1 rounded">demo123</span></p>
-          </div>
         </div>
 
         {/* Footer */}

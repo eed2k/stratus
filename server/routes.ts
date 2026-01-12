@@ -153,6 +153,20 @@ export async function registerRoutes(
   // Register client dashboard routes (for Netlify frontend)
   app.use('/api/client', clientRoutes);
 
+  // Public health check endpoint with CORS for Netlify client
+  app.get('/api/health', (req, res) => {
+    // Set CORS headers for cross-origin access
+    const origin = req.headers.origin;
+    if (origin) {
+      res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      res.header('Access-Control-Allow-Origin', '*');
+    }
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), server: 'stratus' });
+  });
+
   // Initialize data collection service
   try {
     await dataCollectionService.initialize();
