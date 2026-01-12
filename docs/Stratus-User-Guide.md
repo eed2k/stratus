@@ -374,15 +374,4 @@ Interactive OpenStreetMap integration showing:
 
 ---
 
-## About
 
-**Stratus Weather Server**  
-Version 1.0.0
-
-**Developer:** Lukas Esterhuizen  
-**Contact:** esterhuizen2k@proton.me  
-**License:** MIT
-
----
-
-*Stratus is designed for professional meteorological monitoring, agricultural weather services, and environmental data collection.*

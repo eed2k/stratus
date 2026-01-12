@@ -127,8 +127,9 @@ const pdfOptions = {
     printBackground: true,
     displayHeaderFooter: true,
     headerTemplate: `
-      <div style="font-size: 9px; color: #666; width: 100%; text-align: center; padding: 5px 20px;">
+      <div style="font-size: 9px; color: #666; width: 100%; display: flex; justify-content: space-between; padding: 5px 20px;">
         <span style="font-weight: bold;">Stratus Weather Server Documentation</span>
+        <span>From: Lukas Esterhuizen (esterhuizen2k@proton.me)</span>
       </div>
     `,
     footerTemplate: `
