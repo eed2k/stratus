@@ -758,9 +758,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
             />
             <AirDensityCard
               airDensity={currentData.airDensity || calculatedAirDensity}
-              temperature={currentData.temperature}
-              pressure={currentData.pressure}
-              humidity={currentData.humidity}
+              temperature={currentData.temperature ?? undefined}
+              pressure={currentData.pressure ?? undefined}
+              humidity={currentData.humidity ?? undefined}
             />
             <EvapotranspirationCard
               currentETo={(currentData.eto || calculatedETo) / 24}
@@ -974,7 +974,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
             <WindCompass
               direction={currentData.windDirection || 0}
               speed={currentData.windSpeed || 0}
-              gust={currentData.windGust}
+              gust={currentData.windGust ?? undefined}
               unit="km/h"
             />
             ) : (
@@ -1205,7 +1205,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               peakRadiation={1050}
               dailyEnergy={18.5}
               avgRadiation={450}
-              panelTemperature={currentData.panelTemperature}
+              panelTemperature={currentData.panelTemperature ?? undefined}
             />
             <EToCard
               dailyETo={currentData.eto || 4.85}
