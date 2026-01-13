@@ -138,7 +138,6 @@ docker run -p 5000:5000 -e DATABASE_URL="your-db-url" stratus-weather
 - [ ] Test station setup (4G, LoRa, TCP/IP)
 - [ ] Test data collection
 - [ ] Test dashboard display
-- [ ] Test CSV/PDF export
 - [ ] Test real-time WebSocket updates
 
 ### Backend Testing:

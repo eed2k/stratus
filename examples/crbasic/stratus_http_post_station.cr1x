@@ -249,7 +249,7 @@ Sub PostToStratus
     
     ' Send HTTP POST request
     If USE_TLS Then
-      ' HTTPS (TLS) - For Cloudflare/secure endpoints
+      ' HTTPS (TLS) - For Railway/secure endpoints
       HTTPStatus = HTTPSPost(STRATUS_SERVER,STRATUS_PORT,URI,JSONPayload,Headers,HTTPResponse,Socket)
     Else
       ' HTTP - For local/direct connections

@@ -14,7 +14,7 @@ A professional desktop application for Campbell Scientific weather station manag
 
 ### Campbell Scientific Integration
 - **PakBus Protocol Support** - Native implementation of Campbell Scientific's PakBus protocol
-- **Multi-Connection Types** - Serial (RS232/RS485), TCP/IP, GSM modems, LoRa, RF407
+- **Multi-Connection Types** - TCP/IP, Cellular (4G/LTE), LoRaWAN, HTTP
 - **Data Collection** - Scheduled and on-demand data collection from datalogger tables
 - **Program Management** - Upload, download, and manage CRBasic programs
 - **File Operations** - Browse, transfer, and manage datalogger files
@@ -195,10 +195,8 @@ stratus/
 - CR200X
 
 ### Communication Options
-- **Serial** - RS232, RS485 direct connection
 - **TCP/IP** - Ethernet, WiFi via NL121 or similar
-- **RF** - RF407/RF412 spread spectrum radios
-- **Cellular** - CELL200 series modems
+- **Cellular** - 4G/LTE modems (CELL200 series)
 - **LoRa** - Long-range IoT connectivity
 
 ## Configuration

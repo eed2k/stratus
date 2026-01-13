@@ -318,10 +318,7 @@
 - [ ] **Last update timestamp** accurate
 
 ### Export Functions
-- [ ] **Export as CSV** creates valid file
-- [ ] **Export as TOA5** matches Campbell format
-- [ ] **Export as JSON** valid JSON structure
-- [ ] **PDF export** generates readable report
+- [ ] **Export as CSV** creates valid file (via browser print)
 - [ ] **Exported data** matches displayed data
 
 ### Responsive Design

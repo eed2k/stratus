@@ -14,8 +14,8 @@ Stratus is a professional desktop and server application for weather station man
 
 ### Weather Station Integration
 
-- **Multi-Protocol Support** - PakBus, HTTP/REST, MQTT, Modbus
-- **Multi-Connection Types** - TCP/IP, WiFi, Cellular (4G/LTE), LoRaWAN, Satellite
+- **Multi-Protocol Support** - PakBus, HTTP/REST, LoRaWAN
+- **Multi-Connection Types** - TCP/IP, WiFi, Cellular (4G/LTE), LoRaWAN
 - **Data Collection** - Scheduled and on-demand data collection from stations
 - **Real-Time Monitoring** - Live data updates with configurable refresh intervals
 - **Multi-Station Support** - Manage multiple stations from a single dashboard
@@ -31,15 +31,13 @@ Stratus is a professional desktop and server application for weather station man
 - Arduino IoT Cloud compatible devices
 - ESP32/ESP8266 WiFi stations
 - Davis Vantage series
-- Generic HTTP/MQTT stations
-- Custom industrial sensors via Modbus
+- Generic HTTP stations
 
 ### Communication Options
 
 - **TCP/IP** - Ethernet, WiFi via NL121 or similar
 - **Cellular** - 4G/LTE modems with TCP gateway
 - **LoRa/LoRaWAN** - Long-range IoT connectivity via network server
-- **Satellite** - Remote area connectivity via IP gateway
 - **HTTP API** - Direct REST API integration
 
 ---
@@ -249,21 +247,8 @@ McArthur Forest Fire Danger Index (FFDI) calculation for fire weather monitoring
 ### Local Database
 
 - **SQLite Storage** - All data stored locally for complete offline access
-- **Data Export** - Export to CSV, JSON formats
 - **Historical Charts** - Interactive charts with zoom and pan
 - **Data Retention** - Configurable retention policies
-
-### Dashboard Export
-
-Export the complete dashboard as a professional multi-page PDF report:
-
-1. Click the **Export** button in the dashboard header
-2. Select **Save as PDF**
-3. The system will:
-   - Capture the full dashboard with print-optimized styling
-   - Split content across multiple A4 pages
-   - Add station name, date, and page numbers
-   - Generate a downloadable PDF file
 
 ---
 
@@ -342,9 +327,9 @@ Interactive OpenStreetMap integration showing:
 
 ### Remote Access
 
-- Cloudflare Tunnel integration for secure public access
-- Custom domain support
-- Auto-restart Windows services for 24/7 reliability
+- Railway cloud deployment for secure public access
+- Custom domain support via Railway
+- Auto-restart services for 24/7 reliability
 - HTTPS encryption
 
 ---
@@ -357,7 +342,6 @@ Interactive OpenStreetMap integration showing:
 - **Backend:** Node.js, Express, SQLite
 - **Desktop:** Electron for native Windows application
 - **Maps:** Leaflet with OpenStreetMap tiles
-- **PDF Export:** jsPDF with html2canvas
 
 ### System Requirements
 
@@ -365,7 +349,6 @@ Interactive OpenStreetMap integration showing:
 - Windows 10/11 (64-bit)
 - 4GB RAM minimum
 - 100MB disk space
-- USB port for serial connections
 
 **Server:**
 - Node.js 18+
