@@ -403,36 +403,43 @@ export class DataCollectionService extends EventEmitter {
           continue;
         }
         
-        if (station.isActive) {
-          const connectionConfig = typeof station.connectionConfig === 'string' 
-            ? JSON.parse(station.connectionConfig)
-            : station.connectionConfig;
+        if (!station.isActive) continue;
+        
+        const connectionConfig = typeof station.connectionConfig === 'string' 
+          ? JSON.parse(station.connectionConfig || '{}')
+          : (station.connectionConfig || {});
 
-          const config: DataCollectionConfig = {
+        // Skip stations without a valid host/endpoint (import-only stations)
+        const hasValidEndpoint = connectionConfig?.host || station.ipAddress;
+        if (!hasValidEndpoint) {
+          console.log(`Skipping station ${station.id} (${station.name}) - no host configured (import-only)`);
+          continue;
+        }
+
+        const config: DataCollectionConfig = {
+          stationId: station.id,
+          enabled: true,
+          connectionConfig: {
             stationId: station.id,
-            enabled: true,
-            connectionConfig: {
-              stationId: station.id,
-              connectionType: station.connectionType || 'tcp',
-              host: connectionConfig?.host,
-              port: connectionConfig?.port || 6785,
-              serialPort: connectionConfig?.serialPort,
-              baudRate: connectionConfig?.baudRate || 115200,
-              pakbusAddress: station.pakbusAddress || 1,
-              securityCode: station.securityCode || 0,
-              dataTable: connectionConfig?.dataTable || 'OneMin',
-              pollInterval: connectionConfig?.pollInterval || 60,
-              autoReconnect: true,
-              reconnectInterval: 30,
-              maxReconnectAttempts: 10,
-            },
-          };
+            connectionType: station.connectionType || 'tcp',
+            host: connectionConfig?.host || station.ipAddress,
+            port: connectionConfig?.port || station.port || 6785,
+            serialPort: connectionConfig?.serialPort,
+            baudRate: connectionConfig?.baudRate || 115200,
+            pakbusAddress: station.pakbusAddress || 1,
+            securityCode: station.securityCode || 0,
+            dataTable: connectionConfig?.dataTable || 'OneMin',
+            pollInterval: connectionConfig?.pollInterval || 60,
+            autoReconnect: true,
+            reconnectInterval: 30,
+            maxReconnectAttempts: 10,
+          },
+        };
 
-          try {
-            await this.startStation(config);
-          } catch (error) {
-            console.error(`Failed to start station ${station.id}:`, error);
-          }
+        try {
+          await this.startStation(config);
+        } catch (error) {
+          console.error(`Failed to start station ${station.id}:`, error);
         }
       }
 

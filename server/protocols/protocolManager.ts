@@ -45,9 +45,20 @@ class ProtocolManagerClass extends EventEmitter {
       const stations = await storage.getStations();
       
       for (const station of stations) {
-        if (station.isActive && station.connectionType !== 'demo') {
-          await this.registerStation(station.id, this.buildConfigFromStation(station));
+        // Skip demo stations and stations without valid connection config
+        if (station.connectionType === 'demo') continue;
+        if (!station.isActive) continue;
+        
+        // Skip stations that don't have a valid endpoint (import-only stations)
+        const hasValidEndpoint = station.ipAddress || station.apiEndpoint || 
+          (station.connectionConfig && (station.connectionConfig.host || station.connectionConfig.apiEndpoint || station.connectionConfig.broker));
+        
+        if (!hasValidEndpoint) {
+          console.log(`[ProtocolManager] Skipping station ${station.id} (${station.name}) - no endpoint configured (import-only)`);
+          continue;
         }
+        
+        await this.registerStation(station.id, this.buildConfigFromStation(station));
       }
       
       this.initialized = true;
@@ -58,6 +69,16 @@ class ProtocolManagerClass extends EventEmitter {
   }
 
   private buildConfigFromStation(station: any): ProtocolConfig {
+    if (!station) {
+      console.warn(`[ProtocolManager] buildConfigFromStation called with undefined station`);
+      return {
+        stationId: 0,
+        protocol: 'http',
+        connectionType: 'http',
+        timeout: 30000,
+      };
+    }
+    
     let connectionConfig: any = {};
     
     if (station.connectionConfig) {

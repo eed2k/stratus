@@ -140,6 +140,8 @@ import { registerStationSetupRoutes } from "./station-setup/routes";
 import shareRoutes from "./shares/routes";
 import complianceRoutes from "./compliance/routes";
 import clientRoutes from "./clientRoutes";
+import fileWatcherRoutes from "./services/fileWatcherRoutes";
+import { fileWatcherService } from "./services/fileWatcherService";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -186,6 +188,12 @@ export async function registerRoutes(
 
   // Register client dashboard routes (for external client applications)
   app.use('/api/client', clientRoutes);
+
+  // Register file watcher routes (Dropbox sync, etc.)
+  app.use('/api/file-watcher', fileWatcherRoutes);
+
+  // Initialize file watcher service
+  await fileWatcherService.initialize();
 
   // Public health check endpoint with CORS for external clients
   app.get('/api/health', (req, res) => {

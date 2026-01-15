@@ -56,3 +56,18 @@ Thumbs.db
 # Docker
 docker-compose.override.yml
 node_modules
+
+# Data files (keep in demo_data/ only)
+*.dat
+*.backup
+*.tdf
+*.xlsx
+*.emf
+
+# CRBasic programs (keep in examples/crbasic/ only)
+*.CR300
+*.CRB
+*.cr300
+
+# Exclude demo_data from ignore (allow tracking)
+!demo_data/
