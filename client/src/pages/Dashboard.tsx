@@ -405,8 +405,53 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
     });
   }, [chartData]);
 
+  // Calculate trends by comparing latest vs historical average
+  const trends = useMemo(() => {
+    if (historicalData.length < 2) {
+      return { temperature: null, humidity: null, pressure: null };
+    }
+    
+    // Get average of first half vs last value
+    const halfLen = Math.floor(historicalData.length / 2);
+    const olderData = historicalData.slice(0, halfLen);
+    
+    const avgOldTemp = olderData.reduce((sum, d) => sum + (d.temperature || 0), 0) / halfLen;
+    const avgOldHumidity = olderData.reduce((sum, d) => sum + (d.humidity || 0), 0) / halfLen;
+    const avgOldPressure = olderData.reduce((sum, d) => sum + (d.pressure || 0), 0) / halfLen;
+    
+    const currentTemp = currentData.temperature || 0;
+    const currentHum = currentData.humidity || 0;
+    const currentPress = currentData.pressure || 0;
+    
+    return {
+      temperature: avgOldTemp ? ((currentTemp - avgOldTemp) / avgOldTemp) * 100 : null,
+      humidity: avgOldHumidity ? ((currentHum - avgOldHumidity) / avgOldHumidity) * 100 : null,
+      pressure: avgOldPressure ? ((currentPress - avgOldPressure) / avgOldPressure) * 100 : null,
+    };
+  }, [historicalData, currentData]);
+
+  // Calculate accumulated rainfall from historical data
+  const accumulatedRainfall = useMemo(() => {
+    return historicalData.reduce((sum, d) => sum + (d.rainfall || 0), 0);
+  }, [historicalData]);
+
+  // Extract battery voltage from historical data for proper charting
+  const batteryChartData = useMemo(() => {
+    return historicalData.map(d => ({
+      timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      batteryVoltage: d.batteryVoltage ?? 0,
+    }));
+  }, [historicalData]);
+
   const sparkline = chartData.slice(-12).map(d => d.temperature);
-  const maxWindSpeed = Math.max(currentData.windGust || 0, ...windRoseData.flatMap(d => d.speeds));
+  
+  // Calculate max wind speed from actual observations, not from wind rose bin counts
+  const maxWindSpeed = useMemo(() => {
+    const speeds = historicalData
+      .map(d => Math.max(d.windSpeed || 0, d.windGust || 0))
+      .filter(s => s > 0);
+    return Math.max(currentData.windGust || 0, currentData.windSpeed || 0, ...speeds);
+  }, [historicalData, currentData.windGust, currentData.windSpeed]);
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
@@ -516,7 +561,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               title="Temperature"
               value={formatValue(currentData.temperature || 0, 1)}
               unit="°C"
-              trend={{ value: 1.2, label: "vs yesterday" }}
+              trend={trends.temperature !== null ? { value: parseFloat(trends.temperature.toFixed(1)), label: "vs avg" } : undefined}
               sparklineData={sparkline}
               chartColor="#ef4444"
             />
@@ -524,7 +569,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               title="Humidity"
               value={formatValue(currentData.humidity || 0, 1)}
               unit="%"
-              trend={{ value: -5, label: "vs yesterday" }}
+              trend={trends.humidity !== null ? { value: parseFloat(trends.humidity.toFixed(1)), label: "vs avg" } : undefined}
               sparklineData={chartData.slice(-12).map(d => d.humidity)}
               chartColor="#3b82f6"
             />
@@ -540,7 +585,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               title="Pressure"
               value={formatValue(currentData.pressure || 0, 1)}
               unit="mbar"
-              trend={{ value: 2.1, label: "vs yesterday" }}
+              trend={trends.pressure !== null ? { value: parseFloat(trends.pressure.toFixed(1)), label: "vs avg" } : undefined}
               sparklineData={chartData.slice(-12).map(d => d.pressure)}
               chartColor="#8b5cf6"
             />
@@ -559,7 +604,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               value={formatValue(currentData.rainfall || 0, 2)}
               unit="mm"
               subMetrics={[
-                { label: "7d", value: "12.8 mm" },
+                { label: "Period Total", value: `${formatValue(accumulatedRainfall, 1)} mm` },
               ]}
               sparklineData={chartData.slice(-12).map(d => d.rain)}
               chartColor="#0ea5e9"
@@ -580,7 +625,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.temperature || 0}
-              trend={{ value: 1.2, label: "vs yesterday" }}
+              trend={trends.temperature !== null ? { value: parseFloat(trends.temperature.toFixed(1)), label: "vs avg" } : undefined}
             />
             <DataBlockChart
               title="Humidity"
@@ -594,7 +639,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.humidity || 0}
-              trend={{ value: -5, label: "vs yesterday" }}
+              trend={trends.humidity !== null ? { value: parseFloat(trends.humidity.toFixed(1)), label: "vs avg" } : undefined}
             />
           </div>
           
@@ -605,7 +650,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               seaLevelPressure={seaLevelPressure}
               altitude={selectedStation?.altitude || 0}
               temperature={currentData.temperature || 20}
-              trend={1.5}
+              trend={trends.pressure !== null ? parseFloat(trends.pressure.toFixed(1)) : 0}
               sparklineDataStation={chartData.slice(-24).map(d => d.pressure)}
               sparklineDataSeaLevel={chartData.slice(-24).map(d => d.pressure + 10)}
             />
@@ -631,18 +676,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <BatteryVoltageCard
-              voltage={currentData.batteryVoltage || 12.8}
+              voltage={currentData.batteryVoltage || 0}
               minVoltage={11.5}
               maxVoltage={14.5}
               isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.5 : false}
-              sparklineData={chartData.slice(-24).map(() => (currentData.batteryVoltage || 12.8) + (Math.random() - 0.5) * 0.3)}
+              sparklineData={batteryChartData.slice(-24).map(d => d.batteryVoltage)}
             />
             <DataBlockChart
               title="Battery Voltage History"
-              data={chartData.map((d, i) => ({
-                ...d,
-                batteryVoltage: (currentData.batteryVoltage || 12.8) + Math.sin(i / 4) * 0.3 + (Math.random() - 0.5) * 0.1
-              }))}
+              data={batteryChartData}
               series={[
                 { dataKey: "batteryVoltage", name: "Battery Voltage", color: "#22c55e", unit: "V" },
               ]}
@@ -651,7 +693,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               yAxisLabel="Voltage"
               showAverage={true}
               showMinMax={true}
-              currentValue={currentData.batteryVoltage || 12.8}
+              currentValue={currentData.batteryVoltage || 0}
             />
             {hasValidData(currentData.panelTemperature) && (
             <MetricCard

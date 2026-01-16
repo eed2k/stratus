@@ -129,6 +129,36 @@ API Key: your-api-key
 - Program datalogger to HTTP POST data at intervals
 - See `examples/crbasic/stratus_http_post_station.cr1x` for example
 
+### Dropbox Import (File-Based)
+
+For dataloggers that upload TOA5 files to Dropbox (common with cellular modems):
+
+**Configuration:**
+```
+Connection Type: HTTP (Import-only)
+Data Source: Dropbox
+Dropbox Folder: /YOUR_STATION_FOLDER
+```
+
+**Setup Steps:**
+1. Configure your datalogger/modem to upload files to Dropbox
+2. Set up Dropbox OAuth in Stratus (see [DROPBOX_SETUP.md](DROPBOX_SETUP.md))
+3. Create station with HTTP connection type
+4. Specify the Dropbox folder path in connection config
+
+**Benefits:**
+- No need for public IP or port forwarding
+- Works with any cellular modem that supports Dropbox uploads
+- Automatic file discovery and import
+- Deduplication prevents duplicate records
+
+**File Requirements:**
+- TOA5 format (Campbell Scientific standard)
+- Proper timestamp column
+- Field names matching Stratus conventions
+
+See [DROPBOX_SETUP.md](DROPBOX_SETUP.md) for detailed OAuth configuration.
+
 ---
 
 ## Datalogger Configuration

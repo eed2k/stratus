@@ -94,7 +94,7 @@ interface DataBlockChartProps {
   };
   /** Compact mode for inline display */
   compact?: boolean;
-  /** Time range options */
+  /** Time range options - empty by default, use dashboard config for global control */
   timeRanges?: string[];
   /** Default time range */
   defaultRange?: string;
@@ -126,7 +126,7 @@ export function DataBlockChart({
   currentValue,
   trend,
   compact = false,
-  timeRanges = ["1hr", "6hr", "24hr", "7d"],
+  timeRanges = [],
   defaultRange = "24hr",
   onRangeChange,
   height = 250,

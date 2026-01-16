@@ -217,6 +217,30 @@ stratus/
 
 See [STATION_SETUP.md](STATION_SETUP.md) for detailed configuration instructions.
 
+### Data Sources
+
+Stratus supports multiple data sources for weather data:
+
+#### Direct Connection (PakBus)
+- Real-time connection to Campbell Scientific dataloggers
+- Automatic data collection at configured intervals
+- Two-way communication for clock sync and program management
+
+#### HTTP Post (Datalogger → Stratus)
+- Datalogger pushes data to Stratus server
+- Ideal for cellular or internet-connected loggers
+- See [examples/crbasic/](examples/crbasic/) for sample programs
+
+#### Dropbox Integration
+- Import data files from Dropbox folders
+- Ideal when dataloggers upload to Dropbox via cellular modems
+- Automatic OAuth refresh token management
+- See [DROPBOX_SETUP.md](DROPBOX_SETUP.md) for setup instructions
+
+#### Manual File Import
+- Upload TOA5 CSV files directly
+- Bulk import historical data
+
 ## 24/7 Production Deployment
 
 ### Railway Cloud Deployment (Recommended)

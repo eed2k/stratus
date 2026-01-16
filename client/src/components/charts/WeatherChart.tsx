@@ -66,7 +66,7 @@ export function WeatherChart({
   title,
   data,
   series,
-  timeRanges = ["10min", "1hr", "24hr", "7d", "30d"],
+  timeRanges = [],
   defaultRange = "24hr",
   onRangeChange,
 }: WeatherChartProps) {

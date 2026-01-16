@@ -872,20 +872,45 @@ export function getWeatherData(
 ): WeatherRecord[] {
   if (!db) return [];
   
-  let query = 'SELECT * FROM weather_data WHERE station_id = ? AND table_name = ?';
+  // Use subquery to get latest entry for each unique record_number to deduplicate
+  // This handles cases where the same record was imported multiple times
+  let query = `
+    SELECT wd.* FROM weather_data wd
+    INNER JOIN (
+      SELECT record_number, MAX(collected_at) as max_collected
+      FROM weather_data 
+      WHERE station_id = ? AND table_name = ?
+      ${startTime ? 'AND timestamp >= ?' : ''}
+      ${endTime ? 'AND timestamp <= ?' : ''}
+      GROUP BY record_number
+    ) latest ON wd.record_number = latest.record_number AND wd.collected_at = latest.max_collected
+    WHERE wd.station_id = ? AND wd.table_name = ?
+  `;
+  
   const params: any[] = [stationId, tableName];
   
   if (startTime) {
-    query += ' AND timestamp >= ?';
     params.push(startTime);
   }
   
   if (endTime) {
-    query += ' AND timestamp <= ?';
     params.push(endTime);
   }
   
-  query += ' ORDER BY timestamp DESC';
+  // Add the outer WHERE params
+  params.push(stationId, tableName);
+  
+  if (startTime) {
+    query += ' AND wd.timestamp >= ?';
+    params.push(startTime);
+  }
+  
+  if (endTime) {
+    query += ' AND wd.timestamp <= ?';
+    params.push(endTime);
+  }
+  
+  query += ' ORDER BY wd.timestamp DESC';
   
   if (limit) {
     query += ' LIMIT ?';

@@ -8,7 +8,7 @@ Start-Sleep -Seconds 2
 
 # Check if server is running
 try {
-    $health = Invoke-RestMethod -Uri "$baseUrl/health" -Method GET -TimeoutSec 5
+    $null = Invoke-RestMethod -Uri "$baseUrl/health" -Method GET -TimeoutSec 5
     Write-Host "Server is running!" -ForegroundColor Green
 } catch {
     Write-Host "Server not running. Start it first with: npx tsx server/index.ts" -ForegroundColor Red
