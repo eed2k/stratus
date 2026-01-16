@@ -87,7 +87,71 @@ export async function initDatabase(): Promise<Database> {
     await createTables(db);
   }
 
+  // Run startup cleanup to remove demo stations and duplicates
+  await runStartupCleanup(db);
+
   return db;
+}
+
+/**
+ * Remove demo stations and duplicates on startup
+ */
+async function runStartupCleanup(database: Database): Promise<void> {
+  dbLog.info('Running startup cleanup...');
+  
+  try {
+    // First, get all stations to identify demos and duplicates
+    const stations = database.exec('SELECT id, name, connection_type FROM stations ORDER BY id');
+    if (stations.length === 0 || !stations[0].values.length) {
+      dbLog.info('No stations to cleanup');
+      return;
+    }
+    
+    const seenNames = new Map<string, number>(); // name -> first id with that name
+    const toDelete: number[] = [];
+    
+    for (const row of stations[0].values) {
+      const id = row[0] as number;
+      const name = (row[1] as string || '').toLowerCase();
+      const connectionType = (row[2] as string || '').toLowerCase();
+      
+      // Delete demo stations
+      if (name.includes('demo') || name.includes('elsa') || connectionType === 'demo') {
+        toDelete.push(id);
+        dbLog.info(`Marking demo station for deletion: ${row[1]} (ID: ${id})`);
+        continue;
+      }
+      
+      // Delete duplicates (keep first occurrence)
+      const normalizedName = name.trim();
+      if (seenNames.has(normalizedName)) {
+        toDelete.push(id);
+        dbLog.info(`Marking duplicate station for deletion: ${row[1]} (ID: ${id})`);
+      } else {
+        seenNames.set(normalizedName, id);
+      }
+    }
+    
+    // Delete marked stations
+    for (const id of toDelete) {
+      try {
+        database.run('DELETE FROM weather_data WHERE station_id = ?', [id]);
+        database.run('DELETE FROM stations WHERE id = ?', [id]);
+        dbLog.info(`Deleted station ID: ${id}`);
+      } catch (e) {
+        dbLog.error(`Failed to delete station ${id}`, e);
+      }
+    }
+    
+    if (toDelete.length > 0) {
+      dbLog.info(`Cleanup complete: deleted ${toDelete.length} stations (demos and duplicates)`);
+      saveDatabase();
+    } else {
+      dbLog.info('Cleanup complete: no stations to delete');
+    }
+  } catch (e) {
+    dbLog.error('Startup cleanup failed', e);
+  }
 }
 
 /**
@@ -95,6 +159,107 @@ export async function initDatabase(): Promise<Database> {
  */
 async function runMigrations(database: Database): Promise<void> {
   dbLog.info('Running database migrations...');
+  
+  // FIRST: Ensure core tables exist (might be missing if db file was corrupted or partial)
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS stations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        pakbus_address INTEGER NOT NULL,
+        connection_type TEXT NOT NULL,
+        connection_config TEXT NOT NULL,
+        security_code INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_connected DATETIME,
+        is_active INTEGER DEFAULT 1,
+        latitude REAL,
+        longitude REAL,
+        altitude REAL,
+        installation_team TEXT,
+        station_admin TEXT,
+        station_admin_email TEXT,
+        station_admin_phone TEXT,
+        location TEXT,
+        datalogger_model TEXT,
+        datalogger_serial_number TEXT,
+        program_name TEXT,
+        modem_model TEXT,
+        modem_serial_number TEXT,
+        site_description TEXT,
+        notes TEXT
+      )
+    `);
+    dbLog.info('Stations table ready');
+  } catch (e) {
+    dbLog.error('Failed to create stations table', e);
+  }
+
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS weather_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        station_id INTEGER NOT NULL,
+        table_name TEXT NOT NULL,
+        record_number INTEGER,
+        timestamp DATETIME NOT NULL,
+        data TEXT NOT NULL,
+        collected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
+      )
+    `);
+    dbLog.info('Weather data table ready');
+  } catch (e) {
+    dbLog.error('Failed to create weather_data table', e);
+  }
+
+  try {
+    database.run(`
+      CREATE INDEX IF NOT EXISTS idx_weather_data_station_time 
+      ON weather_data(station_id, timestamp)
+    `);
+    dbLog.info('Weather data index ready');
+  } catch (e) {
+    // Index might already exist
+  }
+
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS table_definitions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        station_id INTEGER NOT NULL,
+        table_number INTEGER NOT NULL,
+        table_name TEXT NOT NULL,
+        columns TEXT NOT NULL,
+        record_interval INTEGER,
+        cached_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
+      )
+    `);
+    dbLog.info('Table definitions table ready');
+  } catch (e) {
+    dbLog.error('Failed to create table_definitions table', e);
+  }
+
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS collection_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        station_id INTEGER NOT NULL,
+        table_name TEXT NOT NULL,
+        cron_expression TEXT NOT NULL,
+        is_enabled INTEGER DEFAULT 1,
+        last_collection DATETIME,
+        next_collection DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
+      )
+    `);
+    dbLog.info('Collection schedules table ready');
+  } catch (e) {
+    dbLog.error('Failed to create collection_schedules table', e);
+  }
   
   // Add personnel columns if they don't exist
   const columns = ['installation_team', 'station_admin', 'station_admin_email', 'station_admin_phone'];
@@ -603,9 +768,19 @@ export function createStation(station: Station): number {
   if (!db) throw new Error('Database not initialized');
   
   db.run(
-    `INSERT INTO stations (name, pakbus_address, connection_type, connection_config, security_code) 
-     VALUES (?, ?, ?, ?, ?)`,
-    [station.name, station.pakbus_address, station.connection_type, station.connection_config, station.security_code || null]
+    `INSERT INTO stations (name, pakbus_address, connection_type, connection_config, security_code, latitude, longitude, altitude, location) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      station.name, 
+      station.pakbus_address, 
+      station.connection_type, 
+      station.connection_config, 
+      station.security_code || null,
+      station.latitude || null,
+      station.longitude || null,
+      station.altitude || null,
+      station.location || null
+    ]
   );
   
   const result = db.exec('SELECT last_insert_rowid()');

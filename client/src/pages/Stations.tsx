@@ -907,43 +907,78 @@ export default function Stations() {
                 {station.stationType !== 'demo' && (
                   <div className="flex items-center justify-between mt-2 pt-2 border-t">
                     <div className="flex items-center gap-2 text-xs">
-                      {connectionStatuses[station.id]?.connected ? (
-                        <>
-                          <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                          <span className="text-green-600">Connected</span>
-                          {connectionStatuses[station.id]?.isSimulation && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">Simulation</Badge>
-                          )}
-                        </>
-                      ) : connectionStatuses[station.id]?.lastError ? (
-                        <>
-                          <XCircle className="h-3.5 w-3.5 text-red-500" />
-                          <span className="text-red-600 truncate max-w-[120px]" title={connectionStatuses[station.id]?.lastError}>
-                            {connectionStatuses[station.id]?.lastError}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="h-3.5 w-3.5 text-yellow-500" />
-                          <span className="text-muted-foreground">Not connected</span>
-                        </>
-                      )}
+                      {/* Handle import-only/Dropbox sync stations */}
+                      {(() => {
+                        const config = typeof station.connectionConfig === 'string' 
+                          ? JSON.parse(station.connectionConfig || '{}') 
+                          : (station.connectionConfig || {});
+                        const isImportOnly = config.type === 'import-only' || config.importSource === 'dropbox';
+                        
+                        if (isImportOnly) {
+                          return (
+                            <>
+                              <RefreshCw className="h-3.5 w-3.5 text-blue-500" />
+                              <span className="text-blue-600">Syncing (Dropbox)</span>
+                              <Badge variant="outline" className="text-[10px] px-1 py-0">Import</Badge>
+                            </>
+                          );
+                        } else if (connectionStatuses[station.id]?.connected) {
+                          return (
+                            <>
+                              <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                              <span className="text-green-600">Connected</span>
+                              {connectionStatuses[station.id]?.isSimulation && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0">Simulation</Badge>
+                              )}
+                            </>
+                          );
+                        } else if (connectionStatuses[station.id]?.lastError) {
+                          return (
+                            <>
+                              <XCircle className="h-3.5 w-3.5 text-red-500" />
+                              <span className="text-red-600 truncate max-w-[120px]" title={connectionStatuses[station.id]?.lastError}>
+                                {connectionStatuses[station.id]?.lastError}
+                              </span>
+                            </>
+                          );
+                        } else {
+                          return (
+                            <>
+                              <AlertCircle className="h-3.5 w-3.5 text-yellow-500" />
+                              <span className="text-muted-foreground">Not connected</span>
+                            </>
+                          );
+                        }
+                      })()}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => testConnectionMutation.mutate(station.id)}
-                      disabled={testingStation === station.id}
-                      data-testid={`button-test-${station.id}`}
-                      className="h-7 text-xs"
-                    >
-                      {testingStation === station.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                      )}
-                      Test
-                    </Button>
+                    {/* Hide Test button for import-only stations */}
+                    {(() => {
+                      const config = typeof station.connectionConfig === 'string' 
+                        ? JSON.parse(station.connectionConfig || '{}') 
+                        : (station.connectionConfig || {});
+                      const isImportOnly = config.type === 'import-only' || config.importSource === 'dropbox';
+                      
+                      if (!isImportOnly) {
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => testConnectionMutation.mutate(station.id)}
+                            disabled={testingStation === station.id}
+                            data-testid={`button-test-${station.id}`}
+                            className="h-7 text-xs"
+                          >
+                            {testingStation === station.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                            )}
+                            Test
+                          </Button>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 )}
 

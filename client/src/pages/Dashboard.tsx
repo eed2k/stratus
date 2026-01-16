@@ -368,35 +368,34 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
   }
 
   // Check if viewing demo station (hide admin panels for demo)
-  const isDemoStation = selectedStation?.name?.toLowerCase().includes('demo') || 
-                        selectedStation?.connectionType === 'demo';
+  const isDemoStation = selectedStation?.connectionType === 'demo';
 
-  // Demo data for Potchefstroom, South Africa (altitude ~1351m, semi-arid climate)
+  // Use actual data, with sensible defaults for missing fields
   const currentData = latestData || {
-    temperature: 26.4,           // Typical summer temp for Potchefstroom
-    humidity: 52,                // Moderate humidity
-    pressure: 865.2,             // Lower pressure at altitude
-    windSpeed: 14.5,             // km/h - typical NE wind
-    windGust: 21.8,              // km/h
-    windDirection: 48,           // NE - prevailing direction
-    solarRadiation: 892,         // W/m² - high altitude = strong solar
-    rainfall: 0,                 // Summer afternoon before rain
-    dewPoint: 14.2,              // °C
-    airDensity: 1.025,           // Lower at altitude
-    eto: 5.82,                   // mm/day - high due to sun + wind
-    batteryVoltage: 13.1,        // Good charge
-    particulateCount: 35,
-    pm25: 11.2,                  // µg/m³ - good air quality
-    pm10: 22.8,                  // µg/m³
-    atmosphericVisibility: 24.5, // km - good visibility
-    panelTemperature: 34.2,      // °C - panels run hot
-    soilTemperature: 22.5,       // °C - soil at 10cm
-    soilMoisture: 28.4,          // % - moderate moisture
-    uvIndex: 9.8,                // High UV at altitude
-    co2: 418,                    // ppm - ambient CO2
-    leafWetness: 0,              // % - dry conditions
-    evapotranspiration: 0.42,    // mm/hr
-    panelVoltage: 15.2,          // V - solar panel charging
+    temperature: null,
+    humidity: null,
+    pressure: null,
+    windSpeed: null,
+    windGust: null,
+    windDirection: null,
+    solarRadiation: null,
+    rainfall: null,
+    dewPoint: null,
+    airDensity: null,
+    eto: null,
+    batteryVoltage: null,
+    particulateCount: null,
+    pm25: null,
+    pm10: null,
+    atmosphericVisibility: null,
+    panelTemperature: null,
+    soilTemperature: null,
+    soilMoisture: null,
+    uvIndex: null,
+    co2: null,
+    leafWetness: null,
+    evapotranspiration: null,
+    panelVoltage: null,
   };
 
   // Calculate solar position based on station coordinates
@@ -404,10 +403,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
     const lat = selectedStation?.latitude || 0;
     const lon = selectedStation?.longitude || 0;
     if (lat === 0 && lon === 0) {
-      // Default demo values
+      // No coordinates set - return null values
       return {
-        elevation: 45.2,
-        azimuth: 185.5,
+        elevation: 0,
+        azimuth: 0,
         sunrise: new Date(new Date().setHours(6, 45, 0)),
         sunset: new Date(new Date().setHours(18, 30, 0)),
         nauticalDawn: new Date(new Date().setHours(5, 15, 0)),
@@ -538,6 +537,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
           rainfall={currentData.rainfall || 0}
           dewPoint={currentData.dewPoint || 0}
           isOnline={selectedStation?.isActive || false}
+          connectionType={selectedStation?.connectionType}
+          syncInterval={3600000} // 1 hour Dropbox sync interval
         />
 
         {/* Station Location Map */}
@@ -602,12 +603,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               sparklineData={chartData.slice(-12).map(d => d.humidity)}
               chartColor="#3b82f6"
             />
-            <MetricCard
-              title="Dew Point"
-              value={formatValue(currentData.dewPoint || 0, 1)}
-              unit="°C"
-              chartColor="#06b6d4"
-            />
+            {hasValidData(currentData.dewPoint) && (
+              <MetricCard
+                title="Dew Point"
+                value={formatValue(currentData.dewPoint || 0, 1)}
+                unit="°C"
+                chartColor="#06b6d4"
+              />
+            )}
             <MetricCard
               title="Pressure"
               value={formatValue(currentData.pressure || 0, 1)}
@@ -697,7 +700,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
           </div>
         </section>
 
-        {/* Logger Battery Section */}
+        {/* Logger Battery Section - Only show if battery data exists */}
+        {hasValidData(currentData.batteryVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -724,14 +728,17 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               showMinMax={true}
               currentValue={currentData.batteryVoltage || 12.8}
             />
+            {hasValidData(currentData.panelTemperature) && (
             <MetricCard
               title="Panel Temperature"
               value={formatValue(currentData.panelTemperature || 0, 1)}
               unit="°C"
               chartColor="#f97316"
             />
+            )}
           </div>
         </section>
+        )}
 
         {/* Solar & Radiation Section */}
         <section className="space-y-4">
@@ -784,15 +791,17 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               sparklineData={chartData.slice(-12).map(d => d.solar)}
               chartColor="#f59e0b"
             />
-            <MetricCard
-              title="UV Index"
-              value={formatValue(currentData.uvIndex || 0, 1)}
-              unit=""
-              subMetrics={[
-                { label: "Risk", value: (currentData.uvIndex || 0) < 3 ? "Low" : (currentData.uvIndex || 0) < 6 ? "Moderate" : "High" },
-              ]}
-              chartColor="#dc2626"
-            />
+            {hasValidData(currentData.uvIndex) && (
+              <MetricCard
+                title="UV Index"
+                value={formatValue(currentData.uvIndex || 0, 1)}
+                unit=""
+                subMetrics={[
+                  { label: "Risk", value: (currentData.uvIndex || 0) < 3 ? "Low" : (currentData.uvIndex || 0) < 6 ? "Moderate" : "High" },
+                ]}
+                chartColor="#dc2626"
+              />
+            )}
             <MetricCard
               title="Reference ETo"
               value={formatValue(currentData.eto || calculatedETo, 2)}
@@ -875,7 +884,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
         </section>
         )}
 
-        {/* Soil & Environment Section */}
+        {/* Soil & Environment Section - Only show if any soil/air quality data exists */}
+        {(hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture) || hasValidData(currentData.pm25) || hasValidData(currentData.pm10)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -955,6 +965,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
           </div>
           )}
         </section>
+        )}
 
         {/* Wind Direction Compass & Charts */}
         <section className="space-y-6">
@@ -1232,21 +1243,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
         </section>
 
         {/* Station Administration - Admin Only (hidden in PDF export) */}
-        {isAdmin && selectedStation && (
+        {isAdmin && selectedStation && !isDemoStation && (
           <section className="no-print">
-          {isDemoStation ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base font-normal">Station Administration</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Station administration is not available for demo stations. 
-                  Add a real weather station to access configuration options.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
           <StationInfoPanel
             station={{
               id: selectedStation.id,
@@ -1292,7 +1290,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               }
             }}
           />
-          )}
           </section>
         )}
       </div>

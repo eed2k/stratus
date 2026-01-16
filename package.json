@@ -22,7 +22,8 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
     "db:push": "drizzle-kit push --dialect=postgresql --schema=shared/schema.ts --url=$DATABASE_URL",
-    "docs:pdf": "node scripts/generate-docs-pdf.js"
+    "docs:pdf": "node scripts/generate-docs-pdf.js",
+    "dropbox:auth": "node scripts/dropbox-auth.js"
   },
   "build": {
     "appId": "com.stratus.weather",

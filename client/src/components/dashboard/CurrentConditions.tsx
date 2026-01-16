@@ -15,6 +15,8 @@ interface CurrentConditionsProps {
   rainfall: number;
   dewPoint: number;
   isOnline?: boolean;
+  connectionType?: string; // 'dropbox', 'http', 'tcp', etc.
+  syncInterval?: number; // in milliseconds
 }
 
 /**
@@ -37,7 +39,29 @@ export function CurrentConditions({
   rainfall,
   dewPoint,
   isOnline = true,
+  connectionType,
+  syncInterval,
 }: CurrentConditionsProps) {
+  // Determine status label based on connection type
+  const getStatusInfo = () => {
+    const isDropboxSync = connectionType === 'http' || connectionType === 'dropbox';
+    if (isDropboxSync) {
+      const intervalHours = syncInterval ? Math.round(syncInterval / 3600000) : 1;
+      return {
+        label: `Syncing (${intervalHours}h)`,
+        className: 'bg-blue-600 text-white font-normal',
+        isActive: true,
+      };
+    }
+    return {
+      label: isOnline ? 'Online' : 'Offline',
+      className: isOnline ? 'bg-green-600 text-white font-normal' : 'font-normal',
+      isActive: isOnline,
+    };
+  };
+  
+  const statusInfo = getStatusInfo();
+  
   return (
     <Card className="w-full border border-gray-300 bg-white" data-testid="card-current-conditions">
       <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4">
@@ -50,12 +74,12 @@ export function CurrentConditions({
           </p>
         </div>
         <Badge
-          variant={isOnline ? "default" : "secondary"}
-          className={isOnline ? "bg-green-600 text-white font-normal" : "font-normal"}
+          variant={statusInfo.isActive ? "default" : "secondary"}
+          className={statusInfo.className}
           style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
           data-testid="badge-station-status"
         >
-          {isOnline ? "Online" : "Offline"}
+          {statusInfo.label}
         </Badge>
       </CardHeader>
       <CardContent>

@@ -142,6 +142,8 @@ import complianceRoutes from "./compliance/routes";
 import clientRoutes from "./clientRoutes";
 import fileWatcherRoutes from "./services/fileWatcherRoutes";
 import { fileWatcherService } from "./services/fileWatcherService";
+import dropboxSyncRoutes from "./services/dropboxSyncRoutes";
+import { dropboxSyncService } from "./services/dropboxSyncService";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -192,8 +194,42 @@ export async function registerRoutes(
   // Register file watcher routes (Dropbox sync, etc.)
   app.use('/api/file-watcher', fileWatcherRoutes);
 
+  // Register Dropbox sync routes
+  app.use('/api/dropbox-sync', dropboxSyncRoutes);
+
   // Initialize file watcher service
   await fileWatcherService.initialize();
+
+  // Initialize Dropbox sync with configuration from environment
+  // This auto-syncs .dat files from Dropbox folder every hour
+  const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
+  const DROPBOX_FOLDER_PATH = process.env.DROPBOX_FOLDER_PATH || '';
+  // Station ID is optional - if not provided, will auto-create based on folder name
+  const DROPBOX_STATION_ID_STR = process.env.DROPBOX_STATION_ID;
+  const DROPBOX_STATION_ID = DROPBOX_STATION_ID_STR ? parseInt(DROPBOX_STATION_ID_STR, 10) : 0; // 0 means auto-detect/create
+  const DROPBOX_SYNC_INTERVAL = parseInt(process.env.DROPBOX_SYNC_INTERVAL || '3600000', 10); // Default 1 hour
+  
+  // OAuth 2.0 refresh token support for 24/7 deployment
+  const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
+  const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
+  const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET || '';
+  
+  if (DROPBOX_ACCESS_TOKEN || DROPBOX_REFRESH_TOKEN) {
+    dropboxSyncService.configure({
+      accessToken: DROPBOX_ACCESS_TOKEN,
+      folderPath: DROPBOX_FOLDER_PATH,
+      stationId: DROPBOX_STATION_ID,
+      syncInterval: DROPBOX_SYNC_INTERVAL,
+      enabled: true,
+      // Include refresh token config for automatic token renewal
+      refreshToken: DROPBOX_REFRESH_TOKEN || undefined,
+      appKey: DROPBOX_APP_KEY || undefined,
+      appSecret: DROPBOX_APP_SECRET || undefined,
+    });
+    const stationInfo = DROPBOX_STATION_ID > 0 ? `station=${DROPBOX_STATION_ID}` : 'station=auto-detect';
+    const refreshInfo = DROPBOX_REFRESH_TOKEN ? ', refresh_token=configured' : ', refresh_token=none (short-lived token only)';
+    console.log(`[Routes] Dropbox sync configured: folder=${DROPBOX_FOLDER_PATH}, ${stationInfo}, interval=${DROPBOX_SYNC_INTERVAL}ms${refreshInfo}`);
+  }
 
   // Public health check endpoint with CORS for external clients
   app.get('/api/health', (req, res) => {
@@ -321,21 +357,43 @@ export async function registerRoutes(
     }
   });
 
-  // Demo station initialization endpoint (no auth required for easy setup)
-  app.post("/api/demo/initialize", async (req, res) => {
+  // Station cleanup endpoint - remove demo and duplicate stations
+  app.post("/api/stations/cleanup", async (req, res) => {
     try {
-      const { initializeDemoStation } = await import("./demo/generateDemoData");
-      const station = await initializeDemoStation();
+      const stations = await storage.getStations();
+      const deleted: number[] = [];
+      const kept: any[] = [];
+      const seenNames = new Set<string>();
+      
+      for (const station of stations) {
+        // Delete demo stations
+        if (station.name?.toLowerCase().includes('demo') || 
+            station.connectionType === 'demo' ||
+            station.name?.toLowerCase().includes('elsa')) {
+          await storage.deleteStation(station.id);
+          deleted.push(station.id);
+          continue;
+        }
+        
+        // Delete duplicates (keep first occurrence)
+        const normalizedName = station.name?.toLowerCase().trim();
+        if (seenNames.has(normalizedName)) {
+          await storage.deleteStation(station.id);
+          deleted.push(station.id);
+        } else {
+          seenNames.add(normalizedName);
+          kept.push({ id: station.id, name: station.name });
+        }
+      }
+      
       res.json({ 
-        message: "Demo station created successfully", 
-        station 
+        message: `Cleanup complete: deleted ${deleted.length} stations, kept ${kept.length}`,
+        deleted,
+        kept
       });
     } catch (error: any) {
-      console.error("Error initializing demo station:", error);
-      res.status(500).json({ 
-        message: "Failed to initialize demo station", 
-        error: error.message 
-      });
+      console.error("Error cleaning up stations:", error);
+      res.status(500).json({ message: error.message });
     }
   });
 

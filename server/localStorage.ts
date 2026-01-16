@@ -277,7 +277,11 @@ export class DatabaseStorage {
       pakbus_address: station.pakbusAddress || 1,
       connection_type: station.connectionType,
       connection_config: JSON.stringify(config),
-      security_code: station.securityCode
+      security_code: station.securityCode,
+      latitude: station.latitude,
+      longitude: station.longitude,
+      altitude: station.altitude,
+      location: (station as any).location,
     });
     
     const created = db.getStationById(id);
@@ -322,34 +326,76 @@ export class DatabaseStorage {
   }
 
   // Weather Data operations
-  async getLatestWeatherData(stationId: number): Promise<WeatherData | undefined> {
-    const record = db.getLatestWeatherData(stationId, 'OneMin');
-    if (!record) return undefined;
-    return this.mapDbWeatherData(record);
+  async getLatestWeatherData(stationId: number, tableName?: string): Promise<WeatherData | undefined> {
+    // Try provided table name first, then fallback to common names
+    const tableNames = tableName ? [tableName] : ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily'];
+    
+    for (const tbl of tableNames) {
+      const record = db.getLatestWeatherData(stationId, tbl);
+      if (record) return this.mapDbWeatherData(record);
+    }
+    return undefined;
   }
 
-  async getWeatherDataRange(stationId: number, startTime: Date, endTime: Date): Promise<WeatherData[]> {
-    const records = db.getWeatherData(
-      stationId, 
-      'OneMin', 
-      startTime.toISOString(), 
-      endTime.toISOString()
-    );
-    return records.map(r => this.mapDbWeatherData(r));
+  async getWeatherDataRange(stationId: number, startTime: Date, endTime: Date, tableName?: string): Promise<WeatherData[]> {
+    // Try provided table name first, then fallback to common names
+    const tableNames = tableName ? [tableName] : ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily'];
+    
+    for (const tbl of tableNames) {
+      const records = db.getWeatherData(
+        stationId, 
+        tbl, 
+        startTime.toISOString(), 
+        endTime.toISOString()
+      );
+      if (records.length > 0) {
+        return records.map(r => this.mapDbWeatherData(r));
+      }
+    }
+    return [];
   }
 
   async insertWeatherData(data: InsertWeatherData): Promise<WeatherData> {
-    db.insertWeatherData([{
-      station_id: data.stationId,
-      table_name: data.tableName || 'OneMin',
-      record_number: data.recordNumber,
-      timestamp: data.timestamp.toISOString(),
-      data: JSON.stringify(data.data)
-    }]);
+    const tableName = data.tableName || 'Table1';
     
-    const latest = await this.getLatestWeatherData(data.stationId);
-    if (!latest) throw new Error('Failed to insert weather data');
-    return latest;
+    try {
+      db.insertWeatherData([{
+        station_id: data.stationId,
+        table_name: tableName,
+        record_number: data.recordNumber,
+        timestamp: data.timestamp.toISOString(),
+        data: JSON.stringify(data.data)
+      }]);
+    } catch (err: any) {
+      // Check for UNIQUE constraint violation (duplicate record) - this is expected
+      if (err.message?.includes('UNIQUE constraint')) {
+        // Record already exists, fetch and return it
+        const existing = await this.getLatestWeatherData(data.stationId, tableName);
+        if (existing) return existing;
+      }
+      throw err;
+    }
+    
+    // Return the inserted data as WeatherData object
+    // Don't query back - just construct it from input to avoid table name issues
+    return {
+      id: Date.now(), // Temporary ID
+      stationId: data.stationId,
+      tableName: tableName,
+      recordNumber: data.recordNumber,
+      timestamp: data.timestamp,
+      data: data.data,
+      collectedAt: new Date(),
+      temperature: data.data.temperature ?? data.data.AirTC_Avg ?? data.data.AirTemp ?? data.data.Temp_Avg ?? null,
+      humidity: data.data.humidity ?? data.data.RH_Avg ?? data.data.RH ?? null,
+      pressure: data.data.pressure ?? data.data.BP_mbar ?? data.data.Pressure ?? data.data.Pressure_Avg ?? null,
+      windSpeed: data.data.windSpeed ?? data.data.WS_ms_Avg ?? data.data.WindSpeed ?? data.data.Wind_Spd_S_WVT ?? null,
+      windDirection: data.data.windDirection ?? data.data.WindDir ?? data.data.WindDir_D1_WVT ?? data.data.Wind_Dir_D1_WVT ?? null,
+      windGust: data.data.windGust ?? data.data.WS_ms_Max ?? data.data.Wind_Spd_Max ?? null,
+      rainfall: data.data.rainfall ?? data.data.Rain_mm_Tot ?? data.data.Rain ?? null,
+      solarRadiation: data.data.solarRadiation ?? data.data.SlrW ?? data.data.Solar ?? data.data.Solar_Rad_Avg ?? null,
+      batteryVoltage: data.data.batteryVoltage ?? data.data.BattV ?? data.data.BattV_Min ?? null,
+    };
   }
 
   async createWeatherData(data: InsertWeatherData): Promise<WeatherData> {
@@ -359,6 +405,42 @@ export class DatabaseStorage {
   // Station Logs operations
   async getStationLogs(stationId: number, limit: number = 100): Promise<StationLog[]> {
     return [];
+  }
+
+  /**
+   * Batch insert multiple weather data records efficiently
+   * Uses a single database transaction for all records
+   */
+  async insertWeatherDataBatch(records: InsertWeatherData[]): Promise<number> {
+    if (records.length === 0) return 0;
+    
+    try {
+      const dbRecords = records.map(data => ({
+        station_id: data.stationId,
+        table_name: data.tableName || 'Table1',
+        record_number: data.recordNumber,
+        timestamp: data.timestamp.toISOString(),
+        data: JSON.stringify(data.data)
+      }));
+      
+      db.insertWeatherData(dbRecords);
+      return records.length;
+    } catch (err: any) {
+      // If batch fails due to duplicates, fall back to individual inserts
+      if (err.message?.includes('UNIQUE constraint')) {
+        let inserted = 0;
+        for (const data of records) {
+          try {
+            await this.insertWeatherData(data);
+            inserted++;
+          } catch {
+            // Skip duplicates
+          }
+        }
+        return inserted;
+      }
+      throw err;
+    }
   }
 
   async createStationLog(log: { stationId: number; logType: string; message: string; metadata?: any }): Promise<StationLog> {
@@ -809,17 +891,17 @@ export class DatabaseStorage {
       timestamp: new Date(record.timestamp),
       data,
       collectedAt: new Date(record.collected_at),
-      // Map data fields
-      temperature: data.temperature,
-      humidity: data.humidity,
-      pressure: data.pressure,
-      windSpeed: data.windSpeed,
-      windDirection: data.windDirection,
-      windGust: data.windGust,
-      rainfall: data.rainfall,
-      solarRadiation: data.solarRadiation,
-      dewPoint: data.dewPoint,
-      batteryVoltage: data.batteryVoltage
+      // Map data fields - support common Campbell Scientific and Hopefield field names
+      temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? null,
+      humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? null,
+      pressure: data.pressure ?? data.BP_mbar ?? data.Pressure ?? data.Pressure_Avg ?? null,
+      windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? null,
+      windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? null,
+      windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? null,
+      rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? null,
+      solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? null,
+      dewPoint: data.dewPoint ?? null,
+      batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? null
     };
   }
 }

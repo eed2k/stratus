@@ -602,7 +602,7 @@ function getAllParameterIds(): string[] {
 export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
   // Enable ALL 43 parameters by default for demo dashboard
   enabledParameters: getAllParameterIds(),
-  updatePeriod: 60,
+  updatePeriod: 3600, // 1 hour - matches Dropbox sync interval
   chartTimeRange: 24,
   showTrendCharts: true,
   showWindRose: true,
