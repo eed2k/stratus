@@ -42,8 +42,9 @@ A professional desktop application for Campbell Scientific weather station manag
 - **Historical Charts** - View and analyze historical weather data
 - **Backup & Restore** - Backup station configurations and data
 
-### Cloud Deployment (Railway)
-- **24/7 Cloud Access** - Deploy to Railway for always-on operation
+### Cloud Deployment
+- **24/7 Cloud Access** - Deploy to Render, Fly.io, or other platforms
+- **Free Subdomains** - Get a free subdomain (e.g., your-app.onrender.com)
 - **PostgreSQL Database** - Cloud database for data persistence
 - **Auto-Restart** - Automatic restart on failure
 
@@ -243,26 +244,36 @@ Stratus supports multiple data sources for weather data:
 
 ## 24/7 Production Deployment
 
-### Railway Cloud Deployment (Recommended)
+### Cloud Deployment (Recommended)
 
-Deploy Stratus Weather Station to Railway for 24/7 cloud operation:
+Deploy Stratus Weather Station to the cloud for 24/7 operation. Multiple platforms offer **free subdomains**:
 
-#### Quick Setup
+| Platform | Free Subdomain | Best For |
+|----------|---------------|----------|
+| **Render** | `your-app.onrender.com` | Full-stack apps |
+| **Fly.io** | `your-app.fly.dev` | Global deployment |
+| **Koyeb** | `your-app.koyeb.app` | Simple deploys |
+| **Cyclic** | `your-app.cyclic.app` | Always-on apps |
+
+See [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md) for detailed setup instructions.
+
+#### Quick Setup (Render)
 1. Push your code to GitHub
-2. Connect Railway to your GitHub repository
-3. Set environment variables in Railway dashboard:
+2. Create account at [render.com](https://render.com)
+3. Create Web Service and connect your repository
+4. Set environment variables:
    ```env
    DATABASE_URL=<your-postgresql-url>
    PORT=5000
    NODE_ENV=production
    CLIENT_JWT_SECRET=<generate-secure-secret>
    ```
-4. Deploy - Railway auto-deploys on git push
+5. Deploy - auto-deploys on git push
 
 #### Endpoints
-- **Dashboard**: `https://your-app.railway.app`
-- **API**: `https://your-app.railway.app/api`
-- **Data Ingestion**: `https://your-app.railway.app/api/weather-data`
+- **Dashboard**: `https://your-app.onrender.com`
+- **API**: `https://your-app.onrender.com/api`
+- **Data Ingestion**: `https://your-app.onrender.com/api/weather-data`
 
 ### Windows Desktop (Local)
 

@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Battery, BatteryCharging, BatteryLow, BatteryWarning } from "lucide-react";
 
 interface BatteryVoltageCardProps {
   voltage: number;             // Volts
@@ -14,23 +13,22 @@ function getBatteryStatus(voltage: number, min: number, max: number): {
   status: string; 
   color: string; 
   percentage: number;
-  icon: typeof Battery;
 } {
   const percentage = Math.min(100, Math.max(0, ((voltage - min) / (max - min)) * 100));
   
   if (voltage < min) {
-    return { status: "Critical", color: "text-red-500", percentage: 0, icon: BatteryWarning };
+    return { status: "Critical", color: "text-red-500", percentage: 0 };
   }
   if (percentage < 20) {
-    return { status: "Low", color: "text-orange-500", percentage, icon: BatteryLow };
+    return { status: "Low", color: "text-orange-500", percentage };
   }
   if (percentage < 40) {
-    return { status: "Fair", color: "text-yellow-500", percentage, icon: Battery };
+    return { status: "Fair", color: "text-yellow-500", percentage };
   }
   if (percentage < 80) {
-    return { status: "Good", color: "text-green-500", percentage, icon: Battery };
+    return { status: "Good", color: "text-green-500", percentage };
   }
-  return { status: "Excellent", color: "text-emerald-500", percentage, icon: BatteryCharging };
+  return { status: "Excellent", color: "text-emerald-500", percentage };
 }
 
 export function BatteryVoltageCard({
@@ -42,7 +40,6 @@ export function BatteryVoltageCard({
   chartColor = "#22c55e",
 }: BatteryVoltageCardProps) {
   const status = getBatteryStatus(voltage, minVoltage, maxVoltage);
-  const BatteryIcon = isCharging ? BatteryCharging : status.icon;
   
   // Generate sparkline if not provided
   const chartData = sparklineData.length > 0 
@@ -58,7 +55,7 @@ export function BatteryVoltageCard({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* Main value with battery icon */}
+          {/* Main value */}
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
@@ -66,14 +63,11 @@ export function BatteryVoltageCard({
               </span>
               <span className="text-sm font-normal text-gray-500">V</span>
             </div>
-            <div className="flex items-center gap-2">
-              <BatteryIcon className={`h-8 w-8 ${status.color}`} />
-              {isCharging && (
-                <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
-                  Charging
-                </span>
-              )}
-            </div>
+            {isCharging && (
+              <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
+                Charging
+              </span>
+            )}
           </div>
 
           {/* Status bar */}

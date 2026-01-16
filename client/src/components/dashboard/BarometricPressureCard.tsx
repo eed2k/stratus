@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Gauge, ArrowUp, ArrowDown, Mountain } from "lucide-react";
 
 interface BarometricPressureCardProps {
   stationPressure: number;      // hPa/mbar at station altitude
@@ -11,12 +10,12 @@ interface BarometricPressureCardProps {
   sparklineDataSeaLevel?: number[];
 }
 
-function getPressureTrend(trend: number): { label: string; icon: typeof ArrowUp; color: string } {
-  if (trend > 2) return { label: "Rising Rapidly", icon: ArrowUp, color: "text-blue-500" };
-  if (trend > 0.5) return { label: "Rising", icon: ArrowUp, color: "text-cyan-500" };
-  if (trend < -2) return { label: "Falling Rapidly", icon: ArrowDown, color: "text-red-500" };
-  if (trend < -0.5) return { label: "Falling", icon: ArrowDown, color: "text-orange-500" };
-  return { label: "Steady", icon: ArrowUp, color: "text-green-500" };
+function getPressureTrend(trend: number): { label: string; symbol: string; color: string } {
+  if (trend > 2) return { label: "Rising Rapidly", symbol: "↑↑", color: "text-blue-500" };
+  if (trend > 0.5) return { label: "Rising", symbol: "↑", color: "text-cyan-500" };
+  if (trend < -2) return { label: "Falling Rapidly", symbol: "↓↓", color: "text-red-500" };
+  if (trend < -0.5) return { label: "Falling", symbol: "↓", color: "text-orange-500" };
+  return { label: "Steady", symbol: "→", color: "text-green-500" };
 }
 
 function getWeatherOutlook(seaLevelPressure: number, trend: number): string {
@@ -50,7 +49,6 @@ export function BarometricPressureCard({
     stationPressure * Math.pow(1 - (0.0065 * altitude) / (temperature + 273.15 + 0.0065 * altitude), -5.257);
   
   const pressureTrend = getPressureTrend(trend);
-  const TrendIcon = pressureTrend.icon;
   const weatherOutlook = getWeatherOutlook(calculatedSeaLevel, trend);
 
   // Generate sparkline data if not provided
@@ -96,8 +94,7 @@ export function BarometricPressureCard({
           <div className="grid grid-cols-2 gap-4">
             {/* Station Pressure */}
             <div className="space-y-2 p-3 rounded-lg border border-gray-200 bg-gray-50">
-              <div className="flex items-center gap-1 text-xs text-gray-500">
-                <Mountain className="h-3 w-3" />
+              <div className="text-xs text-gray-500">
                 Station Level {altitude > 0 && `(${altitude}m)`}
               </div>
               <div className="flex items-baseline gap-1">
@@ -111,8 +108,7 @@ export function BarometricPressureCard({
 
             {/* Sea Level Pressure */}
             <div className="space-y-2 p-3 rounded-lg border border-gray-200 bg-blue-50">
-              <div className="flex items-center gap-1 text-xs text-gray-500">
-                <Gauge className="h-3 w-3" />
+              <div className="text-xs text-gray-500">
                 Sea Level (QNH)
               </div>
               <div className="flex items-baseline gap-1">
@@ -128,8 +124,9 @@ export function BarometricPressureCard({
           {/* Trend indicator */}
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
-              <TrendIcon className={`h-4 w-4 ${pressureTrend.color} ${trend !== 0 ? 'animate-pulse' : ''}`} 
-                         style={{ transform: trend < 0 ? 'rotate(180deg)' : undefined }} />
+              <span className={`text-lg font-medium ${pressureTrend.color}`}>
+                {pressureTrend.symbol}
+              </span>
               <span className={`text-sm font-medium ${pressureTrend.color}`}>
                 {pressureTrend.label}
               </span>

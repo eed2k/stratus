@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sun, Sunrise, Sunset, Moon, Navigation2 } from "lucide-react";
 import { useMemo } from "react";
 import { getWindDirectionLabel } from "@/lib/windConstants";
 
@@ -98,19 +97,16 @@ export function SolarPositionCard({
             
             {/* Sun indicator */}
             <div 
-              className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 transition-all duration-500"
+              className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 transition-all duration-500 flex items-center justify-center"
               style={sunPositionStyle}
             >
-              {isDaytime ? (
-                <Sun className="w-6 h-6 text-yellow-500 drop-shadow-lg" />
-              ) : (
-                <Moon className="w-6 h-6 text-gray-400" />
-              )}
+              <span className={`text-sm font-bold ${isDaytime ? 'text-yellow-500' : 'text-gray-400'}`}>
+                {isDaytime ? '●' : '○'}
+              </span>
             </div>
 
             {/* Compass indicator */}
             <div className="absolute top-2 left-2 flex items-center gap-1 text-xs text-gray-500">
-              <Navigation2 className="h-3 w-3" style={{ transform: `rotate(${azimuth}deg)` }} />
               <span>{getAzimuthDirection(azimuth)}</span>
             </div>
           </div>
@@ -119,38 +115,23 @@ export function SolarPositionCard({
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Nautical Dawn</p>
-              <div className="flex items-center justify-center gap-1">
-                <Moon className="h-3 w-3 text-blue-400" />
-                <p className="text-sm font-normal text-black">{formatTime(nauticalDawn)}</p>
-              </div>
+              <p className="text-sm font-normal text-black">{formatTime(nauticalDawn)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Sunrise</p>
-              <div className="flex items-center justify-center gap-1">
-                <Sunrise className="h-3 w-3 text-orange-400" />
-                <p className="text-sm font-normal text-black">{formatTime(sunrise)}</p>
-              </div>
+              <p className="text-sm font-normal text-black">{formatTime(sunrise)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Solar Noon</p>
-              <div className="flex items-center justify-center gap-1">
-                <Sun className="h-3 w-3 text-yellow-500" />
-                <p className="text-sm font-normal text-black">{formatTime(solarNoon)}</p>
-              </div>
+              <p className="text-sm font-normal text-black">{formatTime(solarNoon)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Sunset</p>
-              <div className="flex items-center justify-center gap-1">
-                <Sunset className="h-3 w-3 text-orange-500" />
-                <p className="text-sm font-normal text-black">{formatTime(sunset)}</p>
-              </div>
+              <p className="text-sm font-normal text-black">{formatTime(sunset)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Nautical Dusk</p>
-              <div className="flex items-center justify-center gap-1">
-                <Moon className="h-3 w-3 text-indigo-400" />
-                <p className="text-sm font-normal text-black">{formatTime(nauticalDusk)}</p>
-              </div>
+              <p className="text-sm font-normal text-black">{formatTime(nauticalDusk)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Day Length</p>

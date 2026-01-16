@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Calendar } from "lucide-react";
 
 interface EvapotranspirationCardProps {
   currentETo: number;           // mm/hour (instantaneous rate)
@@ -131,10 +130,7 @@ export function EvapotranspirationCard({
           {cropCoefficient !== 1.0 && (
             <div className="p-3 rounded-lg bg-green-50 border border-green-200">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-700">Crop ET (ETc)</span>
-                </div>
+                <span className="text-sm text-green-700">Crop ET (ETc)</span>
                 <span className="text-sm font-medium text-green-700">
                   {dailyETc.toFixed(2)} mm/day
                 </span>
@@ -148,7 +144,6 @@ export function EvapotranspirationCard({
           {/* FAO method note */}
           <div className="text-center pt-2 border-t border-gray-200">
             <p className="text-xs text-gray-400">
-              <Calendar className="inline h-3 w-3 mr-1" />
               FAO Penman-Monteith Method
             </p>
           </div>
