@@ -93,28 +93,13 @@ interface StationInfoPanelProps {
   onSave?: (data: Partial<StationInfo>) => void;
 }
 
-// Demo data
-const demoCalibrationLogs: CalibrationLog[] = [
-  { id: 1, date: "2025-12-15", technician: "John Smith", sensor: "Temperature (HMP60)", action: "Two-point calibration", preValue: "0.2°C offset", postValue: "0.0°C offset", notes: "Annual calibration" },
-  { id: 2, date: "2025-11-20", technician: "Jane Doe", sensor: "Barometer (CS106)", action: "Zero offset adjustment", preValue: "1.2 hPa offset", postValue: "0.1 hPa offset", notes: "Drift correction" },
-  { id: 3, date: "2025-10-05", technician: "John Smith", sensor: "Rain Gauge (TE525)", action: "Funnel cleaning & verification", preValue: "N/A", postValue: "Verified accurate", notes: "Quarterly maintenance" },
-  { id: 4, date: "2025-09-12", technician: "Mike Johnson", sensor: "Anemometer (034B)", action: "Bearing replacement", preValue: "Starting threshold: 1.2 m/s", postValue: "Starting threshold: 0.5 m/s", notes: "Bearings worn" },
-];
-
-const demoMaintenanceLogs: MaintenanceLog[] = [
-  { id: 1, date: "2025-12-20", type: "Routine", description: "Site visit - cleaned solar panels, checked guy wires", performedBy: "Field Team A", nextScheduled: "2026-03-20" },
-  { id: 2, date: "2025-11-15", type: "Battery", description: "Replaced 12V deep-cycle battery", performedBy: "John Smith", nextScheduled: "2028-11-15" },
-  { id: 3, date: "2025-10-01", type: "Software", description: "Updated datalogger program to v3.2.1", performedBy: "Jane Doe", nextScheduled: "N/A" },
-  { id: 4, date: "2025-08-22", type: "Emergency", description: "Lightning strike - replaced surge protector", performedBy: "Mike Johnson", nextScheduled: "N/A" },
-];
-
 export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInfoPanelProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<Partial<StationInfo>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [calibrationLogs, setCalibrationLogs] = useState<CalibrationLog[]>(demoCalibrationLogs);
-  const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>(demoMaintenanceLogs);
+  const [calibrationLogs, setCalibrationLogs] = useState<CalibrationLog[]>([]);
+  const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>([]);
   const [showAddCalibration, setShowAddCalibration] = useState(false);
   const [showAddMaintenance, setShowAddMaintenance] = useState(false);
   const [newCalibration, setNewCalibration] = useState<Partial<CalibrationLog>>({});

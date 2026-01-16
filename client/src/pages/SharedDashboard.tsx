@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Share2,
 } from "lucide-react";
+import type { WeatherData } from "@shared/schema";
 
 interface ShareAccess {
   stationId: number;
@@ -27,41 +28,45 @@ interface ShareAccess {
   name: string;
 }
 
-// Sample data generators (same as Dashboard)
-const generateChartData = (hours: number) => {
-  const data = [];
-  const now = new Date();
-  for (let i = hours; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-    data.push({
-      timestamp: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      temperature: 20 + Math.sin(i / 4) * 5 + Math.random() * 2,
-      humidity: 60 + Math.cos(i / 6) * 15 + Math.random() * 5,
-      pressure: 1013 + Math.sin(i / 8) * 5,
-      windSpeed: 10 + Math.random() * 15,
-      solar: Math.max(0, 400 * Math.sin((i - 6) / 12 * Math.PI) + Math.random() * 50),
-      rain: Math.random() > 0.9 ? Math.random() * 2 : 0,
-    });
-  }
-  return data;
+/**
+ * Process historical data into chart format
+ */
+const processChartData = (historicalData: WeatherData[]) => {
+  return historicalData.map(d => ({
+    timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+    temperature: d.temperature ?? 0,
+    humidity: d.humidity ?? 0,
+    pressure: d.pressure ?? 0,
+    windSpeed: d.windSpeed ?? 0,
+    solar: d.solarRadiation ?? 0,
+    rain: d.rainfall ?? 0,
+  }));
 };
 
-const generateWindRoseData = () => {
-  const data = Array.from({ length: 16 }, (_, i) => ({
+/**
+ * Process historical data into wind rose format
+ */
+const processWindRoseData = (historicalData: WeatherData[]) => {
+  const windRoseData = Array.from({ length: 16 }, (_, i) => ({
     direction: i * 22.5,
-    speeds: [
-      Math.random() * 5,
-      Math.random() * 8,
-      Math.random() * 12,
-      Math.random() * 6,
-      Math.random() * 3,
-      Math.random() * 2,
-    ],
+    speeds: [0, 0, 0, 0, 0, 0],
   }));
-  data[8].speeds = [2, 8, 15, 10, 5, 2];
-  data[9].speeds = [3, 10, 18, 12, 6, 3];
-  data[10].speeds = [2, 6, 12, 8, 4, 1];
-  return data;
+
+  historicalData.forEach(data => {
+    if (data.windDirection == null || data.windSpeed == null) return;
+    const dirBin = Math.round(data.windDirection / 22.5) % 16;
+    const speed = data.windSpeed;
+    let speedClass = 0;
+    if (speed < 1) speedClass = 0;
+    else if (speed < 12) speedClass = 1;
+    else if (speed < 20) speedClass = 2;
+    else if (speed < 29) speedClass = 3;
+    else if (speed < 39) speedClass = 4;
+    else speedClass = 5;
+    windRoseData[dirBin].speeds[speedClass]++;
+  });
+
+  return windRoseData;
 };
 
 // Internal component that may throw errors
@@ -87,28 +92,42 @@ function SharedDashboardContent() {
     },
   });
 
-  // Fetch weather data once we have access
-  const { data: weatherData, refetch: refetchWeather } = useQuery({
-    queryKey: ['shared-weather', access?.stationId],
+  // Fetch latest weather data once we have access
+  const { data: weatherData, refetch: refetchWeather } = useQuery<WeatherData>({
+    queryKey: ['shared-weather', access?.stationId, 'latest'],
     queryFn: async () => {
-      // In production, fetch from API
-      // For now, return demo data
-      return {
-        temperature: 22.5,
-        humidity: 65,
-        pressure: 1013.25,
-        windSpeed: 15.2,
-        windDirection: 225,
-        windGust: 22.1,
-        rainfall: 0,
-        solarRadiation: 450,
-        uvIndex: 5,
-        dewPoint: 15.3,
-      };
+      const res = await fetch(`/api/stations/${access?.stationId}/data/latest`);
+      if (!res.ok) throw new Error('Failed to fetch weather data');
+      return res.json();
     },
     enabled: !!access,
     refetchInterval: 60000, // Refresh every minute
   });
+
+  // Fetch historical data for charts
+  const { data: historicalData = [] } = useQuery<WeatherData[]>({
+    queryKey: ['shared-weather', access?.stationId, 'history'],
+    queryFn: async () => {
+      if (!access?.stationId) return [];
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000); // Last 24 hours
+      const res = await fetch(
+        `/api/stations/${access.stationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!access,
+    refetchInterval: 60000,
+  });
+
+  // Process historical data
+  const chartData = useMemo(() => processChartData(historicalData), [historicalData]);
+  const windRoseData = useMemo(() => processWindRoseData(historicalData), [historicalData]);
+  const maxWindSpeed = useMemo(() => {
+    const speeds = historicalData.map(d => d.windSpeed ?? 0);
+    return Math.max(weatherData?.windGust || 0, ...speeds) || 25;
+  }, [historicalData, weatherData?.windGust]);
 
   // Fetch station info once we have access
   const { data: stationData } = useQuery({
@@ -157,10 +176,6 @@ function SharedDashboardContent() {
         });
     }
   }, [shareInfo, shareToken, access]);
-
-  // Sample data
-  const chartData = generateChartData(24);
-  const windRoseData = generateWindRoseData();
 
   // Loading state
   if (isLoadingShare) {
@@ -357,8 +372,8 @@ function SharedDashboardContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <WindRose 
                 data={windRoseData} 
-                title="Wind Rose (Today)" 
-                maxWindSpeed={weatherData?.windGust || 25}
+                title="Wind Rose (24h)" 
+                maxWindSpeed={maxWindSpeed}
               />
               <Card>
                 <CardHeader>

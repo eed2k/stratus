@@ -60,162 +60,90 @@ const formatValue = (value: number, maxDecimals: number = 3): string => {
   return parseFloat(value.toFixed(maxDecimals)).toString();
 };
 
-const generateChartData = (hours: number) => {
-  const data = [];
-  const now = new Date();
-  for (let i = hours; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-    data.push({
-      timestamp: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      temperature: 20 + Math.sin(i / 4) * 5 + Math.random() * 2,
-      humidity: 60 + Math.cos(i / 6) * 15 + Math.random() * 5,
-      pressure: 1013 + Math.sin(i / 8) * 5,
-      windSpeed: 10 + Math.random() * 15,
-      solar: Math.max(0, 400 * Math.sin((i - 6) / 12 * Math.PI) + Math.random() * 50),
-      rain: Math.random() > 0.9 ? Math.random() * 2 : 0,
-    });
-  }
-  return data;
-};
-
-const generateWindRoseData = () => {
-  const data = Array.from({ length: 16 }, (_, i) => ({
+/**
+ * Process historical data into wind rose format
+ * Bins wind observations by direction and speed class
+ */
+const processWindRoseData = (historicalData: WeatherData[]) => {
+  // 16 direction bins (N, NNE, NE, etc.)
+  const windRoseData = Array.from({ length: 16 }, (_, i) => ({
     direction: i * 22.5,
-    speeds: [
-      Math.random() * 5,
-      Math.random() * 8,
-      Math.random() * 12,
-      Math.random() * 6,
-      Math.random() * 3,
-      Math.random() * 2,
-    ],
+    speeds: [0, 0, 0, 0, 0, 0], // 6 speed classes (calm, light, gentle, moderate, fresh, strong)
   }));
-  data[8].speeds = [2, 8, 15, 10, 5, 2];
-  data[9].speeds = [3, 10, 18, 12, 6, 3];
-  data[10].speeds = [2, 6, 12, 8, 4, 1];
-  return data;
-};
 
-const generateYesterdayWindRoseData = () => {
-  const data = Array.from({ length: 16 }, (_, i) => ({
-    direction: i * 22.5,
-    speeds: [
-      Math.random() * 4,
-      Math.random() * 7,
-      Math.random() * 10,
-      Math.random() * 5,
-      Math.random() * 2,
-      Math.random() * 1,
-    ],
-  }));
-  data[4].speeds = [3, 7, 12, 8, 4, 1];
-  data[5].speeds = [4, 9, 14, 9, 5, 2];
-  data[6].speeds = [2, 5, 10, 6, 3, 1];
-  return data;
-};
+  historicalData.forEach(data => {
+    if (data.windDirection == null || data.windSpeed == null) return;
+    
+    // Determine direction bin (0-15)
+    const dirBin = Math.round(data.windDirection / 22.5) % 16;
+    
+    // Determine speed class (WMO simplified)
+    const speed = data.windSpeed;
+    let speedClass = 0;
+    if (speed < 1) speedClass = 0;       // Calm
+    else if (speed < 12) speedClass = 1; // Light
+    else if (speed < 20) speedClass = 2; // Gentle
+    else if (speed < 29) speedClass = 3; // Moderate
+    else if (speed < 39) speedClass = 4; // Fresh
+    else speedClass = 5;                 // Strong+
+    
+    windRoseData[dirBin].speeds[speedClass]++;
+  });
 
-const generateLast60MinutesWindRoseData = () => {
-  const data = Array.from({ length: 16 }, (_, i) => ({
-    direction: i * 22.5,
-    speeds: [
-      Math.random() * 3,
-      Math.random() * 5,
-      Math.random() * 8,
-      Math.random() * 4,
-      Math.random() * 2,
-      Math.random() * 1,
-    ],
-  }));
-  // Bias toward current wind direction (southwest)
-  data[10].speeds = [2, 6, 10, 6, 3, 1];
-  data[11].speeds = [3, 8, 12, 7, 4, 2];
-  data[9].speeds = [1, 4, 8, 5, 2, 1];
-  return data;
+  return windRoseData;
 };
 
 /**
- * Generate wind scatter data (individual wind speed observations)
- * Creates points with direction and speed for scatter plot visualization
+ * Process historical data into wind scatter format
  */
-const generateWindScatterData = (numPoints: number, hoursBack: number = 24) => {
-  const now = new Date();
-  const data = [];
-  // Create a dominant wind direction (SSW - around 200-220°)
-  const dominantDirection = 210;
+const processWindScatterData = (historicalData: WeatherData[]) => {
+  return historicalData
+    .filter(d => d.windDirection != null && d.windSpeed != null)
+    .map(d => ({
+      direction: d.windDirection!,
+      speed: d.windSpeed!,
+      timestamp: new Date(d.timestamp),
+    }));
+};
+
+/**
+ * Process historical data into chart format
+ */
+const processChartData = (historicalData: WeatherData[]) => {
+  return historicalData.map(d => ({
+    timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+    temperature: d.temperature ?? 0,
+    humidity: d.humidity ?? 0,
+    pressure: d.pressure ?? 0,
+    windSpeed: d.windSpeed ?? 0,
+    solar: d.solarRadiation ?? 0,
+    rain: d.rainfall ?? 0,
+  }));
+};
+
+/**
+ * Process historical data into wind energy format
+ * Calculates wind power density using P = 0.5 * ρ * v³
+ */
+const processWindEnergyData = (historicalData: WeatherData[]) => {
+  let cumulativeEnergy = 0;
+  const airDensity = 1.225; // kg/m³ at sea level
   
-  for (let i = 0; i < numPoints; i++) {
-    // Most observations cluster around dominant direction with some spread
-    const directionSpread = Math.random() < 0.7 
-      ? (Math.random() - 0.5) * 60 // 70% within ±30° of dominant
-      : Math.random() * 360; // 30% random
-    const direction = (dominantDirection + directionSpread + 360) % 360;
+  return historicalData.map(d => {
+    const windSpeed = d.windSpeed ?? 0;
+    const speedMs = windSpeed / 3.6; // Convert km/h to m/s
+    const windPower = 0.5 * airDensity * Math.pow(speedMs, 3); // W/m²
     
-    // Speed distribution - varied across Beaufort scale for better color demonstration
-    // Create a more varied distribution to show different colors
-    const speedRandom = Math.random();
-    let speed: number;
-    if (speedRandom < 0.15) {
-      // 15% calm/light (0-6 km/h)
-      speed = Math.random() * 6;
-    } else if (speedRandom < 0.35) {
-      // 20% light breeze (6-12 km/h)
-      speed = 6 + Math.random() * 6;
-    } else if (speedRandom < 0.55) {
-      // 20% gentle breeze (12-20 km/h)
-      speed = 12 + Math.random() * 8;
-    } else if (speedRandom < 0.70) {
-      // 15% moderate (20-29 km/h)
-      speed = 20 + Math.random() * 9;
-    } else if (speedRandom < 0.82) {
-      // 12% fresh (29-39 km/h)
-      speed = 29 + Math.random() * 10;
-    } else if (speedRandom < 0.90) {
-      // 8% strong (39-50 km/h)
-      speed = 39 + Math.random() * 11;
-    } else if (speedRandom < 0.95) {
-      // 5% near gale (50-62 km/h)
-      speed = 50 + Math.random() * 12;
-    } else if (speedRandom < 0.98) {
-      // 3% gale (62-75 km/h)
-      speed = 62 + Math.random() * 13;
-    } else {
-      // 2% strong gale+ (75+ km/h)
-      speed = 75 + Math.random() * 20;
-    }
+    // Cumulative energy - assuming 1 hour intervals for simplicity
+    cumulativeEnergy += windPower / 1000; // kWh/m²
     
-    const timestamp = new Date(now.getTime() - (hoursBack * 60 * 60 * 1000 * Math.random()));
-    
-    data.push({
-      direction,
-      speed,
-      timestamp,
-    });
-  }
-  return data;
-};
-
-const generateTodayWindScatterData = () => generateWindScatterData(150, 24);
-
-const generateYesterdayWindScatterData = () => {
-  const data = generateWindScatterData(200, 24);
-  // Shift timestamps to yesterday
-  const oneDayMs = 24 * 60 * 60 * 1000;
-  return data.map(d => ({
-    ...d,
-    timestamp: new Date(d.timestamp.getTime() - oneDayMs),
-    // Slightly different wind pattern for yesterday (more easterly)
-    direction: (d.direction - 30 + 360) % 360,
-  }));
-};
-
-const generateLast30MinWindScatterData = () => {
-  const data = generateWindScatterData(30, 0.5);
-  // Tighter clustering for short period but still show varied speeds
-  return data.map(d => ({
-    ...d,
-    // More consistent direction over 30 minutes
-    direction: 215 + (Math.random() - 0.5) * 30,
-  }));
+    return {
+      timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      windSpeed,
+      windPower,
+      cumulativeEnergy,
+    };
+  });
 };
 
 /**
@@ -227,27 +155,6 @@ const generateLast30MinWindScatterData = () => {
 const calculateWindPower = (windSpeed: number, airDensity: number = 1.225): number => {
   const speedMs = windSpeed / 3.6; // Convert km/h to m/s
   return 0.5 * airDensity * Math.pow(speedMs, 3);
-};
-
-/**
- * Generate wind energy chart data
- */
-const generateWindEnergyData = (hours: number) => {
-  const data = [];
-  const now = new Date();
-  for (let i = hours; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-    const windSpeed = 10 + Math.random() * 15;
-    const airDensity = 1.225 + (Math.random() - 0.5) * 0.05;
-    const power = calculateWindPower(windSpeed, airDensity);
-    data.push({
-      timestamp: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      windSpeed,
-      windPower: power,
-      cumulativeEnergy: power * 0.001, // kWh/m² approximation
-    });
-  }
-  return data;
 };
 
 interface DashboardProps {
@@ -265,17 +172,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const chartData = useMemo(() => generateChartData(dashboardConfig.chartTimeRange), [dashboardConfig.chartTimeRange]);
-  const windRoseData = useMemo(() => generateWindRoseData(), []);
-  const yesterdayWindRoseData = useMemo(() => generateYesterdayWindRoseData(), []);
-  const last60MinutesWindRoseData = useMemo(() => generateLast60MinutesWindRoseData(), []);
-  const windEnergyData = useMemo(() => generateWindEnergyData(dashboardConfig.chartTimeRange), [dashboardConfig.chartTimeRange]);
-  
-  // Wind scatter data for speed visualization
-  const todayWindScatterData = useMemo(() => generateTodayWindScatterData(), []);
-  const yesterdayWindScatterData = useMemo(() => generateYesterdayWindScatterData(), []);
-  const last30MinWindScatterData = useMemo(() => generateLast30MinWindScatterData(), []);
 
   const { data: allStations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
@@ -295,6 +191,35 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
     enabled: !!activeStationId,
     refetchInterval: dashboardConfig.updatePeriod * 1000, // Auto-refresh based on config
   });
+
+  // Fetch historical data for charts and wind roses (last 24 hours)
+  const { data: historicalData = [] } = useQuery<WeatherData[]>({
+    queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange],
+    queryFn: async () => {
+      if (!activeStationId) return [];
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - dashboardConfig.chartTimeRange * 60 * 60 * 1000);
+      const response = await fetch(
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeStationId,
+    refetchInterval: dashboardConfig.updatePeriod * 1000,
+  });
+
+  // Process historical data into chart format
+  const chartData = useMemo(() => processChartData(historicalData), [historicalData]);
+  
+  // Process wind rose data from historical data
+  const windRoseData = useMemo(() => processWindRoseData(historicalData), [historicalData]);
+  
+  // Process wind scatter data from historical data
+  const windScatterData = useMemo(() => processWindScatterData(historicalData), [historicalData]);
+
+  // Process wind energy data from historical data
+  const windEnergyData = useMemo(() => processWindEnergyData(historicalData), [historicalData]);
 
   // Save config to localStorage when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
@@ -992,57 +917,20 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
             </NoDataWrapper>
             )}
             
-            {/* Wind Rose Last 60 Minutes */}
-            <WindRose 
-              data={last60MinutesWindRoseData} 
-              title="Wind Rose (Last 60 min)" 
-              maxWindSpeed={maxWindSpeed}
-            />
-          </div>
-          
-          {/* Wind Rose Row: Today and Yesterday */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Wind Rose Today */}
+            {/* Wind Rose - Historical Data */}
             <WindRose 
               data={windRoseData} 
-              title="Wind Rose (Today)" 
-              maxWindSpeed={maxWindSpeed}
-            />
-            
-            {/* Wind Rose Yesterday */}
-            <WindRose 
-              data={yesterdayWindRoseData} 
-              title="Wind Rose (Yesterday)"
+              title={`Wind Rose (${dashboardConfig.chartTimeRange}h)`}
               maxWindSpeed={maxWindSpeed}
             />
           </div>
-
-          {/* Wind Speed Scatter Section */}
-          <h2 className="text-base font-normal text-foreground mt-6">Wind Speed Scatter Plots</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Individual wind speed observations plotted by direction. Points are color-coded by speed according to WMO/Beaufort scale.
-          </p>
           
-          {/* Wind Scatter Row: 30min, Today, Yesterday */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Wind Scatter Last 30 Minutes */}
+          {/* Wind Rose Large View */}
+          <div className="grid grid-cols-1 gap-6">
+            {/* Wind Speed Scatter - All Historical Data */}
             <WindRoseScatter 
-              data={last30MinWindScatterData} 
-              title="Wind Speed (Last 30 min)" 
-              maxWindSpeed={maxWindSpeed}
-            />
-            
-            {/* Wind Scatter Today */}
-            <WindRoseScatter 
-              data={todayWindScatterData} 
-              title="Wind Speed (Today)" 
-              maxWindSpeed={maxWindSpeed}
-            />
-            
-            {/* Wind Scatter Yesterday */}
-            <WindRoseScatter 
-              data={yesterdayWindScatterData} 
-              title="Wind Speed (Yesterday)"
+              data={windScatterData} 
+              title={`Wind Speed Scatter (${dashboardConfig.chartTimeRange}h)`}
               maxWindSpeed={maxWindSpeed}
             />
           </div>
@@ -1056,9 +944,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               currentPower={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225)}
               gustPower={calculateWindPower(currentData.windGust || 0, currentData.airDensity || 1.225)}
               airDensity={currentData.airDensity || 1.225}
-              avgSpeed={chartData.slice(-10).reduce((sum, d) => sum + d.windSpeed, 0) / 10}
-              avgPower={chartData.slice(-10).reduce((sum, d) => sum + calculateWindPower(d.windSpeed), 0) / 10}
-              sparklineData={windEnergyData.slice(-12).map(d => d.windPower)}
+              avgSpeed={chartData.slice(-10).reduce((sum, d) => sum + d.windSpeed, 0) / Math.max(chartData.slice(-10).length, 1)}
+              avgPower={chartData.slice(-10).reduce((sum, d) => sum + calculateWindPower(d.windSpeed), 0) / Math.max(chartData.slice(-10).length, 1)}
+              sparklineData={chartData.slice(-12).map(d => calculateWindPower(d.windSpeed))}
             />
             <MetricCard
               title="Current Wind Power"
