@@ -10,7 +10,7 @@ A professional desktop application for Campbell Scientific weather station manag
 
 ---
 
-## 🚀 Features
+## Features
 
 ### Campbell Scientific Integration
 - **PakBus Protocol Support** - Native implementation of Campbell Scientific's PakBus protocol
@@ -43,12 +43,12 @@ A professional desktop application for Campbell Scientific weather station manag
 - **Backup & Restore** - Backup station configurations and data
 
 ### Cloud Deployment
-- **24/7 Cloud Access** - Deploy to Render, Fly.io, or other platforms
-- **Free Subdomains** - Get a free subdomain (e.g., your-app.onrender.com)
-- **PostgreSQL Database** - Cloud database for data persistence
-- **Auto-Restart** - Automatic restart on failure
+- **24/7 Cloud Access** - Deploy to Oracle Cloud for always-on operation
+- **Free Forever** - Oracle Cloud's Always Free tier runs continuously
+- **24 GB RAM + 4 ARM cores** - Generous free resources
+- **Auto-Restart** - PM2 process manager for automatic restart on failure
 
-## 📦 Installation
+## Installation
 
 ### Windows (Recommended)
 
@@ -59,8 +59,8 @@ A professional desktop application for Campbell Scientific weather station manag
 3. **Accept the EULA** (End User License Agreement)
 4. **Choose installation directory** (default: `C:\Users\[YourName]\AppData\Local\Stratus Weather Station`)
 5. **Select shortcuts:**
-   - ✅ Desktop shortcut
-   - ✅ Start Menu shortcut
+   - Desktop shortcut
+   - Start Menu shortcut
 6. **Complete installation**
 7. **First Launch:**
    - Welcome screen appears
@@ -244,36 +244,31 @@ Stratus supports multiple data sources for weather data:
 
 ## 24/7 Production Deployment
 
-### Cloud Deployment (Recommended)
+### Cloud Deployment - Oracle Cloud (Recommended)
 
-Deploy Stratus Weather Station to the cloud for 24/7 operation. Multiple platforms offer **free subdomains**:
+Deploy Stratus Weather Station to Oracle Cloud for **free 24/7 operation**:
 
-| Platform | Free Subdomain | Best For |
-|----------|---------------|----------|
-| **Render** | `your-app.onrender.com` | Full-stack apps |
-| **Fly.io** | `your-app.fly.dev` | Global deployment |
-| **Koyeb** | `your-app.koyeb.app` | Simple deploys |
-| **Cyclic** | `your-app.cyclic.app` | Always-on apps |
+| Feature | Oracle Cloud Always Free |
+|---------|--------------------------|
+| **Compute** | 4 ARM cores + 24 GB RAM (or 2x AMD VMs with 1GB each) |
+| **Storage** | 200 GB total |
+| **Bandwidth** | 10 TB/month |
+| **Cost** | $0 forever |
+| **Uptime** | Runs continuously 24/7 |
 
-See [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md) for detailed setup instructions.
+See [ORACLE_CLOUD_DEPLOYMENT.md](ORACLE_CLOUD_DEPLOYMENT.md) for detailed setup instructions.
 
-#### Quick Setup (Render)
-1. Push your code to GitHub
-2. Create account at [render.com](https://render.com)
-3. Create Web Service and connect your repository
-4. Set environment variables:
-   ```env
-   DATABASE_URL=<your-postgresql-url>
-   PORT=5000
-   NODE_ENV=production
-   CLIENT_JWT_SECRET=<generate-secure-secret>
-   ```
-5. Deploy - auto-deploys on git push
+#### Quick Setup Summary
+1. Create Oracle Cloud account at [cloud.oracle.com](https://cloud.oracle.com)
+2. Create a free VM (AMD or ARM)
+3. Open port 5000 in security rules
+4. SSH into VM and install Node.js
+5. Clone repo, build, and run with PM2
 
 #### Endpoints
-- **Dashboard**: `https://your-app.onrender.com`
-- **API**: `https://your-app.onrender.com/api`
-- **Data Ingestion**: `https://your-app.onrender.com/api/weather-data`
+- **Dashboard**: `http://YOUR_VM_IP:5000`
+- **API**: `http://YOUR_VM_IP:5000/api`
+- **Data Ingestion**: `http://YOUR_VM_IP:5000/api/weather-data`
 
 ### Windows Desktop (Local)
 
@@ -308,17 +303,17 @@ The server exposes a REST API on port 5000:
 - `POST /api/campbell/program/:stationId` - Upload program
 - `GET /api/campbell/files/:stationId` - List station files
 
-## 🔒 Security
+## Security
 
 Stratus Weather Station implements industry-standard security practices:
 
-- ✅ **Password Hashing:** bcrypt with 10 rounds
-- ✅ **Rate Limiting:** 5 login attempts per 15 minutes
-- ✅ **SQL Injection Protection:** Parameterized queries
-- ✅ **XSS Prevention:** Input sanitization
-- ✅ **Session Management:** Secure tokens with 24-hour expiration
-- ✅ **HTTPS:** Enforced for external connections
-- ✅ **Data Encryption:** Local data protection
+- **Password Hashing:** bcrypt with 10 rounds
+- **Rate Limiting:** 5 login attempts per 15 minutes
+- **SQL Injection Protection:** Parameterized queries
+- **XSS Prevention:** Input sanitization
+- **Session Management:** Secure tokens with 24-hour expiration
+- **HTTPS:** Enforced for external connections
+- **Data Encryption:** Local data protection
 
 **Security Documentation:** See [SECURITY.md](SECURITY.md) for details.
 
@@ -326,48 +321,48 @@ Stratus Weather Station implements industry-standard security practices:
 
 ---
 
-## 📋 Compliance
+## Compliance
 
 ### Campbell Scientific Integration
-- ✅ **PakBus Protocol:** Full CRC-16 CCITT validation
-- ✅ **Frame Structure:** Proper link state, hop count, addressing
-- ✅ **Security Codes:** Levels 0-3 supported
-- ✅ **Transaction Management:** Correct ID sequencing
-- ✅ **Timeout Handling:** 
+- **PakBus Protocol:** Full CRC-16 CCITT validation
+- **Frame Structure:** Proper link state, hop count, addressing
+- **Security Codes:** Levels 0-3 supported
+- **Transaction Management:** Correct ID sequencing
+- **Timeout Handling:** 
   - Cellular: 30-60s
   - LoRa: 60-120s
   - TCP/IP: 10-30s
 
 ### WMO Standards (Station Setup)
-- ✅ **Metadata Validation:** Lat/Lon/Elevation/Timezone required
-- ✅ **Sensor Configuration:** Height, calibration, maintenance tracking
-- ✅ **Data Quality:** Out-of-range flagging, QC checks
-- ✅ **Standard Heights:**
+- **Metadata Validation:** Lat/Lon/Elevation/Timezone required
+- **Sensor Configuration:** Height, calibration, maintenance tracking
+- **Data Quality:** Out-of-range flagging, QC checks
+- **Standard Heights:**
   - Temperature: 1.25-2m
   - Anemometer: 10m (standard)
   - Rain Gauge: 0.5-1.5m
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Comprehensive testing checklist available in [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md)
 
 **Test Coverage:**
-- ✅ Installer testing (clean system, upgrade, edge cases)
-- ✅ First-run experience
-- ✅ Authentication security
-- ✅ Station setup (4G, LoRa, TCP/IP)
-- ✅ Data collection (all modes)
-- ✅ PakBus protocol compliance
-- ✅ WMO standards compliance
-- ✅ User interface
-- ✅ Performance (24-hour stability)
-- ✅ Security (SQL injection, XSS, brute force)
+- Installer testing (clean system, upgrade, edge cases)
+- First-run experience
+- Authentication security
+- Station setup (4G, LoRa, TCP/IP)
+- Data collection (all modes)
+- PakBus protocol compliance
+- WMO standards compliance
+- User interface
+- Performance (24-hour stability)
+- Security (SQL injection, XSS, brute force)
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | Document | Description |
 |----------|-------------|
@@ -376,11 +371,11 @@ Comprehensive testing checklist available in [TESTING_CHECKLIST.md](TESTING_CHEC
 | [SECURITY.md](SECURITY.md) | Security implementation details |
 | [STATION_SETUP.md](STATION_SETUP.md) | Station configuration guide |
 | [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md) | Comprehensive testing protocol |
-| [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Cloud deployment instructions |
+| [ORACLE_CLOUD_DEPLOYMENT.md](ORACLE_CLOUD_DEPLOYMENT.md) | Oracle Cloud deployment guide |
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Connection Issues
 - Verify PakBus address matches datalogger settings
@@ -391,15 +386,6 @@ Comprehensive testing checklist available in [TESTING_CHECKLIST.md](TESTING_CHEC
 - Verify table names match datalogger program
 - Check security code if required
 - Review station logs for error messages
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Support
-
-- GitHub Issues: [Report a bug](https://github.com/yourusername/stratus/issues)
-- Documentation: [Wiki](https://github.com/yourusername/stratus/wiki)
 
 ## Credits
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Database, AlertCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export function DemoInitializer({ children }: { children: React.ReactNode }) {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -57,16 +57,13 @@ export function DemoInitializer({ children }: { children: React.ReactNode }) {
 
   if (error) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-900 text-white gap-4">
-        <div className="flex items-center gap-3">
-          <AlertCircle className="h-10 w-10 text-red-400" />
-          <span className="text-3xl font-bold tracking-wide">STRATUS</span>
-        </div>
-        <div className="flex flex-col items-center gap-2 text-slate-400 max-w-md text-center">
-          <span className="text-red-400">{error}</span>
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-white gap-4">
+        <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>STRATUS</span>
+        <div className="flex flex-col items-center gap-2 text-gray-500 max-w-md text-center">
+          <span className="text-red-500">{error}</span>
           <button 
             onClick={() => window.location.reload()} 
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
           >
             Retry
           </button>
@@ -77,13 +74,10 @@ export function DemoInitializer({ children }: { children: React.ReactNode }) {
 
   if (isInitializing) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-900 text-white gap-4">
-        <div className="flex items-center gap-3">
-          <Database className="h-10 w-10 text-blue-400 animate-pulse" />
-          <span className="text-3xl font-bold tracking-wide">STRATUS</span>
-        </div>
-        <div className="flex items-center gap-2 text-slate-400">
-          <Loader2 className="h-5 w-5 animate-spin" />
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-white gap-4">
+        <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>STRATUS</span>
+        <div className="flex items-center gap-2 text-gray-500">
+          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
           <span>{initMessage}</span>
         </div>
       </div>

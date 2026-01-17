@@ -5,11 +5,11 @@
 Stratus Weather Server supports multiple methods for connecting to Campbell Scientific dataloggers. This guide explains each connection method and provides example CRBASIC programs.
 
 > **CLOUD DEPLOYMENT NOTE**
-> Stratus is designed for cloud deployment on Railway or similar platforms.
+> Stratus is designed for cloud deployment on Oracle Cloud or similar platforms.
 > All connections use TCP/IP - serial/RS232 is not available in cloud environments.
 
-**Cloud Server:** Deploy to Railway for 24/7 access (https://railway.app)  
-**API Endpoint:** `https://your-app.up.railway.app/api/ingest/{stationId}`
+**Cloud Server:** Deploy to Oracle Cloud for free 24/7 access (see ORACLE_CLOUD_DEPLOYMENT.md)  
+**API Endpoint:** `http://YOUR_VM_IP:5000/api/ingest/{stationId}`
 
 ## WMO Compliance
 
@@ -38,17 +38,17 @@ All data transmitted to Stratus follows **WMO (World Meteorological Organization
 
 ## Method 1: HTTP POST (Recommended for Cloud)
 
-**How it works:** The datalogger pushes data to Stratus's REST API at regular intervals. Best for remote stations with cellular or WiFi connectivity. Works with Railway cloud deployment.
+**How it works:** The datalogger pushes data to Stratus's REST API at regular intervals. Best for remote stations with cellular or WiFi connectivity. Works with Oracle Cloud deployment.
 
 ### CRBASIC Program
-Use `stratus_http_post_station.cr1x` - Configure your Railway server URL and station ID.
+Use `stratus_http_post_station.cr1x` - Configure your Oracle Cloud server IP and station ID.
 
 ### Configuration in CRBASIC
 ```basic
-' For Railway cloud deployment (recommended for 24/7 access):
-Const STRATUS_SERVER = "your-app.up.railway.app"  ' Get from Railway dashboard
-Const STRATUS_PORT = 443
-Const USE_TLS = True
+' For Oracle Cloud deployment (recommended for 24/7 access):
+Const STRATUS_SERVER = "YOUR_ORACLE_VM_IP"  ' Your Oracle Cloud VM public IP
+Const STRATUS_PORT = 5000
+Const USE_TLS = False  ' Set True if you configure Nginx + SSL
 Const STATION_ID = 1  ' Numeric ID from Stratus dashboard
 
 ' For local network testing:
