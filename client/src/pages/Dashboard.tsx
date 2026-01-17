@@ -1035,11 +1035,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
 
         {/* Fire Danger Section */}
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Fire Danger Index</h2>
-          <p className="text-sm text-muted-foreground">
-            McArthur Forest Fire Danger Index (FFDI) calculated from temperature, humidity, and wind speed. 
-            Based on Australian Bureau of Meteorology standards.
-          </p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FireDangerCard
               temperature={currentData.temperature || 25}

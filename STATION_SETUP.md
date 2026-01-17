@@ -3,8 +3,8 @@
 Complete guide for connecting and configuring Campbell Scientific dataloggers with Stratus Weather Server.
 
 > **CLOUD DEPLOYMENT NOTE**
-> Stratus Weather Server is designed for cloud deployment on Railway or similar platforms.
-> All connections use TCP/IP - serial/RS232 connections are not available in cloud environments.
+> Stratus Weather Server is designed for cloud deployment on Oracle Cloud or similar platforms.
+> All connections use TCP/IP, Cellular, LoRa, or Dropbox Sync for data import.
 
 ## Table of Contents
 1. [Quick Start](#quick-start)

@@ -76,7 +76,7 @@ export function FireDangerCard({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-normal">
-            Fire Danger Index
+            FDI
           </CardTitle>
           <Badge 
             variant="outline" 

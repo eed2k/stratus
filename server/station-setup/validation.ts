@@ -211,11 +211,11 @@ export function validateConnectionConfig(
     lora: validateLoRaConfig,
     satellite: validateSatelliteConfig,
     modbus: validateModbusConfig,
-    serial: validateModbusConfig,
     dnp3: validateDNP3Config,
     ble: validateBLEConfig,
     gsm: validateGSMConfig,
     "4g": validateGSMConfig,
+    import: (c) => ({ valid: true, errors: [] }), // Dropbox sync doesn't need validation
   };
 
   const validator = typeMap[connectionType.toLowerCase()];

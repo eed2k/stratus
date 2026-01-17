@@ -23,7 +23,8 @@ export class ServiceDetector {
       ["campbell", "campbell_tcp", "tcp", 0.95],
       ["konect", "campbell_tcp", "tcp", 0.95],
       ["campbellcloud", "campbell_tcp", "tcp", 0.99],
-      ["pakbus", "campbell_serial", "serial", 0.95],
+      ["pakbus", "campbell_tcp", "tcp", 0.95],
+      ["dropbox", "dropbox_sync", "import", 0.95],
     ];
 
     for (const [keyword, provider, type, confidence] of detections) {
@@ -66,10 +67,10 @@ export class ServiceDetector {
     // PakBus response pattern
     if (response.tableData || response.pakbusData) {
       return {
-        provider: "campbell_serial",
+        provider: "campbell_tcp",
         confidence: 0.9,
-        connectionType: "serial",
-        suggestedConfig: this.getProviderConfig("campbell_serial"),
+        connectionType: "tcp",
+        suggestedConfig: this.getProviderConfig("campbell_tcp"),
       };
     }
 
@@ -164,6 +165,10 @@ export class ServiceDetector {
         port: 1883,
         timeout: 30000,
         requiredFields: ["broker", "topic"],
+      },
+      dropbox_sync: {
+        syncInterval: 3600000,
+        requiredFields: ["dropboxFolder"],
       },
     };
 

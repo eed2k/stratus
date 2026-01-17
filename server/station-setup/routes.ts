@@ -376,14 +376,6 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
     // Desktop app focused on Campbell Scientific dataloggers
     const providers = [
       {
-        id: "campbell_serial",
-        name: "Campbell Scientific (RS232)",
-        type: "serial",
-        description: "Direct RS232 serial connection to Campbell dataloggers",
-        requiredFields: ["serialPort", "baudRate"],
-        documentationUrl: "https://www.campbellsci.com/",
-      },
-      {
         id: "campbell_tcp",
         name: "Campbell Scientific (TCP/IP)",
         type: "tcp",
@@ -414,6 +406,14 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         description: "MQTT protocol for Campbell dataloggers",
         requiredFields: ["broker", "topic"],
         documentationUrl: "https://www.campbellsci.com/",
+      },
+      {
+        id: "dropbox_sync",
+        name: "Dropbox Sync",
+        type: "import",
+        description: "Import data from Dropbox folder - ideal for cellular/modem uploads",
+        requiredFields: ["dropboxFolder"],
+        documentationUrl: "https://www.dropbox.com/developers",
       },
     ];
 
@@ -541,24 +541,9 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
     // Desktop app focused on Campbell Scientific dataloggers
     const providersInfo = [
       {
-        id: "campbell_serial",
-        name: "Campbell Scientific (RS232)",
-        description: "Direct RS232 serial connection to Campbell Scientific dataloggers like CR300, CR1000X, CR6",
-        icon: "🔌",
-        capabilities: [
-          "Direct PakBus communication",
-          "Real-time data collection",
-          "Table data retrieval",
-          "Program upload",
-        ],
-        setup: "Connect via RS232 serial cable",
-        documentation: "https://www.campbellsci.com/",
-      },
-      {
         id: "campbell_tcp",
         name: "Campbell Scientific (TCP/IP)",
         description: "TCP/IP connection to Campbell dataloggers with ethernet or WiFi modules",
-        icon: "🌐",
         capabilities: [
           "Network-based communication",
           "Remote data access",
@@ -572,7 +557,6 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         id: "campbell_lora",
         name: "Campbell Scientific (LoRa)",
         description: "LoRa radio connection for remote Campbell dataloggers",
-        icon: "📡",
         capabilities: [
           "Long-range communication",
           "Low power consumption",
@@ -586,7 +570,6 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         id: "campbell_gsm",
         name: "Campbell Scientific (GSM/4G)",
         description: "Cellular connection to Campbell dataloggers via GSM or 4G/LTE",
-        icon: "📱",
         capabilities: [
           "Cellular connectivity",
           "Remote site access",
@@ -600,7 +583,6 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         id: "campbell_mqtt",
         name: "Campbell Scientific (MQTT)",
         description: "MQTT protocol for Campbell dataloggers with IoT gateway",
-        icon: "📨",
         capabilities: [
           "Publish/Subscribe model",
           "Lightweight protocol",
@@ -609,6 +591,19 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
         ],
         setup: "Configure MQTT broker and topic",
         documentation: "https://www.campbellsci.com/",
+      },
+      {
+        id: "dropbox_sync",
+        name: "Dropbox Sync",
+        description: "Import data files from Dropbox folder - ideal for cellular modems that upload to cloud",
+        capabilities: [
+          "Automatic file sync",
+          "TOA5 CSV import",
+          "Scheduled polling",
+          "Historical data import",
+        ],
+        setup: "Configure Dropbox folder path and sync interval",
+        documentation: "https://www.dropbox.com/developers",
       },
     ];
 
