@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wind } from "lucide-react";
 import { useMemo } from "react";
 import {
   PolarAngleAxis,
@@ -144,7 +143,6 @@ export function WindDirectionChart({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Wind className="h-12 w-12 text-muted-foreground/30 mb-3" />
             <p className="text-sm font-medium text-muted-foreground">No Data</p>
             <p className="text-xs text-muted-foreground/70 mt-1">
               Wind direction data is not available for this station

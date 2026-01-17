@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Flame, AlertTriangle, Info, Droplets, Wind, Thermometer } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { 
   calculateFireDanger, 
   FIRE_DANGER_RATINGS,
@@ -75,8 +75,7 @@ export function FireDangerCard({
     <Card data-testid="card-fire-danger" className="relative overflow-hidden">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-normal flex items-center gap-2">
-            <Flame className="h-5 w-5" style={{ color: fireDanger.rating.color }} />
+          <CardTitle className="text-lg font-normal">
             Fire Danger Index
           </CardTitle>
           <Badge 

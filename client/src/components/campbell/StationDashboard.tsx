@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Thermometer, Droplets, Wind, Gauge, Sun, CloudRain, Activity, Zap, Sunrise, Sunset, Compass, Leaf, Battery } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { StationLogs } from "@/components/station/StationLogs";
 import { StationHardware } from "@/components/station/StationHardware";
 
@@ -180,12 +180,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {/* Temperature */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Temperature
-                </CardTitle>
-                <Thermometer className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Temperature
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
@@ -205,12 +202,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {/* Humidity */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Humidity
-                </CardTitle>
-                <Droplets className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Humidity
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
@@ -230,12 +224,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {/* Wind Speed */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Wind Speed
-                </CardTitle>
-                <Wind className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Wind Speed
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
@@ -256,12 +247,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {latestData.windPower !== undefined && (
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Wind Power
-                  </CardTitle>
-                  <Zap className="h-4 w-4 text-muted-foreground" />
-                </div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Wind Power
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-foreground">
@@ -277,12 +265,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {/* Pressure */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Pressure
-                </CardTitle>
-                <Gauge className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Pressure
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
@@ -302,12 +287,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {/* Solar Radiation */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Solar Radiation
-                </CardTitle>
-                <Sun className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Solar Radiation
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
@@ -329,12 +311,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {/* Rainfall */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Rainfall
-                </CardTitle>
-                <CloudRain className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Rainfall
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
@@ -357,12 +336,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {latestData.eto !== undefined && (
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    ETo
-                  </CardTitle>
-                  <Leaf className="h-4 w-4 text-muted-foreground" />
-                </div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  ETo
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-foreground">
@@ -385,12 +361,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {latestData.sunElevation !== undefined && (
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Sun Position
-                  </CardTitle>
-                  <Compass className="h-4 w-4 text-muted-foreground" />
-                </div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Sun Position
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">
@@ -408,18 +381,14 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {(latestData.sunrise || latestData.sunset) && (
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Sun Times
-                  </CardTitle>
-                  <Sunrise className="h-4 w-4 text-muted-foreground" />
-                </div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Sun Times
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex justify-between items-center">
                   {latestData.sunrise && (
                     <div className="text-center">
-                      <Sunrise className="h-5 w-5 text-amber-500 mx-auto mb-1" />
                       <p className="text-sm font-medium text-foreground">
                         {new Date(latestData.sunrise).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
@@ -428,7 +397,6 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
                   )}
                   {latestData.sunset && (
                     <div className="text-center">
-                      <Sunset className="h-5 w-5 text-orange-500 mx-auto mb-1" />
                       <p className="text-sm font-medium text-foreground">
                         {new Date(latestData.sunset).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
@@ -444,12 +412,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {latestData.soilTemperature !== undefined && (
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Soil Temperature
-                  </CardTitle>
-                  <Thermometer className="h-4 w-4 text-muted-foreground" />
-                </div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Soil Temperature
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-foreground">
@@ -470,12 +435,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {/* System Status */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  System Status
-                </CardTitle>
-                <Battery className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                System Status
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">
@@ -493,12 +455,9 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
           {/* Data Timestamp */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Last Update
-                </CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Last Update
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-lg font-medium text-foreground">
