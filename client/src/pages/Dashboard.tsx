@@ -236,11 +236,48 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
   // Process wind energy data from historical data
   const windEnergyData = useMemo(() => processWindEnergyData(historicalData), [historicalData]);
 
-  // Save config to localStorage when it changes
+  // Process wind data for different time periods (60min, 24h, 48h)
+  const windDataByPeriod = useMemo(() => {
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+    const fortyEightHoursAgo = now - 48 * 60 * 60 * 1000;
+    
+    const last60Min = historicalData.filter(d => new Date(d.timestamp).getTime() > oneHourAgo);
+    const last24h = historicalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    const last48h = historicalData.filter(d => new Date(d.timestamp).getTime() > fortyEightHoursAgo);
+    
+    return {
+      '60min': {
+        rose: processWindRoseData(last60Min),
+        scatter: processWindScatterData(last60Min),
+        count: last60Min.length
+      },
+      '24h': {
+        rose: processWindRoseData(last24h),
+        scatter: processWindScatterData(last24h),
+        count: last24h.length
+      },
+      '48h': {
+        rose: processWindRoseData(last48h),
+        scatter: processWindScatterData(last48h),
+        count: last48h.length
+      },
+      'configured': {
+        rose: windRoseData,
+        scatter: windScatterData,
+        count: historicalData.length
+      }
+    };
+  }, [historicalData, windRoseData, windScatterData]);
+
+  // Save config to localStorage and invalidate queries when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
     setDashboardConfig(newConfig);
     localStorage.setItem('dashboardConfig', JSON.stringify(newConfig));
-  }, []);
+    // Invalidate historical data queries to force refresh with new time range
+    queryClient.invalidateQueries({ queryKey: ["/api/stations", activeStationId, "data", "history"] });
+  }, [queryClient, activeStationId]);
 
   // Manual refresh handler
   const handleRefresh = useCallback(() => {
@@ -983,9 +1020,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
         <section className="space-y-6">
           <h2 className="text-base font-normal text-foreground">Wind Analysis (WMO/Beaufort Scale)</h2>
           
-          {/* Top Row: Wind Compass and Last 60 Minutes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Wind Compass */}
+          {/* Wind Compass */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {hasValidData(currentData.windDirection) ? (
             <WindCompass
               direction={currentData.windDirection || 0}
@@ -1004,23 +1040,83 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
             </NoDataWrapper>
             )}
             
-            {/* Wind Rose - Historical Data */}
+            {/* Wind Rose - 60 Minutes (always show if we have data) */}
+            {windDataByPeriod['60min'].count > 0 && (
+              <WindRose 
+                data={windDataByPeriod['60min'].rose} 
+                title="Wind Rose (60 min)"
+                maxWindSpeed={maxWindSpeed}
+              />
+            )}
+            
+            {/* Wind Rose - Configured Time Range */}
             <WindRose 
-              data={windRoseData} 
+              data={windDataByPeriod['configured'].rose} 
               title={`Wind Rose (${dashboardConfig.chartTimeRange}h)`}
               maxWindSpeed={maxWindSpeed}
             />
           </div>
           
-          {/* Wind Rose Large View */}
-          <div className="grid grid-cols-1 gap-6">
-            {/* Wind Speed Scatter - All Historical Data */}
-            <WindRoseScatter 
-              data={windScatterData} 
-              title={`Wind Speed Scatter (${dashboardConfig.chartTimeRange}h)`}
-              maxWindSpeed={maxWindSpeed}
-            />
+          {/* Additional Wind Roses - 24h and 48h when data available */}
+          {(windDataByPeriod['24h'].count > windDataByPeriod['60min'].count || windDataByPeriod['48h'].count > windDataByPeriod['24h'].count) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {windDataByPeriod['24h'].count > windDataByPeriod['60min'].count && dashboardConfig.chartTimeRange >= 24 && (
+                <WindRose 
+                  data={windDataByPeriod['24h'].rose} 
+                  title="Wind Rose (24h)"
+                  maxWindSpeed={maxWindSpeed}
+                />
+              )}
+              {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && dashboardConfig.chartTimeRange >= 48 && (
+                <WindRose 
+                  data={windDataByPeriod['48h'].rose} 
+                  title="Wind Rose (48h)"
+                  maxWindSpeed={maxWindSpeed}
+                />
+              )}
+            </div>
+          )}
+          
+          {/* Wind Scatter Plots */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Wind Scatter - 60 Minutes */}
+            {windDataByPeriod['60min'].count > 0 && (
+              <WindRoseScatter 
+                data={windDataByPeriod['60min'].scatter} 
+                title="Wind Scatter (60 min)"
+                maxWindSpeed={maxWindSpeed}
+              />
+            )}
+            
+            {/* Wind Scatter - 24h when available */}
+            {windDataByPeriod['24h'].count > windDataByPeriod['60min'].count && dashboardConfig.chartTimeRange >= 24 && (
+              <WindRoseScatter 
+                data={windDataByPeriod['24h'].scatter} 
+                title="Wind Scatter (24h)"
+                maxWindSpeed={maxWindSpeed}
+              />
+            )}
+            
+            {/* Wind Scatter - 48h when available */}
+            {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && dashboardConfig.chartTimeRange >= 48 && (
+              <WindRoseScatter 
+                data={windDataByPeriod['48h'].scatter} 
+                title="Wind Scatter (48h)"
+                maxWindSpeed={maxWindSpeed}
+              />
+            )}
           </div>
+          
+          {/* Wind Scatter - Full configured range */}
+          {dashboardConfig.chartTimeRange > 48 && (
+            <div className="grid grid-cols-1 gap-6">
+              <WindRoseScatter 
+                data={windDataByPeriod['configured'].scatter} 
+                title={`Wind Scatter (${dashboardConfig.chartTimeRange}h)`}
+                maxWindSpeed={maxWindSpeed}
+              />
+            </div>
+          )}
         </section>
 
         {/* Wind Energy Section */}

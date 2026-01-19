@@ -534,9 +534,37 @@ export async function registerRoutes(
             }
           }
           
+          // Handle Dropbox sync configuration
+          if (station.connectionType === 'dropbox') {
+            const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
+            const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
+            const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
+            const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET || '';
+            
+            if (DROPBOX_ACCESS_TOKEN || DROPBOX_REFRESH_TOKEN) {
+              const folderPath = connectionConfig.folderPath || '';
+              const syncInterval = parseInt(connectionConfig.syncInterval) || 3600;
+              
+              dropboxSyncService.configure({
+                accessToken: DROPBOX_ACCESS_TOKEN,
+                folderPath: folderPath,
+                stationId: station.id,
+                syncInterval: syncInterval * 1000, // Convert seconds to milliseconds
+                enabled: true,
+                refreshToken: DROPBOX_REFRESH_TOKEN || undefined,
+                appKey: DROPBOX_APP_KEY || undefined,
+                appSecret: DROPBOX_APP_SECRET || undefined,
+              });
+              console.log(`[Routes] Dropbox sync configured for station ${station.id}: folder=${folderPath}, interval=${syncInterval}s`);
+            } else {
+              console.warn(`[Routes] Station ${station.id} configured for Dropbox but no access token in environment`);
+            }
+          }
+          
           const protocolMap: Record<string, string> = {
             'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
             'lora': 'lora', 'serial': 'modbus', 'satellite': 'satellite',
+            'dropbox': 'http', 'http_post': 'http',
           };
           
           await protocolManager.registerStation(station.id, {
@@ -589,9 +617,37 @@ export async function registerRoutes(
               }
             }
             
+            // Handle Dropbox sync configuration updates
+            if (station.connectionType === 'dropbox') {
+              const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
+              const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
+              const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
+              const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET || '';
+              
+              if (DROPBOX_ACCESS_TOKEN || DROPBOX_REFRESH_TOKEN) {
+                const folderPath = connectionConfig.folderPath || '';
+                const syncInterval = parseInt(connectionConfig.syncInterval) || 3600;
+                
+                // Stop existing sync and reconfigure
+                dropboxSyncService.stopSync();
+                dropboxSyncService.configure({
+                  accessToken: DROPBOX_ACCESS_TOKEN,
+                  folderPath: folderPath,
+                  stationId: station.id,
+                  syncInterval: syncInterval * 1000,
+                  enabled: true,
+                  refreshToken: DROPBOX_REFRESH_TOKEN || undefined,
+                  appKey: DROPBOX_APP_KEY || undefined,
+                  appSecret: DROPBOX_APP_SECRET || undefined,
+                });
+                console.log(`[Routes] Dropbox sync reconfigured for station ${station.id}: folder=${folderPath}, interval=${syncInterval}s`);
+              }
+            }
+            
             const protocolMap: Record<string, string> = {
               'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
               'lora': 'lora', 'serial': 'modbus', 'satellite': 'satellite',
+              'dropbox': 'http', 'http_post': 'http',
             };
             
             await protocolManager.registerStation(station.id, {
