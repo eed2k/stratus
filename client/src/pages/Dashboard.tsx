@@ -192,7 +192,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
     refetchInterval: dashboardConfig.updatePeriod * 1000, // Auto-refresh based on config
   });
 
-  // Fetch historical data for charts and wind roses (last 24 hours)
+  // Fetch historical data for charts and wind roses (based on configured time range)
   const { data: historicalData = [] } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange],
     queryFn: async () => {
@@ -208,6 +208,21 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
     enabled: !!activeStationId,
     refetchInterval: dashboardConfig.updatePeriod * 1000,
   });
+
+  // Calculate actual data time range for display
+  const dataTimeRange = useMemo(() => {
+    if (historicalData.length === 0) return null;
+    const timestamps = historicalData.map(d => new Date(d.timestamp).getTime());
+    const earliest = new Date(Math.min(...timestamps));
+    const latest = new Date(Math.max(...timestamps));
+    const hoursAvailable = (latest.getTime() - earliest.getTime()) / (1000 * 60 * 60);
+    return {
+      earliest,
+      latest,
+      hoursAvailable: Math.round(hoursAvailable * 10) / 10,
+      recordCount: historicalData.length
+    };
+  }, [historicalData]);
 
   // Process historical data into chart format
   const chartData = useMemo(() => processChartData(historicalData), [historicalData]);
@@ -468,6 +483,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               ? `${dashboardConfig.updatePeriod}s` 
               : `${Math.floor(dashboardConfig.updatePeriod / 60)}m`}
           </Badge>
+          {dataTimeRange && (
+            <Badge 
+              variant={dataTimeRange.hoursAvailable < dashboardConfig.chartTimeRange ? "secondary" : "outline"} 
+              className="text-xs"
+              title={`Data from ${dataTimeRange.earliest.toLocaleString()} to ${dataTimeRange.latest.toLocaleString()}`}
+            >
+              {dataTimeRange.hoursAvailable < dashboardConfig.chartTimeRange 
+                ? `${dataTimeRange.hoursAvailable.toFixed(1)}h of ${dashboardConfig.chartTimeRange}h data`
+                : `${dashboardConfig.chartTimeRange}h data`
+              } ({dataTimeRange.recordCount} records)
+            </Badge>
+          )}
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={dataLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${dataLoading ? 'animate-spin' : ''}`} />
             Refresh
