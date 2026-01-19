@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Radio, Search, Trash2, Loader2, Wifi, Cable, Signal, Smartphone, Server, RefreshCw, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { MapPin, Plus, Radio, Search, Trash2, Loader2, Wifi, Signal, Smartphone, Server, CheckCircle, XCircle, AlertCircle, Cloud, FolderSync, Upload } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -34,7 +34,7 @@ interface ConnectionStatus {
 }
 
 type StationType = "campbell";
-type ConnectionType = "serial" | "lora" | "gsm" | "ip" | "mqtt" | "4g" | "tcp_ip";
+type ConnectionType = "dropbox" | "lora" | "gsm" | "ip" | "mqtt" | "4g" | "tcp_ip" | "http_post";
 
 interface StationFormData {
   name: string;
@@ -46,13 +46,14 @@ interface StationFormData {
   connectionType: ConnectionType;
   ipAddress: string;
   port: string;
-  serialPort: string;
-  baudRate: string;
   loraFrequency: string;
   gsmApn: string;
   apiKey: string;
   apiEndpoint: string;
   pollInterval: string;
+  // Dropbox sync configuration
+  dropboxFolderPath: string;
+  dropboxSyncInterval: string;
   // Campbell Scientific / LoggerNet specific
   pakbusAddress: string;
   securityCode: string;
@@ -79,20 +80,21 @@ const initialFormData: StationFormData = {
   latitude: "",
   longitude: "",
   altitude: "",
-  connectionType: "serial",
+  connectionType: "dropbox",
   ipAddress: "",
   port: "6785",
-  serialPort: "COM3",
-  baudRate: "115200",
   loraFrequency: "868000000",
   gsmApn: "",
   apiKey: "",
   apiEndpoint: "",
   pollInterval: "60",
+  // Dropbox sync defaults
+  dropboxFolderPath: "",
+  dropboxSyncInterval: "3600",
   // Campbell Scientific / LoggerNet defaults
   pakbusAddress: "1",
   securityCode: "0",
-  dataTable: "OneMin",
+  dataTable: "Table1",
   dataloggerModel: "",
   dataloggerSerialNumber: "",
   dataloggerProgramName: "",
@@ -113,8 +115,6 @@ export default function Stations() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
   const [testingStation, setTestingStation] = useState<number | null>(null);
-  const [availablePorts, setAvailablePorts] = useState<Array<{path: string; manufacturer?: string}>>([]);
-  const [scanningPorts, setScanningPorts] = useState(false);
   const { toast } = useToast();
 
   // Listen for Electron menu events
@@ -122,50 +122,13 @@ export default function Stations() {
     const handleOpenNewStation = () => {
       setDialogOpen(true);
     };
-    
-    const handleDiscoverStations = () => {
-      scanSerialPorts();
-    };
 
     window.addEventListener('open-new-station-dialog', handleOpenNewStation);
-    window.addEventListener('discover-stations', handleDiscoverStations);
     
     return () => {
       window.removeEventListener('open-new-station-dialog', handleOpenNewStation);
-      window.removeEventListener('discover-stations', handleDiscoverStations);
     };
   }, []);
-
-  // Scan for available serial ports
-  const scanSerialPorts = async () => {
-    setScanningPorts(true);
-    try {
-      const response = await apiRequest("GET", "/api/station-setup/discover/serial");
-      const data = await response.json();
-      if (data.devices && data.devices.length > 0) {
-        setAvailablePorts(data.devices);
-        toast({
-          title: "Ports Found",
-          description: `Found ${data.devices.length} serial port(s)`,
-        });
-      } else {
-        setAvailablePorts([]);
-        toast({
-          title: "No Ports Found",
-          description: "No serial ports detected. Make sure your device is connected.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Scan Error",
-        description: error.message || "Failed to scan for serial ports",
-        variant: "destructive",
-      });
-    } finally {
-      setScanningPorts(false);
-    }
-  };
 
   const { data: stations = [], isLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
@@ -215,8 +178,6 @@ export default function Stations() {
         connectionType: data.connectionType,
         ipAddress: data.ipAddress || null,
         port: data.port ? parseInt(data.port) : 6785,
-        serialPort: data.serialPort || null,
-        baudRate: data.baudRate ? parseInt(data.baudRate) : 115200,
         apiKey: data.apiKey || null,
         apiEndpoint: data.apiEndpoint || null,
         pollInterval: data.pollInterval ? parseInt(data.pollInterval) : 60,
@@ -224,7 +185,7 @@ export default function Stations() {
         // Campbell Scientific / LoggerNet fields
         pakbusAddress: data.pakbusAddress ? parseInt(data.pakbusAddress) : 1,
         securityCode: data.securityCode ? parseInt(data.securityCode) : 0,
-        dataTable: data.dataTable || "OneMin",
+        dataTable: data.dataTable || "Table1",
         dataloggerModel: data.dataloggerModel || null,
         dataloggerSerialNumber: data.dataloggerSerialNumber || null,
         dataloggerProgramName: data.dataloggerProgramName || null,
@@ -241,13 +202,17 @@ export default function Stations() {
       };
 
       // Campbell Scientific specific handling - connection config for each type
-      if (data.connectionType === "serial") {
+      if (data.connectionType === "dropbox") {
         payload.connectionConfig = JSON.stringify({
-          type: "serial",
-          serialPort: data.serialPort,
-          baudRate: parseInt(data.baudRate),
-          pakbusAddress: parseInt(data.pakbusAddress) || 1,
-          securityCode: parseInt(data.securityCode) || 0,
+          type: "dropbox",
+          folderPath: data.dropboxFolderPath,
+          syncInterval: parseInt(data.dropboxSyncInterval) || 3600,
+        });
+      } else if (data.connectionType === "http_post") {
+        payload.connectionConfig = JSON.stringify({
+          type: "http_post",
+          apiEndpoint: data.apiEndpoint,
+          apiKey: data.apiKey,
         });
       } else if (data.connectionType === "tcp_ip") {
         payload.connectionConfig = JSON.stringify({
@@ -348,10 +313,15 @@ export default function Stations() {
 
   const getConnectionIcon = (type: ConnectionType) => {
     switch (type) {
-      case "serial": return <Cable className="h-4 w-4" />;
+      case "dropbox": return <Cloud className="h-4 w-4" />;
+      case "http_post": return <Upload className="h-4 w-4" />;
       case "lora": return <Signal className="h-4 w-4" />;
       case "gsm": return <Smartphone className="h-4 w-4" />;
+      case "4g": return <Smartphone className="h-4 w-4" />;
       case "ip": return <Wifi className="h-4 w-4" />;
+      case "tcp_ip": return <Wifi className="h-4 w-4" />;
+      case "mqtt": return <Radio className="h-4 w-4" />;
+      default: return <Cloud className="h-4 w-4" />;
     }
   };
 
@@ -380,7 +350,7 @@ export default function Stations() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Campbell Scientific Configuration</CardTitle>
                   <CardDescription>
-                    Supports CR300, CR215, CR1000 dataloggers with RS232, TCP/IP, LoRa, or GSM connections
+                    Supports CR300, CR215, CR1000 dataloggers via Dropbox sync, HTTP POST, TCP/IP, LoRa, or GSM
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -391,10 +361,16 @@ export default function Stations() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="serial">
+                        <SelectItem value="dropbox">
                           <div className="flex items-center gap-2">
-                            <Cable className="h-4 w-4" />
-                            Serial RS232
+                            <Cloud className="h-4 w-4" />
+                            Dropbox Sync
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="http_post">
+                          <div className="flex items-center gap-2">
+                            <Upload className="h-4 w-4" />
+                            HTTP POST (Station Push)
                           </div>
                         </SelectItem>
                         <SelectItem value="tcp_ip">
@@ -452,60 +428,53 @@ export default function Stations() {
                     </div>
                   )}
 
-                  {formData.connectionType === "serial" && (
+                  {formData.connectionType === "dropbox" && (
                     <div className="space-y-4">
-                      <div className="flex items-end gap-2">
-                        <div className="flex-1 space-y-2">
-                          <Label>Serial Port</Label>
-                          {availablePorts.length > 0 ? (
-                            <Select value={formData.serialPort} onValueChange={(v) => updateForm({ serialPort: v })}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a port" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availablePorts.map((port) => (
-                                  <SelectItem key={port.path} value={port.path}>
-                                    {port.path} {port.manufacturer ? `(${port.manufacturer})` : ""}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input
-                              placeholder="COM3 or /dev/ttyUSB0"
-                              value={formData.serialPort}
-                              onChange={(e) => updateForm({ serialPort: e.target.value })}
-                            />
-                          )}
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={scanSerialPorts}
-                          disabled={scanningPorts}
-                        >
-                          {scanningPorts ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-4 w-4" />
-                          )}
-                          <span className="ml-2">Scan</span>
-                        </Button>
+                      <div className="space-y-2">
+                        <Label>Dropbox Folder Path</Label>
+                        <Input
+                          placeholder="/HOPEFIELD_CR300"
+                          value={formData.dropboxFolderPath}
+                          onChange={(e) => updateForm({ dropboxFolderPath: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          The folder path in Dropbox where TOA5 data files are stored (e.g., /STATION_NAME)
+                        </p>
                       </div>
                       <div className="space-y-2">
-                        <Label>Baud Rate</Label>
-                        <Select value={formData.baudRate} onValueChange={(v) => updateForm({ baudRate: v })}>
+                        <Label>Sync Interval (seconds)</Label>
+                        <Select value={formData.dropboxSyncInterval} onValueChange={(v) => updateForm({ dropboxSyncInterval: v })}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="9600">9600</SelectItem>
-                            <SelectItem value="19200">19200</SelectItem>
-                            <SelectItem value="38400">38400</SelectItem>
-                            <SelectItem value="57600">57600</SelectItem>
-                            <SelectItem value="115200">115200</SelectItem>
+                            <SelectItem value="300">5 minutes</SelectItem>
+                            <SelectItem value="600">10 minutes</SelectItem>
+                            <SelectItem value="900">15 minutes</SelectItem>
+                            <SelectItem value="1800">30 minutes</SelectItem>
+                            <SelectItem value="3600">1 hour</SelectItem>
+                            <SelectItem value="7200">2 hours</SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                          How often Stratus checks Dropbox for new data files
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.connectionType === "http_post" && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>API Endpoint (auto-generated)</Label>
+                        <Input
+                          placeholder="/api/campbell/data/{station-id}"
+                          value={formData.apiEndpoint}
+                          disabled
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Endpoint URL will be generated after station is created. Configure your datalogger to POST data to this URL.
+                        </p>
                       </div>
                     </div>
                   )}
