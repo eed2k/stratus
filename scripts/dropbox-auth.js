@@ -109,7 +109,7 @@ async function main() {
   console.log(`Account ID: ${tokenResponse.account_id}`);
   
   console.log('\n✓ The refresh token NEVER expires and will automatically renew access tokens.');
-  console.log('✓ Your Dropbox sync will now work 24/7 on Railway!\n');
+  console.log('✓ Your Dropbox sync will now work 24/7!\n');
   
   rl.close();
 }

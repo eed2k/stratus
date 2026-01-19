@@ -517,39 +517,24 @@ Displays logger battery voltage with:
 
 ## 24/7 Remote Access Setup
 
-### Railway Cloud Deployment (Recommended)
+### Cloud Deployment
 
-For public internet access to your Stratus server, deploy to Railway:
+For public internet access to your Stratus server, deploy to a cloud VM (Oracle Cloud, DigitalOcean, etc.)
 
-1. **Push to GitHub:**
-   ```bash
-   git add -A
-   git commit -m "Deploy to Railway"
-   git push origin main
-   ```
+See `ORACLE_CLOUD_DEPLOYMENT.md` for detailed Oracle Cloud Free Tier setup instructions.
 
-2. **Connect Railway to GitHub:**
-   - Go to [Railway](https://railway.app)
-   - Create new project from GitHub repository
-   - Add PostgreSQL database
-
-3. **Configure Environment Variables:**
-   ```env
-   DATABASE_URL=<your-postgresql-url>
-   PORT=5000
-   NODE_ENV=production
-   CLIENT_JWT_SECRET=<generate-secure-secret>
-   ```
-
-4. **Deploy:**
-   - Railway auto-deploys on git push
-   - Your app will be available at `https://your-app.railway.app`
+**Quick Steps:**
+1. Build locally: `npm run build`
+2. Upload to cloud VM via SCP
+3. Install Node.js and PM2 on the VM
+4. Run with PM2 for 24/7 uptime
+5. Configure DNS (e.g., dynv6 for free dynamic DNS)
 
 ### Weather Station Data Ingestion
 
 Configure your datalogger to POST data to:
 ```
-https://your-app.railway.app/api/weather-data
+https://your-server.com/api/weather-data
 ```
 
 See `examples/crbasic/stratus_http_post_station.cr1x` for CRBasic example.

@@ -4,7 +4,7 @@
  * ARCHITECTURE NOTE (Issue #17 - Type Alignment):
  * ================================================
  * This file defines schemas using Drizzle ORM with PostgreSQL types for
- * cloud deployment compatibility (Replit, Railway, etc.).
+ * cloud deployment compatibility.
  * 
  * For desktop/Electron deployments, the application uses SQLite via sql.js
  * (see server/db.ts). The actual database schema is defined in db.ts

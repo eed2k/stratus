@@ -3,7 +3,7 @@
  * Common interface for all communication protocols to integrate with the connection manager
  * 
  * CLOUD DEPLOYMENT NOTE:
- * All adapters use TCP/IP based connections for Railway/cloud deployment.
+ * All adapters use TCP/IP based connections for cloud deployment.
  * Serial/RS232 connections are not available in cloud environments.
  */
 

@@ -4,7 +4,7 @@
  * Supports Pull (active polling) and Push (passive receive) modes
  * 
  * CLOUD DEPLOYMENT NOTE:
- * This version is designed for Railway/cloud deployment where direct serial
+ * This version is designed for cloud deployment where direct serial
  * connections are not available. All connections use TCP/IP:
  * - TCP: Direct socket connection to station's TCP interface
  * - GSM/4G: Connect to cellular modem's TCP gateway endpoint

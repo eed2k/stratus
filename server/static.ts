@@ -3,12 +3,12 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
-  // Railway/Docker: Server runs from /app/dist/server/, client at /app/client/dist/
+  // Cloud/Docker: Server runs from /app/dist/server/, client at /app/client/dist/
   // Electron: Server runs from resources/app/dist/server/, client at resources/app/client/dist/
   // __dirname in compiled server: /app/dist/server (Docker) or .../dist/server (Electron)
   
   const possiblePaths = [
-    path.resolve(__dirname, "..", "..", "client", "dist"),  // Docker/Railway: /app/dist/server -> /app/client/dist
+    path.resolve(__dirname, "..", "..", "client", "dist"),  // Docker: /app/dist/server -> /app/client/dist
     path.resolve(process.cwd(), "client", "dist"),          // CWD/client/dist (fallback)
     path.resolve(__dirname, "..", "client", "dist"),        // Alternative layout
   ];

@@ -5,8 +5,8 @@
 Stratus is a professional desktop and server application for weather station management, data collection, and real-time monitoring. Built with modern web technologies, Stratus provides comprehensive weather data visualization and analysis capabilities.
 
 > **CLOUD DEPLOYMENT NOTE**
-> Stratus is designed for cloud deployment on Railway or similar platforms.
-> All connections use TCP/IP - serial/RS232 connections are not available.
+> Stratus can be deployed on cloud platforms (Oracle Cloud, DigitalOcean, etc.) or self-hosted.
+> All connections use TCP/IP - serial/RS232 connections are not available in cloud deployments.
 
 ---
 
@@ -321,16 +321,16 @@ Interactive OpenStreetMap integration showing:
 ### Server Deployment
 
 - Docker container support
-- Railway, Render, or self-hosted
+- Cloud platforms (Oracle Cloud, DigitalOcean, etc.) or self-hosted
 - Multi-user web access
 - Remote station monitoring
 
 ### Remote Access
 
-- Railway cloud deployment for secure public access
-- Custom domain support via Railway
-- Auto-restart services for 24/7 reliability
-- HTTPS encryption
+- Cloud deployment for secure public access
+- Custom domain support with dynv6 or similar DNS
+- Auto-restart services with PM2 for 24/7 reliability
+- HTTPS encryption (with reverse proxy)
 
 ---
 

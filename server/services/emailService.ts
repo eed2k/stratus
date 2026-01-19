@@ -6,9 +6,10 @@
  * 1. Sign up at https://sendgrid.com (free tier: 100 emails/day)
  * 2. Create an API key in Settings > API Keys
  * 3. Verify a sender email in Settings > Sender Authentication
- * 4. Set environment variables in Railway:
+ * 4. Set environment variables:
  *    - SENDGRID_API_KEY=your_api_key
  *    - SENDGRID_FROM_EMAIL=your_verified_email@domain.com
+ *    - PUBLIC_URL=https://your-domain.com (optional)
  */
 
 import sgMail from '@sendgrid/mail';
@@ -119,9 +120,7 @@ export async function sendAlarmEmail(
 
   const severityColor = getSeverityColor(data.severity);
   const severityEmoji = getSeverityEmoji(data.severity);
-  const dashboardUrl = data.dashboardUrl || process.env.RAILWAY_PUBLIC_DOMAIN 
-    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-    : 'https://stratus-production-9320.up.railway.app';
+  const dashboardUrl = data.dashboardUrl || process.env.PUBLIC_URL || 'http://localhost:5000';
 
   const subject = `${severityEmoji} [${data.severity.toUpperCase()}] ${data.alarmName} - ${data.stationName}`;
 
@@ -231,9 +230,7 @@ export async function sendAlarmResolvedEmail(
 ): Promise<boolean> {
   if (recipients.length === 0) return false;
 
-  const dashboardUrl = data.dashboardUrl || process.env.RAILWAY_PUBLIC_DOMAIN 
-    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-    : 'https://stratus-production-9320.up.railway.app';
+  const dashboardUrl = data.dashboardUrl || process.env.PUBLIC_URL || 'http://localhost:5000';
 
   const subject = `✅ [RESOLVED] ${data.alarmName} - ${data.stationName}`;
 

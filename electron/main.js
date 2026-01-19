@@ -218,7 +218,7 @@ function createWindow() {
     {
       label: 'Tools',
       submenu: [
-        // Serial Monitor removed - not available in cloud/Railway deployment
+        // Serial Monitor removed - not available in cloud deployment
         // All communication is done via TCP/IP (HTTP, PakBus over TCP, etc.)
         {
           label: 'Connection Health',

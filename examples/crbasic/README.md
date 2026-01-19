@@ -62,7 +62,7 @@ Const API_KEY = ""  ' Optional, only if station has API key configured
 
 ### Stratus API Endpoint
 ```
-POST https://your-app.up.railway.app/api/ingest/{stationId}
+POST https://your-server.com/api/ingest/{stationId}
 
 Headers:
   Content-Type: application/json
@@ -83,8 +83,8 @@ Body:
 ```
 
 ### Setup Steps
-1. Deploy Stratus to Railway (https://railway.app)
-2. Get your Railway public URL from the deployment dashboard
+1. Deploy Stratus to your cloud server (Oracle Cloud, DigitalOcean, etc.)
+2. Get your server's public URL or IP address
 3. Create a station in Stratus dashboard and note the numeric Station ID
 4. Update `STRATUS_SERVER` and `STATION_ID` in the CRBASIC program
 5. Upload program to datalogger with Ethernet/WiFi/Cellular connection

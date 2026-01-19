@@ -4,7 +4,7 @@
  * Focused on Campbell Scientific stations
  * 
  * CLOUD DEPLOYMENT NOTE:
- * All connections use TCP/IP in cloud deployment (Railway/similar).
+ * All connections use TCP/IP in cloud deployment.
  * Serial/RS232 connections are not available.
  */
 

@@ -94,9 +94,7 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Stratus Weather Station will now start automatically on login." -ForegroundColor White
 Write-Host ""
-Write-Host "For cloud deployment, use Railway:" -ForegroundColor White
-Write-Host "  • Push to GitHub and deploy on Railway" -ForegroundColor Gray
-Write-Host "  • Railway will run the server 24/7" -ForegroundColor Gray
+Write-Host "For cloud deployment, see ORACLE_CLOUD_DEPLOYMENT.md" -ForegroundColor White
 Write-Host ""
 Write-Host "Developer: Lukas Esterhuizen (esterhuizen2k@proton.me)" -ForegroundColor Cyan
 Write-Host ""

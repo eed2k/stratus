@@ -602,7 +602,7 @@ export function registerCampbellRoutes(app: Express): void {
 
       if (!isEmailConfigured()) {
         return res.status(503).json({ 
-          message: "Email not configured. Set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables in Railway.",
+          message: "Email not configured. Set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables.",
           configured: false
         });
       }
