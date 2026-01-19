@@ -799,13 +799,31 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               showMinMax={true}
               currentValue={currentData.solarRadiation || 0}
             />
-            {/* Sun Elevation Chart */}
+            {/* Sun Elevation Chart - Calculated from station coordinates */}
             <DataBlockChart
               title="Sun Elevation (24h)"
-              data={chartData.map((d, i) => ({
-                ...d,
-                sunElevation: Math.max(-20, 45 * Math.sin((i - 6) * Math.PI / 12))
-              }))}
+              data={(() => {
+                const lat = selectedStation?.latitude || 0;
+                const lon = selectedStation?.longitude || 0;
+                const now = new Date();
+                const points = [];
+                for (let h = 0; h < 24; h++) {
+                  const time = new Date(now);
+                  time.setHours(h, 0, 0, 0);
+                  const dayOfYear = Math.floor((time.getTime() - new Date(time.getFullYear(), 0, 0).getTime()) / 86400000);
+                  const declination = 23.45 * Math.sin((360 / 365) * (dayOfYear - 81) * Math.PI / 180);
+                  const hourAngle = 15 * (h - 12 + (lon / 15));
+                  const elevation = Math.asin(
+                    Math.sin(lat * Math.PI / 180) * Math.sin(declination * Math.PI / 180) +
+                    Math.cos(lat * Math.PI / 180) * Math.cos(declination * Math.PI / 180) * Math.cos(hourAngle * Math.PI / 180)
+                  ) * 180 / Math.PI;
+                  points.push({
+                    timestamp: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+                    sunElevation: Math.max(-20, elevation)
+                  });
+                }
+                return points;
+              })()}
               series={[
                 { dataKey: "sunElevation", name: "Sun Elevation", color: "#fb923c", unit: "°" },
               ]}

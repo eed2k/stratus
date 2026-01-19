@@ -236,7 +236,6 @@ export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInf
     <section className="space-y-4 mt-8">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <Shield className="h-5 w-5 text-primary" />
           Station Administration
           <Badge variant="secondary" className="ml-2">Admin Only</Badge>
         </h2>
