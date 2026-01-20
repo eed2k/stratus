@@ -366,21 +366,44 @@
 ### Authentication Security
 - [ ] **SQL injection blocked** (tested with common payloads)
 - [ ] **XSS attempts sanitized** (tested with script tags)
-- [ ] **Brute force protection** active (rate limiting)
-- [ ] **Session hijacking** prevented (secure tokens)
-- [ ] **Password requirements** enforced (length, complexity)
+- [ ] **Brute force protection** active (rate limiting: 5 attempts/15 min)
+- [ ] **Session hijacking** prevented (secure JWT tokens)
+- [ ] **Password requirements** enforced (minimum 8 characters)
+
+### HTTP Security Headers (Helmet.js)
+- [ ] **Content-Security-Policy** header present
+- [ ] **X-Content-Type-Options: nosniff** header present
+- [ ] **X-Frame-Options** header present
+- [ ] **X-XSS-Protection** header present
+- [ ] **Strict-Transport-Security** header present (when HTTPS)
+- [ ] **Referrer-Policy** header configured
 
 ### Data Security
 - [ ] **Passwords not in logs** (checked log files)
 - [ ] **API keys not exposed** (checked source, network)
 - [ ] **Database file permissions** appropriate
 - [ ] **Backup files secured** (if backup feature used)
+- [ ] **Sensitive data sanitized** in audit logs
+
+### Audit Logging
+- [ ] **Login attempts logged** (success and failure)
+- [ ] **User creation logged** with details
+- [ ] **Station operations logged** (create, update, delete)
+- [ ] **Audit logs accessible** via /api/audit-logs endpoint
+- [ ] **Logs include** timestamp, user, action, IP address
+- [ ] **Sensitive data redacted** from log details
 
 ### Network Security
 - [ ] **HTTPS enforced** for external connections
 - [ ] **Certificate validation** working
 - [ ] **No plaintext passwords** over network
-- [ ] **CORS properly configured**
+- [ ] **CORS properly configured** (no wildcard in production)
+
+### Environment Configuration
+- [ ] **CLIENT_JWT_SECRET set** (32+ character secret)
+- [ ] **STRATUS_ADMIN_EMAIL set** (valid email)
+- [ ] **STRATUS_ADMIN_PASSWORD set** (strong password, 8+ chars)
+- [ ] **NODE_ENV=production** configured
 
 **Test Result:** ⬜ Pass / ⬜ Fail  
 **Notes:**

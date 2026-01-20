@@ -7,6 +7,7 @@ import { z } from "zod";
 import path from "path";
 import fs from "fs";
 import rateLimit from "express-rate-limit";
+import { auditLog, AUDIT_ACTIONS, type AuditAction } from "./services/auditLogService";
 
 // Helper function to safely parse integer parameters with NaN validation
 function parseIntSafe(value: string | undefined, paramName: string): { value: number | null; error: string | null } {
@@ -582,6 +583,15 @@ export async function registerRoutes(
         }
       }
       
+      // Log station creation
+      await auditLog.log(AUDIT_ACTIONS.STATION_CREATE, 'stations', {
+        userId: getUserId(req),
+        resourceId: station.id,
+        details: { name: station.name, connectionType: station.connectionType },
+        ip: req.ip || req.socket.remoteAddress,
+        status: 'success'
+      });
+      
       res.status(201).json(station);
     } catch (error) {
       console.error("Error creating station:", error);
@@ -691,6 +701,15 @@ export async function registerRoutes(
       if (!deleted) {
         return res.status(404).json({ message: "Station not found" });
       }
+      
+      // Log station deletion
+      await auditLog.log(AUDIT_ACTIONS.STATION_DELETE, 'stations', {
+        userId: getUserId(req),
+        resourceId: stationId,
+        ip: req.ip || req.socket.remoteAddress,
+        status: 'success'
+      });
+      
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting station:", error);
@@ -1664,6 +1683,66 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error downloading documentation:", error);
       res.status(500).json({ message: "Failed to download documentation" });
+    }
+  });
+
+  // ============================================
+  // Audit Log API Routes (Admin Only)
+  // ============================================
+  
+  /**
+   * GET /api/audit-logs
+   * Retrieve audit logs for admin review
+   */
+  app.get("/api/audit-logs", isAuthenticated, async (req, res) => {
+    try {
+      const { action, userId, resource, startDate, endDate, status, limit } = req.query;
+      
+      const logs = await auditLog.searchLogs({
+        action: action as AuditAction | undefined,
+        userId: userId as string | undefined,
+        resource: resource as string | undefined,
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
+        status: status as 'success' | 'failure' | undefined,
+      }, limit ? parseInt(limit as string, 10) : 500);
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch audit logs" });
+    }
+  });
+
+  /**
+   * GET /api/audit-logs/recent
+   * Get recent audit logs from memory (faster for dashboards)
+   */
+  app.get("/api/audit-logs/recent", isAuthenticated, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+      const logs = auditLog.getRecentLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching recent audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch recent audit logs" });
+    }
+  });
+
+  /**
+   * GET /api/audit-logs/user/:userId
+   * Get audit logs for a specific user
+   */
+  app.get("/api/audit-logs/user/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const days = req.query.days ? parseInt(req.query.days as string, 10) : 30;
+      
+      const logs = await auditLog.getLogsForUser(userId, days);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching user audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch user audit logs" });
     }
   });
 

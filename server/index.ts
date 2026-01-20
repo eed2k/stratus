@@ -1,9 +1,11 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initDatabase } from "./db";
+import { auditLog, AUDIT_ACTIONS } from "./services/auditLogService";
 
 // Environment validation
 const validateEnvironment = () => {
@@ -25,6 +27,25 @@ const { port: validatedPort } = validateEnvironment();
 
 const app = express();
 const httpServer = createServer(app);
+
+// Security headers with Helmet.js
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for React
+      styleSrc: ["'self'", "'unsafe-inline'"], // Required for inline styles
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow embedding resources
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 
 declare module "http" {
   interface IncomingMessage {
@@ -121,6 +142,11 @@ app.use((req, res, next) => {
   
   httpServer.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
+    // Log system startup
+    auditLog.log(AUDIT_ACTIONS.SYSTEM_STARTUP, 'system', {
+      details: { port, nodeEnv: process.env.NODE_ENV || 'development' },
+      status: 'success'
+    });
   });
   
   // Keep process alive
@@ -130,5 +156,22 @@ app.use((req, res, next) => {
   
   process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled rejection at:', promise, 'reason:', reason);
+  });
+
+  // Log graceful shutdown
+  process.on('SIGTERM', () => {
+    auditLog.log(AUDIT_ACTIONS.SYSTEM_SHUTDOWN, 'system', {
+      details: { reason: 'SIGTERM received' },
+      status: 'success'
+    });
+    process.exit(0);
+  });
+
+  process.on('SIGINT', () => {
+    auditLog.log(AUDIT_ACTIONS.SYSTEM_SHUTDOWN, 'system', {
+      details: { reason: 'SIGINT received' },
+      status: 'success'
+    });
+    process.exit(0);
   });
 })();

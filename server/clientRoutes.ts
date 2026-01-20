@@ -11,6 +11,7 @@ import { storage } from './localStorage';
 import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
+import { auditLog, AUDIT_ACTIONS } from './services/auditLogService';
 
 const router = Router();
 
@@ -156,6 +157,8 @@ router.get('/health', (req: Request, res: Response) => {
 router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+    const clientIp = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
 
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Email and password required' });
@@ -163,11 +166,28 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
 
     const client = clientAccounts.get(email.toLowerCase());
     if (!client) {
+      // Log failed login attempt
+      await auditLog.log(AUDIT_ACTIONS.LOGIN_FAILED, 'auth', {
+        userEmail: email.toLowerCase(),
+        details: { reason: 'User not found' },
+        ip: clientIp,
+        userAgent,
+        status: 'failure'
+      });
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
     const validPassword = await bcryptjs.compare(password, client.passwordHash);
     if (!validPassword) {
+      // Log failed login attempt
+      await auditLog.log(AUDIT_ACTIONS.LOGIN_FAILED, 'auth', {
+        userId: client.id,
+        userEmail: email.toLowerCase(),
+        details: { reason: 'Invalid password' },
+        ip: clientIp,
+        userAgent,
+        status: 'failure'
+      });
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
@@ -184,6 +204,16 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
       ACTIVE_JWT_SECRET,
       { expiresIn: '7d' }
     );
+
+    // Log successful login
+    await auditLog.log(AUDIT_ACTIONS.LOGIN, 'auth', {
+      userId: client.id,
+      userEmail: client.email,
+      details: { stationId: client.stationId },
+      ip: clientIp,
+      userAgent,
+      status: 'success'
+    });
 
     res.json({
       success: true,
@@ -315,9 +345,9 @@ router.post('/admin/create', registerRateLimiter, async (req: Request, res: Resp
       return res.status(400).json({ error: 'Invalid email format' });
     }
     
-    // Password strength validation
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    // Password strength validation (minimum 8 characters)
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
     if (clientAccounts.has(email.toLowerCase())) {
@@ -338,6 +368,15 @@ router.post('/admin/create', registerRateLimiter, async (req: Request, res: Resp
     };
 
     clientAccounts.set(email.toLowerCase(), client);
+
+    // Log user creation
+    await auditLog.log(AUDIT_ACTIONS.USER_CREATE, 'users', {
+      userEmail: 'admin',
+      resourceId: client.id,
+      details: { email: client.email, name: client.name, stationId: client.stationId },
+      ip: req.ip || req.socket.remoteAddress,
+      status: 'success'
+    });
 
     res.json({
       success: true,
@@ -379,9 +418,9 @@ router.post('/register', registerRateLimiter, async (req: Request, res: Response
       return res.status(400).json({ success: false, message: 'Invalid email format' });
     }
     
-    // Password strength validation
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    // Password strength validation (minimum 8 characters)
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
     }
 
     if (clientAccounts.has(email.toLowerCase())) {
@@ -402,6 +441,17 @@ router.post('/register', registerRateLimiter, async (req: Request, res: Response
     };
 
     clientAccounts.set(email.toLowerCase(), client);
+
+    // Log user registration
+    await auditLog.log(AUDIT_ACTIONS.USER_CREATE, 'users', {
+      userId: client.id,
+      userEmail: client.email,
+      resourceId: client.id,
+      details: { name: client.name, registrationType: 'self-registration' },
+      ip: req.ip || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent'],
+      status: 'success'
+    });
 
     res.json({
       success: true,

@@ -37,8 +37,8 @@ export default function AccountSettings() {
       setError("Current password is required");
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      setError("New password must be at least 6 characters");
+    if (passwordData.newPassword.length < 8) {
+      setError("New password must be at least 8 characters");
       return;
     }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -171,7 +171,7 @@ export default function AccountSettings() {
                   type="password"
                   value={passwordData.newPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  placeholder="Enter new password (min 6 characters)"
+                  placeholder="Enter new password (min 8 characters)"
                 />
               </div>
               <div className="space-y-2">
