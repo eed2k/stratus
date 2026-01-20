@@ -38,7 +38,18 @@ export default function History() {
   const activeStationId = selectedStation || (stations.length > 0 ? String(stations[0].id) : "");
 
   const { data: weatherData = [], isLoading: dataLoading, refetch } = useQuery<WeatherData[]>({
-    queryKey: ["/api/stations", activeStationId, "data", { startTime: startDate, endTime: endDate }],
+    queryKey: ["/api/stations", activeStationId, "data", "history", startDate, endDate],
+    queryFn: async () => {
+      if (!activeStationId || !startDate || !endDate) return [];
+      // Convert dates to ISO strings with time components
+      const startISO = new Date(startDate + "T00:00:00").toISOString();
+      const endISO = new Date(endDate + "T23:59:59").toISOString();
+      const res = await fetch(
+        `/api/stations/${activeStationId}/data?startTime=${startISO}&endTime=${endISO}`
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
     enabled: !!activeStationId && !!startDate && !!endDate,
   });
 

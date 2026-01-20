@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /welcome
+Allow: /landing.html
+Disallow: /api/
+
+Sitemap: https://stratusweather1.dynv6.net:5000/sitemap.xml

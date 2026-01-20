@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8fafc"/>
+      <stop offset="100%" style="stop-color:#e2e8f0"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="500" fill="url(#bg3)"/>
+  
+  <!-- Header -->
+  <rect x="0" y="0" width="800" height="50" fill="#1e293b"/>
+  <text x="20" y="32" font-family="Arial" font-size="18" font-weight="bold" fill="#3b82f6">☁ Stratus</text>
+  <text x="120" y="32" font-family="Arial" font-size="14" fill="#94a3b8">Wind Analysis</text>
+  
+  <!-- Sidebar -->
+  <rect x="0" y="50" width="60" height="450" fill="#1e293b"/>
+  <rect x="10" y="70" width="40" height="40" rx="8" fill="#334155"/>
+  <rect x="10" y="120" width="40" height="40" rx="8" fill="#334155"/>
+  <rect x="10" y="170" width="40" height="40" rx="8" fill="#3b82f6" opacity="0.2"/>
+  <rect x="10" y="220" width="40" height="40" rx="8" fill="#334155"/>
+  
+  <!-- Main Content -->
+  <rect x="70" y="60" width="720" height="430" fill="#ffffff" rx="8"/>
+  
+  <!-- Title -->
+  <text x="90" y="95" font-family="Arial" font-size="18" font-weight="bold" fill="#1e293b">Wind Rose - HOPEFIELD CR300</text>
+  <text x="90" y="115" font-family="Arial" font-size="12" fill="#64748b">Last 30 days analysis</text>
+  
+  <!-- Wind Rose Circle -->
+  <circle cx="300" cy="300" r="150" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+  <circle cx="300" cy="300" r="120" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+  <circle cx="300" cy="300" r="90" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+  <circle cx="300" cy="300" r="60" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+  <circle cx="300" cy="300" r="30" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+  
+  <!-- Direction lines -->
+  <line x1="300" y1="140" x2="300" y2="460" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="140" y1="300" x2="460" y2="300" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="187" y1="187" x2="413" y2="413" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="187" y1="413" x2="413" y2="187" stroke="#e2e8f0" stroke-width="1"/>
+  
+  <!-- Direction labels -->
+  <text x="293" y="130" font-family="Arial" font-size="14" font-weight="bold" fill="#1e293b">N</text>
+  <text x="293" y="480" font-family="Arial" font-size="14" font-weight="bold" fill="#1e293b">S</text>
+  <text x="465" y="305" font-family="Arial" font-size="14" font-weight="bold" fill="#1e293b">E</text>
+  <text x="118" y="305" font-family="Arial" font-size="14" font-weight="bold" fill="#1e293b">W</text>
+  <text x="420" y="180" font-family="Arial" font-size="12" fill="#64748b">NE</text>
+  <text x="420" y="430" font-family="Arial" font-size="12" fill="#64748b">SE</text>
+  <text x="160" y="180" font-family="Arial" font-size="12" fill="#64748b">NW</text>
+  <text x="160" y="430" font-family="Arial" font-size="12" fill="#64748b">SW</text>
+  
+  <!-- Wind Rose Petals - representing wind from different directions -->
+  <!-- N - Strong winds from North -->
+  <polygon points="300,300 285,180 300,150 315,180" fill="#06b6d4" opacity="0.8"/>
+  
+  <!-- NE -->
+  <polygon points="300,300 380,200 406,194 390,220" fill="#06b6d4" opacity="0.6"/>
+  
+  <!-- E - Moderate -->
+  <polygon points="300,300 400,285 420,300 400,315" fill="#06b6d4" opacity="0.5"/>
+  
+  <!-- SE - Strong -->
+  <polygon points="300,300 390,380 406,406 380,400" fill="#06b6d4" opacity="0.7"/>
+  
+  <!-- S - Very Strong (dominant wind) -->
+  <polygon points="300,300 285,420 300,450 315,420" fill="#0891b2" opacity="0.9"/>
+  
+  <!-- SW - Strong -->
+  <polygon points="300,300 220,380 194,406 210,400" fill="#06b6d4" opacity="0.75"/>
+  
+  <!-- W - Moderate -->
+  <polygon points="300,300 200,285 180,300 200,315" fill="#06b6d4" opacity="0.55"/>
+  
+  <!-- NW - Weak -->
+  <polygon points="300,300 220,220 210,200 230,210" fill="#06b6d4" opacity="0.4"/>
+  
+  <!-- Center point -->
+  <circle cx="300" cy="300" r="5" fill="#1e293b"/>
+  
+  <!-- Legend -->
+  <rect x="520" y="130" width="240" height="200" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="540" y="155" font-family="Arial" font-size="13" font-weight="bold" fill="#1e293b">Wind Speed Legend</text>
+  
+  <rect x="540" y="175" width="20" height="12" fill="#06b6d4" opacity="0.3"/>
+  <text x="570" y="185" font-family="Arial" font-size="11" fill="#64748b">0-5 m/s (Calm)</text>
+  
+  <rect x="540" y="195" width="20" height="12" fill="#06b6d4" opacity="0.5"/>
+  <text x="570" y="205" font-family="Arial" font-size="11" fill="#64748b">5-10 m/s (Light)</text>
+  
+  <rect x="540" y="215" width="20" height="12" fill="#06b6d4" opacity="0.7"/>
+  <text x="570" y="225" font-family="Arial" font-size="11" fill="#64748b">10-15 m/s (Moderate)</text>
+  
+  <rect x="540" y="235" width="20" height="12" fill="#0891b2" opacity="0.9"/>
+  <text x="570" y="245" font-family="Arial" font-size="11" fill="#64748b">15+ m/s (Strong)</text>
+  
+  <line x1="540" y1="265" x2="740" y2="265" stroke="#e2e8f0"/>
+  
+  <text x="540" y="285" font-family="Arial" font-size="11" fill="#64748b">Dominant: S (28%)</text>
+  <text x="540" y="305" font-family="Arial" font-size="11" fill="#64748b">Avg Speed: 8.4 m/s</text>
+  <text x="540" y="325" font-family="Arial" font-size="11" fill="#64748b">Max Gust: 22.1 m/s</text>
+  
+  <!-- Statistics Cards -->
+  <rect x="520" y="350" width="115" height="70" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+  <text x="535" y="375" font-family="Arial" font-size="10" fill="#64748b">Calm Days</text>
+  <text x="535" y="405" font-family="Arial" font-size="24" font-weight="bold" fill="#22c55e">12</text>
+  
+  <rect x="645" y="350" width="115" height="70" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+  <text x="660" y="375" font-family="Arial" font-size="10" fill="#64748b">Windy Days</text>
+  <text x="660" y="405" font-family="Arial" font-size="24" font-weight="bold" fill="#f59e0b">18</text>
+  
+  <!-- Scale labels -->
+  <text x="306" y="275" font-family="Arial" font-size="8" fill="#94a3b8">10%</text>
+  <text x="306" y="245" font-family="Arial" font-size="8" fill="#94a3b8">20%</text>
+  <text x="306" y="215" font-family="Arial" font-size="8" fill="#94a3b8">30%</text>
+  <text x="306" y="185" font-family="Arial" font-size="8" fill="#94a3b8">40%</text>
+</svg>

@@ -4,11 +4,38 @@
  * and imports them into Stratus
  * 
  * Supports OAuth 2.0 refresh tokens for 24/7 operation
+ * Supports multiple folder configurations from database
  */
 
 import { EventEmitter } from 'events';
 import { storage } from '../localStorage';
 import { parseDataFile, mapToWeatherData, ParsedRecord } from '../parsers/campbellScientific';
+
+/**
+ * Get timezone offset for station (default SAST = UTC+2)
+ */
+function getStationTimezoneOffset(lat?: number, lon?: number): number {
+  if (lat === undefined || lon === undefined) return 2; // Default SAST
+  
+  // South Africa: SAST (UTC+2)
+  if (lat >= -35 && lat <= -22 && lon >= 16 && lon <= 33) return 2;
+  // East Africa: EAT (UTC+3)
+  if (lat >= -12 && lat <= 5 && lon >= 29 && lon <= 42) return 3;
+  // West Africa: WAT (UTC+1)
+  if (lat >= -5 && lat <= 13 && lon >= -5 && lon <= 15) return 1;
+  // Central Africa: CAT (UTC+2)
+  if (lat >= -22 && lat <= -8 && lon >= 12 && lon <= 36) return 2;
+  
+  return 2; // Default SAST
+}
+
+/**
+ * Format timestamp in station's local timezone
+ */
+function formatLocalTime(date: Date, timezoneOffset: number): string {
+  const localTime = new Date(date.getTime() + timezoneOffset * 3600000);
+  return localTime.toISOString().replace('T', ' ').substring(0, 19);
+}
 
 export interface DropboxConfig {
   accessToken: string;
@@ -21,6 +48,20 @@ export interface DropboxConfig {
   appKey?: string;
   appSecret?: string;
   tokenExpiresAt?: Date;
+}
+
+// Database-stored sync configuration
+export interface DbDropboxConfig {
+  id: number;
+  name: string;
+  folderPath: string;
+  filePattern?: string;
+  stationId?: number;
+  syncInterval: number;
+  enabled: boolean;
+  lastSyncAt?: Date;
+  lastSyncStatus?: string;
+  lastSyncRecords?: number;
 }
 
 export interface SyncedFile {
@@ -51,6 +92,7 @@ interface DropboxEntry {
 
 export class DropboxSyncService extends EventEmitter {
   private config: DropboxConfig | null = null;
+  private dbConfigs: DbDropboxConfig[] = [];
   private syncedFiles: Map<string, SyncedFile> = new Map();
   private syncTimer: NodeJS.Timeout | null = null;
   private isSyncing: boolean = false;
@@ -149,6 +191,97 @@ export class DropboxSyncService extends EventEmitter {
   }
 
   /**
+   * Check if Dropbox credentials are configured
+   */
+  hasCredentials(): boolean {
+    return !!(this.config?.accessToken || this.config?.refreshToken);
+  }
+
+  /**
+   * Reinitialize the service with updated configs from database
+   */
+  async reinitialize(): Promise<void> {
+    try {
+      this.dbConfigs = await storage.getDropboxConfigs();
+      console.log(`[DropboxSync] Reinitialized with ${this.dbConfigs.length} configurations from database`);
+    } catch (err) {
+      console.error('[DropboxSync] Failed to load configs from database:', err);
+    }
+  }
+
+  /**
+   * Get all database configurations
+   */
+  getDbConfigs(): DbDropboxConfig[] {
+    return this.dbConfigs;
+  }
+
+  /**
+   * List all .dat files in Dropbox (for UI file browser)
+   */
+  async listAllFiles(): Promise<{ name: string; path: string; modified: string; size: number }[]> {
+    if (!this.config) {
+      throw new Error('Dropbox not configured');
+    }
+
+    await this.ensureValidToken();
+
+    // List all files recursively from root
+    const response = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.config.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        path: '',
+        recursive: true,
+        include_media_info: false,
+        include_deleted: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Dropbox API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json() as DropboxListResponse;
+    let allEntries = data.entries;
+
+    // Handle pagination
+    let cursor = data.cursor;
+    while (data.has_more) {
+      const continueResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder/continue', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cursor }),
+      });
+
+      if (!continueResponse.ok) break;
+
+      const continueData = await continueResponse.json() as DropboxListResponse;
+      allEntries = allEntries.concat(continueData.entries);
+      cursor = continueData.cursor;
+
+      if (!continueData.has_more) break;
+    }
+
+    // Filter to .dat files only
+    return allEntries
+      .filter(entry => entry['.tag'] === 'file' && entry.name.toLowerCase().endsWith('.dat'))
+      .map(entry => ({
+        name: entry.name,
+        path: entry.path_display,
+        modified: entry.server_modified || '',
+        size: entry.size || 0,
+      }));
+  }
+
+  /**
    * Configure the Dropbox sync service
    */
   configure(config: DropboxConfig): void {
@@ -177,6 +310,7 @@ export class DropboxSyncService extends EventEmitter {
     lastSyncTime: Date | null;
     lastError: string | null;
     syncedFileCount: number;
+    dbConfigCount: number;
   } {
     return {
       configured: this.config !== null,
@@ -185,6 +319,7 @@ export class DropboxSyncService extends EventEmitter {
       lastSyncTime: this.lastSyncTime,
       lastError: this.lastError,
       syncedFileCount: this.syncedFiles.size,
+      dbConfigCount: this.dbConfigs.length,
     };
   }
 
@@ -460,7 +595,19 @@ export class DropboxSyncService extends EventEmitter {
 
       this.lastSyncTime = new Date();
       this.emit('syncComplete', { filesProcessed, recordsImported: totalRecordsImported });
+      
+      // Get station info for timezone-aware logging
+      const stationInfo = await storage.getStation(this.config!.stationId);
+      const timezoneOffset = getStationTimezoneOffset(stationInfo?.latitude, stationInfo?.longitude);
+      const localTime = formatLocalTime(this.lastSyncTime, timezoneOffset);
+      
       console.log(`[DropboxSync] Sync complete: ${filesProcessed} files, ${totalRecordsImported} records`);
+      console.log(`[DropboxSync] Local time: ${localTime} (UTC+${timezoneOffset})`);
+
+      // Also sync any database-configured folders
+      const dbResults = await this.syncDbConfigs();
+      filesProcessed += dbResults.filesProcessed;
+      totalRecordsImported += dbResults.recordsImported;
 
       return { success: true, filesProcessed, recordsImported: totalRecordsImported };
     } catch (err: any) {
@@ -471,6 +618,171 @@ export class DropboxSyncService extends EventEmitter {
     } finally {
       this.isSyncing = false;
     }
+  }
+
+  /**
+   * Sync files based on database configurations
+   */
+  private async syncDbConfigs(): Promise<{ filesProcessed: number; recordsImported: number }> {
+    let filesProcessed = 0;
+    let recordsImported = 0;
+
+    try {
+      // Reload configs from database
+      this.dbConfigs = await storage.getDropboxConfigs();
+      
+      if (this.dbConfigs.length === 0) {
+        return { filesProcessed: 0, recordsImported: 0 };
+      }
+
+      console.log(`[DropboxSync] Processing ${this.dbConfigs.length} database configurations...`);
+
+      // Get all files from Dropbox
+      const allFiles = await this.listAllFiles();
+
+      for (const dbConfig of this.dbConfigs) {
+        if (!dbConfig.enabled) {
+          console.log(`[DropboxSync] Skipping disabled config: ${dbConfig.name}`);
+          continue;
+        }
+
+        console.log(`[DropboxSync] Processing config: ${dbConfig.name} (folder: ${dbConfig.folderPath})`);
+
+        // Find matching files based on folder path and optional file pattern
+        const matchingFiles = allFiles.filter(file => {
+          // Check if file is in the configured folder
+          const inFolder = file.path.toLowerCase().startsWith(dbConfig.folderPath.toLowerCase());
+          
+          // Check file pattern if specified (e.g., "HOPEFIELD*" or "*Table1*")
+          if (dbConfig.filePattern) {
+            const pattern = dbConfig.filePattern.replace(/\*/g, '.*');
+            const regex = new RegExp(pattern, 'i');
+            return inFolder && regex.test(file.name);
+          }
+          
+          return inFolder;
+        });
+
+        console.log(`[DropboxSync] Found ${matchingFiles.length} matching files for ${dbConfig.name}`);
+
+        for (const file of matchingFiles) {
+          try {
+            // Check if file has been modified since last sync
+            const fileKey = `${dbConfig.id}:${file.path}`;
+            const existingSynced = this.syncedFiles.get(fileKey);
+            if (existingSynced && new Date(file.modified) <= existingSynced.modifiedAt) {
+              console.log(`[DropboxSync] Skipping ${file.name} - no changes`);
+              continue;
+            }
+
+            console.log(`[DropboxSync] Downloading ${file.name}...`);
+            const content = await this.downloadFile(file.path);
+
+            // Parse the file
+            const parsed = parseDataFile(content);
+            if (!parsed || parsed.records.length === 0) {
+              console.warn(`[DropboxSync] No records found in ${file.name}`);
+              continue;
+            }
+
+            console.log(`[DropboxSync] Parsed ${parsed.records.length} total records from ${file.name}`);
+
+            // Extract station name from file or use config name
+            const stationName = dbConfig.name.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+            
+            // Find or create station
+            const stations = await storage.getStations();
+            let station: any = dbConfig.stationId 
+              ? stations.find(s => s.id === dbConfig.stationId)
+              : stations.find(s => 
+                  s.name.toLowerCase() === stationName.toLowerCase() ||
+                  s.name.toLowerCase().includes(dbConfig.name.toLowerCase().split('_')[0])
+                );
+
+            if (!station) {
+              console.log(`[DropboxSync] Creating new station: ${stationName}`);
+              station = await storage.createStation({
+                name: stationName,
+                pakbusAddress: 1,
+                connectionType: 'http',
+                connectionConfig: { 
+                  type: 'import-only', 
+                  importSource: 'dropbox',
+                  folderPath: dbConfig.folderPath 
+                },
+                isActive: true,
+              });
+              
+              // Update config with new station ID
+              await storage.updateDropboxConfig(dbConfig.id, { stationId: station.id });
+            }
+
+            // Filter to last 48 hours and import
+            const cutoffTime = new Date();
+            cutoffTime.setHours(cutoffTime.getHours() - 48);
+
+            const recentRecords = parsed.records.filter(r => r.timestamp >= cutoffTime);
+            console.log(`[DropboxSync] Importing ${recentRecords.length} records from last 48 hours`);
+
+            let configRecordsImported = 0;
+            const BATCH_SIZE = 100;
+            
+            for (let i = 0; i < recentRecords.length; i += BATCH_SIZE) {
+              const batch = recentRecords.slice(i, i + BATCH_SIZE);
+              const batchData = batch.map(record => {
+                const mappedData = mapToWeatherData(record);
+                return {
+                  stationId: station.id,
+                  tableName: parsed.tableName || 'Table1',
+                  recordNumber: record.recordNumber,
+                  timestamp: record.timestamp,
+                  data: { ...record.data, ...mappedData },
+                };
+              });
+
+              try {
+                const inserted = await storage.insertWeatherDataBatch(batchData);
+                configRecordsImported += inserted;
+              } catch (err: any) {
+                for (const data of batchData) {
+                  try {
+                    await storage.createWeatherData(data);
+                    configRecordsImported++;
+                  } catch (individualErr: any) {
+                    if (!individualErr.message?.includes('UNIQUE constraint')) {
+                      console.warn(`[DropboxSync] Error importing record:`, individualErr.message);
+                    }
+                  }
+                }
+              }
+            }
+
+            console.log(`[DropboxSync] Imported ${configRecordsImported} records from ${file.name}`);
+            recordsImported += configRecordsImported;
+            filesProcessed++;
+
+            // Mark file as synced
+            this.syncedFiles.set(fileKey, {
+              name: file.name,
+              path: file.path,
+              rev: '',
+              modifiedAt: new Date(file.modified),
+              lastSynced: new Date(),
+            });
+
+            // Update sync status in database
+            await storage.updateDropboxSyncStatus(dbConfig.id, 'success', configRecordsImported);
+          } catch (fileErr: any) {
+            console.error(`[DropboxSync] Error processing ${file.name}:`, fileErr.message);
+            await storage.updateDropboxSyncStatus(dbConfig.id, `error: ${fileErr.message}`, 0);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('[DropboxSync] Error syncing db configs:', err.message);
+    }
+
+    return { filesProcessed, recordsImported };
   }
 
   /**

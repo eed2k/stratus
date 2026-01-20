@@ -50,6 +50,16 @@ export function serveStatic(app: Express) {
   
   console.log(`Serving static files from: ${distPath}`);
 
+  // Serve landing page at /welcome for SEO/indexing
+  app.get("/welcome", (_req, res) => {
+    const landingPath = path.join(distPath!, "landing.html");
+    if (fs.existsSync(landingPath)) {
+      res.sendFile(landingPath);
+    } else {
+      res.redirect("/");
+    }
+  });
+
   app.use(express.static(distPath));
 
   app.use("*", (_req, res) => {

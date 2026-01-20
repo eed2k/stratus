@@ -5,6 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { dropboxSyncService, DropboxConfig } from './dropboxSyncService';
+import { storage } from '../localStorage';
 
 const router = Router();
 
@@ -18,24 +19,118 @@ router.get('/status', (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/dropbox-sync/config
- * Get current configuration (token is masked)
+ * GET /api/dropbox-sync/configs
+ * Get all Dropbox sync configurations from database
  */
-router.get('/config', (req: Request, res: Response) => {
-  const config = dropboxSyncService.getConfig();
-  if (!config) {
-    return res.json({ configured: false });
+router.get('/configs', async (req: Request, res: Response) => {
+  try {
+    const configs = await storage.getDropboxConfigs();
+    res.json(configs);
+  } catch (err: any) {
+    console.error('[DropboxSync] Error getting configs:', err);
+    res.status(500).json({ error: err.message });
   }
+});
 
-  // Mask the access token for security
-  res.json({
-    configured: true,
-    folderPath: config.folderPath,
-    stationId: config.stationId,
-    syncInterval: config.syncInterval,
-    enabled: config.enabled,
-    accessToken: config.accessToken.substring(0, 10) + '...',
-  });
+/**
+ * POST /api/dropbox-sync/configs
+ * Create a new Dropbox sync configuration
+ */
+router.post('/configs', async (req: Request, res: Response) => {
+  try {
+    const { name, folderPath, filePattern, stationId, syncInterval, enabled } = req.body;
+    
+    if (!name || !folderPath) {
+      return res.status(400).json({ error: 'Name and folder path are required' });
+    }
+    
+    const config = await storage.createDropboxConfig({
+      name,
+      folderPath,
+      filePattern,
+      stationId,
+      syncInterval: syncInterval || 3600000,
+      enabled: enabled !== false,
+    });
+    
+    // Reinitialize sync service to pick up new config
+    await dropboxSyncService.reinitialize();
+    
+    res.json({ success: true, config });
+  } catch (err: any) {
+    console.error('[DropboxSync] Error creating config:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/dropbox-sync/configs/:id
+ * Update a Dropbox sync configuration
+ */
+router.put('/configs/:id', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { name, folderPath, filePattern, stationId, syncInterval, enabled } = req.body;
+    
+    const config = await storage.updateDropboxConfig(id, {
+      name,
+      folderPath,
+      filePattern,
+      stationId,
+      syncInterval,
+      enabled,
+    });
+    
+    // Reinitialize sync service to pick up changes
+    await dropboxSyncService.reinitialize();
+    
+    res.json({ success: true, config });
+  } catch (err: any) {
+    console.error('[DropboxSync] Error updating config:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/dropbox-sync/configs/:id
+ * Delete a Dropbox sync configuration
+ */
+router.delete('/configs/:id', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await storage.deleteDropboxConfig(id);
+    
+    // Reinitialize sync service to pick up changes
+    await dropboxSyncService.reinitialize();
+    
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('[DropboxSync] Error deleting config:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/dropbox-sync/files
+ * List all available .dat files in Dropbox (for browsing)
+ */
+router.get('/files', async (req: Request, res: Response) => {
+  try {
+    const files = await dropboxSyncService.listAllFiles();
+    res.json(files);
+  } catch (err: any) {
+    console.error('[DropboxSync] Error listing files:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/dropbox-sync/credentials
+ * Check if Dropbox credentials are configured
+ */
+router.get('/credentials', (req: Request, res: Response) => {
+  const configured = dropboxSyncService.hasCredentials();
+  res.json({ configured });
 });
 
 /**

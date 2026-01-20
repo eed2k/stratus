@@ -53,8 +53,11 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
   const { data: weatherData = [] } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", config.stationId, "data", config.startDate, config.endDate],
     queryFn: async () => {
+      // Convert dates to ISO strings with time components
+      const startISO = new Date(config.startDate + "T00:00:00").toISOString();
+      const endISO = new Date(config.endDate + "T23:59:59").toISOString();
       const res = await fetch(
-        `/api/stations/${config.stationId}/data?startTime=${config.startDate}&endTime=${config.endDate}`
+        `/api/stations/${config.stationId}/data?startTime=${startISO}&endTime=${endISO}`
       );
       if (!res.ok) throw new Error("Failed to fetch data");
       return res.json();

@@ -424,6 +424,29 @@ async function runMigrations(database: Database): Promise<void> {
     dbLog.error('Failed to create alarm_events table', e);
   }
 
+  // Add dropbox_configs table for managing multiple Dropbox sync configurations
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS dropbox_configs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        folder_path TEXT NOT NULL,
+        file_pattern TEXT,
+        station_id INTEGER,
+        sync_interval INTEGER DEFAULT 3600000,
+        enabled INTEGER DEFAULT 1,
+        last_sync_at DATETIME,
+        last_sync_status TEXT,
+        last_sync_records INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    dbLog.info('Dropbox configs table ready');
+  } catch (e) {
+    dbLog.error('Failed to create dropbox_configs table', e);
+  }
+
   saveDatabase();
 }
 
@@ -1582,6 +1605,120 @@ export function acknowledgeAlarmEvent(eventId: number, acknowledgedBy: string): 
   dbLog.info(`Alarm event ${eventId} acknowledged by ${acknowledgedBy}`);
 }
 
+// ==================== Dropbox Config Functions ====================
+
+export interface DropboxConfigRow {
+  id: number;
+  name: string;
+  folder_path: string;
+  file_pattern: string | null;
+  station_id: number | null;
+  sync_interval: number;
+  enabled: number;
+  last_sync_at: string | null;
+  last_sync_status: string | null;
+  last_sync_records: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getAllDropboxConfigs(): DropboxConfigRow[] {
+  if (!db) throw new Error('Database not initialized');
+  
+  const query = 'SELECT id, name, folder_path, file_pattern, station_id, sync_interval, enabled, last_sync_at, last_sync_status, last_sync_records, created_at, updated_at FROM dropbox_configs ORDER BY created_at ASC';
+  const result = db.exec(query);
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    name: row[1] as string,
+    folder_path: row[2] as string,
+    file_pattern: row[3] as string | null,
+    station_id: row[4] as number | null,
+    sync_interval: row[5] as number,
+    enabled: row[6] as number,
+    last_sync_at: row[7] as string | null,
+    last_sync_status: row[8] as string | null,
+    last_sync_records: row[9] as number,
+    created_at: row[10] as string,
+    updated_at: row[11] as string
+  }));
+}
+
+export function getDropboxConfigById(id: number): DropboxConfigRow | null {
+  if (!db) throw new Error('Database not initialized');
+  
+  const query = 'SELECT id, name, folder_path, file_pattern, station_id, sync_interval, enabled, last_sync_at, last_sync_status, last_sync_records, created_at, updated_at FROM dropbox_configs WHERE id = ?';
+  const result = db.exec(query, [id]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const row = result[0].values[0] as any[];
+  return {
+    id: row[0] as number,
+    name: row[1] as string,
+    folder_path: row[2] as string,
+    file_pattern: row[3] as string | null,
+    station_id: row[4] as number | null,
+    sync_interval: row[5] as number,
+    enabled: row[6] as number,
+    last_sync_at: row[7] as string | null,
+    last_sync_status: row[8] as string | null,
+    last_sync_records: row[9] as number,
+    created_at: row[10] as string,
+    updated_at: row[11] as string
+  };
+}
+
+export function createDropboxConfig(name: string, folderPath: string, filePattern: string | null, stationId: number | null, syncInterval: number, enabled: boolean): number {
+  if (!db) throw new Error('Database not initialized');
+  
+  db.run(
+    `INSERT INTO dropbox_configs (name, folder_path, file_pattern, station_id, sync_interval, enabled) VALUES (?, ?, ?, ?, ?, ?)`,
+    [name, folderPath, filePattern, stationId, syncInterval, enabled ? 1 : 0]
+  );
+  saveDatabase();
+  
+  // Get the last inserted ID
+  const result = db.exec('SELECT last_insert_rowid()');
+  return result[0].values[0][0] as number;
+}
+
+export function updateDropboxConfig(id: number, updates: { name?: string; folder_path?: string; file_pattern?: string | null; station_id?: number | null; sync_interval?: number; enabled?: boolean }): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  
+  if (updates.name !== undefined) { setClauses.push('name = ?'); values.push(updates.name); }
+  if (updates.folder_path !== undefined) { setClauses.push('folder_path = ?'); values.push(updates.folder_path); }
+  if (updates.file_pattern !== undefined) { setClauses.push('file_pattern = ?'); values.push(updates.file_pattern); }
+  if (updates.station_id !== undefined) { setClauses.push('station_id = ?'); values.push(updates.station_id); }
+  if (updates.sync_interval !== undefined) { setClauses.push('sync_interval = ?'); values.push(updates.sync_interval); }
+  if (updates.enabled !== undefined) { setClauses.push('enabled = ?'); values.push(updates.enabled ? 1 : 0); }
+  setClauses.push('updated_at = ?'); values.push(new Date().toISOString());
+  values.push(id);
+  
+  db.run(`UPDATE dropbox_configs SET ${setClauses.join(', ')} WHERE id = ?`, values);
+  saveDatabase();
+}
+
+export function updateDropboxSyncStatus(id: number, status: string, recordsImported: number): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  db.run(
+    'UPDATE dropbox_configs SET last_sync_at = ?, last_sync_status = ?, last_sync_records = ?, updated_at = ? WHERE id = ?',
+    [new Date().toISOString(), status, recordsImported, new Date().toISOString(), id]
+  );
+  saveDatabase();
+}
+
+export function deleteDropboxConfig(id: number): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  db.run('DELETE FROM dropbox_configs WHERE id = ?', [id]);
+  saveDatabase();
+}
+
 // Export database module
 export default {
   initDatabase,
@@ -1628,5 +1765,11 @@ export default {
   deleteAlarm,
   triggerAlarm,
   getAlarmEvents,
-  acknowledgeAlarmEvent
-};
+  acknowledgeAlarmEvent,
+  // Dropbox config functions
+  getAllDropboxConfigs,
+  getDropboxConfigById,
+  createDropboxConfig,
+  updateDropboxConfig,
+  updateDropboxSyncStatus,
+  deleteDropboxConfig,};

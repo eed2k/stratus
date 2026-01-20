@@ -4,11 +4,45 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stratus - Weather Station Monitoring</title>
-    <meta name="description" content="Real-time weather station monitoring with research-grade data visualization" />
-    <meta name="theme-color" content="#2b6cb0" />
+    <title>Stratus - Professional Weather Station Monitoring Platform</title>
+    <meta name="description" content="Stratus is a professional weather monitoring platform for Campbell Scientific dataloggers. Real-time dashboards, data visualization, alerts, and comprehensive reporting." />
+    <meta name="keywords" content="weather monitoring, Campbell Scientific, datalogger, weather station, meteorological data, environmental monitoring, Stratus" />
+    <meta name="author" content="Lukas Esterhuizen" />
+    <meta name="theme-color" content="#3b82f6" />
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://stratusweather1.dynv6.net:5000/" />
+    <meta property="og:title" content="Stratus Weather Monitoring Platform" />
+    <meta property="og:description" content="Professional weather station management with real-time monitoring, data visualization, and comprehensive reporting." />
+    
+    <!-- Canonical and alternate links for SEO -->
+    <link rel="canonical" href="https://stratusweather1.dynv6.net:5000/" />
+    <link rel="alternate" href="https://stratusweather1.dynv6.net:5000/welcome" title="Stratus Landing Page" />
+    
+    <!-- SEO: Hidden content for crawlers -->
+    <noscript>
+      <meta http-equiv="refresh" content="0;url=/welcome" />
+    </noscript>
   </head>
   <body>
+    <!-- SEO Content: Visible to search engine crawlers -->
+    <div id="seo-content" style="position:absolute;left:-9999px;">
+      <h1>Stratus Weather Monitoring Platform</h1>
+      <p>Professional weather station management for Campbell Scientific dataloggers.</p>
+      <h2>Features</h2>
+      <ul>
+        <li>Real-Time Weather Monitoring - Live data updates with WebSocket connections</li>
+        <li>Interactive Charts - Temperature, pressure, wind roses, and custom time ranges</li>
+        <li>Smart Alerts - Configure alarms for weather thresholds with email notifications</li>
+        <li>Report Generation - PDF and CSV reports with statistics and date ranges</li>
+        <li>Multi-Station Support - Manage multiple weather stations from one dashboard</li>
+        <li>Dropbox Sync - Automatic TOA5 data file synchronization from LoggerNet</li>
+      </ul>
+      <h2>Supported Equipment</h2>
+      <p>Campbell Scientific CR300, CR1000X, CR6 dataloggers with TOA5, Array, and PakBus protocols.</p>
+      <a href="/welcome">View Full Landing Page</a>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

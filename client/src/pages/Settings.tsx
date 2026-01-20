@@ -14,7 +14,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle } from "lucide-react";
+import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle, Cloud, Plus, Trash2, RefreshCw, FolderSync } from "lucide-react";
+
+// Dropbox config interface
+interface DropboxConfig {
+  id: number;
+  name: string;
+  folderPath: string;
+  filePattern?: string;
+  stationId?: number;
+  syncInterval: number;
+  enabled: boolean;
+  lastSyncAt?: string;
+  lastSyncStatus?: string;
+  lastSyncRecords?: number;
+}
 
 // User profile settings interface
 interface UserProfile {
@@ -44,6 +58,14 @@ export default function Settings() {
   const [testEmailAddress, setTestEmailAddress] = useState('');
   const [isSendingTest, setIsSendingTest] = useState(false);
   
+  // Dropbox state
+  const [newConfigName, setNewConfigName] = useState('');
+  const [newConfigFolder, setNewConfigFolder] = useState('');
+  const [newConfigPattern, setNewConfigPattern] = useState('');
+  const [newConfigInterval, setNewConfigInterval] = useState('3600000');
+  const [isAddingConfig, setIsAddingConfig] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
   // Profile state
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -61,6 +83,37 @@ export default function Settings() {
   
   // Server state
   const [serverAddress, setServerAddress] = useState('');
+
+  // Fetch Dropbox configs from server
+  const { data: dropboxConfigs, refetch: refetchDropboxConfigs } = useQuery<DropboxConfig[]>({
+    queryKey: ['/api/dropbox-sync/configs'],
+    queryFn: async () => {
+      const res = await fetch('/api/dropbox-sync/configs');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Fetch Dropbox credentials status
+  const { data: dropboxCredentials } = useQuery({
+    queryKey: ['/api/dropbox-sync/credentials'],
+    queryFn: async () => {
+      const res = await fetch('/api/dropbox-sync/credentials');
+      if (!res.ok) return { configured: false };
+      return res.json();
+    },
+  });
+
+  // Fetch available Dropbox files
+  const { data: dropboxFiles, refetch: refetchDropboxFiles, isLoading: isLoadingFiles } = useQuery<{ name: string; path: string; modified: string; size: number }[]>({
+    queryKey: ['/api/dropbox-sync/files'],
+    queryFn: async () => {
+      const res = await fetch('/api/dropbox-sync/files');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!dropboxCredentials?.configured,
+  });
 
   // Fetch user profile from server
   const { data: userProfile } = useQuery({
@@ -113,6 +166,118 @@ export default function Settings() {
       setServerAddress(preferences.serverAddress ?? '');
     }
   }, [preferences]);
+
+  // Dropbox handlers
+  const handleAddDropboxConfig = async () => {
+    if (!newConfigName || !newConfigFolder) {
+      toast({
+        title: "Error",
+        description: "Name and folder path are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAddingConfig(true);
+    try {
+      const res = await fetch('/api/dropbox-sync/configs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newConfigName,
+          folderPath: newConfigFolder.startsWith('/') ? newConfigFolder : `/${newConfigFolder}`,
+          filePattern: newConfigPattern || undefined,
+          syncInterval: parseInt(newConfigInterval),
+          enabled: true,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to add configuration');
+
+      toast({
+        title: "Success",
+        description: `Added sync configuration for ${newConfigName}`,
+      });
+
+      setNewConfigName('');
+      setNewConfigFolder('');
+      setNewConfigPattern('');
+      refetchDropboxConfigs();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add configuration",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingConfig(false);
+    }
+  };
+
+  const handleDeleteDropboxConfig = async (id: number, name: string) => {
+    if (!confirm(`Delete sync configuration for "${name}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/dropbox-sync/configs/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+
+      toast({
+        title: "Deleted",
+        description: `Removed sync configuration for ${name}`,
+      });
+      refetchDropboxConfigs();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete configuration",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleDropboxConfig = async (id: number, enabled: boolean) => {
+    try {
+      const res = await fetch(`/api/dropbox-sync/configs/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) throw new Error('Failed to update');
+      refetchDropboxConfigs();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update configuration",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTriggerSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/dropbox-sync/sync', { method: 'POST' });
+      const result = await res.json();
+
+      if (result.success) {
+        toast({
+          title: "Sync Complete",
+          description: `Processed ${result.filesProcessed} files, imported ${result.recordsImported} records`,
+        });
+      } else {
+        throw new Error(result.error || 'Sync failed');
+      }
+      refetchDropboxConfigs();
+    } catch (error: any) {
+      toast({
+        title: "Sync Error",
+        description: error.message || "Failed to sync",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Save profile to server
   const handleSaveProfile = async () => {
@@ -513,6 +678,174 @@ export default function Settings() {
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Preferences
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Dropbox Sync Configuration Card */}
+        <Card className="lg:col-span-2" data-testid="card-dropbox-settings">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Cloud className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-lg">Dropbox Sync</CardTitle>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleTriggerSync}
+                disabled={isSyncing || !dropboxCredentials?.configured}
+              >
+                {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Sync Now
+              </Button>
+            </div>
+            <CardDescription>
+              Configure automatic data import from Dropbox folders (LoggerNet uploads)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {!dropboxCredentials?.configured ? (
+              <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-4 text-sm">
+                <p className="text-yellow-800 dark:text-yellow-200 font-medium">Dropbox Not Configured</p>
+                <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                  Configure Dropbox credentials in the server environment variables:
+                </p>
+                <ul className="list-disc list-inside mt-2 text-yellow-700 dark:text-yellow-300 space-y-1">
+                  <li><code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">DROPBOX_APP_KEY</code></li>
+                  <li><code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">DROPBOX_APP_SECRET</code></li>
+                  <li><code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">DROPBOX_REFRESH_TOKEN</code></li>
+                </ul>
+              </div>
+            ) : (
+              <>
+                {/* Available files browser */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Available Data Files in Dropbox</Label>
+                    <Button variant="ghost" size="sm" onClick={() => refetchDropboxFiles()} disabled={isLoadingFiles}>
+                      {isLoadingFiles ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto rounded-md border p-2 text-sm">
+                    {dropboxFiles && dropboxFiles.length > 0 ? (
+                      <ul className="space-y-1">
+                        {dropboxFiles.map((file) => (
+                          <li key={file.path} className="flex items-center justify-between hover:bg-muted/50 p-1 rounded">
+                            <span className="font-mono text-xs truncate">{file.path}</span>
+                            <span className="text-xs text-muted-foreground ml-2">{(file.size / 1024).toFixed(0)} KB</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-2">No .dat files found</p>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Existing configs */}
+                <div className="space-y-3">
+                  <Label>Sync Configurations</Label>
+                  {dropboxConfigs && dropboxConfigs.length > 0 ? (
+                    <div className="space-y-2">
+                      {dropboxConfigs.map((config) => (
+                        <div key={config.id} className="flex items-center justify-between p-3 rounded-md border bg-muted/30">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <FolderSync className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">{config.name}</span>
+                              {config.enabled ? (
+                                <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">Active</span>
+                              ) : (
+                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">Disabled</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Folder: <code className="bg-muted px-1 rounded">{config.folderPath}</code>
+                              {config.filePattern && <> • Pattern: <code className="bg-muted px-1 rounded">{config.filePattern}</code></>}
+                            </p>
+                            {config.lastSyncAt && (
+                              <p className="text-xs text-muted-foreground">
+                                Last sync: {new Date(config.lastSyncAt).toLocaleString()} 
+                                {config.lastSyncStatus && ` (${config.lastSyncStatus})`}
+                                {config.lastSyncRecords !== undefined && ` - ${config.lastSyncRecords} records`}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={config.enabled}
+                              onCheckedChange={(enabled) => handleToggleDropboxConfig(config.id, enabled)}
+                            />
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteDropboxConfig(config.id, config.name)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No sync configurations yet. Add one below.</p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Add new config */}
+                <div className="space-y-4">
+                  <Label>Add New Sync Configuration</Label>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="newConfigName" className="text-xs">Name (e.g., station name)</Label>
+                      <Input
+                        id="newConfigName"
+                        placeholder="KWAGGASKLIP"
+                        value={newConfigName}
+                        onChange={(e) => setNewConfigName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newConfigFolder" className="text-xs">Folder Path</Label>
+                      <Input
+                        id="newConfigFolder"
+                        placeholder="/KWAGGASKLIP or /"
+                        value={newConfigFolder}
+                        onChange={(e) => setNewConfigFolder(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newConfigPattern" className="text-xs">File Pattern (optional)</Label>
+                      <Input
+                        id="newConfigPattern"
+                        placeholder="*Table1* or KWAGGAS*"
+                        value={newConfigPattern}
+                        onChange={(e) => setNewConfigPattern(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newConfigInterval" className="text-xs">Sync Interval</Label>
+                      <Select value={newConfigInterval} onValueChange={setNewConfigInterval}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="300000">5 minutes</SelectItem>
+                          <SelectItem value="600000">10 minutes</SelectItem>
+                          <SelectItem value="1800000">30 minutes</SelectItem>
+                          <SelectItem value="3600000">1 hour</SelectItem>
+                          <SelectItem value="7200000">2 hours</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button onClick={handleAddDropboxConfig} disabled={isAddingConfig}>
+                    {isAddingConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                    Add Configuration
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

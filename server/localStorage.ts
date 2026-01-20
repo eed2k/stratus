@@ -820,6 +820,78 @@ export class DatabaseStorage {
     return true;
   }
 
+  // ==================== Dropbox Config Methods ====================
+  
+  async getDropboxConfigs(): Promise<any[]> {
+    const results = db.getAllDropboxConfigs();
+    return results.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      folderPath: row.folder_path,
+      filePattern: row.file_pattern,
+      stationId: row.station_id,
+      syncInterval: row.sync_interval,
+      enabled: !!row.enabled,
+      lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at) : null,
+      lastSyncStatus: row.last_sync_status,
+      lastSyncRecords: row.last_sync_records || 0,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+    }));
+  }
+
+  async getDropboxConfig(id: number): Promise<any | null> {
+    const row = db.getDropboxConfigById(id);
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      folderPath: row.folder_path,
+      filePattern: row.file_pattern,
+      stationId: row.station_id,
+      syncInterval: row.sync_interval,
+      enabled: !!row.enabled,
+      lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at) : null,
+      lastSyncStatus: row.last_sync_status,
+      lastSyncRecords: row.last_sync_records || 0,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+    };
+  }
+
+  async createDropboxConfig(data: { name: string; folderPath: string; filePattern?: string; stationId?: number; syncInterval?: number; enabled?: boolean }): Promise<any> {
+    const id = db.createDropboxConfig(
+      data.name, 
+      data.folderPath, 
+      data.filePattern || null, 
+      data.stationId || null, 
+      data.syncInterval || 3600000, 
+      data.enabled !== false
+    );
+    return this.getDropboxConfig(id);
+  }
+
+  async updateDropboxConfig(id: number, data: Partial<{ name: string; folderPath: string; filePattern: string; stationId: number; syncInterval: number; enabled: boolean }>): Promise<any> {
+    db.updateDropboxConfig(id, {
+      name: data.name,
+      folder_path: data.folderPath,
+      file_pattern: data.filePattern,
+      station_id: data.stationId,
+      sync_interval: data.syncInterval,
+      enabled: data.enabled,
+    });
+    return this.getDropboxConfig(id);
+  }
+
+  async updateDropboxSyncStatus(id: number, status: string, recordsImported: number): Promise<void> {
+    db.updateDropboxSyncStatus(id, status, recordsImported);
+  }
+
+  async deleteDropboxConfig(id: number): Promise<boolean> {
+    db.deleteDropboxConfig(id);
+    return true;
+  }
+
   // Helper methods
   private mapDbStation(station: any): WeatherStation {
     let connectionConfig: any = {};

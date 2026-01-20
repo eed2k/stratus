@@ -27,6 +27,18 @@ interface Alarm {
   triggerCount: number;
 }
 
+interface AlarmEvent {
+  id: number;
+  alarmId: number;
+  stationId: number;
+  triggeredValue?: number;
+  message?: string;
+  acknowledged: boolean;
+  acknowledgedBy?: string;
+  acknowledgedAt?: string;
+  createdAt: string;
+}
+
 const PARAMETERS = [
   { value: "temperature", label: "Temperature", unit: "°C" },
   { value: "humidity", label: "Humidity", unit: "%" },
@@ -67,10 +79,10 @@ export default function Alarms() {
 
   const { data: alarms = [], isLoading } = useQuery<Alarm[]>({
     queryKey: ["/api/alarms"],
-    queryFn: async () => {
-      // In-memory alarms for demo (would be database-backed in production)
-      return [];
-    },
+  });
+
+  const { data: alarmEvents = [] } = useQuery<AlarmEvent[]>({
+    queryKey: ["/api/alarm-events"],
   });
 
   const selectedParam = PARAMETERS.find((p) => p.value === formData.parameter);
@@ -375,9 +387,33 @@ export default function Alarms() {
           <CardDescription>Recent alarm events</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No alarm events recorded yet. Events will appear here when alarms are triggered.
-          </p>
+          {alarmEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No alarm events recorded yet. Events will appear here when alarms are triggered.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {alarmEvents.slice(0, 10).map((event) => {
+                const alarm = alarms.find((a) => a.id === event.alarmId);
+                return (
+                  <div key={event.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{alarm?.name || `Alarm #${event.alarmId}`}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {event.message || `Triggered at ${event.triggeredValue}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(event.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <Badge variant={event.acknowledged ? "secondary" : "destructive"}>
+                      {event.acknowledged ? "Acknowledged" : "Active"}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

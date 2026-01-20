@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getWindDirectionLabel } from "@/lib/windConstants";
+import { useState, useEffect } from "react";
+import { Clock } from "lucide-react";
 
 interface CurrentConditionsProps {
   stationName: string;
@@ -17,6 +19,8 @@ interface CurrentConditionsProps {
   isOnline?: boolean;
   connectionType?: string; // 'dropbox', 'http', 'tcp', etc.
   syncInterval?: number; // in milliseconds
+  latitude?: number;
+  longitude?: number;
 }
 
 /**
@@ -24,6 +28,40 @@ interface CurrentConditionsProps {
  */
 const fmt = (value: number, maxDecimals: number = 1): string => {
   return parseFloat(value.toFixed(maxDecimals)).toString();
+};
+
+/**
+ * Get timezone info based on coordinates
+ */
+const getTimezoneInfo = (lat?: number, lon?: number) => {
+  // Default to SAST (South Africa)
+  let timezone = 'SAST';
+  let offset = 2; // UTC+2
+  
+  if (lat !== undefined && lon !== undefined) {
+    // South Africa and southern Africa: SAST (UTC+2)
+    if (lat >= -35 && lat <= -22 && lon >= 16 && lon <= 33) {
+      timezone = 'SAST';
+      offset = 2;
+    }
+    // East Africa: EAT (UTC+3)
+    else if (lat >= -12 && lat <= 5 && lon >= 29 && lon <= 42) {
+      timezone = 'EAT';
+      offset = 3;
+    }
+    // West Africa: WAT (UTC+1)
+    else if (lat >= -5 && lat <= 13 && lon >= -5 && lon <= 15) {
+      timezone = 'WAT';
+      offset = 1;
+    }
+    // Central/Southern Africa: CAT (UTC+2)
+    else if (lat >= -22 && lat <= -8 && lon >= 12 && lon <= 36) {
+      timezone = 'CAT';
+      offset = 2;
+    }
+  }
+  
+  return { timezone, offset };
 };
 
 export function CurrentConditions({
@@ -41,7 +79,29 @@ export function CurrentConditions({
   isOnline = true,
   connectionType,
   syncInterval,
+  latitude,
+  longitude,
 }: CurrentConditionsProps) {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const timezoneInfo = getTimezoneInfo(latitude, longitude);
+  
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  // Format current time in local timezone
+  const formatLocalTime = () => {
+    const utcTime = currentTime.getTime();
+    const localTime = new Date(utcTime + timezoneInfo.offset * 3600000);
+    const hours = String(localTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(localTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(localTime.getUTCSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds} ${timezoneInfo.timezone}`;
+  };
   // Determine status label based on connection type
   const getStatusInfo = () => {
     const isDropboxSync = connectionType === 'http' || connectionType === 'dropbox';
@@ -72,6 +132,10 @@ export function CurrentConditions({
           <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-last-update">
             Last update: {lastUpdate}
           </p>
+          <div className="flex items-center gap-2 text-sm font-semibold text-blue-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-local-time">
+            <Clock className="h-4 w-4" />
+            <span>{formatLocalTime()}</span>
+          </div>
         </div>
         <Badge
           variant={statusInfo.isActive ? "default" : "secondary"}

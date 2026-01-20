@@ -633,6 +633,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType}
           syncInterval={3600000} // 1 hour Dropbox sync interval
+          latitude={selectedStation?.latitude ?? undefined}
+          longitude={selectedStation?.longitude ?? undefined}
         />
 
         {/* Station Location Map */}
