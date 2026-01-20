@@ -109,10 +109,54 @@ const processWindScatterData = (historicalData: WeatherData[]) => {
 
 /**
  * Process historical data into chart format
+ * Adapts timestamp display based on the data time range
+ * Samples data for large datasets to prevent chart overload
  */
-const processChartData = (historicalData: WeatherData[]) => {
-  return historicalData.map(d => ({
-    timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+const processChartData = (historicalData: WeatherData[], timeRangeHours?: number) => {
+  if (historicalData.length === 0) return [];
+  
+  // Sample data if there are too many points (target ~500 points max for smooth charts)
+  const maxPoints = 500;
+  let sampledData = historicalData;
+  if (historicalData.length > maxPoints) {
+    const sampleRate = Math.ceil(historicalData.length / maxPoints);
+    sampledData = historicalData.filter((_, index) => index % sampleRate === 0);
+  }
+  
+  // Determine the time span of the data
+  const timestamps = sampledData.map(d => new Date(d.timestamp).getTime());
+  const dataSpanHours = (Math.max(...timestamps) - Math.min(...timestamps)) / (1000 * 60 * 60);
+  const effectiveRange = timeRangeHours || dataSpanHours;
+  
+  // Format timestamp based on time range
+  const formatTimestamp = (date: Date) => {
+    if (effectiveRange <= 2) {
+      // Under 2 hours: show HH:MM
+      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    } else if (effectiveRange <= 24) {
+      // 2-24 hours: show HH:MM
+      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    } else if (effectiveRange <= 72) {
+      // 1-3 days: show Day HH:MM
+      return date.toLocaleDateString("en-US", { weekday: "short" }) + " " +
+             date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    } else if (effectiveRange <= 168) {
+      // 3-7 days: show Day DD HH:00
+      return date.toLocaleDateString("en-US", { weekday: "short", day: "numeric" }) + " " +
+             date.toLocaleTimeString("en-US", { hour: "2-digit" });
+    } else if (effectiveRange <= 720) {
+      // 7-30 days: show MM/DD HH:00
+      return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" }) + " " +
+             date.toLocaleTimeString("en-US", { hour: "2-digit" });
+    } else {
+      // Over 30 days: show MM/DD
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+  };
+  
+  return sampledData.map(d => ({
+    timestamp: formatTimestamp(new Date(d.timestamp)),
+    fullTimestamp: new Date(d.timestamp).toISOString(),
     temperature: d.temperature ?? 0,
     humidity: d.humidity ?? 0,
     pressure: d.pressure ?? 0,
@@ -227,8 +271,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [historicalData]);
 
-  // Process historical data into chart format
-  const chartData = useMemo(() => processChartData(historicalData), [historicalData]);
+  // Process historical data into chart format (pass time range for proper axis formatting)
+  const chartData = useMemo(() => processChartData(historicalData, dashboardConfig.chartTimeRange), [historicalData, dashboardConfig.chartTimeRange]);
   
   // Process wind rose data from historical data
   const windRoseData = useMemo(() => processWindRoseData(historicalData), [historicalData]);
