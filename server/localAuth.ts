@@ -1,6 +1,6 @@
 /**
- * Local Authentication Module for Desktop App
- * Simplified auth for local Electron application - no cloud auth needed
+ * Local Authentication Module
+ * Simplified auth for self-hosted/VM deployments - no cloud auth needed
  */
 
 import type { Express, Request, Response, NextFunction, RequestHandler } from 'express';

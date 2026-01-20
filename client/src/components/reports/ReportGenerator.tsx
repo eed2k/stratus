@@ -54,7 +54,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
     queryKey: ["/api/stations", config.stationId, "data", config.startDate, config.endDate],
     queryFn: async () => {
       const res = await fetch(
-        `/api/stations/${config.stationId}/data?start=${config.startDate}&end=${config.endDate}`
+        `/api/stations/${config.stationId}/data?startTime=${config.startDate}&endTime=${config.endDate}`
       );
       if (!res.ok) throw new Error("Failed to fetch data");
       return res.json();

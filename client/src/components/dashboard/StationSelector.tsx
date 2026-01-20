@@ -32,7 +32,7 @@ export function StationSelector({ stations, selectedId, onSelect }: StationSelec
 
   return (
     <Select value={value} onValueChange={handleChange}>
-      <SelectTrigger className="w-64" data-testid="select-station">
+      <SelectTrigger className="w-full sm:w-64" data-testid="select-station">
         <SelectValue placeholder="Select a station">
           {selectedStation?.name || "Select a station"}
         </SelectValue>

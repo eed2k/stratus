@@ -23,7 +23,6 @@
     "server/**/*",
     "shared/**/*",
     "client/src/**/*",
-    "electron/**/*",
     "vite.config.ts"
   ],
   "exclude": ["node_modules", "**/*.spec.ts"]

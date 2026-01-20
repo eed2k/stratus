@@ -38,6 +38,7 @@ import {
   Plus,
   Loader2,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
 import { 
@@ -161,10 +162,12 @@ interface DashboardProps {
   isAdmin?: boolean;
   canAccessStation?: (stationId: number) => boolean;
   assignedStations?: number[];
+  stationId?: number;  // If provided, use this station directly
+  onBackToStations?: () => void;
 }
 
-export default function Dashboard({ isAdmin = true, canAccessStation }: DashboardProps) {
-  const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
+export default function Dashboard({ isAdmin = true, canAccessStation, stationId, onBackToStations }: DashboardProps) {
+  const [selectedStationId, setSelectedStationId] = useState<number | null>(stationId || null);
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
     // Load config from localStorage if available
     const saved = localStorage.getItem('dashboardConfig');
@@ -509,11 +512,24 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* Header Section */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between no-print">
-        <StationSelector
-          stations={stationOptions}
-          selectedId={String(activeStationId)}
-          onSelect={(id) => setSelectedStationId(parseInt(id))}
-        />
+        <div className="flex items-center gap-3">
+          {onBackToStations && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onBackToStations}
+              className="flex items-center gap-1"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Stations</span>
+            </Button>
+          )}
+          <StationSelector
+            stations={stationOptions}
+            selectedId={String(activeStationId)}
+            onSelect={(id) => setSelectedStationId(parseInt(id))}
+          />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="text-xs">
             Updates every {dashboardConfig.updatePeriod < 60 
@@ -1020,8 +1036,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
         <section className="space-y-6">
           <h2 className="text-base font-normal text-foreground">Wind Analysis (WMO/Beaufort Scale)</h2>
           
-          {/* Wind Compass */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Wind Compass and Wind Roses */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {hasValidData(currentData.windDirection) ? (
             <WindCompass
               direction={currentData.windDirection || 0}
@@ -1040,65 +1056,50 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
             </NoDataWrapper>
             )}
             
-            {/* Wind Rose - 60 Minutes (always show if we have data) */}
-            {windDataByPeriod['60min'].count > 0 && (
-              <WindRose 
-                data={windDataByPeriod['60min'].rose} 
-                title="Wind Rose (60 min)"
-                maxWindSpeed={maxWindSpeed}
-              />
-            )}
-            
-            {/* Wind Rose - Configured Time Range */}
+            {/* Wind Rose - 60 Minutes */}
             <WindRose 
-              data={windDataByPeriod['configured'].rose} 
-              title={`Wind Rose (${dashboardConfig.chartTimeRange}h)`}
+              data={windDataByPeriod['60min'].rose} 
+              title="Wind Rose (60 min)"
+              maxWindSpeed={maxWindSpeed}
+            />
+            
+            {/* Wind Rose - 24h */}
+            <WindRose 
+              data={windDataByPeriod['24h'].rose} 
+              title="Wind Rose (24h)"
               maxWindSpeed={maxWindSpeed}
             />
           </div>
           
-          {/* Additional Wind Roses - 24h and 48h when data available */}
-          {(windDataByPeriod['24h'].count > windDataByPeriod['60min'].count || windDataByPeriod['48h'].count > windDataByPeriod['24h'].count) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {windDataByPeriod['24h'].count > windDataByPeriod['60min'].count && dashboardConfig.chartTimeRange >= 24 && (
-                <WindRose 
-                  data={windDataByPeriod['24h'].rose} 
-                  title="Wind Rose (24h)"
-                  maxWindSpeed={maxWindSpeed}
-                />
-              )}
-              {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && dashboardConfig.chartTimeRange >= 48 && (
-                <WindRose 
-                  data={windDataByPeriod['48h'].rose} 
-                  title="Wind Rose (48h)"
-                  maxWindSpeed={maxWindSpeed}
-                />
-              )}
+          {/* Additional Wind Rose - 48h when more data available */}
+          {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <WindRose 
+                data={windDataByPeriod['48h'].rose} 
+                title="Wind Rose (48h)"
+                maxWindSpeed={maxWindSpeed}
+              />
             </div>
           )}
           
           {/* Wind Scatter Plots */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {/* Wind Scatter - 60 Minutes */}
-            {windDataByPeriod['60min'].count > 0 && (
-              <WindRoseScatter 
-                data={windDataByPeriod['60min'].scatter} 
-                title="Wind Scatter (60 min)"
-                maxWindSpeed={maxWindSpeed}
-              />
-            )}
+            <WindRoseScatter 
+              data={windDataByPeriod['60min'].scatter} 
+              title="Wind Scatter (60 min)"
+              maxWindSpeed={maxWindSpeed}
+            />
             
-            {/* Wind Scatter - 24h when available */}
-            {windDataByPeriod['24h'].count > windDataByPeriod['60min'].count && dashboardConfig.chartTimeRange >= 24 && (
-              <WindRoseScatter 
-                data={windDataByPeriod['24h'].scatter} 
-                title="Wind Scatter (24h)"
-                maxWindSpeed={maxWindSpeed}
-              />
-            )}
+            {/* Wind Scatter - 24h */}
+            <WindRoseScatter 
+              data={windDataByPeriod['24h'].scatter} 
+              title="Wind Scatter (24h)"
+              maxWindSpeed={maxWindSpeed}
+            />
             
-            {/* Wind Scatter - 48h when available */}
-            {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && dashboardConfig.chartTimeRange >= 48 && (
+            {/* Wind Scatter - 48h when more data available */}
+            {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && (
               <WindRoseScatter 
                 data={windDataByPeriod['48h'].scatter} 
                 title="Wind Scatter (48h)"
@@ -1106,17 +1107,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation }: Dashboar
               />
             )}
           </div>
-          
-          {/* Wind Scatter - Full configured range */}
-          {dashboardConfig.chartTimeRange > 48 && (
-            <div className="grid grid-cols-1 gap-6">
-              <WindRoseScatter 
-                data={windDataByPeriod['configured'].scatter} 
-                title={`Wind Scatter (${dashboardConfig.chartTimeRange}h)`}
-                maxWindSpeed={maxWindSpeed}
-              />
-            </div>
-          )}
         </section>
 
         {/* Wind Energy Section */}

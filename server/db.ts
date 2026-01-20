@@ -2,7 +2,7 @@
 /**
  * Local SQLite Database Module
  * Uses sql.js for a pure JavaScript SQLite implementation
- * No native compilation required - perfect for Electron apps
+ * No native compilation required - perfect for portable deployments
  */
 
 import initSqlJs, { Database } from 'sql.js';

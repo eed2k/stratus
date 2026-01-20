@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -8,9 +9,9 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { DemoInitializer } from "@/components/DemoInitializer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
-import { useElectronMenu } from "@/hooks/useElectronMenu";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
+import StationSelector from "@/pages/StationSelector";
 import CampbellDashboard from "@/pages/CampbellDashboard";
 import Stations from "@/pages/Stations";
 import History from "@/pages/History";
@@ -67,8 +68,8 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
   isAdmin: boolean;
   canAccessStation: (stationId: number) => boolean;
 }) {
-  // Initialize Electron menu listeners
-  useElectronMenu();
+  const [, setLocation] = useLocation();
+  const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   
   const sidebarStyle = {
     "--sidebar-width": "16rem",
@@ -78,6 +79,16 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
   const displayName = user.firstName && user.lastName 
     ? `${user.firstName} ${user.lastName}`
     : user.firstName || user.email || "User";
+
+  const handleSelectStation = (stationId: number) => {
+    setSelectedStationId(stationId);
+    setLocation(`/dashboard/${stationId}`);
+  };
+
+  const handleBackToStations = () => {
+    setSelectedStationId(null);
+    setLocation("/");
+  };
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
@@ -90,6 +101,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
             role: user.role,
           }}
           onLogout={logout}
+          onBackToStations={handleBackToStations}
         />
         <div className="flex flex-1 flex-col overflow-hidden bg-background">
           <header className="flex h-14 items-center gap-4 border-b border-border px-4 bg-card">
@@ -97,9 +109,37 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
           </header>
           <main className="flex-1 overflow-auto bg-background">
             <Switch>
-              {/* Dashboard - available to all users */}
+              {/* Station Selector - landing page */}
               <Route path="/">
-                <Dashboard isAdmin={isAdmin} canAccessStation={canAccessStation} assignedStations={user.assignedStations} />
+                <StationSelector 
+                  isAdmin={isAdmin} 
+                  canAccessStation={canAccessStation} 
+                  assignedStations={user.assignedStations}
+                  onSelectStation={handleSelectStation}
+                />
+              </Route>
+              
+              {/* Dashboard with station ID */}
+              <Route path="/dashboard/:stationId">
+                {(params) => (
+                  <Dashboard 
+                    isAdmin={isAdmin} 
+                    canAccessStation={canAccessStation} 
+                    assignedStations={user.assignedStations}
+                    stationId={parseInt(params.stationId)}
+                    onBackToStations={handleBackToStations}
+                  />
+                )}
+              </Route>
+              
+              {/* Legacy dashboard route - redirect to station selector */}
+              <Route path="/dashboard">
+                <StationSelector 
+                  isAdmin={isAdmin} 
+                  canAccessStation={canAccessStation} 
+                  assignedStations={user.assignedStations}
+                  onSelectStation={handleSelectStation}
+                />
               </Route>
               
               {/* Admin-only routes */}

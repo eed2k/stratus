@@ -1,8 +1,7 @@
 {
   "name": "stratus-weather-server",
   "version": "1.0.0",
-  "description": "Campbell Scientific Weather Station Management Desktop Application - PakBus Protocol Support",
-  "main": "electron/main.js",
+  "description": "Campbell Scientific Weather Station Management - Web Application",
   "author": "Lukas Esterhuizen <esterhuizen2k@proton.me>",
   "license": "MIT",
   "scripts": {
@@ -12,98 +11,10 @@
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
-    "electron": "electron .",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5000 && electron .\"",
-    "pack": "electron-builder --dir",
-    "prepare:icons": "node scripts/copy-icon.js",
-    "dist": "npm run build && npm run prepare:icons && electron-builder",
-    "dist:win": "npm run build && npm run prepare:icons && electron-builder --win",
-    "postdist:win": "node scripts/post-build.js",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:linux": "npm run build && electron-builder --linux",
+    "start": "node dist/server/index.js",
     "db:push": "drizzle-kit push --dialect=postgresql --schema=shared/schema.ts --url=$DATABASE_URL",
     "docs:pdf": "node scripts/generate-docs-pdf.js",
     "dropbox:auth": "node scripts/dropbox-auth.js"
-  },
-  "build": {
-    "appId": "com.stratus.weather",
-    "productName": "Stratus Weather Station",
-    "asar": false,
-    "directories": {
-      "output": "output"
-    },
-    "files": [
-      "client/dist/**/*",
-      "dist/server/**/*",
-      "electron/**/*",
-      "package.json"
-    ],
-    "extraFiles": [
-      {
-        "from": "node_modules",
-        "to": "node_modules",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "extraResources": [
-      {
-        "from": "assets/",
-        "to": "assets/"
-      }
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "build/icon.ico",
-      "artifactName": "${productName}-${version}-Setup.${ext}",
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": "always",
-      "createStartMenuShortcut": true,
-      "shortcutName": "Stratus Weather Station",
-      "menuCategory": "Stratus Weather",
-      "license": "LICENSE.txt",
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
-      "installerHeaderIcon": "build/icon.ico",
-      "deleteAppDataOnUninstall": false,
-      "perMachine": false,
-      "allowElevation": true,
-      "runAfterFinish": true,
-      "installerLanguages": [
-        "en_US"
-      ],
-      "language": "1033",
-      "warningsAsErrors": false,
-      "include": "build/installer.nsh"
-    },
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "icon": "assets/icon.icns",
-      "category": "public.app-category.weather"
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "icon": "assets/icon.png",
-      "category": "Utility"
-    }
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -189,17 +100,12 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.23",
     "concurrently": "^8.2.2",
-    "electron": "^28.1.0",
-    "electron-builder": "^24.9.1",
     "md-to-pdf": "^5.2.5",
-    "png-to-ico": "^3.0.1",
     "postcss": "^8.5.6",
-    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.21.0",
     "typescript": "^5.3.3",
-    "vite": "^5.0.12",
-    "wait-on": "^7.2.0"
+    "vite": "^5.0.12"
   }
 }

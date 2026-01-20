@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Shield, User } from "lucide-react";
+import { LogOut, Shield, User, Home } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
@@ -23,12 +23,13 @@ interface AppSidebarProps {
     role?: 'admin' | 'user';
   };
   onLogout?: () => void;
+  onBackToStations?: () => void;
 }
 
 // Admin navigation items - full access
 const adminNavItems = [
-  { title: "Dashboard", url: "/" },
-  { title: "Stations", url: "/stations" },
+  { title: "Stations", url: "/" },
+  { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
   { title: "Organizations", url: "/organizations" },
   { title: "History", url: "/history" },
@@ -40,12 +41,12 @@ const adminNavItems = [
 
 // User navigation items - limited access
 const userNavItems = [
-  { title: "Dashboard", url: "/" },
+  { title: "Stations", url: "/" },
   { title: "Account Settings", url: "/account" },
   { title: "Documentation", url: "/docs" },
 ];
 
-export function AppSidebar({ user, onLogout }: AppSidebarProps) {
+export function AppSidebar({ user, onLogout, onBackToStations }: AppSidebarProps) {
   const [location] = useLocation();
   const isAdmin = user?.role === 'admin';
   const navItems = isAdmin ? adminNavItems : userNavItems;
