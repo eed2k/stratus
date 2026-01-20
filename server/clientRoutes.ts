@@ -14,8 +14,12 @@ import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
-// Secret for JWT tokens - in production, use environment variable
-const JWT_SECRET = process.env.CLIENT_JWT_SECRET || 'stratus-client-secret-change-in-production';
+// Secret for JWT tokens - MUST be set via environment variable
+const JWT_SECRET = process.env.CLIENT_JWT_SECRET;
+if (!JWT_SECRET) {
+  console.warn('[Security] CLIENT_JWT_SECRET not set - using random secret (tokens will be invalid after restart)');
+}
+const ACTIVE_JWT_SECRET = JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 // Rate limiter for login attempts - prevent brute force attacks
 const loginRateLimiter = rateLimit({
@@ -57,29 +61,26 @@ interface ClientAccount {
 // In-memory client accounts (for simplicity - extend to database for production)
 const clientAccounts: Map<string, ClientAccount> = new Map();
 
-// Initialize with client accounts
+// Initialize with client accounts from environment variables
 async function initClientAccounts() {
-  // Main admin/client account
-  const mainHash = await bcryptjs.hash('Lukas@2266', 10);
-  clientAccounts.set('esterhuizen2k@proton.me', {
-    id: 'client-1',
-    email: 'esterhuizen2k@proton.me',
-    passwordHash: mainHash,
-    name: 'Lukas Esterhuizen',
-    stationId: 1,
-    createdAt: new Date(),
-  });
+  // Admin account - credentials from environment variables
+  const adminEmail = process.env.STRATUS_ADMIN_EMAIL;
+  const adminPassword = process.env.STRATUS_ADMIN_PASSWORD;
   
-  // Demo account for testing
-  const demoHash = await bcryptjs.hash('demo123', 10);
-  clientAccounts.set('demo@stratus.app', {
-    id: 'demo-client-1',
-    email: 'demo@stratus.app',
-    passwordHash: demoHash,
-    name: 'Demo Client',
-    stationId: 1,
-    createdAt: new Date(),
-  });
+  if (adminEmail && adminPassword) {
+    const adminHash = await bcryptjs.hash(adminPassword, 10);
+    clientAccounts.set(adminEmail, {
+      id: 'client-admin',
+      email: adminEmail,
+      passwordHash: adminHash,
+      name: process.env.STRATUS_ADMIN_NAME || 'Admin',
+      stationId: 1,
+      createdAt: new Date(),
+    });
+    console.log('[Auth] Admin account configured');
+  } else {
+    console.warn('[Security] No admin credentials configured. Set STRATUS_ADMIN_EMAIL and STRATUS_ADMIN_PASSWORD environment variables.');
+  }
 }
 initClientAccounts();
 
@@ -98,7 +99,7 @@ function verifyClientToken(req: Request, res: Response, next: NextFunction) {
 
   const token = authHeader.substring(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as ClientJwtPayload;
+    const payload = jwt.verify(token, ACTIVE_JWT_SECRET) as ClientJwtPayload;
     (req as any).clientAuth = payload;
     next();
   } catch {
@@ -108,22 +109,25 @@ function verifyClientToken(req: Request, res: Response, next: NextFunction) {
 
 // Enable CORS for external clients
 // Allow configured client origins and local development
-const allowedOrigins = [
-  // Add your client application URLs here
-  // Example: 'https://your-client-app.example.com',
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:5173',
-];
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .filter(Boolean)
+  .concat([
+    // Local development origins
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5000',
+  ]);
 
 // CORS middleware - applied to all routes
 const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.some(allowed => origin.includes(allowed.replace(/^https?:\/\//, '')))) {
+  if (origin && allowedOrigins.some(allowed => origin === allowed)) {
     res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
   }
+  // Note: Do not use wildcard '*' with credentials
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -177,7 +181,7 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
         email: client.email,
         stationId: client.stationId,
       },
-      JWT_SECRET,
+      ACTIVE_JWT_SECRET,
       { expiresIn: '7d' }
     );
 
