@@ -74,7 +74,9 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                   windSpeed: latestReading.windSpeed,
                   timestamp: latestReading.timestamp
                 } : undefined,
-                recordCount: data.length
+                recordCount: data.length,
+                // Use the latest data timestamp as lastSyncTime
+                lastSyncTime: latestReading?.timestamp || station.lastSyncTime
               };
             }
           } catch (e) {

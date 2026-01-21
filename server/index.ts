@@ -29,6 +29,7 @@ const app = express();
 const httpServer = createServer(app);
 
 // Security headers with Helmet.js
+// Note: upgrade-insecure-requests disabled for HTTP-only deployments
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -41,10 +42,13 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
+      upgradeInsecureRequests: null, // Disable for HTTP-only servers
     },
   },
   crossOriginEmbedderPolicy: false, // Allow embedding resources
   crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: false, // Disable for HTTP
+  originAgentCluster: false, // Disable for HTTP
 }));
 
 declare module "http" {

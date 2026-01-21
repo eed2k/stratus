@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Radio, Search, Trash2, Loader2, Wifi, Signal, Smartphone, Server, CheckCircle, XCircle, AlertCircle, Cloud, FolderSync, Upload } from "lucide-react";
+import { MapPin, Plus, Radio, Search, Trash2, Loader2, Wifi, Signal, Smartphone, Server, CheckCircle, XCircle, AlertCircle, Cloud, FolderSync, Upload, RefreshCw } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
