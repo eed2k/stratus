@@ -24,10 +24,16 @@ This application is designed to comply with:
 
 ### Authentication
 
-- **Password Hashing:** bcrypt with 10 salt rounds
+- **Password Hashing:** 
+  - Server-side: bcrypt with 10 salt rounds
+  - Client-side: PBKDF2 (SHA-256, 100,000 iterations) via Web Crypto API
+- **Authentication Mode:** Configurable via `REQUIRE_AUTH` environment variable
+  - Desktop mode (default): Auto-authenticated for local single-user operation
+  - Network mode (`REQUIRE_AUTH=true`): Full authentication required
 - **Session Management:** JWT tokens with configurable expiration
-- **Rate Limiting:** Protection against brute force attacks
+- **Rate Limiting:** Protection against brute force attacks (5 attempts per 15 minutes)
 - **Input Validation:** All user inputs are validated and sanitized
+- **Legacy Migration:** Automatic upgrade of legacy password hashes on first login
 
 ### Data Protection
 
@@ -47,6 +53,23 @@ This application is designed to comply with:
 - **PakBus Protocol:** Secure communication with Campbell Scientific dataloggers
 - **CORS Configuration:** Properly configured for API endpoints
 - **WebSocket Security:** Secure WebSocket connections for real-time data
+- **API Authentication:** All sensitive endpoints protected with `isAuthenticated` middleware
+
+## Network Deployment Warning
+
+**⚠️ CRITICAL:** When deploying Stratus to Oracle Cloud or any network-accessible environment:
+
+1. Set `REQUIRE_AUTH=true` in your `.env` file
+2. Use HTTPS (configure Nginx with SSL certificates)
+3. Set a strong `CLIENT_JWT_SECRET`
+4. Configure firewall rules to limit access
+
+```env
+# Required for network deployments
+REQUIRE_AUTH=true
+CLIENT_JWT_SECRET=your_secure_random_64_char_secret
+NODE_ENV=production
+```
 
 ## Code Signing Status
 

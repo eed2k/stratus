@@ -88,6 +88,7 @@ export class PakBusProtocol extends EventEmitter {
     resolve: (result: TransactionResult) => void;
     reject: (error: Error) => void;
     timeout: NodeJS.Timeout;
+    createdAt: number;
   }> = new Map();
 
   constructor(config: PakBusConfig) {
@@ -96,6 +97,22 @@ export class PakBusProtocol extends EventEmitter {
       timeout: 30000,
       ...config,
     };
+  }
+
+  /**
+   * Clean up all pending transactions (call on disconnect)
+   * Prevents memory leaks from orphaned transactions
+   */
+  cleanup(): void {
+    for (const [transNum, pending] of this.pendingTransactions) {
+      clearTimeout(pending.timeout);
+      pending.resolve({
+        success: false,
+        error: "Connection closed - transaction cancelled",
+      });
+    }
+    this.pendingTransactions.clear();
+    this.receiveBuffer = Buffer.alloc(0);
   }
 
   /**
@@ -659,7 +676,7 @@ export class PakBusProtocol extends EventEmitter {
         });
       }, this.config.timeout);
 
-      this.pendingTransactions.set(transNum, { resolve, reject, timeout });
+      this.pendingTransactions.set(transNum, { resolve, reject, timeout, createdAt: Date.now() });
       this.emit("send", packet);
     });
   }

@@ -6,6 +6,7 @@
 import type { Express, RequestHandler } from "express";
 import { storage } from "../localStorage";
 import { protocolManager } from "../protocols/protocolManager";
+import { isAuthenticated } from "../localAuth";
 import {
   validateConnectionConfig,
   buildProtocolConfig,
@@ -19,7 +20,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * POST /api/station-setup/validate
    * Body: { connectionType, config }
    */
-  app.post("/api/station-setup/validate", async (req, res) => {
+  app.post("/api/station-setup/validate", isAuthenticated, async (req, res) => {
     try {
       const { connectionType, config } = req.body;
 
@@ -45,7 +46,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * POST /api/station-setup/test
    * Body: { connectionType, config }
    */
-  app.post("/api/station-setup/test", async (req, res) => {
+  app.post("/api/station-setup/test", isAuthenticated, async (req, res) => {
     try {
       const { connectionType, config } = req.body;
 
@@ -154,7 +155,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * Discover devices (for BLE, GSM, etc.)
    * GET /api/station-setup/discover?type=ble
    */
-  app.get("/api/station-setup/discover", async (req, res) => {
+  app.get("/api/station-setup/discover", isAuthenticated, async (req, res) => {
     try {
       const { type } = req.query as { type?: string };
 
@@ -425,7 +426,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * POST /api/station-setup/detect
    * Body: { apiEndpoint, host }
    */
-  app.post("/api/station-setup/detect", async (req, res) => {
+  app.post("/api/station-setup/detect", isAuthenticated, async (req, res) => {
     try {
       const { apiEndpoint, host } = req.body;
       const endpoint = (apiEndpoint || host || "").toLowerCase();
@@ -463,7 +464,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * POST /api/station-setup/detect-service
    * Body: { apiEndpoint, apiKey? }
    */
-  app.post("/api/station-setup/detect-service", async (req, res) => {
+  app.post("/api/station-setup/detect-service", isAuthenticated, async (req, res) => {
     try {
       const { apiEndpoint, apiKey } = req.body;
 
@@ -506,7 +507,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * POST /api/station-setup/configure/campbell
    * Body: { connectionType, serialPort, ipAddress, port }
    */
-  app.post("/api/station-setup/configure/campbell", async (req, res) => {
+  app.post("/api/station-setup/configure/campbell", isAuthenticated, async (req, res) => {
     try {
       const { connectionType, serialPort, ipAddress, port } = req.body;
 
@@ -615,7 +616,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * POST /api/station-setup/setup
    * Body: { name, stationType, connectionType, ... }
    */
-  app.post("/api/station-setup/setup", async (req, res) => {
+  app.post("/api/station-setup/setup", isAuthenticated, async (req, res) => {
     try {
       const result = await StationIntegrationService.setupStation(req.body);
       const statusCode = result.success ? 201 : 400;
@@ -633,7 +634,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * POST /api/station-setup/setup-bulk
    * Body: { provider, apiKey, basePayload }
    */
-  app.post("/api/station-setup/setup-bulk", async (req, res) => {
+  app.post("/api/station-setup/setup-bulk", isAuthenticated, async (req, res) => {
     try {
       const { provider, apiKey, basePayload } = req.body;
 
@@ -670,7 +671,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * PATCH /api/station-setup/:stationId
    * Body: { connectionType, apiEndpoint, ... }
    */
-  app.patch("/api/station-setup/:stationId", async (req, res) => {
+  app.patch("/api/station-setup/:stationId", isAuthenticated, async (req, res) => {
     try {
       const stationId = parseInt(req.params.stationId);
       const result = await StationIntegrationService.updateStationConnection(
@@ -691,7 +692,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * List stations from Campbell Cloud
    * GET /api/station-setup/campbell/stations?apiKey=...&orgUid=...&locUid=...
    */
-  app.get("/api/station-setup/campbell/stations", async (req, res) => {
+  app.get("/api/station-setup/campbell/stations", isAuthenticated, async (req, res) => {
     try {
       const { apiKey, orgUid, locUid } = req.query;
 

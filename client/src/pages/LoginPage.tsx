@@ -6,18 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Lock, Eye, EyeOff, Shield, Users } from "lucide-react";
 import { getAllUsers, addUser, type StoredUser } from "@/hooks/useAuth";
+import { verifyPassword, hashPassword, isLegacyHash } from "@/lib/passwordUtils";
 
-// Admin credentials (hashed for security)
+// Admin credentials - will be migrated to secure hash on first login
 const ADMIN_EMAIL = "esterhuizen2k@proton.me";
-const ADMIN_PASSWORD_HASH = "THVrYXNANjEwMw=="; // Base64 encoded "Lukas@6103"
+// Legacy hash for backward compatibility - will be replaced on first login
+const ADMIN_PASSWORD_HASH_LEGACY = "THVrYXNANjEwMw=="; // Base64 - will be migrated
 
 // Test user credentials for demo purposes
 const TEST_USER_EMAIL = "testuser@stratus.app";
-const TEST_USER_PASSWORD_HASH = "VGVzdFVzZXJAMjAyNA=="; // Base64 encoded "TestUser@2024"
-
-function verifyPassword(password: string, hash: string): boolean {
-  return btoa(password) === hash;
-}
+const TEST_USER_PASSWORD_HASH_LEGACY = "VGVzdFVzZXJAMjAyNA=="; // Base64 - will be migrated
 
 interface LoginPageProps {
   onLogin: (user: { 
@@ -41,38 +39,41 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   // Setup default admin and test user on first load
   useEffect(() => {
-    const users = getAllUsers();
-    const adminExists = users.some(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
-    const testUserExists = users.some(u => u.email.toLowerCase() === TEST_USER_EMAIL.toLowerCase());
-    
-    if (!adminExists) {
-      // Set up default admin account
-      const adminUser: StoredUser = {
-        email: ADMIN_EMAIL,
-        firstName: "Lukas",
-        lastName: "Esterhuizen",
-        passwordHash: ADMIN_PASSWORD_HASH,
-        role: 'admin',
-        assignedStations: [],
-        createdAt: new Date().toISOString(),
-      };
-      addUser(adminUser);
-    }
-    
-    if (!testUserExists) {
-      // Set up test user account for demonstration
-      const testUser: StoredUser = {
-        email: TEST_USER_EMAIL,
-        firstName: "Test",
-        lastName: "User",
-        passwordHash: TEST_USER_PASSWORD_HASH,
-        role: 'user',
-        assignedStations: [1], // Assigned to first station by default
-        createdAt: new Date().toISOString(),
-        createdBy: ADMIN_EMAIL,
-      };
-      addUser(testUser);
-    }
+    const setupDefaultUsers = async () => {
+      const users = getAllUsers();
+      const adminExists = users.some(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+      const testUserExists = users.some(u => u.email.toLowerCase() === TEST_USER_EMAIL.toLowerCase());
+      
+      if (!adminExists) {
+        // Set up default admin account with legacy hash (will be migrated on first login)
+        const adminUser: StoredUser = {
+          email: ADMIN_EMAIL,
+          firstName: "Lukas",
+          lastName: "Esterhuizen",
+          passwordHash: ADMIN_PASSWORD_HASH_LEGACY,
+          role: 'admin',
+          assignedStations: [],
+          createdAt: new Date().toISOString(),
+        };
+        addUser(adminUser);
+      }
+      
+      if (!testUserExists) {
+        // Set up test user account for demonstration
+        const testUser: StoredUser = {
+          email: TEST_USER_EMAIL,
+          firstName: "Test",
+          lastName: "User",
+          passwordHash: TEST_USER_PASSWORD_HASH_LEGACY,
+          role: 'user',
+          assignedStations: [1], // Assigned to first station by default
+          createdAt: new Date().toISOString(),
+          createdBy: ADMIN_EMAIL,
+        };
+        addUser(testUser);
+      }
+    };
+    setupDefaultUsers();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,9 +97,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         throw new Error("Invalid email or password");
       }
 
-      // Verify password
-      if (!user.passwordHash || !verifyPassword(formData.password, user.passwordHash)) {
+      // Verify password using secure async verification
+      const isValid = await verifyPassword(formData.password, user.passwordHash || "");
+      if (!user.passwordHash || !isValid) {
         throw new Error("Invalid email or password");
+      }
+
+      // Migrate legacy Base64 hash to secure PBKDF2 hash
+      if (isLegacyHash(user.passwordHash)) {
+        const secureHash = await hashPassword(formData.password);
+        const updatedUser = { ...user, passwordHash: secureHash };
+        addUser(updatedUser);
       }
 
       // Check role matches login type

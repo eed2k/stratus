@@ -157,6 +157,7 @@ export class FileManager extends EventEmitter {
 
   /**
    * Download a file from the datalogger
+   * Includes path sanitization to prevent directory traversal attacks
    */
   async downloadFile(
     stationAddress: number,
@@ -164,6 +165,14 @@ export class FileManager extends EventEmitter {
     localFilePath: string
   ): Promise<boolean> {
     const transferId = `download-${Date.now()}`;
+    
+    // SECURITY: Sanitize and validate local file path to prevent directory traversal
+    const resolvedPath = path.resolve(localFilePath);
+    const allowedDir = path.resolve(this.backupDir);
+    
+    if (!resolvedPath.startsWith(allowedDir + path.sep) && resolvedPath !== allowedDir) {
+      throw new Error(`Invalid file path: must be within backup directory (${allowedDir})`);
+    }
     
     // Initialize progress tracking
     const progress: TransferProgress = {
@@ -188,14 +197,14 @@ export class FileManager extends EventEmitter {
       progress.status = 'in-progress';
       this.emitProgress(transferId, progress);
 
-      // Ensure local directory exists
-      const localDir = path.dirname(localFilePath);
+      // Ensure local directory exists (using sanitized path)
+      const localDir = path.dirname(resolvedPath);
       if (!fs.existsSync(localDir)) {
         fs.mkdirSync(localDir, { recursive: true });
       }
 
-      // Open local file for writing
-      const writeStream = fs.createWriteStream(localFilePath);
+      // Open local file for writing (using sanitized path)
+      const writeStream = fs.createWriteStream(resolvedPath);
       const startTime = Date.now();
       let offset = 0;
 

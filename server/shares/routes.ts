@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { createShare, getShareByToken, getSharesByStation, updateShare, deleteShare, Share } from "../db";
+import { isAuthenticated } from "../localAuth";
 
 const router = Router();
 
@@ -23,8 +24,8 @@ const verifyPassword = async (password: string, hash: string): Promise<boolean> 
   return bcrypt.compare(password, hash);
 };
 
-// Create a new share link for a station
-router.post('/stations/:stationId/shares', async (req: Request, res: Response) => {
+// Create a new share link for a station (requires authentication)
+router.post('/stations/:stationId/shares', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { stationId } = req.params;
     const { name, email, accessLevel = 'viewer', password, expiresAt } = req.body;
@@ -73,8 +74,8 @@ router.post('/stations/:stationId/shares', async (req: Request, res: Response) =
   }
 });
 
-// Get all shares for a station
-router.get('/stations/:stationId/shares', (req: Request, res: Response) => {
+// Get all shares for a station (requires authentication)
+router.get('/stations/:stationId/shares', isAuthenticated, (req: Request, res: Response) => {
   try {
     const { stationId } = req.params;
     const stationIdNum = parseInt(stationId);
@@ -189,8 +190,8 @@ router.get('/shares/:shareToken', (req: Request, res: Response) => {
   }
 });
 
-// Update a share
-router.patch('/shares/:shareToken', async (req: Request, res: Response) => {
+// Update a share (requires authentication)
+router.patch('/shares/:shareToken', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
     const share = getShareByToken(shareToken);
@@ -234,8 +235,8 @@ router.patch('/shares/:shareToken', async (req: Request, res: Response) => {
   }
 });
 
-// Delete a share
-router.delete('/shares/:shareToken', (req: Request, res: Response) => {
+// Delete a share (requires authentication)
+router.delete('/shares/:shareToken', isAuthenticated, (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
     

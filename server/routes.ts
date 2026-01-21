@@ -359,7 +359,7 @@ export async function registerRoutes(
   });
 
   // Station cleanup endpoint - remove demo and duplicate stations
-  app.post("/api/stations/cleanup", async (req, res) => {
+  app.post("/api/stations/cleanup", isAuthenticated, async (req, res) => {
     try {
       const stations = await storage.getStations();
       const deleted: number[] = [];

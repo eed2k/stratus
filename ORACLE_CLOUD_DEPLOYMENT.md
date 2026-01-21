@@ -163,6 +163,16 @@ Add your configuration:
 NODE_ENV=production
 PORT=5000
 
+# IMPORTANT: Enable authentication for network deployments
+# This MUST be set to 'true' when deploying to cloud/network
+REQUIRE_AUTH=true
+
+# Optional: Set log level (error, warn, info, debug)
+LOG_LEVEL=info
+
+# Optional: JWT secret for session management (auto-generated if not set)
+# CLIENT_JWT_SECRET=your_secure_random_secret_here
+
 # Optional: Dropbox integration (get from https://www.dropbox.com/developers/apps)
 # DROPBOX_APP_KEY=your_app_key
 # DROPBOX_APP_SECRET=your_app_secret

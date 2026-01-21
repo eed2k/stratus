@@ -132,18 +132,11 @@ async function runStartupCleanup(database: Database): Promise<void> {
       }
     }
     
-    // Delete marked stations
-    for (const id of toDelete) {
-      try {
-        database.run('DELETE FROM weather_data WHERE station_id = ?', [id]);
-        database.run('DELETE FROM stations WHERE id = ?', [id]);
-        dbLog.info(`Deleted station ID: ${id}`);
-      } catch (e) {
-        dbLog.error(`Failed to delete station ${id}`, e);
-      }
-    }
-    
+    // Delete marked stations using batch delete for better performance
     if (toDelete.length > 0) {
+      const placeholders = toDelete.map(() => '?').join(',');
+      database.run(`DELETE FROM weather_data WHERE station_id IN (${placeholders})`, toDelete);
+      database.run(`DELETE FROM stations WHERE id IN (${placeholders})`, toDelete);
       dbLog.info(`Cleanup complete: deleted ${toDelete.length} stations (demos and duplicates)`);
       saveDatabase();
     } else {
@@ -151,6 +144,30 @@ async function runStartupCleanup(database: Database): Promise<void> {
     }
   } catch (e) {
     dbLog.error('Startup cleanup failed', e);
+  }
+}
+
+/**
+ * Run a database transaction
+ * Ensures atomicity of multiple operations - all succeed or all rollback
+ * @param callback Function that performs database operations
+ * @returns Result of the callback function
+ * @throws Error if transaction fails (after rollback)
+ */
+export function runTransaction<T>(callback: (database: Database) => T): T {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+  
+  try {
+    db.run('BEGIN TRANSACTION');
+    const result = callback(db);
+    db.run('COMMIT');
+    return result;
+  } catch (error) {
+    db.run('ROLLBACK');
+    dbLog.error('Transaction rolled back due to error', error);
+    throw error;
   }
 }
 
@@ -219,7 +236,18 @@ async function runMigrations(database: Database): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_weather_data_station_time 
       ON weather_data(station_id, timestamp)
     `);
-    dbLog.info('Weather data index ready');
+    dbLog.info('Weather data time index ready');
+  } catch (e) {
+    // Index might already exist
+  }
+
+  // Add index for record_number to improve duplicate detection performance
+  try {
+    database.run(`
+      CREATE INDEX IF NOT EXISTS idx_weather_data_record 
+      ON weather_data(station_id, record_number)
+    `);
+    dbLog.info('Weather data record index ready');
   } catch (e) {
     // Index might already exist
   }

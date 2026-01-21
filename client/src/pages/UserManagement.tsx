@@ -33,11 +33,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getAllUsers, addUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
 import { UserPlus, Trash2, Shield, User, Edit, MapPin, Loader2 } from "lucide-react";
-
-// Simple hash function for passwords
-function hashPassword(password: string): string {
-  return btoa(password);
-}
+import { hashPassword } from "@/lib/passwordUtils";
 
 interface WeatherStation {
   id: number;
@@ -70,7 +66,7 @@ export default function UserManagement() {
     setUsers(getAllUsers());
   }, []);
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newUser.email || !newUser.firstName || !newUser.password) {
       toast({
         title: "Error",
@@ -91,11 +87,14 @@ export default function UserManagement() {
       return;
     }
 
+    // Hash password securely (async)
+    const passwordHash = await hashPassword(newUser.password);
+
     const user: StoredUser = {
       email: newUser.email.trim(),
       firstName: newUser.firstName.trim(),
       lastName: newUser.lastName.trim(),
-      passwordHash: hashPassword(newUser.password),
+      passwordHash,
       role: newUser.role,
       assignedStations: newUser.role === "user" ? newUser.assignedStations : [],
       createdAt: new Date().toISOString(),

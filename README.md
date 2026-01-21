@@ -307,13 +307,25 @@ The server exposes a REST API on port 5000:
 
 Stratus Weather Station implements industry-standard security practices:
 
-- **Password Hashing:** bcrypt with 10 rounds
+- **Password Hashing:** PBKDF2 (client-side) + bcrypt (server-side) with secure salting
+- **Authentication Mode:** Configurable via `REQUIRE_AUTH` environment variable
 - **Rate Limiting:** 5 login attempts per 15 minutes
 - **SQL Injection Protection:** Parameterized queries
 - **XSS Prevention:** Input sanitization
 - **Session Management:** Secure tokens with 24-hour expiration
 - **HTTPS:** Enforced for external connections
 - **Data Encryption:** Local data protection
+
+### Network Deployment Security
+
+**⚠️ IMPORTANT:** When deploying to Oracle Cloud or any network-accessible server:
+
+```env
+# Add to your .env file
+REQUIRE_AUTH=true
+```
+
+This enables authentication enforcement on all API endpoints.
 
 **Security Documentation:** See [SECURITY.md](SECURITY.md) for details.
 

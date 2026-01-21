@@ -7,20 +7,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, getAllUsers, addUser } from "@/hooks/useAuth";
 import { User, Lock, CheckCircle } from "lucide-react";
-
-// Simple hash function for passwords
-function hashPassword(password: string): string {
-  return btoa(password);
-}
-
-function verifyPassword(password: string, hash: string): boolean {
-  return btoa(password) === hash;
-}
+import { hashPassword, verifyPassword } from "@/lib/passwordUtils";
 
 export default function AccountSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -29,57 +22,64 @@ export default function AccountSettings() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     setError(null);
     setSuccess(false);
+    setIsSubmitting(true);
 
-    if (!passwordData.currentPassword) {
-      setError("Current password is required");
-      return;
+    try {
+      if (!passwordData.currentPassword) {
+        setError("Current password is required");
+        return;
+      }
+      if (passwordData.newPassword.length < 8) {
+        setError("New password must be at least 8 characters");
+        return;
+      }
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        setError("New passwords do not match");
+        return;
+      }
+
+      // Find current user in storage
+      const users = getAllUsers();
+      const currentUser = users.find(u => u.email.toLowerCase() === user?.email?.toLowerCase());
+      
+      if (!currentUser) {
+        setError("User not found");
+        return;
+      }
+
+      // Verify current password (async)
+      const isValid = await verifyPassword(passwordData.currentPassword, currentUser.passwordHash || "");
+      if (!isValid) {
+        setError("Current password is incorrect");
+        return;
+      }
+
+      // Update password with secure hash
+      const newHash = await hashPassword(passwordData.newPassword);
+      const updatedUser = {
+        ...currentUser,
+        passwordHash: newHash,
+      };
+      addUser(updatedUser);
+
+      setSuccess(true);
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setIsChangingPassword(false);
+
+      toast({
+        title: "Password changed",
+        description: "Your password has been updated successfully.",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-    if (passwordData.newPassword.length < 8) {
-      setError("New password must be at least 8 characters");
-      return;
-    }
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError("New passwords do not match");
-      return;
-    }
-
-    // Find current user in storage
-    const users = getAllUsers();
-    const currentUser = users.find(u => u.email.toLowerCase() === user?.email?.toLowerCase());
-    
-    if (!currentUser) {
-      setError("User not found");
-      return;
-    }
-
-    // Verify current password
-    if (!verifyPassword(passwordData.currentPassword, currentUser.passwordHash || "")) {
-      setError("Current password is incorrect");
-      return;
-    }
-
-    // Update password
-    const updatedUser = {
-      ...currentUser,
-      passwordHash: hashPassword(passwordData.newPassword),
-    };
-    addUser(updatedUser);
-
-    setSuccess(true);
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
-    setIsChangingPassword(false);
-
-    toast({
-      title: "Password changed",
-      description: "Your password has been updated successfully.",
-    });
   };
 
   return (

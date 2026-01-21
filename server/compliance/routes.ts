@@ -13,6 +13,7 @@
 import { Router, Request, Response } from "express";
 import db from "../db";
 import { randomUUID } from "crypto";
+import { isAuthenticated } from "../localAuth";
 
 const router = Router();
 
@@ -211,7 +212,7 @@ function logAuditEvent(
  * GET /api/compliance/calibrations
  * List all calibration records
  */
-router.get("/calibrations", (req: Request, res: Response) => {
+router.get("/calibrations", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -265,7 +266,7 @@ router.get("/calibrations", (req: Request, res: Response) => {
  * POST /api/compliance/calibrations
  * Create a new calibration record
  */
-router.post("/calibrations", (req: Request, res: Response) => {
+router.post("/calibrations", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -329,7 +330,7 @@ router.post("/calibrations", (req: Request, res: Response) => {
  * GET /api/compliance/calibrations/due
  * Get sensors with upcoming or overdue calibrations
  */
-router.get("/calibrations/due", (req: Request, res: Response) => {
+router.get("/calibrations/due", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -393,7 +394,7 @@ router.get("/calibrations/due", (req: Request, res: Response) => {
  * GET /api/compliance/quality-flags
  * List data quality flags
  */
-router.get("/quality-flags", (req: Request, res: Response) => {
+router.get("/quality-flags", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -446,7 +447,7 @@ router.get("/quality-flags", (req: Request, res: Response) => {
  * POST /api/compliance/quality-flags
  * Create a new data quality flag
  */
-router.post("/quality-flags", (req: Request, res: Response) => {
+router.post("/quality-flags", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -505,7 +506,7 @@ router.post("/quality-flags", (req: Request, res: Response) => {
  * PATCH /api/compliance/quality-flags/:id/review
  * Review a data quality flag
  */
-router.patch("/quality-flags/:id/review", (req: Request, res: Response) => {
+router.patch("/quality-flags/:id/review", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -543,7 +544,7 @@ router.patch("/quality-flags/:id/review", (req: Request, res: Response) => {
  * POST /api/compliance/dsr
  * Submit a Data Subject Request
  */
-router.post("/dsr", (req: Request, res: Response) => {
+router.post("/dsr", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -589,7 +590,7 @@ router.post("/dsr", (req: Request, res: Response) => {
  * GET /api/compliance/dsr
  * List data subject requests
  */
-router.get("/dsr", (req: Request, res: Response) => {
+router.get("/dsr", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -636,7 +637,7 @@ router.get("/dsr", (req: Request, res: Response) => {
  * PATCH /api/compliance/dsr/:id
  * Update a data subject request status
  */
-router.patch("/dsr/:id", (req: Request, res: Response) => {
+router.patch("/dsr/:id", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -676,7 +677,7 @@ router.patch("/dsr/:id", (req: Request, res: Response) => {
  * GET /api/compliance/certifications
  * List compliance certifications
  */
-router.get("/certifications", (req: Request, res: Response) => {
+router.get("/certifications", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -728,7 +729,7 @@ router.get("/certifications", (req: Request, res: Response) => {
  * POST /api/compliance/certifications
  * Add a compliance certification
  */
-router.post("/certifications", (req: Request, res: Response) => {
+router.post("/certifications", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -781,7 +782,7 @@ router.post("/certifications", (req: Request, res: Response) => {
  * GET /api/compliance/audit-log
  * Query audit log entries
  */
-router.get("/audit-log", (req: Request, res: Response) => {
+router.get("/audit-log", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -833,7 +834,7 @@ router.get("/audit-log", (req: Request, res: Response) => {
  * GET /api/compliance/audit-log/export
  * Export audit log for compliance reporting
  */
-router.get("/audit-log/export", (req: Request, res: Response) => {
+router.get("/audit-log/export", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {
@@ -880,7 +881,7 @@ router.get("/audit-log/export", (req: Request, res: Response) => {
  * GET /api/compliance/summary
  * Get compliance status summary
  */
-router.get("/summary", (req: Request, res: Response) => {
+router.get("/summary", isAuthenticated, (req: Request, res: Response) => {
   try {
     const database = db.getDatabase();
     if (!database) {

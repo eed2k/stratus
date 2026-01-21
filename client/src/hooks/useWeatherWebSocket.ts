@@ -3,6 +3,11 @@ import type { WeatherData } from "@shared/schema";
 
 type WebSocketStatus = "connecting" | "connected" | "disconnected" | "error";
 
+// Reconnection configuration constants
+const INITIAL_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
+const MAX_RECONNECT_ATTEMPTS = 10;
+
 interface UseWeatherWebSocketOptions {
   stationId: number | null;
   onUpdate?: (data: WeatherData) => void;
@@ -13,6 +18,13 @@ export function useWeatherWebSocket({ stationId, onUpdate }: UseWeatherWebSocket
   const [status, setStatus] = useState<WebSocketStatus>("disconnected");
   const [latestData, setLatestData] = useState<WeatherData | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptRef = useRef<number>(0);
+  const onUpdateRef = useRef(onUpdate);
+  
+  // Keep onUpdate ref current to avoid stale closures
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -27,6 +39,8 @@ export function useWeatherWebSocket({ stationId, onUpdate }: UseWeatherWebSocket
 
     ws.onopen = () => {
       setStatus("connected");
+      // Reset reconnect attempts on successful connection
+      reconnectAttemptRef.current = 0;
       if (stationId !== null) {
         ws.send(JSON.stringify({ type: "subscribe", stationId }));
       }
@@ -38,7 +52,7 @@ export function useWeatherWebSocket({ stationId, onUpdate }: UseWeatherWebSocket
         
         if (message.type === "weather_update" && message.stationId === stationId) {
           setLatestData(message.data);
-          onUpdate?.(message.data);
+          onUpdateRef.current?.(message.data);
         }
       } catch (error) {
         console.error("WebSocket message parse error:", error);
@@ -53,13 +67,24 @@ export function useWeatherWebSocket({ stationId, onUpdate }: UseWeatherWebSocket
       setStatus("disconnected");
       wsRef.current = null;
       
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
-      }, 5000);
+      // Implement exponential backoff with max attempts
+      if (reconnectAttemptRef.current < MAX_RECONNECT_ATTEMPTS) {
+        const delay = Math.min(
+          INITIAL_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttemptRef.current),
+          MAX_RECONNECT_DELAY_MS
+        );
+        reconnectAttemptRef.current++;
+        
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connect();
+        }, delay);
+      } else {
+        console.warn(`WebSocket: Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+      }
     };
 
     wsRef.current = ws;
-  }, [stationId, onUpdate]);
+  }, [stationId]); // Removed onUpdate from deps - using ref instead
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -101,12 +126,20 @@ export function useWeatherWebSocket({ stationId, onUpdate }: UseWeatherWebSocket
     }
   }, [stationId, subscribe]);
 
+  // Manual reconnect that resets attempts counter
+  const reconnect = useCallback(() => {
+    reconnectAttemptRef.current = 0;
+    disconnect();
+    connect();
+  }, [connect, disconnect]);
+
   return {
     status,
     latestData,
     subscribe,
     unsubscribe,
     disconnect,
-    reconnect: connect,
+    reconnect,
+    reconnectAttempts: reconnectAttemptRef.current,
   };
 }

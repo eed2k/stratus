@@ -186,6 +186,11 @@ export class ConnectionManager extends EventEmitter {
       connection.keepAliveTimer = null;
     }
 
+    // Clean up pending PakBus transactions to prevent memory leaks
+    if (connection.pakbus) {
+      connection.pakbus.cleanup();
+    }
+
     // Close transport (TCP socket)
     if (connection.transport) {
       connection.transport.destroy();
@@ -446,7 +451,12 @@ export class ConnectionManager extends EventEmitter {
       try {
         await connection.pakbus.hello();
       } catch (error) {
-        console.error(`Keep-alive failed for station ${stationId}`);
+        // Clear the keep-alive timer first to prevent multiple reconnect attempts
+        if (connection.keepAliveTimer) {
+          clearInterval(connection.keepAliveTimer);
+          connection.keepAliveTimer = null;
+        }
+        this.emit("error", { stationId, error: `Keep-alive failed: ${error}` });
         await this.disconnect(stationId);
         await this.connect(stationId);
       }
