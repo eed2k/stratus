@@ -5,7 +5,7 @@ Stratus Weather Station Application
                               IMPORTANT - READ CAREFULLY
 ================================================================================
 
-Copyright (c) 2024-2026 Lukas Esterhuizen (esterhuizen2k@proton.me)
+Copyright (c) 2025-2026 Lukas Esterhuizen (esterhuizen2k@proton.me)
 All rights reserved.
 
 ================================================================================

@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
-  Cloud, 
   MapPin, 
   Thermometer, 
   Wind, 
@@ -132,8 +131,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
     return (
       <div className="container mx-auto p-6 space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold flex items-center justify-center gap-3">
-            <Cloud className="h-10 w-10 text-blue-500" />
+          <h1 className="text-3xl font-bold">
             Stratus Weather
           </h1>
           <p className="text-muted-foreground">Loading stations...</p>
@@ -172,7 +170,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
     return (
       <div className="container mx-auto p-6">
         <div className="text-center space-y-4">
-          <Cloud className="h-16 w-16 text-muted-foreground mx-auto" />
           <h1 className="text-3xl font-bold">Welcome to Stratus Weather</h1>
           <p className="text-muted-foreground max-w-md mx-auto">
             {isAdmin 
@@ -195,8 +192,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
       <div className="container mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center space-y-2 pt-4 sm:pt-8">
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center justify-center gap-2 sm:gap-3">
-            <Cloud className="h-8 w-8 sm:h-10 sm:w-10 text-blue-500" />
+          <h1 className="text-2xl sm:text-3xl font-bold">
             Stratus Weather
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
