@@ -2,7 +2,7 @@
  * Password Utility Functions
  * 
  * Uses the Web Crypto API for secure password hashing with PBKDF2.
- * This is a proper cryptographic approach - NOT reversible like Base64.
+ * Falls back to simple hashing when crypto.subtle is unavailable (HTTP).
  * 
  * Security: PBKDF2 with SHA-256, 100,000 iterations, 128-bit salt
  */
@@ -10,6 +10,9 @@
 const ITERATIONS = 100000;
 const KEY_LENGTH = 256;
 const SALT_LENGTH = 16;
+
+// Check if Web Crypto API is available (requires HTTPS or localhost)
+const isSecureContext = typeof crypto !== 'undefined' && crypto.subtle !== undefined;
 
 /**
  * Convert ArrayBuffer to hex string
@@ -33,14 +36,43 @@ function hexToBuffer(hex: string): Uint8Array {
  * Generate a cryptographically secure random salt
  */
 function generateSalt(): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    return crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  }
+  // Fallback for non-secure context
+  const salt = new Uint8Array(SALT_LENGTH);
+  for (let i = 0; i < SALT_LENGTH; i++) {
+    salt[i] = Math.floor(Math.random() * 256);
+  }
+  return salt;
+}
+
+/**
+ * Simple hash function for HTTP fallback (not cryptographically secure)
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16).padStart(8, '0');
 }
 
 /**
  * Hash a password using PBKDF2
  * Returns format: salt:hash (both hex encoded)
+ * Falls back to simple hashing over HTTP
  */
 export async function hashPassword(password: string): Promise<string> {
+  // Fallback for non-secure context (HTTP)
+  if (!isSecureContext) {
+    const salt = bufferToHex(generateSalt().buffer as ArrayBuffer);
+    const hash = simpleHash(salt + password + salt);
+    return `fallback:${salt}:${hash}`;
+  }
+  
   const encoder = new TextEncoder();
   const salt = generateSalt();
   
@@ -81,6 +113,22 @@ export async function verifyPassword(password: string, storedHash: string): Prom
     } catch {
       return false;
     }
+  }
+  
+  // Handle fallback hash format (HTTP non-secure context)
+  if (storedHash.startsWith('fallback:')) {
+    const parts = storedHash.split(':');
+    if (parts.length !== 3) return false;
+    const [, saltHex, expectedHash] = parts;
+    const computedHash = simpleHash(saltHex + password + saltHex);
+    return computedHash === expectedHash;
+  }
+  
+  // Fallback for non-secure context verifying a secure hash
+  if (!isSecureContext) {
+    console.warn('Cannot verify PBKDF2 hash in non-secure context (HTTP)');
+    // Try simple comparison as last resort
+    return false;
   }
   
   const [saltHex, hashHex] = storedHash.split(':');
