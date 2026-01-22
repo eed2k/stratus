@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Shield, User, Home } from "lucide-react";
+import { LogOut, Shield, User } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
@@ -46,7 +46,7 @@ const userNavItems = [
   { title: "Documentation", url: "/docs" },
 ];
 
-export function AppSidebar({ user, onLogout, onBackToStations }: AppSidebarProps) {
+export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations }: AppSidebarProps) {
   const [location] = useLocation();
   const isAdmin = user?.role === 'admin';
   const navItems = isAdmin ? adminNavItems : userNavItems;

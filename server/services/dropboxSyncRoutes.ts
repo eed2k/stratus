@@ -130,7 +130,70 @@ router.get('/files', async (req: Request, res: Response) => {
  */
 router.get('/credentials', (req: Request, res: Response) => {
   const configured = dropboxSyncService.hasCredentials();
-  res.json({ configured });
+  // Return whether refresh token is configured (for UI display)
+  const hasRefreshToken = !!process.env.DROPBOX_REFRESH_TOKEN;
+  res.json({ 
+    configured,
+    hasRefreshToken,
+    // Return partial info about configuration (not the actual secrets)
+    appKeyConfigured: !!process.env.DROPBOX_APP_KEY,
+    appSecretConfigured: !!process.env.DROPBOX_APP_SECRET,
+    refreshTokenConfigured: hasRefreshToken,
+  });
+});
+
+/**
+ * POST /api/dropbox-sync/credentials
+ * Save Dropbox credentials (admin only - updates .env file on server)
+ */
+router.post('/credentials', async (req: Request, res: Response) => {
+  try {
+    const { appKey, appSecret, refreshToken } = req.body;
+    
+    if (!appKey || !appSecret || !refreshToken) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'App Key, App Secret, and Refresh Token are all required' 
+      });
+    }
+    
+    // Store credentials in memory and configure the service
+    process.env.DROPBOX_APP_KEY = appKey;
+    process.env.DROPBOX_APP_SECRET = appSecret;
+    process.env.DROPBOX_REFRESH_TOKEN = refreshToken;
+    
+    // Configure the dropbox service with the new credentials
+    dropboxSyncService.configure({
+      accessToken: '', // Will be obtained via refresh token
+      refreshToken,
+      appKey,
+      appSecret,
+      folderPath: process.env.DROPBOX_FOLDER_PATH || '',
+      stationId: parseInt(process.env.DROPBOX_STATION_ID || '0', 10),
+      syncInterval: parseInt(process.env.DROPBOX_SYNC_INTERVAL || '3600000', 10),
+      enabled: true,
+    });
+    
+    // Test the connection with new credentials
+    const testResult = await dropboxSyncService.testConnection();
+    
+    if (!testResult.success) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Credentials saved but connection test failed: ${testResult.message}`,
+        testResult
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Dropbox credentials configured successfully. Connection test passed.',
+      testResult
+    });
+  } catch (err: any) {
+    console.error('[DropboxSync] Credentials configuration error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 /**

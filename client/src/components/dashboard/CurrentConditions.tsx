@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getWindDirectionLabel } from "@/lib/windConstants";
-import { useState, useEffect } from "react";
-import { Clock } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { AlertTriangle } from "lucide-react";
 
 interface CurrentConditionsProps {
   stationName: string;
@@ -92,6 +93,46 @@ export function CurrentConditions({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Check if data is stale (no updates in expected time window)
+  const dataStatus = useMemo(() => {
+    if (lastUpdate === "No data" || !lastUpdate) {
+      return { isStale: true, message: "No live data available", minutesAgo: null };
+    }
+    
+    // Try to parse the last update time
+    try {
+      const lastUpdateDate = new Date(lastUpdate);
+      const now = new Date();
+      const diffMs = now.getTime() - lastUpdateDate.getTime();
+      const diffMinutes = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMinutes / 60);
+      
+      // Consider data stale if it's older than 2x the sync interval (or 2 hours default)
+      const staleThresholdMs = syncInterval ? syncInterval * 2 : 2 * 60 * 60 * 1000;
+      const isStale = diffMs > staleThresholdMs;
+      
+      let timeAgo = '';
+      if (diffMinutes < 1) {
+        timeAgo = 'just now';
+      } else if (diffMinutes < 60) {
+        timeAgo = `${diffMinutes}m ago`;
+      } else if (diffHours < 24) {
+        timeAgo = `${diffHours}h ${diffMinutes % 60}m ago`;
+      } else {
+        timeAgo = `${Math.floor(diffHours / 24)}d ${diffHours % 24}h ago`;
+      }
+      
+      return {
+        isStale,
+        message: isStale ? `No live data - last update ${timeAgo}` : null,
+        minutesAgo: diffMinutes,
+        timeAgo
+      };
+    } catch {
+      return { isStale: false, message: null, minutesAgo: null };
+    }
+  }, [lastUpdate, syncInterval, currentTime]);
   
   // Format current time in local timezone
   const formatLocalTime = () => {
@@ -102,8 +143,17 @@ export function CurrentConditions({
     const seconds = String(localTime.getUTCSeconds()).padStart(2, '0');
     return `${hours}:${minutes}:${seconds} ${timezoneInfo.timezone}`;
   };
-  // Determine status label based on connection type
+  // Determine status label based on connection type and data staleness
   const getStatusInfo = () => {
+    // If data is stale, show warning status regardless of connection type
+    if (dataStatus.isStale) {
+      return {
+        label: 'Data Stale',
+        className: 'bg-amber-500 text-white font-normal',
+        isActive: false,
+      };
+    }
+    
     const isDropboxSync = connectionType === 'http' || connectionType === 'dropbox';
     if (isDropboxSync) {
       const intervalHours = syncInterval ? Math.round(syncInterval / 3600000) : 1;
@@ -132,10 +182,9 @@ export function CurrentConditions({
           <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-last-update">
             Last update: {lastUpdate}
           </p>
-          <div className="flex items-center gap-2 text-sm font-semibold text-blue-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-local-time">
-            <Clock className="h-4 w-4" />
-            <span>{formatLocalTime()}</span>
-          </div>
+          <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-local-time">
+            Local Time: {formatLocalTime()}
+          </p>
         </div>
         <Badge
           variant={statusInfo.isActive ? "default" : "secondary"}
@@ -146,16 +195,27 @@ export function CurrentConditions({
           {statusInfo.label}
         </Badge>
       </CardHeader>
+      
+      {/* Stale Data Warning */}
+      {dataStatus.isStale && (
+        <div className="px-6 pb-4">
+          <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 text-sm">
+              {dataStatus.message}. Historical data is still available below.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+      
       <CardContent>
         <div className="grid gap-6">
-          <div>
-            <p className="text-5xl font-normal tracking-tight text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-temperature">
-              {fmt(temperature, 1)}
-              <span className="text-2xl text-black">°C</span>
-            </p>
-          </div>
-
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+              <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Temperature</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-temperature">{fmt(temperature, 1)}°C</p>
+            </div>
+
             <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Humidity</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-humidity">{fmt(humidity, 1)}%</p>

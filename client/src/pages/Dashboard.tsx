@@ -240,7 +240,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   });
 
   // Fetch historical data for charts and wind roses (based on configured time range)
-  const { data: historicalData = [] } = useQuery<WeatherData[]>({
+  const { data: historicalData = [], refetch: refetchHistorical } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange],
     queryFn: async () => {
       if (!activeStationId) return [];
@@ -254,6 +254,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     },
     enabled: !!activeStationId,
     refetchInterval: dashboardConfig.updatePeriod * 1000,
+    staleTime: 0, // Always refetch when timeframe changes - don't use cached data
   });
 
   // Calculate actual data time range for display
@@ -268,6 +269,52 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       latest,
       hoursAvailable: Math.round(hoursAvailable * 10) / 10,
       recordCount: historicalData.length
+    };
+  }, [historicalData]);
+
+  // Detect which data fields have valid data
+  const availableFields = useMemo(() => {
+    if (historicalData.length === 0) {
+      return {
+        temperature: false,
+        humidity: false,
+        pressure: false,
+        windSpeed: false,
+        windDirection: false,
+        solarRadiation: false,
+        rainfall: false,
+        dewPoint: false,
+        airDensity: false,
+        uvIndex: false,
+        pm25: false,
+        pm10: false,
+        soilTemperature: false,
+        soilMoisture: false,
+        batteryVoltage: false,
+      };
+    }
+    
+    // Check if field has at least some non-null values
+    const hasData = (field: keyof WeatherData) => {
+      return historicalData.some(d => d[field] !== null && d[field] !== undefined);
+    };
+    
+    return {
+      temperature: hasData('temperature'),
+      humidity: hasData('humidity'),
+      pressure: hasData('pressure'),
+      windSpeed: hasData('windSpeed'),
+      windDirection: hasData('windDirection'),
+      solarRadiation: hasData('solarRadiation'),
+      rainfall: hasData('rainfall'),
+      dewPoint: hasData('dewPoint'),
+      airDensity: hasData('airDensity'),
+      uvIndex: hasData('uvIndex'),
+      pm25: hasData('pm25'),
+      pm10: hasData('pm10'),
+      soilTemperature: hasData('soilTemperature'),
+      soilMoisture: hasData('soilMoisture'),
+      batteryVoltage: hasData('batteryVoltage'),
     };
   }, [historicalData]);
 
@@ -323,8 +370,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     setDashboardConfig(newConfig);
     localStorage.setItem('dashboardConfig', JSON.stringify(newConfig));
     // Invalidate historical data queries to force refresh with new time range
-    queryClient.invalidateQueries({ queryKey: ["/api/stations", activeStationId, "data", "history"] });
-  }, [queryClient, activeStationId]);
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/stations", activeStationId, "data", "history"],
+      refetchType: 'active' // Force immediate refetch of active queries
+    });
+    // Also directly refetch after state update to ensure fresh data
+    setTimeout(() => refetchHistorical(), 100);
+  }, [queryClient, activeStationId, refetchHistorical]);
 
   // Manual refresh handler
   const handleRefresh = useCallback(() => {
@@ -631,7 +683,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           rainfall={currentData.rainfall || 0}
           dewPoint={currentData.dewPoint || 0}
           isOnline={selectedStation?.isActive || false}
-          connectionType={selectedStation?.connectionType}
+          connectionType={selectedStation?.connectionType ?? undefined}
           syncInterval={3600000} // 1 hour Dropbox sync interval
           latitude={selectedStation?.latitude ?? undefined}
           longitude={selectedStation?.longitude ?? undefined}
@@ -739,23 +791,26 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           
           {/* Primary Metrics Dedicated Charts - Grid Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <DataBlockChart
-              title="Temperature"
-              data={chartData}
-              series={[
-                { dataKey: "temperature", name: "Temperature", color: "#ef4444", unit: "°C" },
-              ]}
-              chartType="area"
-              xAxisLabel="Time"
-              yAxisLabel="Temperature"
-              showAverage={true}
-              showMinMax={true}
-              currentValue={currentData.temperature || 0}
-              trend={trends.temperature !== null ? { value: parseFloat(trends.temperature.toFixed(1)), label: "vs avg" } : undefined}
-            />
-            <DataBlockChart
-              title="Humidity"
-              data={chartData}
+            {availableFields.temperature && (
+              <DataBlockChart
+                title="Temperature"
+                data={chartData}
+                series={[
+                  { dataKey: "temperature", name: "Temperature", color: "#ef4444", unit: "°C" },
+                ]}
+                chartType="area"
+                xAxisLabel="Time"
+                yAxisLabel="Temperature"
+                showAverage={true}
+                showMinMax={true}
+                currentValue={currentData.temperature || 0}
+                trend={trends.temperature !== null ? { value: parseFloat(trends.temperature.toFixed(1)), label: "vs avg" } : undefined}
+              />
+            )}
+            {availableFields.humidity && (
+              <DataBlockChart
+                title="Humidity"
+                data={chartData}
               series={[
                 { dataKey: "humidity", name: "Humidity", color: "#3b82f6", unit: "%" },
               ]}
@@ -767,9 +822,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentValue={currentData.humidity || 0}
               trend={trends.humidity !== null ? { value: parseFloat(trends.humidity.toFixed(1)), label: "vs avg" } : undefined}
             />
+            )}
           </div>
           
           {/* Barometric Pressure Section with Sea Level and Station Level */}
+          {availableFields.pressure && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BarometricPressureCard
               stationPressure={currentData.pressure || 1013.25}
@@ -794,6 +851,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentValue={currentData.pressure || 0}
             />
           </div>
+          )}
         </section>
 
         {/* Logger Battery Section - Only show if battery data exists */}
@@ -912,6 +970,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           {/* Solar Position Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Solar Radiation Chart */}
+            {availableFields.solarRadiation && (
             <DataBlockChart
               title="Solar Radiation"
               data={chartData}
@@ -925,6 +984,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showMinMax={true}
               currentValue={currentData.solarRadiation || 0}
             />
+            )}
             {/* Sun Elevation Chart - Calculated from station coordinates */}
             <DataBlockChart
               title="Sun Elevation (24h)"
@@ -1078,7 +1138,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Wind Direction Compass & Charts */}
+        {/* Wind Direction Compass & Charts - Only show if wind data available */}
+        {availableFields.windSpeed && (
         <section className="space-y-6">
           <h2 className="text-base font-normal text-foreground">Wind Analysis (WMO/Beaufort Scale)</h2>
           
@@ -1154,8 +1215,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
           </div>
         </section>
+        )}
 
-        {/* Wind Energy Section */}
+        {/* Wind Energy Section - Only show if wind data available */}
+        {availableFields.windSpeed && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Wind Energy</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1209,6 +1272,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             currentValue={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225)}
           />
         </section>
+        )}
 
         {/* Fire Danger Section */}
         <section className="space-y-4">
@@ -1225,7 +1289,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           </div>
         </section>
 
-        {/* Rainfall Section */}
+        {/* Rainfall Section - Only show if rainfall data available */}
+        {availableFields.rainfall && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Rainfall</h2>
           <DataBlockChart
@@ -1241,10 +1306,41 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             currentValue={currentData.rainfall || 0}
           />
         </section>
+        )}
 
         {/* Charts Section */}
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Historical Data</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h2 className="text-base font-normal text-foreground">Historical Data</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Time Range:</span>
+              <div className="flex gap-1">
+                {[
+                  { label: "1h", hours: 1 },
+                  { label: "6h", hours: 6 },
+                  { label: "12h", hours: 12 },
+                  { label: "24h", hours: 24 },
+                  { label: "48h", hours: 48 },
+                  { label: "7d", hours: 168 },
+                ].map(({ label, hours }) => (
+                  <Button
+                    key={hours}
+                    variant={dashboardConfig.chartTimeRange === hours ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => handleConfigChange({ ...dashboardConfig, chartTimeRange: hours })}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              {dataTimeRange && (
+                <Badge variant="outline" className="text-xs ml-2">
+                  {dataTimeRange.recordCount} records
+                </Badge>
+              )}
+            </div>
+          </div>
           <Tabs defaultValue="temperature" className="w-full">
             <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
               <TabsTrigger value="temperature" className="flex-1 min-w-[80px]" data-testid="tab-temperature">Temp</TabsTrigger>

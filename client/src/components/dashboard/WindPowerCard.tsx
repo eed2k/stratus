@@ -15,7 +15,7 @@ export function WindPowerCard({
   airDensity,
   avgSpeed,
   avgPower,
-  sparklineData,
+  sparklineData: _sparklineData,
 }: WindPowerCardProps) {
   return (
     <Card data-testid="card-wind-power">

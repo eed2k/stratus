@@ -69,7 +69,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
   canAccessStation: (stationId: number) => boolean;
 }) {
   const [, setLocation] = useLocation();
-  const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
+  const [_selectedStationId, setSelectedStationId] = useState<number | null>(null);
   
   const sidebarStyle = {
     "--sidebar-width": "16rem",

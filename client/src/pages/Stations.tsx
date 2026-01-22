@@ -20,17 +20,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Radio, Search, Trash2, Loader2, Wifi, Signal, Smartphone, Server, CheckCircle, XCircle, AlertCircle, Cloud, FolderSync, Upload, RefreshCw } from "lucide-react";
+import { MapPin, Plus, Radio, Search, Trash2, Loader2, Cloud, Thermometer, Wind, Droplets, Clock, BarChart3, ArrowRight, CheckCircle2, Upload, Wifi, Signal, Smartphone } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { WeatherStation } from "@shared/schema";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface ConnectionStatus {
-  connected: boolean;
-  lastConnected?: string;
-  lastError?: string;
-  isSimulation?: boolean;
+interface StationWithReading extends WeatherStation {
+  lastReading?: {
+    temperature: number | null;
+    humidity: number | null;
+    windSpeed: number | null;
+    timestamp: string;
+  };
+  recordCount?: number;
+  lastSyncTime?: string | null;
 }
 
 type StationType = "campbell";
@@ -114,7 +119,6 @@ export default function Stations() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
-  const [testingStation, setTestingStation] = useState<number | null>(null);
   const { toast } = useToast();
 
   // Listen for Electron menu events
@@ -130,39 +134,47 @@ export default function Stations() {
     };
   }, []);
 
-  const { data: stations = [], isLoading } = useQuery<WeatherStation[]>({
+  const { data: stations = [], isLoading } = useQuery<StationWithReading[]>({
     queryKey: ["/api/stations"],
-  });
-
-  const { data: connectionStatuses = {} } = useQuery<Record<number, ConnectionStatus>>({
-    queryKey: ["/api/protocols/status"],
-    refetchInterval: 30000,
-  });
-
-  const testConnectionMutation = useMutation({
-    mutationFn: async (stationId: number) => {
-      setTestingStation(stationId);
-      const response = await apiRequest("POST", `/api/protocols/test/${stationId}`);
-      return response.json();
+    queryFn: async () => {
+      const res = await fetch("/api/stations");
+      if (!res.ok) throw new Error("Failed to fetch stations");
+      const stationList = await res.json();
+      
+      // Fetch latest reading for each station
+      const stationsWithData = await Promise.all(
+        stationList.map(async (station: WeatherStation) => {
+          try {
+            const endTime = new Date();
+            const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+            const dataRes = await fetch(
+              `/api/stations/${station.id}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+            );
+            if (dataRes.ok) {
+              const data = await dataRes.json();
+              const latestReading = data.length > 0 ? data[data.length - 1] : null;
+              return {
+                ...station,
+                lastReading: latestReading ? {
+                  temperature: latestReading.temperature,
+                  humidity: latestReading.humidity,
+                  windSpeed: latestReading.windSpeed,
+                  timestamp: latestReading.timestamp
+                } : undefined,
+                recordCount: data.length,
+                lastSyncTime: latestReading?.timestamp || null
+              } as StationWithReading;
+            }
+          } catch (e) {
+            console.error("Error fetching station data:", e);
+          }
+          return station;
+        })
+      );
+      
+      return stationsWithData;
     },
-    onSuccess: (data) => {
-      setTestingStation(null);
-      if (data.success) {
-        toast({ 
-          title: "Connection Successful", 
-          description: data.isSimulation 
-            ? "Connected in simulation mode (hardware not available)" 
-            : data.message 
-        });
-      } else {
-        toast({ title: "Connection Failed", description: data.message, variant: "destructive" });
-      }
-      queryClient.invalidateQueries({ queryKey: ["/api/protocols/status"] });
-    },
-    onError: (error: any) => {
-      setTestingStation(null);
-      toast({ title: "Test Failed", description: error.message, variant: "destructive" });
-    },
+    refetchInterval: 60000, // Refresh every minute
   });
 
   const createMutation = useMutation({
@@ -307,22 +319,44 @@ export default function Stations() {
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
-  const getStationTypeIcon = (type: StationType) => {
-    return <Server className="h-5 w-5" />;
+  const getConnectionBadge = (type: string) => {
+    const colors: Record<string, string> = {
+      pakbus: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      http_post: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      dropbox: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      tcp_ip: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      lora: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      gsm: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
+      "4g": "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
+      mqtt: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+    };
+    const labels: Record<string, string> = {
+      pakbus: "PakBus",
+      http_post: "HTTP POST",
+      dropbox: "Dropbox",
+      tcp_ip: "TCP/IP",
+      lora: "LoRa",
+      gsm: "GSM",
+      "4g": "4G",
+      mqtt: "MQTT",
+    };
+    return (
+      <Badge variant="outline" className={colors[type] || "bg-gray-100 text-gray-800"}>
+        {labels[type] || type}
+      </Badge>
+    );
   };
 
-  const getConnectionIcon = (type: ConnectionType) => {
-    switch (type) {
-      case "dropbox": return <Cloud className="h-4 w-4" />;
-      case "http_post": return <Upload className="h-4 w-4" />;
-      case "lora": return <Signal className="h-4 w-4" />;
-      case "gsm": return <Smartphone className="h-4 w-4" />;
-      case "4g": return <Smartphone className="h-4 w-4" />;
-      case "ip": return <Wifi className="h-4 w-4" />;
-      case "tcp_ip": return <Wifi className="h-4 w-4" />;
-      case "mqtt": return <Radio className="h-4 w-4" />;
-      default: return <Cloud className="h-4 w-4" />;
-    }
+  const formatLastSync = (timestamp: string | null | undefined) => {
+    if (!timestamp) return "Never";
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 1) return "Just now";
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
+    return `${Math.floor(diffMinutes / 1440)}d ago`;
   };
 
   return (
@@ -804,8 +838,18 @@ export default function Stations() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-24 w-full" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : filteredStations.length === 0 ? (
         <Card>
@@ -828,138 +872,97 @@ export default function Stations() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredStations.map((station) => (
-            <Card key={station.id} className="hover:shadow-lg transition-shadow" data-testid={`card-station-${station.id}`}>
-              <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
-                    <Radio className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base font-medium">{station.name}</CardTitle>
+            <Card 
+              key={station.id} 
+              className="group hover:shadow-lg hover:border-primary/50 transition-all" 
+              data-testid={`card-station-${station.id}`}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
+                      <Radio className={`h-4 w-4 flex-shrink-0 ${station.isActive ? 'text-green-500' : 'text-gray-400'}`} />
+                      <span className="truncate">{station.name}</span>
+                    </CardTitle>
                     {station.location && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        {station.location}
-                      </div>
+                      <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{station.location}</span>
+                      </CardDescription>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    {getConnectionBadge(station.connectionType || 'dropbox')}
+                    {station.isActive ? (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-gray-50 text-gray-500 text-xs">
+                        Inactive
+                      </Badge>
                     )}
                   </div>
                 </div>
-                <Badge
-                  variant={station.isActive ? "default" : "secondary"}
-                  className={station.isActive ? "bg-green-600 text-white" : ""}
-                >
-                  {station.isActive ? "Active" : "Inactive"}
-                </Badge>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  {station.latitude !== null && station.longitude !== null && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Coordinates</span>
-                      <span className="font-mono">
-                        {station.latitude?.toFixed(3)}, {station.longitude?.toFixed(3)}
-                      </span>
+              
+              <CardContent className="space-y-4">
+                {/* Latest Reading - Weather Data Grid */}
+                {station.lastReading ? (
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 rounded-lg bg-muted/50">
+                    <div className="text-center">
+                      <Thermometer className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-red-500 mb-1" />
+                      <p className="text-base sm:text-lg font-semibold">
+                        {station.lastReading.temperature?.toFixed(1) ?? '--'}°
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Temp</p>
                     </div>
-                  )}
-                  {station.altitude !== null && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Altitude</span>
-                      <span className="font-mono">{station.altitude}m</span>
+                    <div className="text-center">
+                      <Droplets className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-blue-500 mb-1" />
+                      <p className="text-base sm:text-lg font-semibold">
+                        {station.lastReading.humidity?.toFixed(0) ?? '--'}%
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Humidity</p>
                     </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Created</span>
-                    <span>{station.createdAt ? new Date(station.createdAt).toLocaleDateString() : "N/A"}</span>
+                    <div className="text-center">
+                      <Wind className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-teal-500 mb-1" />
+                      <p className="text-base sm:text-lg font-semibold">
+                        {station.lastReading.windSpeed?.toFixed(1) ?? '--'}
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">km/h</p>
+                    </div>
                   </div>
-                </div>
-                {/* Connection Status */}
-                {station.stationType !== 'demo' && (
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t">
-                    <div className="flex items-center gap-2 text-xs">
-                      {/* Handle import-only/Dropbox sync stations */}
-                      {(() => {
-                        const config = typeof station.connectionConfig === 'string' 
-                          ? JSON.parse(station.connectionConfig || '{}') 
-                          : (station.connectionConfig || {});
-                        const isImportOnly = config.type === 'import-only' || config.importSource === 'dropbox';
-                        
-                        if (isImportOnly) {
-                          return (
-                            <>
-                              <RefreshCw className="h-3.5 w-3.5 text-blue-500" />
-                              <span className="text-blue-600">Syncing (Dropbox)</span>
-                              <Badge variant="outline" className="text-[10px] px-1 py-0">Import</Badge>
-                            </>
-                          );
-                        } else if (connectionStatuses[station.id]?.connected) {
-                          return (
-                            <>
-                              <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                              <span className="text-green-600">Connected</span>
-                              {connectionStatuses[station.id]?.isSimulation && (
-                                <Badge variant="outline" className="text-[10px] px-1 py-0">Simulation</Badge>
-                              )}
-                            </>
-                          );
-                        } else if (connectionStatuses[station.id]?.lastError) {
-                          return (
-                            <>
-                              <XCircle className="h-3.5 w-3.5 text-red-500" />
-                              <span className="text-red-600 truncate max-w-[120px]" title={connectionStatuses[station.id]?.lastError}>
-                                {connectionStatuses[station.id]?.lastError}
-                              </span>
-                            </>
-                          );
-                        } else {
-                          return (
-                            <>
-                              <AlertCircle className="h-3.5 w-3.5 text-yellow-500" />
-                              <span className="text-muted-foreground">Not connected</span>
-                            </>
-                          );
-                        }
-                      })()}
-                    </div>
-                    {/* Hide Test button for import-only stations */}
-                    {(() => {
-                      const config = typeof station.connectionConfig === 'string' 
-                        ? JSON.parse(station.connectionConfig || '{}') 
-                        : (station.connectionConfig || {});
-                      const isImportOnly = config.type === 'import-only' || config.importSource === 'dropbox';
-                      
-                      if (!isImportOnly) {
-                        return (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => testConnectionMutation.mutate(station.id)}
-                            disabled={testingStation === station.id}
-                            data-testid={`button-test-${station.id}`}
-                            className="h-7 text-xs"
-                          >
-                            {testingStation === station.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            ) : (
-                              <RefreshCw className="h-3 w-3 mr-1" />
-                            )}
-                            Test
-                          </Button>
-                        );
-                      }
-                      return null;
-                    })()}
+                ) : (
+                  <div className="p-4 rounded-lg bg-muted/50 text-center text-muted-foreground text-sm">
+                    No recent data available
                   </div>
                 )}
+                
+                {/* Stats Footer - Last Sync and Record Count */}
+                <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span>Last sync: {formatLastSync(station.lastSyncTime)}</span>
+                  </div>
+                  {station.recordCount !== undefined && (
+                    <div className="flex items-center gap-1">
+                      <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <span>{station.recordCount.toLocaleString()} records</span>
+                    </div>
+                  )}
+                </div>
 
-                <div className="mt-4 flex gap-2">
+                {/* Action Buttons */}
+                <div className="flex gap-2">
                   <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1" 
-                    data-testid={`button-view-${station.id}`}
+                    className="flex-1 group-hover:bg-primary transition-colors" 
+                    variant="outline"
                     onClick={() => window.location.href = `/?station=${station.id}`}
+                    data-testid={`button-view-${station.id}`}
                   >
-                    View Data
+                    View Dashboard
+                    <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -967,6 +970,7 @@ export default function Stations() {
                     onClick={() => deleteMutation.mutate(station.id)}
                     disabled={deleteMutation.isPending}
                     data-testid={`button-delete-${station.id}`}
+                    title="Delete station"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

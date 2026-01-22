@@ -203,7 +203,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
     if (config.includeSolar) headers.push("Solar Radiation (W/m²)");
 
     const rows = weatherData.map((d) => {
-      const row = [d.timestamp];
+      const row: string[] = [String(d.timestamp)];
       if (config.includeTemperature) row.push(d.temperature?.toString() || "");
       if (config.includeHumidity) row.push(d.humidity?.toString() || "");
       if (config.includePressure) row.push(d.pressure?.toString() || "");

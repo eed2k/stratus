@@ -158,10 +158,10 @@ export function DataBlockChart({
 
     const xAxisProps = {
       dataKey: "timestamp",
-      tick: { fontSize: 9, angle: data.length > 100 ? -45 : 0, textAnchor: data.length > 100 ? 'end' : 'middle' },
+      tick: { fontSize: 9, angle: data.length > 100 ? -45 : 0, textAnchor: (data.length > 100 ? 'end' : 'middle') as 'start' | 'middle' | 'end' },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
-      interval: data.length > 200 ? Math.floor(data.length / 8) : (data.length > 50 ? Math.floor(data.length / 6) : 'preserveStartEnd'),
+      interval: data.length > 200 ? Math.floor(data.length / 8) : (data.length > 50 ? Math.floor(data.length / 6) : 0) as number,
       label: !compact && xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fontSize: 11, fill: 'hsl(var(--muted-foreground))' } : undefined,
       height: data.length > 100 ? 60 : 30,
     };

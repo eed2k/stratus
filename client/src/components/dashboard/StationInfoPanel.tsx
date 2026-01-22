@@ -42,7 +42,6 @@ import {
   Calendar,
   MapPin,
   Cpu,
-  Shield,
   Edit,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

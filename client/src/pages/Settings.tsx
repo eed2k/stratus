@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle, Cloud, Plus, Trash2, RefreshCw, FolderSync } from "lucide-react";
+import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle, Cloud, Plus, Trash2, RefreshCw, FolderSync, Lock, Eye, EyeOff } from "lucide-react";
+import { getAllUsers, addUser } from "@/hooks/useAuth";
+import { verifyPassword, hashPassword } from "@/lib/passwordUtils";
 
 // Dropbox config interface
 interface DropboxConfig {
@@ -28,27 +38,6 @@ interface DropboxConfig {
   lastSyncAt?: string;
   lastSyncStatus?: string;
   lastSyncRecords?: number;
-}
-
-// User profile settings interface
-interface UserProfile {
-  firstName: string;
-  lastName: string;
-  email: string;
-}
-
-// Notification settings interface
-interface NotificationSettings {
-  emailNotifications: boolean;
-  pushNotifications: boolean;
-  tempHighAlert: number;
-  windHighAlert: number;
-}
-
-// Unit settings interface
-interface UnitSettings {
-  units: "metric" | "imperial";
-  timezone: string;
 }
 
 export default function Settings() {
@@ -83,6 +72,25 @@ export default function Settings() {
   
   // Server state
   const [serverAddress, setServerAddress] = useState('');
+  
+  // Dropbox credentials state (for admin configuration)
+  const [dropboxAppKey, setDropboxAppKey] = useState('');
+  const [dropboxAppSecret, setDropboxAppSecret] = useState('');
+  const [dropboxRefreshToken, setDropboxRefreshToken] = useState('');
+  const [isSavingCredentials, setIsSavingCredentials] = useState(false);
+  
+  // Password change state
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // Delete account state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Fetch Dropbox configs from server
   const { data: dropboxConfigs, refetch: refetchDropboxConfigs } = useQuery<DropboxConfig[]>({
@@ -279,6 +287,56 @@ export default function Settings() {
     }
   };
 
+  // Save Dropbox credentials
+  const handleSaveDropboxCredentials = async () => {
+    if (!dropboxAppKey || !dropboxAppSecret || !dropboxRefreshToken) {
+      toast({
+        title: "Error",
+        description: "All Dropbox credentials are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingCredentials(true);
+    try {
+      const res = await fetch('/api/dropbox-sync/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appKey: dropboxAppKey,
+          appSecret: dropboxAppSecret,
+          refreshToken: dropboxRefreshToken,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Dropbox credentials configured successfully. Connection test passed.",
+        });
+        // Clear the form
+        setDropboxAppKey('');
+        setDropboxAppSecret('');
+        setDropboxRefreshToken('');
+        // Refresh the credentials status
+        queryClient.invalidateQueries({ queryKey: ['/api/dropbox-sync/credentials'] });
+      } else {
+        throw new Error(result.error || 'Failed to save credentials');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save Dropbox credentials",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingCredentials(false);
+    }
+  };
+
   // Save profile to server
   const handleSaveProfile = async () => {
     setIsLoading(true);
@@ -417,12 +475,130 @@ export default function Settings() {
     }
   };
 
-  const showComingSoon = (feature: string) => {
+  // Password change handler
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "New password and confirmation do not match.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newPassword.length < 8) {
+      toast({
+        title: "Password Too Short",
+        description: "Password must be at least 8 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    try {
+      // Find current user in storage
+      const users = getAllUsers();
+      const currentUserEmail = email || userProfile?.email;
+      const currentUserData = users.find(u => u.email.toLowerCase() === currentUserEmail?.toLowerCase());
+      
+      if (!currentUserData) {
+        toast({
+          title: "Error",
+          description: "User not found. Please log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Verify current password
+      const isValid = await verifyPassword(currentPassword, currentUserData.passwordHash || "");
+      if (!isValid) {
+        toast({
+          title: "Invalid Password",
+          description: "Current password is incorrect.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update password with secure hash
+      const newHash = await hashPassword(newPassword);
+      const updatedUser = {
+        ...currentUserData,
+        passwordHash: newHash,
+      };
+      addUser(updatedUser);
+
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully.",
+      });
+      setShowPasswordDialog(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to change password.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Delete account handler
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') {
+      toast({
+        title: "Confirmation Required",
+        description: "Please type DELETE to confirm account deletion.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const res = await fetch('/api/auth/delete-account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (res.ok) {
+        toast({
+          title: "Account Deleted",
+          description: "Your account has been permanently deleted.",
+        });
+        // Redirect to login
+        window.location.href = '/';
+      } else {
+        const data = await res.json();
+        toast({
+          title: "Failed",
+          description: data.message || "Could not delete account.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete account.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Utility function for features not yet implemented
+  const _showComingSoon = (feature: string) => {
     toast({
       title: "Coming Soon",
       description: `${feature} will be available in a future update.`,
     });
   };
+  // Suppress unused warning
+  void _showComingSoon;
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -705,16 +881,71 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-6">
             {!dropboxCredentials?.configured ? (
-              <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-4 text-sm">
-                <p className="text-yellow-800 dark:text-yellow-200 font-medium">Dropbox Not Configured</p>
-                <p className="text-yellow-700 dark:text-yellow-300 mt-1">
-                  Configure Dropbox credentials in the server environment variables:
-                </p>
-                <ul className="list-disc list-inside mt-2 text-yellow-700 dark:text-yellow-300 space-y-1">
-                  <li><code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">DROPBOX_APP_KEY</code></li>
-                  <li><code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">DROPBOX_APP_SECRET</code></li>
-                  <li><code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">DROPBOX_REFRESH_TOKEN</code></li>
-                </ul>
+              <div className="space-y-4">
+                <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-4 text-sm">
+                  <p className="text-yellow-800 dark:text-yellow-200 font-medium">Dropbox Not Configured</p>
+                  <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                    Enter your Dropbox API credentials below to enable automatic data sync.
+                  </p>
+                </div>
+                
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                  <p className="text-sm font-medium">Configure Dropbox API Credentials</p>
+                  <p className="text-xs text-muted-foreground">
+                    To get these credentials, create an app at{' '}
+                    <a 
+                      href="https://www.dropbox.com/developers/apps" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      dropbox.com/developers/apps
+                    </a>
+                    {' '}and generate a refresh token using the OAuth 2.0 flow.
+                  </p>
+                  
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="dropboxAppKey" className="text-xs">App Key</Label>
+                      <Input
+                        id="dropboxAppKey"
+                        type="text"
+                        placeholder="Your Dropbox App Key"
+                        value={dropboxAppKey}
+                        onChange={(e) => setDropboxAppKey(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dropboxAppSecret" className="text-xs">App Secret</Label>
+                      <Input
+                        id="dropboxAppSecret"
+                        type="password"
+                        placeholder="Your Dropbox App Secret"
+                        value={dropboxAppSecret}
+                        onChange={(e) => setDropboxAppSecret(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="dropboxRefreshToken" className="text-xs">Refresh Token</Label>
+                    <Input
+                      id="dropboxRefreshToken"
+                      type="password"
+                      placeholder="Your Dropbox Refresh Token (for long-lived access)"
+                      value={dropboxRefreshToken}
+                      onChange={(e) => setDropboxRefreshToken(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Refresh tokens allow Stratus to maintain access without re-authentication.
+                    </p>
+                  </div>
+                  
+                  <Button onClick={handleSaveDropboxCredentials} disabled={isSavingCredentials}>
+                    {isSavingCredentials ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save & Test Credentials
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
@@ -767,7 +998,14 @@ export default function Settings() {
                             </p>
                             {config.lastSyncAt && (
                               <p className="text-xs text-muted-foreground">
-                                Last sync: {new Date(config.lastSyncAt).toLocaleString()} 
+                                Last sync: {new Date(config.lastSyncAt).toLocaleString('en-ZA', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit', 
+                                  minute: '2-digit',
+                                  timeZoneName: 'short'
+                                })} 
                                 {config.lastSyncStatus && ` (${config.lastSyncStatus})`}
                                 {config.lastSyncRecords !== undefined && ` - ${config.lastSyncRecords} records`}
                               </p>
@@ -861,9 +1099,10 @@ export default function Settings() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium">Password</p>
-                <p className="text-sm text-muted-foreground">Last changed 30 days ago</p>
+                <p className="text-sm text-muted-foreground">Change your account password</p>
               </div>
-              <Button variant="outline" data-testid="button-change-password" onClick={() => showComingSoon("Password change")}>
+              <Button variant="outline" data-testid="button-change-password" onClick={() => setShowPasswordDialog(true)}>
+                <Lock className="mr-2 h-4 w-4" />
                 Change Password
               </Button>
             </div>
@@ -873,13 +1112,117 @@ export default function Settings() {
                 <p className="font-medium text-destructive">Delete Account</p>
                 <p className="text-sm text-muted-foreground">Permanently delete your account and data</p>
               </div>
-              <Button variant="destructive" data-testid="button-delete-account" onClick={() => showComingSoon("Account deletion")}>
+              <Button variant="destructive" data-testid="button-delete-account" onClick={() => setShowDeleteDialog(true)}>
                 Delete Account
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
+      
+      {/* Password Change Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password and choose a new one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <div className="relative">
+                <Input
+                  id="currentPassword"
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                >
+                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>Cancel</Button>
+            <Button onClick={handleChangePassword} disabled={isChangingPassword}>
+              {isChangingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Change Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Account Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete Account</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete your account and all associated data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Type <strong>DELETE</strong> to confirm:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Type DELETE"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmText !== 'DELETE'}
+            >
+              Delete My Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

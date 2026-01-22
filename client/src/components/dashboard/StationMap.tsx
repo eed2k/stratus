@@ -44,6 +44,7 @@ export function StationMap({
   const markerRef = useRef<any>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Location search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -155,28 +156,53 @@ export function StationMap({
       if (!document.querySelector('link[href*="leaflet.css"]')) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
+        // Try primary CDN first
         link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-        link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
-        link.crossOrigin = "";
+        link.crossOrigin = "anonymous";
+        link.onerror = () => {
+          // Fallback to cdnjs
+          link.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css";
+        };
         document.head.appendChild(link);
       }
     };
 
-    // Dynamically load Leaflet JS
-    const loadLeaflet = async () => {
+    // Dynamically load Leaflet JS with retry and fallback
+    const loadLeaflet = async (): Promise<void> => {
       loadCss();
       
-      if (!(window as any).L) {
-        return new Promise<void>((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-          script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
-          script.crossOrigin = "";
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error("Failed to load Leaflet"));
-          document.head.appendChild(script);
-        });
+      if ((window as any).L) {
+        return Promise.resolve();
       }
+      
+      return new Promise<void>((resolve, reject) => {
+        const tryLoad = (url: string, onFail: () => void) => {
+          const script = document.createElement("script");
+          script.src = url;
+          script.crossOrigin = "anonymous";
+          script.onload = () => {
+            if ((window as any).L) {
+              resolve();
+            } else {
+              onFail();
+            }
+          };
+          script.onerror = onFail;
+          document.head.appendChild(script);
+        };
+        
+        // Try primary CDN
+        tryLoad(
+          "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          () => {
+            // Fallback to cdnjs
+            tryLoad(
+              "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js",
+              () => reject(new Error("Failed to load Leaflet from all CDNs"))
+            );
+          }
+        );
+      });
     };
 
     const initMap = () => {
@@ -307,9 +333,11 @@ export function StationMap({
         window.addEventListener('resize', handleResize);
         
         setError(null);
+        setIsLoading(false);
       } catch (err) {
         console.error("Map initialization error:", err);
         setError("Failed to initialize map");
+        setIsLoading(false);
       }
     };
 
@@ -325,7 +353,8 @@ export function StationMap({
       .catch((err) => {
         console.error("Failed to load Leaflet:", err);
         if (isMounted) {
-          setError("Failed to load map library");
+          setError("Failed to load map library. Please check your internet connection.");
+          setIsLoading(false);
         }
       });
 
@@ -462,8 +491,22 @@ export function StationMap({
       </CardHeader>
       <CardContent>
         {error ? (
-          <div className="flex items-center justify-center h-64 text-red-500">
-            <p>{error}</p>
+          <div className="flex flex-col items-center justify-center h-64 text-red-500 gap-2">
+            <MapPin className="h-8 w-8 opacity-50" />
+            <p className="text-sm text-center">{error}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => window.location.reload()}
+              className="mt-2"
+            >
+              Retry
+            </Button>
+          </div>
+        ) : isLoading ? (
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-2">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="text-sm">Loading map...</p>
           </div>
         ) : (
           <div

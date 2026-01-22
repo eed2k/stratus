@@ -9,17 +9,17 @@ interface AuthPageProps {
 export default function AuthPage({ onAuthenticate }: AuthPageProps) {
   const [isLogin, setIsLogin] = useState(true);
 
-  const handleLogin = (email: string, password: string) => {
+  const handleLogin = (_email: string, _password: string) => {
     // Authentication handled
     onAuthenticate?.();
   };
 
-  const handleSignup = (name: string, email: string, password: string) => {
+  const handleSignup = (_name: string, _email: string, _password: string) => {
     // Signup handled
     onAuthenticate?.();
   };
 
-  const handleSocialAuth = (provider: string) => {
+  const handleSocialAuth = (_provider: string) => {
     // Social auth handled
     onAuthenticate?.();
   };

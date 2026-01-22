@@ -147,7 +147,26 @@ export default function Alarms() {
       toast({ title: "Validation Error", description: "Please fill all required fields.", variant: "destructive" });
       return;
     }
-    createMutation.mutate(formData);
+    
+    const alarmData = {
+      ...formData,
+      stationId: parseInt(formData.stationId),
+      threshold: parseFloat(formData.threshold),
+      unit: selectedParam?.unit || "",
+    };
+    
+    if (editingAlarm) {
+      // Update existing alarm
+      updateMutation.mutate({ id: editingAlarm.id, ...alarmData }, {
+        onSuccess: () => {
+          setDialogOpen(false);
+          resetForm();
+        }
+      });
+    } else {
+      // Create new alarm
+      createMutation.mutate(formData);
+    }
   };
 
   const handleEdit = (alarm: Alarm) => {

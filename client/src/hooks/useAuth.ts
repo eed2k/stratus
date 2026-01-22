@@ -99,7 +99,7 @@ const getStoredUser = (): AuthUser | null => {
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, _setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {

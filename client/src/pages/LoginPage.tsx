@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, Lock, Eye, EyeOff, Shield, Users } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { getAllUsers, addUser, type StoredUser } from "@/hooks/useAuth";
 import { verifyPassword, hashPassword, isLegacyHash } from "@/lib/passwordUtils";
 
@@ -28,7 +28,7 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
-  const [loginType, setLoginType] = useState<'admin' | 'user'>('admin');
+  const [loginType] = useState<'admin' | 'user'>('admin');
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -153,38 +153,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </div>
         </div>
 
-        {/* Login Type Selection */}
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant={loginType === 'admin' ? 'default' : 'outline'}
-            className={`flex-1 ${loginType === 'admin' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-            onClick={() => setLoginType('admin')}
-          >
-            <Shield className="mr-2 h-4 w-4" />
-            Admin Login
-          </Button>
-          <Button
-            type="button"
-            variant={loginType === 'user' ? 'default' : 'outline'}
-            className={`flex-1 ${loginType === 'user' ? 'bg-green-600 hover:bg-green-700' : ''}`}
-            onClick={() => setLoginType('user')}
-          >
-            <Users className="mr-2 h-4 w-4" />
-            User Login
-          </Button>
-        </div>
-
         {/* Login Card */}
         <Card className="shadow-xl border border-gray-200 bg-white">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-2xl text-center text-gray-900">
-              {loginType === 'admin' ? 'Administrator Access' : 'User Access'}
+              Administrator Login
             </CardTitle>
             <CardDescription className="text-center text-gray-600">
-              {loginType === 'admin' 
-                ? 'Sign in with your admin credentials'
-                : 'Sign in to view your assigned dashboards'}
+              Sign in with your admin credentials
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -236,11 +212,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
               <Button 
                 type="submit" 
-                className={`w-full text-white ${
-                  loginType === 'admin' 
-                    ? 'bg-blue-600 hover:bg-blue-700' 
-                    : 'bg-green-600 hover:bg-green-700'
-                }`} 
+                className="w-full text-white bg-blue-600 hover:bg-blue-700" 
                 disabled={isLoading}
               >
                 {isLoading ? "Signing in..." : "Sign In"}
@@ -251,18 +223,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Info Text */}
         <div className="text-center text-sm text-gray-500">
-          {loginType === 'admin' ? (
-            <p>Administrators have full access to all settings and stations.</p>
-          ) : (
-            <div className="space-y-2">
-              <p>Users can only view dashboards assigned by an administrator.</p>
-              <div className="mt-3 p-3 bg-gray-100 rounded-lg text-xs text-left">
-                <p className="font-medium text-gray-700 mb-1">Demo User Credentials:</p>
-                <p className="text-gray-600">Email: <span className="font-mono bg-white px-1 rounded">testuser@stratus.app</span></p>
-                <p className="text-gray-600">Password: <span className="font-mono bg-white px-1 rounded">TestUser@2024</span></p>
-              </div>
-            </div>
-          )}
+          <p>Administrators have full access to all settings and stations.</p>
+          <p className="mt-2">Users can be managed from the Admin dashboard after login.</p>
         </div>
 
         {/* Footer */}
