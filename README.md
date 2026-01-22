@@ -6,13 +6,9 @@
 
 A professional desktop application for Campbell Scientific weather station management, data collection, and monitoring using the PakBus protocol.
 
-![Stratus Weather Server](assets/screenshot.png)
+Features
 
----
-
-## Features
-
-### Campbell Scientific Integration
+Campbell Scientific Integration
 - **PakBus Protocol Support** - Native implementation of Campbell Scientific's PakBus protocol
 - **Multi-Connection Types** - TCP/IP, Cellular (4G/LTE), LoRaWAN, HTTP
 - **Data Collection** - Scheduled and on-demand data collection from datalogger tables
