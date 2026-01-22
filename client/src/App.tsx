@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { DemoInitializer } from "@/components/DemoInitializer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
@@ -55,9 +54,7 @@ function Router() {
   // Desktop app - authenticated
   return (
     <ErrorBoundary>
-      <DemoInitializer>
-        <AuthenticatedApp user={user!} logout={logout} isAdmin={isAdmin} canAccessStation={canAccessStation} />
-      </DemoInitializer>
+      <AuthenticatedApp user={user!} logout={logout} isAdmin={isAdmin} canAccessStation={canAccessStation} />
     </ErrorBoundary>
   );
 }
