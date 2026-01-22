@@ -13,10 +13,6 @@ const ADMIN_EMAIL = "esterhuizen2k@proton.me";
 // Legacy hash for backward compatibility - will be replaced on first login
 const ADMIN_PASSWORD_HASH_LEGACY = "THVrYXNANjEwMw=="; // Base64 - will be migrated
 
-// Test user credentials for demo purposes
-const TEST_USER_EMAIL = "testuser@stratus.app";
-const TEST_USER_PASSWORD_HASH_LEGACY = "VGVzdFVzZXJAMjAyNA=="; // Base64 - will be migrated
-
 interface LoginPageProps {
   onLogin: (user: { 
     email: string; 
@@ -37,14 +33,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Setup default admin and test user on first load
+  // Setup default admin on first load and fix creation date
   useEffect(() => {
-    const setupDefaultUsers = async () => {
+    const setupDefaultAdmin = async () => {
       const users = getAllUsers();
-      const adminExists = users.some(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
-      const testUserExists = users.some(u => u.email.toLowerCase() === TEST_USER_EMAIL.toLowerCase());
+      const existingAdmin = users.find(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
       
-      if (!adminExists) {
+      if (!existingAdmin) {
         // Set up default admin account with legacy hash (will be migrated on first login)
         const adminUser: StoredUser = {
           email: ADMIN_EMAIL,
@@ -53,27 +48,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           passwordHash: ADMIN_PASSWORD_HASH_LEGACY,
           role: 'admin',
           assignedStations: [],
-          createdAt: new Date().toISOString(),
+          createdAt: "2026-02-01T00:00:00.000Z",
         };
         addUser(adminUser);
-      }
-      
-      if (!testUserExists) {
-        // Set up test user account for demonstration
-        const testUser: StoredUser = {
-          email: TEST_USER_EMAIL,
-          firstName: "Test",
-          lastName: "User",
-          passwordHash: TEST_USER_PASSWORD_HASH_LEGACY,
-          role: 'user',
-          assignedStations: [1], // Assigned to first station by default
-          createdAt: new Date().toISOString(),
-          createdBy: ADMIN_EMAIL,
-        };
-        addUser(testUser);
+      } else if (existingAdmin.createdAt !== "2026-02-01T00:00:00.000Z") {
+        // Fix creation date for existing admin
+        existingAdmin.createdAt = "2026-02-01T00:00:00.000Z";
+        addUser(existingAdmin);
       }
     };
-    setupDefaultUsers();
+    setupDefaultAdmin();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

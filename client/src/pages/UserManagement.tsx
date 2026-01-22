@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getAllUsers, addUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
-import { UserPlus, Trash2, Shield, User, Edit, MapPin, Loader2 } from "lucide-react";
+import { UserPlus, Trash2, User, Edit, MapPin, Loader2 } from "lucide-react";
 import { hashPassword } from "@/lib/passwordUtils";
 
 interface WeatherStation {
@@ -424,12 +424,10 @@ export default function UserManagement() {
                     <TableCell>
                       {user.role === "admin" ? (
                         <Badge className="bg-blue-600">
-                          <Shield className="h-3 w-3 mr-1" />
                           Admin
                         </Badge>
                       ) : (
                         <Badge variant="secondary">
-                          <User className="h-3 w-3 mr-1" />
                           User
                         </Badge>
                       )}
