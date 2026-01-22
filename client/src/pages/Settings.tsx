@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle, Cloud, Plus, Trash2, RefreshCw, FolderSync, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle, Cloud, Plus, Trash2, RefreshCw, FolderSync, Lock, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { getAllUsers, addUser } from "@/hooks/useAuth";
 import { verifyPassword, hashPassword } from "@/lib/passwordUtils";
 
@@ -78,6 +78,9 @@ export default function Settings() {
   const [dropboxAppSecret, setDropboxAppSecret] = useState('');
   const [dropboxRefreshToken, setDropboxRefreshToken] = useState('');
   const [isSavingCredentials, setIsSavingCredentials] = useState(false);
+  const [dropboxAuthCode, setDropboxAuthCode] = useState('');
+  const [isGettingToken, setIsGettingToken] = useState(false);
+  const [showAuthCodeInput, setShowAuthCodeInput] = useState(false);
   
   // Password change state
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -284,6 +287,74 @@ export default function Settings() {
       });
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  // Open Dropbox OAuth authorization page
+  const handleGetRefreshToken = () => {
+    if (!dropboxAppKey) {
+      toast({
+        title: "Error",
+        description: "Please enter your Dropbox App Key first",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${dropboxAppKey}&response_type=code&token_access_type=offline`;
+    window.open(authUrl, '_blank', 'width=600,height=700');
+    setShowAuthCodeInput(true);
+    
+    toast({
+      title: "Dropbox Authorization",
+      description: "A new window opened. After authorizing, copy the code and paste it below.",
+    });
+  };
+
+  // Exchange auth code for refresh token
+  const handleExchangeAuthCode = async () => {
+    if (!dropboxAppKey || !dropboxAppSecret || !dropboxAuthCode) {
+      toast({
+        title: "Error",
+        description: "App Key, App Secret, and Authorization Code are all required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGettingToken(true);
+    try {
+      const res = await fetch('/api/dropbox-sync/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appKey: dropboxAppKey,
+          appSecret: dropboxAppSecret,
+          authCode: dropboxAuthCode,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (result.success && result.refreshToken) {
+        setDropboxRefreshToken(result.refreshToken);
+        setDropboxAuthCode('');
+        setShowAuthCodeInput(false);
+        toast({
+          title: "Success!",
+          description: "Refresh token obtained. Click 'Save & Test Credentials' to complete setup.",
+        });
+      } else {
+        throw new Error(result.error || 'Failed to exchange authorization code');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to get refresh token",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGettingToken(false);
     }
   };
 
@@ -890,9 +961,9 @@ export default function Settings() {
                 </div>
                 
                 <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                  <p className="text-sm font-medium">Configure Dropbox API Credentials</p>
+                  <p className="text-sm font-medium">Step 1: Enter Dropbox App Credentials</p>
                   <p className="text-xs text-muted-foreground">
-                    To get these credentials, create an app at{' '}
+                    Create a Dropbox app at{' '}
                     <a 
                       href="https://www.dropbox.com/developers/apps" 
                       target="_blank" 
@@ -901,7 +972,7 @@ export default function Settings() {
                     >
                       dropbox.com/developers/apps
                     </a>
-                    {' '}and generate a refresh token using the OAuth 2.0 flow.
+                    {' '}(select "Scoped access" and "Full Dropbox" permissions).
                   </p>
                   
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -927,12 +998,49 @@ export default function Settings() {
                     </div>
                   </div>
                   
+                  <Separator className="my-4" />
+                  
+                  <p className="text-sm font-medium">Step 2: Get Refresh Token</p>
+                  <p className="text-xs text-muted-foreground">
+                    Click the button below to authorize Stratus with your Dropbox account. After authorizing, paste the code you receive.
+                  </p>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleGetRefreshToken}
+                      disabled={!dropboxAppKey}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Authorize with Dropbox
+                    </Button>
+                  </div>
+                  
+                  {showAuthCodeInput && (
+                    <div className="space-y-2 p-3 border rounded-md bg-blue-50 dark:bg-blue-900/20">
+                      <Label htmlFor="dropboxAuthCode" className="text-xs">Authorization Code</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="dropboxAuthCode"
+                          type="text"
+                          placeholder="Paste the authorization code from Dropbox"
+                          value={dropboxAuthCode}
+                          onChange={(e) => setDropboxAuthCode(e.target.value)}
+                          className="font-mono"
+                        />
+                        <Button onClick={handleExchangeAuthCode} disabled={isGettingToken || !dropboxAuthCode}>
+                          {isGettingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : "Get Token"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="dropboxRefreshToken" className="text-xs">Refresh Token</Label>
+                    <Label htmlFor="dropboxRefreshToken" className="text-xs">Refresh Token {dropboxRefreshToken && "✓"}</Label>
                     <Input
                       id="dropboxRefreshToken"
                       type="password"
-                      placeholder="Your Dropbox Refresh Token (for long-lived access)"
+                      placeholder="Automatically filled after authorization, or paste manually"
                       value={dropboxRefreshToken}
                       onChange={(e) => setDropboxRefreshToken(e.target.value)}
                     />

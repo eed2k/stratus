@@ -6,8 +6,92 @@
 import { Router, Request, Response } from 'express';
 import { dropboxSyncService, DropboxConfig } from './dropboxSyncService';
 import { storage } from '../localStorage';
+import https from 'https';
 
 const router = Router();
+
+/**
+ * GET /api/dropbox-sync/oauth/url
+ * Generate OAuth authorization URL for Dropbox
+ */
+router.get('/oauth/url', (req: Request, res: Response) => {
+  const { appKey } = req.query;
+  
+  if (!appKey) {
+    return res.status(400).json({ error: 'App Key is required' });
+  }
+  
+  const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${appKey}&response_type=code&token_access_type=offline`;
+  res.json({ authUrl });
+});
+
+/**
+ * POST /api/dropbox-sync/oauth/token
+ * Exchange authorization code for refresh token
+ */
+router.post('/oauth/token', async (req: Request, res: Response) => {
+  try {
+    const { appKey, appSecret, authCode } = req.body;
+    
+    if (!appKey || !appSecret || !authCode) {
+      return res.status(400).json({ error: 'App Key, App Secret, and Authorization Code are required' });
+    }
+    
+    // Exchange code for tokens using Dropbox OAuth endpoint
+    const tokenData = await new Promise<any>((resolve, reject) => {
+      const postData = `code=${encodeURIComponent(authCode)}&grant_type=authorization_code`;
+      const auth = Buffer.from(`${appKey}:${appSecret}`).toString('base64');
+      
+      const options = {
+        hostname: 'api.dropboxapi.com',
+        path: '/oauth2/token',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${auth}`,
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      };
+      
+      const request = https.request(options, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (response.statusCode !== 200) {
+              reject(new Error(parsed.error_description || parsed.error || 'Token exchange failed'));
+            } else {
+              resolve(parsed);
+            }
+          } catch (e) {
+            reject(new Error('Failed to parse Dropbox response'));
+          }
+        });
+      });
+      
+      request.on('error', reject);
+      request.write(postData);
+      request.end();
+    });
+    
+    if (!tokenData.refresh_token) {
+      return res.status(400).json({ error: 'No refresh token received. Make sure token_access_type=offline was used.' });
+    }
+    
+    res.json({
+      success: true,
+      refreshToken: tokenData.refresh_token,
+      accessToken: tokenData.access_token,
+      expiresIn: tokenData.expires_in,
+      tokenType: tokenData.token_type,
+      accountId: tokenData.account_id
+    });
+  } catch (err: any) {
+    console.error('[DropboxSync] OAuth token exchange error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * GET /api/dropbox-sync/status
