@@ -31,15 +31,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   Settings2,
-  Gauge,
-  Thermometer,
-  Wind,
-  CloudRain,
-  Sun,
-  Droplets,
-  Layers,
-  Eye,
-  Cpu,
   RefreshCw
 } from "lucide-react";
 import {
@@ -60,22 +51,8 @@ const CHART_TIME_RANGE_OPTIONS = [
   { value: 168, label: '7 days' },
   { value: 336, label: '14 days' },
   { value: 720, label: '30 days' },
+  { value: 744, label: '31 days' },
 ];
-
-const getCategoryIcon = (iconName: string) => {
-  switch (iconName) {
-    case 'gauge': return <Gauge className="h-4 w-4" />;
-    case 'thermometer': return <Thermometer className="h-4 w-4" />;
-    case 'wind': return <Wind className="h-4 w-4" />;
-    case 'cloud-rain': return <CloudRain className="h-4 w-4" />;
-    case 'sun': return <Sun className="h-4 w-4" />;
-    case 'droplets': return <Droplets className="h-4 w-4" />;
-    case 'layers': return <Layers className="h-4 w-4" />;
-    case 'eye': return <Eye className="h-4 w-4" />;
-    case 'cpu': return <Cpu className="h-4 w-4" />;
-    default: return <Gauge className="h-4 w-4" />;
-  }
-};
 
 interface DashboardConfigPanelProps {
   config: DashboardConfig;
@@ -244,7 +221,6 @@ export function DashboardConfigPanel({ config, onConfigChange }: DashboardConfig
                       <AccordionItem key={category.id} value={category.id}>
                         <AccordionTrigger className="hover:no-underline">
                           <div className="flex items-center gap-3 flex-1">
-                            {getCategoryIcon(category.icon)}
                             <span className="font-medium">{category.name}</span>
                             <Badge variant="outline" className="ml-auto mr-2">
                               {enabledInCategory}/{category.parameters.length}

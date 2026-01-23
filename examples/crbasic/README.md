@@ -5,11 +5,11 @@
 Stratus Weather Server supports multiple methods for connecting to Campbell Scientific dataloggers. This guide explains each connection method and provides example CRBASIC programs.
 
 > **CLOUD DEPLOYMENT NOTE**
-> Stratus is designed for cloud deployment on Oracle Cloud or similar platforms.
+> Stratus is designed for cloud deployment on any VPS provider (Hetzner, Linode, DigitalOcean, Vultr, etc.).
 > All connections use TCP/IP - serial/RS232 is not available in cloud environments.
 
-**Cloud Server:** Deploy to Oracle Cloud for free 24/7 access (see ORACLE_CLOUD_DEPLOYMENT.md)  
-**API Endpoint:** `http://YOUR_VM_IP:5000/api/ingest/{stationId}`
+**Cloud Server:** Deploy to any VPS for 24/7 access (see DEPLOYMENT_GUIDE.md)  
+**API Endpoint:** `http://YOUR_SERVER_IP:5000/api/ingest/{stationId}`
 
 ## WMO Compliance
 
@@ -38,15 +38,15 @@ All data transmitted to Stratus follows **WMO (World Meteorological Organization
 
 ## Method 1: HTTP POST (Recommended for Cloud)
 
-**How it works:** The datalogger pushes data to Stratus's REST API at regular intervals. Best for remote stations with cellular or WiFi connectivity. Works with Oracle Cloud deployment.
+**How it works:** The datalogger pushes data to Stratus's REST API at regular intervals. Best for remote stations with cellular or WiFi connectivity. Works with any cloud VPS deployment.
 
 ### CRBASIC Program
-Use `stratus_http_post_station.cr1x` - Configure your Oracle Cloud server IP and station ID.
+Use `stratus_http_post_station.cr1x` - Configure your server IP and station ID.
 
 ### Configuration in CRBASIC
 ```basic
-' For Oracle Cloud deployment (recommended for 24/7 access):
-Const STRATUS_SERVER = "YOUR_ORACLE_VM_IP"  ' Your Oracle Cloud VM public IP
+' For cloud deployment (recommended for 24/7 access):
+Const STRATUS_SERVER = "YOUR_SERVER_IP"  ' Your VPS public IP or domain
 Const STRATUS_PORT = 5000
 Const USE_TLS = False  ' Set True if you configure Nginx + SSL
 Const STATION_ID = 1  ' Numeric ID from Stratus dashboard
@@ -83,7 +83,7 @@ Body:
 ```
 
 ### Setup Steps
-1. Deploy Stratus to your cloud server (Oracle Cloud, DigitalOcean, etc.)
+1. Deploy Stratus to your cloud server (Hetzner, Linode, DigitalOcean, Vultr, etc.)
 2. Get your server's public URL or IP address
 3. Create a station in Stratus dashboard and note the numeric Station ID
 4. Update `STRATUS_SERVER` and `STATION_ID` in the CRBASIC program

@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Radio, Search, Trash2, Loader2, Cloud, Thermometer, Wind, Droplets, Clock, BarChart3, ArrowRight, CheckCircle2, Upload, Wifi, Signal, Smartphone } from "lucide-react";
+import { MapPin, Plus, Radio, Search, Trash2, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -162,7 +162,9 @@ export default function Stations() {
                   timestamp: latestReading.timestamp
                 } : undefined,
                 recordCount: data.length,
-                lastSyncTime: latestReading?.timestamp || null
+                // Use collectedAt (when data was synced) instead of timestamp (datalogger clock)
+                // This ensures "Last sync" shows when data was actually imported, not the datalogger's time
+                lastSyncTime: latestReading?.collectedAt || latestReading?.timestamp || null
               } as StationWithReading;
             }
           } catch (e) {
@@ -323,7 +325,7 @@ export default function Stations() {
     const colors: Record<string, string> = {
       pakbus: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
       http_post: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      dropbox: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      dropbox: "bg-blue-600 text-white",
       tcp_ip: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
       lora: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
       gsm: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
@@ -894,8 +896,7 @@ export default function Stations() {
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     {getConnectionBadge(station.connectionType || 'dropbox')}
                     {station.isActive ? (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                      <Badge variant="outline" className="bg-blue-600 text-white text-xs">
                         Active
                       </Badge>
                     ) : (
@@ -912,21 +913,18 @@ export default function Stations() {
                 {station.lastReading ? (
                   <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 rounded-lg bg-muted/50">
                     <div className="text-center">
-                      <Thermometer className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-red-500 mb-1" />
                       <p className="text-base sm:text-lg font-semibold">
                         {station.lastReading.temperature?.toFixed(1) ?? '--'}°
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Temp</p>
                     </div>
                     <div className="text-center">
-                      <Droplets className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-blue-500 mb-1" />
                       <p className="text-base sm:text-lg font-semibold">
                         {station.lastReading.humidity?.toFixed(0) ?? '--'}%
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Humidity</p>
                     </div>
                     <div className="text-center">
-                      <Wind className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-teal-500 mb-1" />
                       <p className="text-base sm:text-lg font-semibold">
                         {station.lastReading.windSpeed?.toFixed(1) ?? '--'}
                       </p>
@@ -942,12 +940,10 @@ export default function Stations() {
                 {/* Stats Footer - Last Sync and Record Count */}
                 <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t">
                   <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span>Last sync: {formatLastSync(station.lastSyncTime)}</span>
                   </div>
                   {station.recordCount !== undefined && (
                     <div className="flex items-center gap-1">
-                      <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
                       <span>{station.recordCount.toLocaleString()} records</span>
                     </div>
                   )}

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Users, Mail, Plus, UserPlus, Copy, Check, Loader2, Crown, Shield, Eye, Trash2 } from "lucide-react";
+import { Building2, Users, Mail, Plus, UserPlus, Copy, Check, Loader2, Trash2 } from "lucide-react";
 import type { Organization, OrganizationMember, OrganizationInvitation, User } from "@shared/schema";
 
 export default function Organizations() {
@@ -96,15 +96,6 @@ export default function Organizations() {
     setCopiedToken(token);
     setTimeout(() => setCopiedToken(null), 2000);
     toast({ title: "Link copied", description: "Invitation link copied to clipboard." });
-  };
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "admin": return <Crown className="h-4 w-4" />;
-      case "member": return <Shield className="h-4 w-4" />;
-      case "viewer": return <Eye className="h-4 w-4" />;
-      default: return null;
-    }
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -314,8 +305,7 @@ export default function Organizations() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Badge variant={getRoleBadgeVariant(member.role) as any} className="flex items-center gap-1">
-                                  {getRoleIcon(member.role)}
+                                <Badge variant={getRoleBadgeVariant(member.role) as any}>
                                   {member.role}
                                 </Badge>
                                 <Select 

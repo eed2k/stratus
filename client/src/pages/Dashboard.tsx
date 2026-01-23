@@ -318,28 +318,40 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [historicalData]);
 
+  // Sort historical data by timestamp ascending (oldest to newest) for charts to display correctly
+  const sortedHistoricalData = useMemo(() => {
+    if (historicalData.length === 0) return [];
+    return [...historicalData].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  }, [historicalData]);
+
   // Process historical data into chart format (pass time range for proper axis formatting)
-  const chartData = useMemo(() => processChartData(historicalData, dashboardConfig.chartTimeRange), [historicalData, dashboardConfig.chartTimeRange]);
+  const chartData = useMemo(() => processChartData(sortedHistoricalData, dashboardConfig.chartTimeRange), [sortedHistoricalData, dashboardConfig.chartTimeRange]);
   
   // Process wind rose data from historical data
-  const windRoseData = useMemo(() => processWindRoseData(historicalData), [historicalData]);
+  const windRoseData = useMemo(() => processWindRoseData(sortedHistoricalData), [sortedHistoricalData]);
   
   // Process wind scatter data from historical data
-  const windScatterData = useMemo(() => processWindScatterData(historicalData), [historicalData]);
+  const windScatterData = useMemo(() => processWindScatterData(sortedHistoricalData), [sortedHistoricalData]);
 
   // Process wind energy data from historical data
-  const windEnergyData = useMemo(() => processWindEnergyData(historicalData), [historicalData]);
+  const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData), [sortedHistoricalData]);
 
-  // Process wind data for different time periods (60min, 24h, 48h)
+  // Process wind data for different time periods (60min, 24h, 48h, 7d, 31d)
   const windDataByPeriod = useMemo(() => {
     const now = Date.now();
     const oneHourAgo = now - 60 * 60 * 1000;
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
     const fortyEightHoursAgo = now - 48 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const thirtyOneDaysAgo = now - 31 * 24 * 60 * 60 * 1000;
     
-    const last60Min = historicalData.filter(d => new Date(d.timestamp).getTime() > oneHourAgo);
-    const last24h = historicalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
-    const last48h = historicalData.filter(d => new Date(d.timestamp).getTime() > fortyEightHoursAgo);
+    const last60Min = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > oneHourAgo);
+    const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    const last48h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > fortyEightHoursAgo);
+    const last7d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    const last31d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > thirtyOneDaysAgo);
     
     return {
       '60min': {
@@ -357,13 +369,23 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         scatter: processWindScatterData(last48h),
         count: last48h.length
       },
+      '7d': {
+        rose: processWindRoseData(last7d),
+        scatter: processWindScatterData(last7d),
+        count: last7d.length
+      },
+      '31d': {
+        rose: processWindRoseData(last31d),
+        scatter: processWindScatterData(last31d),
+        count: last31d.length
+      },
       'configured': {
         rose: windRoseData,
         scatter: windScatterData,
-        count: historicalData.length
+        count: sortedHistoricalData.length
       }
     };
-  }, [historicalData, windRoseData, windScatterData]);
+  }, [sortedHistoricalData, windRoseData, windScatterData]);
 
   // Save config to localStorage and invalidate queries when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
@@ -694,6 +716,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <h2 className="text-base font-normal text-foreground">Station Location</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <StationMap
+              key={`map-${selectedStation?.id || 'default'}`}
               latitude={selectedStation?.latitude ?? undefined}
               longitude={selectedStation?.longitude ?? undefined}
               stationName={selectedStation?.name || "Weather Station"}
@@ -1189,6 +1212,24 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             </div>
           )}
           
+          {/* Extended Period Wind Roses - Show 7-day and 31-day roses when time range > 24h */}
+          {dashboardConfig.chartTimeRange > 24 && windDataByPeriod['7d'].count > windDataByPeriod['48h'].count && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              <WindRose 
+                data={windDataByPeriod['7d'].rose} 
+                title="Wind Rose (7 days)"
+                maxWindSpeed={maxWindSpeed}
+              />
+              {dashboardConfig.chartTimeRange > 168 && windDataByPeriod['31d'].count > windDataByPeriod['7d'].count && (
+                <WindRose 
+                  data={windDataByPeriod['31d'].rose} 
+                  title="Wind Rose (31 days)"
+                  maxWindSpeed={maxWindSpeed}
+                />
+              )}
+            </div>
+          )}
+          
           {/* Wind Scatter Plots */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {/* Wind Scatter - 60 Minutes */}
@@ -1214,6 +1255,24 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               />
             )}
           </div>
+          
+          {/* Extended Period Wind Scatter - Show 7-day and 31-day scatter when time range > 24h */}
+          {dashboardConfig.chartTimeRange > 24 && windDataByPeriod['7d'].count > windDataByPeriod['48h'].count && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              <WindRoseScatter 
+                data={windDataByPeriod['7d'].scatter} 
+                title="Wind Scatter (7 days)"
+                maxWindSpeed={maxWindSpeed}
+              />
+              {dashboardConfig.chartTimeRange > 168 && windDataByPeriod['31d'].count > windDataByPeriod['7d'].count && (
+                <WindRoseScatter 
+                  data={windDataByPeriod['31d'].scatter} 
+                  title="Wind Scatter (31 days)"
+                  maxWindSpeed={maxWindSpeed}
+                />
+              )}
+            </div>
+          )}
         </section>
         )}
 
@@ -1322,6 +1381,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                   { label: "24h", hours: 24 },
                   { label: "48h", hours: 48 },
                   { label: "7d", hours: 168 },
+                  { label: "31d", hours: 744 },
                 ].map(({ label, hours }) => (
                   <Button
                     key={hours}

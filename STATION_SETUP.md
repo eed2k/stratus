@@ -3,7 +3,7 @@
 Complete guide for connecting and configuring Campbell Scientific dataloggers with Stratus Weather Server.
 
 > **CLOUD DEPLOYMENT NOTE**
-> Stratus Weather Server is designed for cloud deployment on Oracle Cloud or similar platforms.
+> Stratus Weather Server is designed for cloud deployment on any VPS provider (Hetzner, Linode, DigitalOcean, Vultr, etc.).
 > All connections use TCP/IP, Cellular, LoRa, or Dropbox Sync for data import.
 
 ## Table of Contents
@@ -519,9 +519,9 @@ Displays logger battery voltage with:
 
 ### Cloud Deployment
 
-For public internet access to your Stratus server, deploy to a cloud VM (Oracle Cloud, DigitalOcean, etc.)
+For public internet access to your Stratus server, deploy to a cloud VPS (Hetzner, Linode, DigitalOcean, Vultr, etc.)
 
-See `ORACLE_CLOUD_DEPLOYMENT.md` for detailed Oracle Cloud Free Tier setup instructions.
+See `DEPLOYMENT_GUIDE.md` for detailed setup instructions.
 
 **Quick Steps:**
 1. Build locally: `npm run build`

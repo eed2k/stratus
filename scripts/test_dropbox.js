@@ -1,3 +1,4 @@
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const https = require('https');
 
 const appKey = process.env.DROPBOX_APP_KEY;

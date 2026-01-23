@@ -57,7 +57,7 @@ This application is designed to comply with:
 
 ## Network Deployment Warning
 
-**⚠️ CRITICAL:** When deploying Stratus to Oracle Cloud or any network-accessible environment:
+**⚠️ CRITICAL:** When deploying Stratus to any cloud VPS or network-accessible environment:
 
 1. Set `REQUIRE_AUTH=true` in your `.env` file
 2. Use HTTPS (configure Nginx with SSL certificates)

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Shield, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
@@ -95,12 +95,10 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
             <div className="flex items-center gap-2">
               {isAdmin ? (
                 <Badge variant="default" className="bg-blue-600 text-xs">
-                  <Shield className="h-3 w-3 mr-1" />
                   Admin
                 </Badge>
               ) : (
                 <Badge variant="secondary" className="text-xs">
-                  <User className="h-3 w-3 mr-1" />
                   User
                 </Badge>
               )}

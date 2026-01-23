@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  stratus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stratus-app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DATABASE_URL=postgresql://stratus:${POSTGRES_PASSWORD}@postgres:5432/stratus
+      - CLIENT_JWT_SECRET=${CLIENT_JWT_SECRET}
+      - STRATUS_ADMIN_EMAIL=${STRATUS_ADMIN_EMAIL}
+      - STRATUS_ADMIN_PASSWORD=${STRATUS_ADMIN_PASSWORD}
+      - STRATUS_ADMIN_NAME=${STRATUS_ADMIN_NAME:-Admin}
+    volumes:
+      - stratus-data:/app/data
+      - stratus-logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - stratus-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stratus.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.stratus.entrypoints=websecure"
+      - "traefik.http.routers.stratus.tls.certresolver=letsencrypt"
+      - "traefik.http.services.stratus.loadbalancer.server.port=5000"
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: stratus-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=stratus
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=stratus
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - stratus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stratus -d stratus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  traefik:
+    image: traefik:v2.10
+    container_name: stratus-traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt-data:/letsencrypt
+    networks:
+      - stratus-network
+
+volumes:
+  stratus-data:
+  stratus-logs:
+  postgres-data:
+  letsencrypt-data:
+
+networks:
+  stratus-network:
+    driver: bridge

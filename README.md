@@ -112,10 +112,10 @@ Shared Dashboards
 
 Hosting
 
-Stratus Weather Station is hosted on Oracle Cloud Infrastructure for 24/7 availability.
+Stratus Weather Station is designed for cloud VPS deployment for 24/7 availability.
 
-- Server: Oracle Cloud Always Free Tier
-- 4 ARM cores, 24 GB RAM
+- Recommended: Hetzner CX22, Linode, DigitalOcean, or Vultr
+- 1-2 vCPU, 2-4 GB RAM sufficient
 - Continuous operation with PM2 process manager
 - Automatic restart on failure
 

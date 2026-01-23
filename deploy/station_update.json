@@ -1,0 +1,9 @@
+{
+  "name": "HOPEFIELD_CR300",
+  "connectionType": "http",
+  "connectionConfig": {
+    "type": "import-only",
+    "importSource": "dropbox",
+    "folderPath": "/HOPEFIELD_CR300"
+  }
+}

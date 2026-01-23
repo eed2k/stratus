@@ -493,7 +493,7 @@ export function StationMap({
         {error ? (
           <div className="flex flex-col items-center justify-center h-64 text-red-500 gap-2">
             <MapPin className="h-8 w-8 opacity-50" />
-            <p className="text-sm text-center">{error}</p>
+            <p className="text-sm text-center">{typeof error === 'string' ? error : 'Failed to load map'}</p>
             <Button 
               variant="outline" 
               size="sm" 

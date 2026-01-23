@@ -242,16 +242,10 @@ export default function UserManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        User - Limited Access
-                      </div>
+                      User - Limited Access
                     </SelectItem>
                     <SelectItem value="admin">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        Admin - Full Access
-                      </div>
+                      Admin - Full Access
                     </SelectItem>
                   </SelectContent>
                 </Select>
