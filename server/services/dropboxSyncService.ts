@@ -544,10 +544,10 @@ export class DropboxSyncService extends EventEmitter {
           const batchSize = 100;
           
           for (let i = 0; i < recordsToImport.length; i += batchSize) {
-            const batch = recentRecords.slice(i, i + batchSize);
+            const batch = recordsToImport.slice(i, i + batchSize);
             
             // Prepare batch data
-            const batchData = batch.map(record => {
+            const batchData = batch.map((record: ParsedRecord) => {
               const mappedData = mapToWeatherData(record);
               const combinedData = { ...record.data, ...mappedData };
               return {
@@ -580,7 +580,7 @@ export class DropboxSyncService extends EventEmitter {
             
             // Progress update every 500 records
             if (i > 0 && i % 500 === 0) {
-              console.log(`[DropboxSync] Progress: ${i}/${recentRecords.length} records processed`);
+              console.log(`[DropboxSync] Progress: ${i}/${recordsToImport.length} records processed`);
             }
           }
 
