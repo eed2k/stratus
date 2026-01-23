@@ -8,11 +8,15 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
+      - STRATUS_DATA_DIR=/app/data
       - DATABASE_URL=postgresql://stratus:${POSTGRES_PASSWORD}@postgres:5432/stratus
       - CLIENT_JWT_SECRET=${CLIENT_JWT_SECRET}
       - STRATUS_ADMIN_EMAIL=${STRATUS_ADMIN_EMAIL}
       - STRATUS_ADMIN_PASSWORD=${STRATUS_ADMIN_PASSWORD}
       - STRATUS_ADMIN_NAME=${STRATUS_ADMIN_NAME:-Admin}
+      - DROPBOX_APP_KEY=${DROPBOX_APP_KEY}
+      - DROPBOX_APP_SECRET=${DROPBOX_APP_SECRET}
+      - DROPBOX_REFRESH_TOKEN=${DROPBOX_REFRESH_TOKEN}
     ports:
       - "127.0.0.1:5000:5000"
     volumes:

@@ -43,8 +43,14 @@ function validateColumnName(column: string): boolean {
 /**
  * Get the database file path
  * Uses standard app data location for the platform
+ * Can be overridden with STRATUS_DATA_DIR environment variable
  */
 function getDbPath(): string {
+  // Check for environment variable override (useful for Docker)
+  if (process.env.STRATUS_DATA_DIR) {
+    return path.join(process.env.STRATUS_DATA_DIR, DB_FILE);
+  }
+  
   // Use platform-appropriate app data location
   const platform = process.platform;
   let appDataPath: string;
