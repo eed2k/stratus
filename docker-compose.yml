@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   stratus:
     build:
@@ -15,6 +13,8 @@ services:
       - STRATUS_ADMIN_EMAIL=${STRATUS_ADMIN_EMAIL}
       - STRATUS_ADMIN_PASSWORD=${STRATUS_ADMIN_PASSWORD}
       - STRATUS_ADMIN_NAME=${STRATUS_ADMIN_NAME:-Admin}
+    ports:
+      - "127.0.0.1:5000:5000"
     volumes:
       - stratus-data:/app/data
       - stratus-logs:/app/logs
