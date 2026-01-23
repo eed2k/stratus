@@ -96,6 +96,7 @@ export class DropboxSyncService extends EventEmitter {
   private syncedFiles: Map<string, SyncedFile> = new Map();
   private syncTimer: NodeJS.Timeout | null = null;
   private isSyncing: boolean = false;
+  private isFullImport: boolean = false;
   private lastSyncTime: Date | null = null;
   private lastError: string | null = null;
   private isRefreshingToken: boolean = false;
@@ -360,8 +361,9 @@ export class DropboxSyncService extends EventEmitter {
 
   /**
    * Perform a sync now
+   * @param fullImport - If true, import all records regardless of timestamp (useful for initial setup)
    */
-  async syncNow(): Promise<{ success: boolean; filesProcessed: number; recordsImported: number; error?: string }> {
+  async syncNow(fullImport: boolean = false): Promise<{ success: boolean; filesProcessed: number; recordsImported: number; error?: string }> {
     if (!this.config) {
       return { success: false, filesProcessed: 0, recordsImported: 0, error: 'Not configured' };
     }
@@ -372,6 +374,7 @@ export class DropboxSyncService extends EventEmitter {
     }
 
     this.isSyncing = true;
+    this.isFullImport = fullImport;
     this.lastError = null;
     let filesProcessed = 0;
     let totalRecordsImported = 0;
@@ -523,18 +526,24 @@ export class DropboxSyncService extends EventEmitter {
 
           console.log(`[DropboxSync] Parsed ${parsed.records.length} total records from ${file.name}`);
 
-          // Only import records from the last 48 hours to avoid processing huge historical files
-          // This keeps syncs fast while still catching any gaps
-          const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
-          const recentRecords = parsed.records.filter(r => r.timestamp > cutoffTime);
-          
-          console.log(`[DropboxSync] Importing ${recentRecords.length} records from last 48 hours`);
+          // Filter records based on import mode
+          let recordsToImport: ParsedRecord[];
+          if (this.isFullImport) {
+            // Full import: import all records (useful for initial setup)
+            recordsToImport = parsed.records;
+            console.log(`[DropboxSync] Full import: importing all ${recordsToImport.length} records`);
+          } else {
+            // Normal sync: only import records from the last 48 hours to avoid processing huge historical files
+            const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
+            recordsToImport = parsed.records.filter(r => r.timestamp > cutoffTime);
+            console.log(`[DropboxSync] Importing ${recordsToImport.length} records from last 48 hours`);
+          }
 
           // Import records to database in efficient batches
           let recordsImported = 0;
           const batchSize = 100;
           
-          for (let i = 0; i < recentRecords.length; i += batchSize) {
+          for (let i = 0; i < recordsToImport.length; i += batchSize) {
             const batch = recentRecords.slice(i, i + batchSize);
             
             // Prepare batch data
@@ -717,18 +726,25 @@ export class DropboxSyncService extends EventEmitter {
               await storage.updateDropboxConfig(dbConfig.id, { stationId: station.id });
             }
 
-            // Filter to last 48 hours and import
-            const cutoffTime = new Date();
-            cutoffTime.setHours(cutoffTime.getHours() - 48);
-
-            const recentRecords = parsed.records.filter(r => r.timestamp >= cutoffTime);
-            console.log(`[DropboxSync] Importing ${recentRecords.length} records from last 48 hours`);
+            // Filter records based on import mode
+            let recordsToImport: ParsedRecord[];
+            if (this.isFullImport) {
+              // Full import: import all records (useful for initial setup)
+              recordsToImport = parsed.records;
+              console.log(`[DropboxSync] Full import: importing all ${recordsToImport.length} records`);
+            } else {
+              // Normal sync: filter to last 48 hours
+              const cutoffTime = new Date();
+              cutoffTime.setHours(cutoffTime.getHours() - 48);
+              recordsToImport = parsed.records.filter(r => r.timestamp >= cutoffTime);
+              console.log(`[DropboxSync] Importing ${recordsToImport.length} records from last 48 hours`);
+            }
 
             let configRecordsImported = 0;
             const BATCH_SIZE = 100;
             
-            for (let i = 0; i < recentRecords.length; i += BATCH_SIZE) {
-              const batch = recentRecords.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < recordsToImport.length; i += BATCH_SIZE) {
+              const batch = recordsToImport.slice(i, i + BATCH_SIZE);
               const batchData = batch.map(record => {
                 const mappedData = mapToWeatherData(record);
                 return {

@@ -333,10 +333,13 @@ router.post('/test', async (req: Request, res: Response) => {
 /**
  * POST /api/dropbox-sync/sync
  * Trigger an immediate sync
+ * Query params:
+ *   - fullImport=true: Import all records (not just last 48 hours)
  */
 router.post('/sync', async (req: Request, res: Response) => {
   try {
-    const result = await dropboxSyncService.syncNow();
+    const fullImport = req.query.fullImport === 'true' || req.body.fullImport === true;
+    const result = await dropboxSyncService.syncNow(fullImport);
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
