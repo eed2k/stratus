@@ -469,32 +469,39 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const isDemoStation = selectedStation?.connectionType === 'demo';
 
   // Use actual data, with sensible defaults for missing fields
-  const currentData = latestData || {
-    temperature: null,
-    humidity: null,
-    pressure: null,
-    windSpeed: null,
-    windGust: null,
-    windDirection: null,
-    solarRadiation: null,
-    rainfall: null,
-    dewPoint: null,
-    airDensity: null,
-    eto: null,
-    batteryVoltage: null,
-    particulateCount: null,
-    pm25: null,
-    pm10: null,
-    atmosphericVisibility: null,
-    panelTemperature: null,
-    soilTemperature: null,
-    soilMoisture: null,
-    uvIndex: null,
-    co2: null,
-    leafWetness: null,
-    evapotranspiration: null,
-    panelVoltage: null,
-  };
+  // Patch: prefer collectedAt for all 'last update' and chart data
+  const currentData = latestData
+    ? {
+        ...latestData,
+        // Patch: prefer collectedAt for last update
+        timestamp: latestData.collectedAt || latestData.timestamp,
+      }
+    : {
+        temperature: null,
+        humidity: null,
+        pressure: null,
+        windSpeed: null,
+        windGust: null,
+        windDirection: null,
+        solarRadiation: null,
+        rainfall: null,
+        dewPoint: null,
+        airDensity: null,
+        eto: null,
+        batteryVoltage: null,
+        particulateCount: null,
+        pm25: null,
+        pm10: null,
+        atmosphericVisibility: null,
+        panelTemperature: null,
+        soilTemperature: null,
+        soilMoisture: null,
+        uvIndex: null,
+        co2: null,
+        leafWetness: null,
+        evapotranspiration: null,
+        panelVoltage: null,
+      };
 
   // Calculate solar position based on station coordinates
   const solarPosition = useMemo(() => {
@@ -694,7 +701,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         {/* Current Conditions Header */}
         <CurrentConditions
           stationName={selectedStation?.name || "Weather Station"}
-          lastUpdate={latestData?.timestamp ? new Date(latestData.timestamp).toLocaleString() : "No data"}
+          lastUpdate={currentData.timestamp ? new Date(currentData.timestamp).toLocaleString() : "No data"}
           temperature={currentData.temperature || 0}
           humidity={currentData.humidity || 0}
           pressure={currentData.pressure || 0}

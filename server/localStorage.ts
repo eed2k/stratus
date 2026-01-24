@@ -81,7 +81,7 @@ export interface WeatherData {
   tableName: string;
   recordNumber?: number;
   timestamp: Date;
-  data: Record<string, any>;
+  data?: Record<string, any>;
   collectedAt: Date;
   // Extended properties
   temperature?: number | null;
@@ -961,7 +961,6 @@ export class DatabaseStorage {
       tableName: record.table_name,
       recordNumber: record.record_number,
       timestamp: new Date(record.timestamp),
-      data,
       collectedAt: new Date(record.collected_at),
       // Map data fields - support common Campbell Scientific and Hopefield field names
       temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? null,

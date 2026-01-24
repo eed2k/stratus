@@ -156,12 +156,24 @@ export function DataBlockChart({
       margin: { top: 10, right: 20, left: yAxisLabel ? 60 : 45, bottom: xAxisLabel ? 45 : 20 },
     };
 
+    // Calculate optimal tick interval based on data length
+    // For 24 points (e.g., hourly data): show only 2-3 labels
+    // For larger datasets: minimum 6 ticks
+    const getTickInterval = () => {
+      if (data.length > 200) return Math.ceil(data.length / 6); // 6 ticks max
+      if (data.length > 100) return Math.ceil(data.length / 6);
+      if (data.length > 50) return Math.ceil(data.length / 5);
+      if (data.length > 20) return Math.ceil(data.length / 8); // 3 ticks for 24 points
+      if (data.length > 10) return 3; // Every 4th tick
+      return 0; // Show all for very small datasets
+    };
+
     const xAxisProps = {
       dataKey: "timestamp",
       tick: { fontSize: 9, angle: data.length > 100 ? -45 : 0, textAnchor: (data.length > 100 ? 'end' : 'middle') as 'start' | 'middle' | 'end' },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
-      interval: data.length > 200 ? Math.floor(data.length / 8) : (data.length > 50 ? Math.floor(data.length / 6) : 0) as number,
+      interval: getTickInterval() as number,
       label: !compact && xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fontSize: 11, fill: 'hsl(var(--muted-foreground))' } : undefined,
       height: data.length > 100 ? 60 : 30,
     };
