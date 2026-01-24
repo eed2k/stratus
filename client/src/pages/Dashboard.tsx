@@ -16,7 +16,7 @@ import { DataImport } from "@/components/dashboard/DataImport";
 import { DashboardConfigPanel } from "@/components/dashboard/DashboardConfigPanel";
 import { ShareDashboard } from "@/components/dashboard/ShareDashboard";
 import { StationInfoPanel } from "@/components/dashboard/StationInfoPanel";
-import { StationMap } from "@/components/dashboard/StationMap";
+import { StationMap, StationMapWithErrorBoundary } from "@/components/dashboard/StationMap";
 import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { AirDensityCard } from "@/components/dashboard/AirDensityCard";
 import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
@@ -722,7 +722,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Station Location</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <StationMap
+            <StationMapWithErrorBoundary
               key={`map-${selectedStation?.id || 'default'}`}
               latitude={selectedStation?.latitude ?? undefined}
               longitude={selectedStation?.longitude ?? undefined}

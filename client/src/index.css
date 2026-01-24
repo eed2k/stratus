@@ -1,3 +1,6 @@
+/* Leaflet CSS - Required for map component to display correctly */
+@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

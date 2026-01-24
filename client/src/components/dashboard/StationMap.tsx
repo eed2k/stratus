@@ -1,9 +1,70 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, Component, ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MapPin, Maximize2, Minimize2, Navigation, ExternalLink, Search, Loader2, X } from "lucide-react";
+import { MapPin, Maximize2, Minimize2, Navigation, ExternalLink, Search, Loader2, X, AlertTriangle } from "lucide-react";
+
+// Map-specific error boundary to catch rendering errors
+interface MapErrorBoundaryProps {
+  children: ReactNode;
+  onError?: (error: Error) => void;
+}
+
+interface MapErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorBoundaryState> {
+  constructor(props: MapErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): MapErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[StationMap] Error boundary caught:', error);
+    this.props.onError?.(error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card className="h-full">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-normal">Station Location</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center h-64 text-amber-600 gap-2">
+              <AlertTriangle className="h-8 w-8" />
+              <p className="text-sm text-center">Map failed to load</p>
+              <p className="text-xs text-muted-foreground text-center max-w-xs">
+                {this.state.error?.message || 'Unknown error'}
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                  window.location.reload();
+                }}
+                className="mt-2"
+              >
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 interface LocationSearchResult {
   place_id: number;
@@ -524,5 +585,14 @@ export function StationMap({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// Exported wrapper component with error boundary
+export function StationMapWithErrorBoundary(props: StationMapProps) {
+  return (
+    <MapErrorBoundary onError={(err) => console.error('[StationMap] Render error:', err)}>
+      <StationMap {...props} />
+    </MapErrorBoundary>
   );
 }

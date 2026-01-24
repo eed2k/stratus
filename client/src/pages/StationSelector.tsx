@@ -74,8 +74,8 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                   timestamp: latestReading.timestamp
                 } : undefined,
                 recordCount: data.length,
-                // Use the latest data timestamp as lastSyncTime
-                lastSyncTime: latestReading?.timestamp || station.lastSyncTime
+                // Use collectedAt (when data was synced) instead of timestamp (datalogger clock)
+                lastSyncTime: latestReading?.collectedAt || latestReading?.timestamp || station.lastSyncTime
               };
             }
           } catch (e) {

@@ -50,7 +50,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
     includeStatistics: true,
   });
 
-  const { data: weatherData = [] } = useQuery<WeatherData[]>({
+  const { data: weatherData = [], isLoading: isLoadingData, isError, error } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", config.stationId, "data", config.startDate, config.endDate],
     queryFn: async () => {
       // Convert dates to ISO strings with time components
@@ -351,7 +351,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         <div className="flex flex-wrap gap-3">
           <Button
             onClick={generatePDFReport}
-            disabled={isGenerating || weatherData.length === 0}
+            disabled={isGenerating || weatherData.length === 0 || config.stationId === 0}
             data-testid="button-generate-pdf"
           >
             {isGenerating ? "Generating..." : "Generate PDF Report"}
@@ -359,16 +359,33 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           <Button
             variant="outline"
             onClick={generateCSVReport}
-            disabled={weatherData.length === 0}
+            disabled={weatherData.length === 0 || config.stationId === 0 || isLoadingData}
             data-testid="button-export-csv"
           >
             Export CSV Data
           </Button>
         </div>
 
-        {weatherData.length > 0 && (
+        {/* Status feedback for users */}
+        {config.stationId === 0 ? (
+          <p className="text-sm text-amber-600">
+            ⚠️ Please select a station to generate reports
+          </p>
+        ) : isLoadingData ? (
           <p className="text-sm text-muted-foreground">
-            {weatherData.length} records available for selected period
+            Loading data for selected period...
+          </p>
+        ) : isError ? (
+          <p className="text-sm text-red-600">
+            ❌ Error loading data: {(error as Error)?.message || 'Unknown error'}
+          </p>
+        ) : weatherData.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No data available for the selected period. Try adjusting the date range.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            ✓ {weatherData.length} records available for selected period
           </p>
         )}
       </CardContent>
