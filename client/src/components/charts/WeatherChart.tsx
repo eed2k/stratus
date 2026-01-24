@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -133,3 +133,6 @@ export function WeatherChart({
     </Card>
   );
 }
+
+// Memoized version for better performance - prevents re-renders when parent updates
+export const MemoizedWeatherChart = memo(WeatherChart);

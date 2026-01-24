@@ -31,6 +31,45 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,
+    // Target modern browsers for smaller bundles
+    target: 'es2020',
+    // Chunk splitting for better caching and parallel loading
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          // React core - cached long-term
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'react-vendor';
+          }
+          // Recharts + D3 is large (~400kb) - separate chunk for parallel loading
+          if (id.includes('node_modules/recharts/') || id.includes('node_modules/d3-')) {
+            return 'charts';
+          }
+          // Radix UI components - used across many pages
+          if (id.includes('node_modules/@radix-ui/')) {
+            return 'ui-vendor';
+          }
+          // React Query - data fetching layer
+          if (id.includes('node_modules/@tanstack/')) {
+            return 'query';
+          }
+          // PDF/Canvas libraries - only needed for reports
+          if (id.includes('node_modules/jspdf/') || id.includes('node_modules/html2canvas/')) {
+            return 'pdf-export';
+          }
+          // Date utilities
+          if (id.includes('node_modules/date-fns/')) {
+            return 'date-utils';
+          }
+          // Lucide icons
+          if (id.includes('node_modules/lucide-react/')) {
+            return 'icons';
+          }
+        },
+      },
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 500,
   },
   css: {
     postcss: {

@@ -55,6 +55,13 @@
   }
 }
 
+/* Shimmer animation for loading skeletons */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Cloud animation */
 .clouds { overflow: hidden; }
 .cloud { position: absolute; top: 10%; left: -40%; width: 40%; opacity: 0.95; animation: floatCloud 40s linear infinite; }
