@@ -1,4 +1,4 @@
-import { useMemo, memo } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -239,6 +239,3 @@ export function WindRose({
 
 // Re-export constants from shared module for backward compatibility
 export { WMO_SPEED_CLASSES, WMO_SIMPLIFIED_CLASSES, getWindDescription } from "@/lib/windConstants";
-
-// Memoized version for better performance - prevents re-renders when parent updates
-export const MemoizedWindRose = memo(WindRose);

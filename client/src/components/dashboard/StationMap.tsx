@@ -212,10 +212,7 @@ export function StationMap({
   useEffect(() => {
     let isMounted = true;
     
-    // Check if Leaflet is already cached/loaded (from preload hint)
-    const isLeafletCached = (window as any).L !== undefined;
-    
-    // Dynamically load Leaflet CSS (may already be preloaded via HTML hint)
+    // Dynamically load Leaflet CSS
     const loadCss = () => {
       if (!document.querySelector('link[href*="leaflet.css"]')) {
         const link = document.createElement("link");
