@@ -34,10 +34,32 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for React
-      styleSrc: ["'self'", "'unsafe-inline'"], // Required for inline styles
-      imgSrc: ["'self'", "data:", "blob:", "https:"],
-      connectSrc: ["'self'", "ws:", "wss:"],
+      scriptSrc: [
+        "'self'", 
+        "'unsafe-inline'", 
+        "'unsafe-eval'",
+        "https://unpkg.com",      // Leaflet JS CDN
+        "https://cdnjs.cloudflare.com", // Leaflet JS fallback CDN
+      ],
+      styleSrc: [
+        "'self'", 
+        "'unsafe-inline'",
+        "https://unpkg.com",      // Leaflet CSS CDN
+        "https://cdnjs.cloudflare.com", // Leaflet CSS fallback CDN
+      ],
+      imgSrc: [
+        "'self'", 
+        "data:", 
+        "blob:", 
+        "https:",
+        "https://*.tile.openstreetmap.org", // OpenStreetMap tiles
+      ],
+      connectSrc: [
+        "'self'", 
+        "ws:", 
+        "wss:",
+        "https://nominatim.openstreetmap.org", // OSM Nominatim geocoding API
+      ],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
