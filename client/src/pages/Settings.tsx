@@ -819,14 +819,7 @@ export default function Settings() {
               )}
             </div>
             
-            {!emailStatus?.configured && (
-              <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-3 text-sm">
-                <p className="text-yellow-800 dark:text-yellow-200">
-                  To enable email alerts, set <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">SENDGRID_API_KEY</code> and{' '}
-                  <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">SENDGRID_FROM_EMAIL</code> in your environment variables.
-                </p>
-              </div>
-            )}
+
             
             {emailStatus?.configured && (
               <div className="space-y-3">
@@ -1146,7 +1139,6 @@ export default function Settings() {
                       <Label htmlFor="newConfigName" className="text-xs">Name (e.g., station name)</Label>
                       <Input
                         id="newConfigName"
-                        placeholder="KWAGGASKLIP"
                         value={newConfigName}
                         onChange={(e) => setNewConfigName(e.target.value)}
                       />
@@ -1155,7 +1147,6 @@ export default function Settings() {
                       <Label htmlFor="newConfigFolder" className="text-xs">Folder Path</Label>
                       <Input
                         id="newConfigFolder"
-                        placeholder="/KWAGGASKLIP or /"
                         value={newConfigFolder}
                         onChange={(e) => setNewConfigFolder(e.target.value)}
                       />
@@ -1164,7 +1155,6 @@ export default function Settings() {
                       <Label htmlFor="newConfigPattern" className="text-xs">File Pattern (optional)</Label>
                       <Input
                         id="newConfigPattern"
-                        placeholder="*Table1* or KWAGGAS*"
                         value={newConfigPattern}
                         onChange={(e) => setNewConfigPattern(e.target.value)}
                       />
