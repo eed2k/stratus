@@ -660,7 +660,7 @@ export function StationMap({
             }`}
             style={{ minHeight: isExpanded ? "500px" : "256px" }}
           />
-        )}}
+        )}
         {altitude !== undefined && (
           <div className="mt-2 text-xs text-muted-foreground text-center">
             Altitude: {altitude} m above sea level
