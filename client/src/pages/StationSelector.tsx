@@ -239,36 +239,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
               </CardHeader>
               
               <CardContent className="space-y-4">
-                {/* Latest Reading */}
-                {station.lastReading ? (
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 rounded-lg bg-muted/50">
-                    <div className="text-center">
-                      <Thermometer className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-red-500 mb-1" />
-                      <p className="text-base sm:text-lg font-semibold">
-                        {station.lastReading.temperature?.toFixed(1) ?? '--'}°
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">Temp</p>
-                    </div>
-                    <div className="text-center">
-                      <Droplets className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-blue-500 mb-1" />
-                      <p className="text-base sm:text-lg font-semibold">
-                        {station.lastReading.humidity?.toFixed(0) ?? '--'}%
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">Humidity</p>
-                    </div>
-                    <div className="text-center">
-                      <Wind className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-teal-500 mb-1" />
-                      <p className="text-base sm:text-lg font-semibold">
-                        {station.lastReading.windSpeed?.toFixed(1) ?? '--'}
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">km/h</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-lg bg-muted/50 text-center text-muted-foreground text-sm">
-                    No recent data available
-                  </div>
-                )}
                 
                 {/* Stats Footer */}
                 <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t">
