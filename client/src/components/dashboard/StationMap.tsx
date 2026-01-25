@@ -211,58 +211,86 @@ export function StationMap({
 
   useEffect(() => {
     let isMounted = true;
+    let loadTimeout: NodeJS.Timeout | null = null;
     
     // Dynamically load Leaflet CSS
     const loadCss = () => {
       if (!document.querySelector('link[href*="leaflet.css"]')) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
-        // Try primary CDN first
         link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
         link.crossOrigin = "anonymous";
         link.onerror = () => {
-          // Fallback to cdnjs
           link.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css";
         };
         document.head.appendChild(link);
       }
     };
 
-    // Dynamically load Leaflet JS with retry and fallback
-    const loadLeaflet = async (): Promise<void> => {
+    // Load Leaflet with timeout and fallback
+    const loadLeaflet = (): Promise<void> => {
       loadCss();
       
+      // Already loaded
       if ((window as any).L) {
         return Promise.resolve();
       }
       
       return new Promise<void>((resolve, reject) => {
-        const tryLoad = (url: string, onFail: () => void) => {
-          const script = document.createElement("script");
-          script.src = url;
-          script.crossOrigin = "anonymous";
-          script.onload = () => {
-            if ((window as any).L) {
-              resolve();
-            } else {
-              onFail();
+        // Overall timeout
+        loadTimeout = setTimeout(() => {
+          reject(new Error("Map loading timed out"));
+        }, 10000);
+        
+        const loadScript = (url: string): Promise<void> => {
+          return new Promise((res, rej) => {
+            // Check if already loading/loaded
+            const existing = document.querySelector(`script[src*="leaflet"]`) as HTMLScriptElement;
+            if (existing) {
+              // Wait for existing script
+              const waitForL = setInterval(() => {
+                if ((window as any).L) {
+                  clearInterval(waitForL);
+                  res();
+                }
+              }, 50);
+              setTimeout(() => {
+                clearInterval(waitForL);
+                if ((window as any).L) res();
+                else rej(new Error("Existing script failed"));
+              }, 5000);
+              return;
             }
-          };
-          script.onerror = onFail;
-          document.head.appendChild(script);
+            
+            const script = document.createElement("script");
+            script.src = url;
+            script.async = true;
+            script.onload = () => {
+              if ((window as any).L) res();
+              else rej(new Error("Script loaded but L not defined"));
+            };
+            script.onerror = () => rej(new Error(`Failed to load ${url}`));
+            document.head.appendChild(script);
+          });
         };
         
-        // Try primary CDN
-        tryLoad(
-          "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
-          () => {
-            // Fallback to cdnjs
-            tryLoad(
-              "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js",
-              () => reject(new Error("Failed to load Leaflet from all CDNs"))
-            );
-          }
-        );
+        // Try unpkg first, then cdnjs
+        loadScript("https://unpkg.com/leaflet@1.9.4/dist/leaflet.js")
+          .then(() => {
+            if (loadTimeout) clearTimeout(loadTimeout);
+            resolve();
+          })
+          .catch(() => {
+            loadScript("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js")
+              .then(() => {
+                if (loadTimeout) clearTimeout(loadTimeout);
+                resolve();
+              })
+              .catch((err) => {
+                if (loadTimeout) clearTimeout(loadTimeout);
+                reject(err);
+              });
+          });
       });
     };
 
@@ -414,13 +442,14 @@ export function StationMap({
       .catch((err) => {
         console.error("Failed to load Leaflet:", err);
         if (isMounted) {
-          setError("Failed to load map library. Please check your internet connection.");
+          setError(err.message || "Failed to load map library. Please check your internet connection.");
           setIsLoading(false);
         }
       });
 
     return () => {
       isMounted = false;
+      if (loadTimeout) clearTimeout(loadTimeout);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
