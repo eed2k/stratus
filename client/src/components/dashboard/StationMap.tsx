@@ -647,19 +647,24 @@ export function StationMap({
               </Button>
             </div>
           </div>
-        ) : isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-2">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="text-sm">Loading map...</p>
-          </div>
         ) : (
-          <div
-            ref={mapRef}
-            className={`w-full rounded-lg border transition-all duration-300 ${
-              isExpanded ? "h-[500px]" : "h-64"
-            }`}
-            style={{ minHeight: isExpanded ? "500px" : "256px" }}
-          />
+          <div className="relative">
+            {/* Loading overlay */}
+            {isLoading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center h-64 text-muted-foreground gap-2 bg-background z-10">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="text-sm">Loading map...</p>
+              </div>
+            )}
+            {/* Map container - always rendered so ref is available */}
+            <div
+              ref={mapRef}
+              className={`w-full rounded-lg border transition-all duration-300 ${
+                isExpanded ? "h-[500px]" : "h-64"
+              }`}
+              style={{ minHeight: isExpanded ? "500px" : "256px" }}
+            />
+          </div>
         )}
         {altitude !== undefined && (
           <div className="mt-2 text-xs text-muted-foreground text-center">

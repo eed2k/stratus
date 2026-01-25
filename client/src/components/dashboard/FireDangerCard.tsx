@@ -21,11 +21,11 @@ interface FireDangerCardProps {
 }
 
 /**
- * Fire Danger Index Card
+ * South African Fire Danger Index Card
  * 
- * Displays the McArthur Forest Fire Danger Index (FFDI) with:
+ * Displays the Lowveld Fire Danger Index (FDI) as used by SAWS with:
  * - Visual gauge showing current danger level
- * - Color-coded rating
+ * - Color-coded rating (Blue/Green/Yellow/Orange/Red)
  * - Warning messages for elevated danger
  * - Supporting metrics (fuel moisture, spread potential)
  */
@@ -52,9 +52,9 @@ export function FireDangerCard({
 
   // Calculate gauge rotation (0-180 degrees for semicircle gauge)
   const gaugeRotation = useMemo(() => {
-    // Clamp FFDI to 0-150 for gauge display
-    const clampedFFDI = Math.min(150, Math.max(0, fireDanger.ffdi));
-    return (clampedFFDI / 150) * 180;
+    // Clamp FDI to 0-100 for gauge display (SA FDI scale)
+    const clampedFDI = Math.min(100, Math.max(0, fireDanger.ffdi));
+    return (clampedFDI / 100) * 180;
   }, [fireDanger.ffdi]);
 
   // Get warning icon based on level
@@ -113,10 +113,10 @@ export function FireDangerCard({
           <div className="relative w-48 h-24 overflow-hidden">
             {/* Gauge Background */}
             <svg viewBox="0 0 200 100" className="w-full h-full">
-              {/* Background arc segments for each danger level */}
+              {/* Background arc segments for each danger level (SA FDI scale 0-100) */}
               {FIRE_DANGER_RATINGS.map((rating: FireDangerRating) => {
-                const startAngle = (rating.minValue / 150) * 180;
-                const endAngle = Math.min((rating.maxValue / 150) * 180, 180);
+                const startAngle = (rating.minValue / 100) * 180;
+                const endAngle = Math.min((Math.min(rating.maxValue, 100) / 100) * 180, 180);
                 const startRad = (startAngle * Math.PI) / 180;
                 const endRad = (endAngle * Math.PI) / 180;
                 
@@ -155,19 +155,19 @@ export function FireDangerCard({
                 <circle cx="100" cy="100" r="4" fill="white" />
               </g>
               
-              {/* Scale labels */}
+              {/* Scale labels (SA FDI 0-100) */}
               <text x="20" y="95" className="text-[10px] fill-muted-foreground">0</text>
-              <text x="90" y="20" className="text-[10px] fill-muted-foreground">75</text>
-              <text x="170" y="95" className="text-[10px] fill-muted-foreground">150</text>
+              <text x="90" y="20" className="text-[10px] fill-muted-foreground">50</text>
+              <text x="170" y="95" className="text-[10px] fill-muted-foreground">100</text>
             </svg>
           </div>
           
-          {/* FFDI Value */}
+          {/* FDI Value */}
           <div className="text-center mt-2">
             <div className="text-4xl font-bold" style={{ color: fireDanger.rating.color }}>
               {fireDanger.ffdi.toFixed(1)}
             </div>
-            <div className="text-sm text-muted-foreground">FFDI</div>
+            <div className="text-sm text-muted-foreground">SA Fire Danger Index</div>
           </div>
           
           {/* Rating Description */}

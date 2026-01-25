@@ -33,10 +33,10 @@ interface FireDangerChartProps {
 /**
  * Fire Danger Chart
  * 
- * Displays historical Fire Danger Index (FFDI) values with:
+ * Displays historical South African Fire Danger Index (FDI) values with:
  * - Color-coded danger zone backgrounds
  * - Reference lines for danger thresholds
- * - Statistics (max, min, avg FFDI)
+ * - Statistics (max, min, avg FDI)
  */
 export function FireDangerChart({
   data,
@@ -111,7 +111,7 @@ export function FireDangerChart({
         <p className="font-medium text-foreground">{label}</p>
         <div className="mt-2 space-y-1">
           <p style={{ color: rating?.color }}>
-            <span className="font-semibold">FFDI:</span> {data.ffdi.toFixed(1)}
+            <span className="font-semibold">FDI:</span> {data.ffdi.toFixed(1)}
           </p>
           <p style={{ color: rating?.color }}>
             <span className="font-semibold">Rating:</span> {rating?.label}

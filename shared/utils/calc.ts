@@ -532,60 +532,62 @@ export interface FireDangerResult {
  * Fire danger rating thresholds and definitions
  * Based on Australian Fire Danger Rating System (AFDRS)
  */
+/**
+ * South African Fire Danger Index (FDI) Ratings
+ * Based on the Lowveld Fire Danger Index system used by SAWS (South African Weather Service)
+ * 
+ * Categories:
+ * - Blue (Safe): 0-20 - Safe conditions for burning
+ * - Green (Low): 21-45 - Low fire danger
+ * - Yellow (Moderate): 46-60 - Moderate fire danger
+ * - Orange (Dangerous): 61-75 - Dangerous fire conditions
+ * - Red (Extremely Dangerous): 76+ - Extremely dangerous, no burning allowed
+ */
 export const FIRE_DANGER_RATINGS: FireDangerRating[] = [
     {
-        level: 'low-moderate',
-        label: 'Low-Moderate',
-        color: '#22c55e', // green
-        description: 'Plan and prepare',
+        level: 'safe',
+        label: 'Safe',
+        color: '#3b82f6', // blue
+        description: 'Safe conditions for controlled burning',
         minValue: 0,
-        maxValue: 11,
-        actionAdvice: 'Be aware of fire conditions. Have a fire plan ready.'
+        maxValue: 20,
+        actionAdvice: 'Conditions are safe. Controlled burning may be conducted with proper permits.'
     },
     {
-        level: 'high',
-        label: 'High',
+        level: 'low',
+        label: 'Low',
+        color: '#22c55e', // green
+        description: 'Low fire danger',
+        minValue: 21,
+        maxValue: 45,
+        actionAdvice: 'Fire danger is low. Be cautious with open flames and ensure fires are fully extinguished.'
+    },
+    {
+        level: 'moderate',
+        label: 'Moderate',
         color: '#eab308', // yellow
-        description: 'Be ready to act',
-        minValue: 12,
-        maxValue: 24,
-        actionAdvice: 'Be ready to act. Fires may be difficult to control.'
+        description: 'Moderate fire danger - exercise caution',
+        minValue: 46,
+        maxValue: 60,
+        actionAdvice: 'Moderate fire danger. Avoid open fires and report any wildfires immediately.'
     },
     {
-        level: 'very-high',
-        label: 'Very High',
+        level: 'dangerous',
+        label: 'Dangerous',
         color: '#f97316', // orange
-        description: 'Take action now to protect life and property',
-        minValue: 25,
-        maxValue: 49,
-        actionAdvice: 'Take action now. Fires will spread quickly and be difficult to control.'
+        description: 'Dangerous fire conditions - high risk',
+        minValue: 61,
+        maxValue: 75,
+        actionAdvice: 'Dangerous conditions. No open fires permitted. Be alert and ready to evacuate if necessary.'
     },
     {
-        level: 'severe',
-        label: 'Severe',
-        color: '#ef4444', // red
-        description: 'For your survival, leave bushfire risk areas',
-        minValue: 50,
-        maxValue: 74,
-        actionAdvice: 'Leave bushfire risk areas early. Fires will be uncontrollable and fast-moving.'
-    },
-    {
-        level: 'extreme',
-        label: 'Extreme',
-        color: '#dc2626', // dark red
-        description: 'For your survival, leave bushfire risk areas',
-        minValue: 75,
-        maxValue: 99,
-        actionAdvice: 'Leaving early is the only safe option. Fires will be extremely dangerous.'
-    },
-    {
-        level: 'catastrophic',
-        label: 'Catastrophic',
-        color: '#7f1d1d', // darkest red / maroon
-        description: 'For your survival, leave bushfire risk areas',
-        minValue: 100,
+        level: 'extremely-dangerous',
+        label: 'Extremely Dangerous',
+        color: '#dc2626', // red
+        description: 'Extremely dangerous - no burning allowed',
+        minValue: 76,
         maxValue: Infinity,
-        actionAdvice: 'These are the most dangerous conditions. If fire starts, lives and homes will be at risk.'
+        actionAdvice: 'Extremely dangerous conditions. All burning prohibited. Evacuate fire-prone areas if advised.'
     }
 ];
 
@@ -761,39 +763,33 @@ export function calculateFireDanger(
     const grasslandFDI = calculateGFDI(temperature, humidity, windSpeed);
     const fuelMoisture = estimateFuelMoisture(temperature, humidity);
     
-    // Get rating based on FFDI
+    // Get rating based on FDI
     const rating = getFireDangerRating(ffdi);
     
     // Estimate Keetch-Byram Index (simplified approximation)
     const keetchByramIndex = Math.min(800, droughtFactor * 80);
     
-    // Determine spread potential
+    // Determine spread potential based on SA FDI thresholds
     let spreadPotential: 'low' | 'moderate' | 'high' | 'very-high' | 'extreme';
-    if (ffdi < 12) spreadPotential = 'low';
-    else if (ffdi < 25) spreadPotential = 'moderate';
-    else if (ffdi < 50) spreadPotential = 'high';
-    else if (ffdi < 75) spreadPotential = 'very-high';
+    if (ffdi <= 20) spreadPotential = 'low';
+    else if (ffdi <= 45) spreadPotential = 'moderate';
+    else if (ffdi <= 60) spreadPotential = 'high';
+    else if (ffdi <= 75) spreadPotential = 'very-high';
     else spreadPotential = 'extreme';
     
-    // Determine warning level and message
+    // Determine warning level and message based on SA FDI
     let warningLevel: 0 | 1 | 2 | 3 = 0;
     let warningMessage: string | null = null;
     
-    if (rating.level === 'catastrophic') {
+    if (rating.level === 'extremely-dangerous') {
         warningLevel = 3;
-        warningMessage = 'EMERGENCY: Catastrophic fire danger. Leave bushfire risk areas immediately.';
-    } else if (rating.level === 'extreme') {
-        warningLevel = 3;
-        warningMessage = 'EMERGENCY: Extreme fire danger conditions. Leaving early is the only safe option.';
-    } else if (rating.level === 'severe') {
+        warningMessage = 'EMERGENCY: Extremely dangerous fire conditions. All burning prohibited. Evacuate if advised.';
+    } else if (rating.level === 'dangerous') {
         warningLevel = 2;
-        warningMessage = 'WARNING: Severe fire danger. For your survival, leave bushfire risk areas.';
-    } else if (rating.level === 'very-high') {
+        warningMessage = 'WARNING: Dangerous fire conditions. No open fires permitted. Be ready to evacuate.';
+    } else if (rating.level === 'moderate') {
         warningLevel = 1;
-        warningMessage = 'WATCH: Very high fire danger. Be prepared to take action.';
-    } else if (rating.level === 'high') {
-        warningLevel = 1;
-        warningMessage = 'WATCH: High fire danger conditions. Stay alert.';
+        warningMessage = 'CAUTION: Moderate fire danger. Avoid open fires and stay vigilant.';
     }
     
     return {

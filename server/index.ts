@@ -59,6 +59,9 @@ app.use(helmet({
         "ws:", 
         "wss:",
         "https://nominatim.openstreetmap.org", // OSM Nominatim geocoding API
+        "https://unpkg.com",      // Leaflet CDN
+        "https://cdnjs.cloudflare.com", // Leaflet fallback CDN
+        "https://cdn.jsdelivr.net", // Leaflet fallback CDN
       ],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
