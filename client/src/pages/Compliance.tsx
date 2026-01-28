@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -197,7 +198,7 @@ export default function Compliance() {
   const { data: summary, isLoading: summaryLoading } = useQuery<ComplianceSummary>({
     queryKey: ["compliance-summary"],
     queryFn: async () => {
-      const res = await fetch("/api/compliance/summary");
+      const res = await authFetch("/api/compliance/summary");
       if (!res.ok) throw new Error("Failed to fetch compliance summary");
       return res.json();
     },
@@ -208,7 +209,7 @@ export default function Compliance() {
   const { data: calibrations, isLoading: calibrationsLoading } = useQuery<CalibrationRecord[]>({
     queryKey: ["calibrations"],
     queryFn: async () => {
-      const res = await fetch("/api/compliance/calibrations");
+      const res = await authFetch("/api/compliance/calibrations");
       if (!res.ok) throw new Error("Failed to fetch calibrations");
       return res.json();
     },
@@ -218,7 +219,7 @@ export default function Compliance() {
   const { data: qualityFlags, isLoading: flagsLoading } = useQuery<QualityFlag[]>({
     queryKey: ["quality-flags"],
     queryFn: async () => {
-      const res = await fetch("/api/compliance/quality-flags");
+      const res = await authFetch("/api/compliance/quality-flags");
       if (!res.ok) throw new Error("Failed to fetch quality flags");
       return res.json();
     },
@@ -228,7 +229,7 @@ export default function Compliance() {
   const { data: dsrRequests, isLoading: dsrLoading } = useQuery<DataSubjectRequest[]>({
     queryKey: ["dsr-requests"],
     queryFn: async () => {
-      const res = await fetch("/api/compliance/dsr");
+      const res = await authFetch("/api/compliance/dsr");
       if (!res.ok) throw new Error("Failed to fetch DSR requests");
       return res.json();
     },
@@ -238,7 +239,7 @@ export default function Compliance() {
   const { data: certifications, isLoading: certsLoading } = useQuery<Certification[]>({
     queryKey: ["certifications"],
     queryFn: async () => {
-      const res = await fetch("/api/compliance/certifications");
+      const res = await authFetch("/api/compliance/certifications");
       if (!res.ok) throw new Error("Failed to fetch certifications");
       return res.json();
     },
@@ -247,7 +248,7 @@ export default function Compliance() {
   // Export audit log
   const handleExportAuditLog = async () => {
     try {
-      const res = await fetch("/api/compliance/audit-log/export?format=csv");
+      const res = await authFetch("/api/compliance/audit-log/export?format=csv");
       if (!res.ok) throw new Error("Failed to export audit log");
       
       const blob = await res.blob();

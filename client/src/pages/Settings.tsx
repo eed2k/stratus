@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,7 +100,7 @@ export default function Settings() {
   const { data: dropboxConfigs, refetch: refetchDropboxConfigs } = useQuery<DropboxConfig[]>({
     queryKey: ['/api/dropbox-sync/configs'],
     queryFn: async () => {
-      const res = await fetch('/api/dropbox-sync/configs');
+      const res = await authFetch('/api/dropbox-sync/configs');
       if (!res.ok) return [];
       return res.json();
     },
@@ -109,7 +110,7 @@ export default function Settings() {
   const { data: dropboxCredentials } = useQuery({
     queryKey: ['/api/dropbox-sync/credentials'],
     queryFn: async () => {
-      const res = await fetch('/api/dropbox-sync/credentials');
+      const res = await authFetch('/api/dropbox-sync/credentials');
       if (!res.ok) return { configured: false };
       return res.json();
     },
@@ -119,7 +120,7 @@ export default function Settings() {
   const { data: dropboxFiles, refetch: refetchDropboxFiles, isLoading: isLoadingFiles } = useQuery<{ name: string; path: string; modified: string; size: number }[]>({
     queryKey: ['/api/dropbox-sync/files'],
     queryFn: async () => {
-      const res = await fetch('/api/dropbox-sync/files');
+      const res = await authFetch('/api/dropbox-sync/files');
       if (!res.ok) return [];
       return res.json();
     },
@@ -130,7 +131,7 @@ export default function Settings() {
   const { data: userProfile } = useQuery({
     queryKey: ['/api/auth/user'],
     queryFn: async () => {
-      const res = await fetch('/api/auth/user');
+      const res = await authFetch('/api/auth/user');
       if (!res.ok) return null;
       return res.json();
     },
@@ -140,7 +141,7 @@ export default function Settings() {
   const { data: preferences } = useQuery({
     queryKey: ['/api/user/preferences'],
     queryFn: async () => {
-      const res = await fetch('/api/user/preferences');
+      const res = await authFetch('/api/user/preferences');
       if (!res.ok) return null;
       return res.json();
     },
@@ -150,7 +151,7 @@ export default function Settings() {
   const { data: emailStatus } = useQuery({
     queryKey: ['/api/email/status'],
     queryFn: async () => {
-      const res = await fetch('/api/email/status');
+      const res = await authFetch('/api/email/status');
       if (!res.ok) return { configured: false };
       return res.json();
     },
@@ -191,7 +192,7 @@ export default function Settings() {
 
     setIsAddingConfig(true);
     try {
-      const res = await fetch('/api/dropbox-sync/configs', {
+      const res = await authFetch('/api/dropbox-sync/configs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -229,7 +230,7 @@ export default function Settings() {
     if (!confirm(`Delete sync configuration for "${name}"?`)) return;
 
     try {
-      const res = await fetch(`/api/dropbox-sync/configs/${id}`, { method: 'DELETE' });
+      const res = await authFetch(`/api/dropbox-sync/configs/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
 
       toast({
@@ -248,7 +249,7 @@ export default function Settings() {
 
   const handleToggleDropboxConfig = async (id: number, enabled: boolean) => {
     try {
-      const res = await fetch(`/api/dropbox-sync/configs/${id}`, {
+      const res = await authFetch(`/api/dropbox-sync/configs/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
@@ -267,7 +268,7 @@ export default function Settings() {
   const handleTriggerSync = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch('/api/dropbox-sync/sync', { method: 'POST' });
+      const res = await authFetch('/api/dropbox-sync/sync', { method: 'POST' });
       const result = await res.json();
 
       if (result.success) {
@@ -324,7 +325,7 @@ export default function Settings() {
 
     setIsGettingToken(true);
     try {
-      const res = await fetch('/api/dropbox-sync/oauth/token', {
+      const res = await authFetch('/api/dropbox-sync/oauth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -371,7 +372,7 @@ export default function Settings() {
 
     setIsSavingCredentials(true);
     try {
-      const res = await fetch('/api/dropbox-sync/credentials', {
+      const res = await authFetch('/api/dropbox-sync/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -412,7 +413,7 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/user', {
+      const res = await authFetch('/api/auth/user', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName, lastName, email }),
@@ -459,7 +460,7 @@ export default function Settings() {
         prefsToSave.serverAddress = serverAddress;
       }
       
-      const res = await fetch('/api/user/preferences', {
+      const res = await authFetch('/api/user/preferences', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(prefsToSave),
@@ -515,7 +516,7 @@ export default function Settings() {
     
     setIsSendingTest(true);
     try {
-      const res = await fetch('/api/email/test', {
+      const res = await authFetch('/api/email/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: testEmailAddress }),
@@ -632,7 +633,7 @@ export default function Settings() {
     }
     
     try {
-      const res = await fetch('/api/auth/delete-account', {
+      const res = await authFetch('/api/auth/delete-account', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
       });

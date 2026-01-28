@@ -1,8 +1,28 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// For desktop app, no authentication headers needed - single user mode
+// Get auth headers for API requests
 function getAuthHeaders(): HeadersInit {
+  const userEmail = localStorage.getItem('stratus_user_email');
+  if (userEmail) {
+    return {
+      'X-User-Email': userEmail
+    };
+  }
   return {};
+}
+
+// Authenticated fetch wrapper - use this instead of raw fetch for API calls
+export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = {
+    ...getAuthHeaders(),
+    ...options.headers,
+  };
+  
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
 }
 
 async function throwIfResNotOk(res: Response) {

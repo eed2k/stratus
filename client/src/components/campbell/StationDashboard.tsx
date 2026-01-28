@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authFetch } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
@@ -71,13 +72,13 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
   const fetchStationData = async () => {
     try {
       // First try to get Campbell-specific status
-      const statusRes = await fetch(`/api/campbell/stations/${stationId}/status`);
+      const statusRes = await authFetch(`/api/campbell/stations/${stationId}/status`);
       if (statusRes.ok) {
         const statusData = await statusRes.json();
         setStation(statusData);
       } else {
         // Fallback to main station info for demo/non-Campbell stations
-        const stationRes = await fetch(`/api/stations/${stationId}`);
+        const stationRes = await authFetch(`/api/stations/${stationId}`);
         if (stationRes.ok) {
           const stationData = await stationRes.json();
           setStation({
@@ -92,7 +93,7 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
       }
 
       // Fetch latest weather data
-      const dataRes = await fetch(`/api/stations/${stationId}/data/latest`);
+      const dataRes = await authFetch(`/api/stations/${stationId}/data/latest`);
       if (dataRes.ok) {
         const weatherData = await dataRes.json();
         setLatestData(weatherData);

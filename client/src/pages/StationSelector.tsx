@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { 
   MapPin, 
@@ -49,7 +50,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
   const { data: stations = [], isLoading, error } = useQuery<Station[]>({
     queryKey: ["/api/stations"],
     queryFn: async () => {
-      const res = await fetch("/api/stations");
+      const res = await authFetch("/api/stations");
       if (!res.ok) throw new Error("Failed to fetch stations");
       const stationList = await res.json();
       
@@ -59,7 +60,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
           try {
             const endTime = new Date();
             const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
-            const dataRes = await fetch(
+            const dataRes = await authFetch(
               `/api/stations/${station.id}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
             );
             if (dataRes.ok) {

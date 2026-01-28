@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { MapPin, Plus, Radio, Search, Trash2, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { WeatherStation } from "@shared/schema";
@@ -137,7 +137,7 @@ export default function Stations() {
   const { data: stations = [], isLoading } = useQuery<StationWithReading[]>({
     queryKey: ["/api/stations"],
     queryFn: async () => {
-      const res = await fetch("/api/stations");
+      const res = await authFetch("/api/stations");
       if (!res.ok) throw new Error("Failed to fetch stations");
       const stationList = await res.json();
       
@@ -147,7 +147,7 @@ export default function Stations() {
           try {
             const endTime = new Date();
             const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
-            const dataRes = await fetch(
+            const dataRes = await authFetch(
               `/api/stations/${station.id}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
             );
             if (dataRes.ok) {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileText, Plus, AlertCircle, CheckCircle, Info, AlertTriangle, Wrench, RefreshCw, Settings, Loader2 } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { StationLog } from "@shared/schema";
 
@@ -49,7 +49,7 @@ export function StationLogs({ stationId }: StationLogsProps) {
   const { data: logs = [], isLoading } = useQuery<StationLog[]>({
     queryKey: ["/api/stations", stationId, "logs"],
     queryFn: async () => {
-      const res = await fetch(`/api/stations/${stationId}/logs`);
+      const res = await authFetch(`/api/stations/${stationId}/logs`);
       if (!res.ok) throw new Error("Failed to fetch logs");
       return res.json();
     },

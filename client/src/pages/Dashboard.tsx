@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindRose } from "@/components/charts/WindRose";
@@ -1533,7 +1534,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             isAdmin={true}
             onSave={async (data) => {
               try {
-                const response = await fetch(`/api/stations/${selectedStation.id}`, {
+                const response = await authFetch(`/api/stations/${selectedStation.id}`, {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(data),

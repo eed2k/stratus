@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import {
   Sheet,
   SheetContent,
@@ -110,7 +111,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   const { data: sharesData, isLoading } = useQuery({
     queryKey: ['station-shares', stationId],
     queryFn: async () => {
-      const res = await fetch(`/api/stations/${stationId}/shares`);
+      const res = await authFetch(`/api/stations/${stationId}/shares`);
       if (!res.ok) throw new Error('Failed to fetch shares');
       return res.json();
     },
@@ -120,7 +121,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   // Create share mutation
   const createShare = useMutation({
     mutationFn: async (data: typeof newShare) => {
-      const res = await fetch(`/api/stations/${stationId}/shares`, {
+      const res = await authFetch(`/api/stations/${stationId}/shares`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -174,7 +175,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   // Delete share mutation
   const deleteShare = useMutation({
     mutationFn: async (shareToken: string) => {
-      const res = await fetch(`/api/shares/${shareToken}`, {
+      const res = await authFetch(`/api/shares/${shareToken}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to delete share');
@@ -200,7 +201,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   // Toggle share active status
   const toggleShareActive = useMutation({
     mutationFn: async ({ shareToken, isActive }: { shareToken: string; isActive: boolean }) => {
-      const res = await fetch(`/api/shares/${shareToken}`, {
+      const res = await authFetch(`/api/shares/${shareToken}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive }),
