@@ -602,12 +602,11 @@ export async function registerRoutes(
       });
 
       // Log audit event
-      await auditLog({
-        action: AUDIT_ACTIONS.USER_CREATE,
+      await auditLog.log(AUDIT_ACTIONS.USER_CREATE, 'users', {
         userId: getUserId(req),
         userEmail: email,
         details: { newUserEmail: email, role: user.role },
-        ipAddress: req.ip,
+        ip: req.ip,
         userAgent: req.headers['user-agent']
       });
 
@@ -646,12 +645,11 @@ export async function registerRoutes(
       }
 
       // Log audit event
-      await auditLog({
-        action: AUDIT_ACTIONS.USER_UPDATE,
+      await auditLog.log(AUDIT_ACTIONS.USER_UPDATE, 'users', {
         userId: getUserId(req),
         userEmail: req.params.email,
         details: { updates: Object.keys(updates) },
-        ipAddress: req.ip,
+        ip: req.ip,
         userAgent: req.headers['user-agent']
       });
 
@@ -670,12 +668,11 @@ export async function registerRoutes(
       await storage.deleteUserByEmail(req.params.email);
 
       // Log audit event
-      await auditLog({
-        action: AUDIT_ACTIONS.USER_DELETE,
+      await auditLog.log(AUDIT_ACTIONS.USER_DELETE, 'users', {
         userId: getUserId(req),
         userEmail: req.params.email,
         details: { deletedUserEmail: req.params.email },
-        ipAddress: req.ip,
+        ip: req.ip,
         userAgent: req.headers['user-agent']
       });
 

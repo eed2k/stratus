@@ -67,13 +67,13 @@ export async function setupAuth(app: Express): Promise<void> {
       
       if (!user) {
         // Log failed login attempt
-        await auditLog({
-          action: AUDIT_ACTIONS.LOGIN_FAILED,
+        await auditLog.log(AUDIT_ACTIONS.LOGIN_FAILED, 'auth', {
           userId: 'unknown',
           userEmail: email,
           details: { reason: 'User not found' },
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent']
+          ip: req.ip,
+          userAgent: req.headers['user-agent'],
+          status: 'failure'
         });
         
         return res.status(401).json({ 
@@ -87,13 +87,13 @@ export async function setupAuth(app: Express): Promise<void> {
       
       if (!passwordMatch) {
         // Log failed login attempt
-        await auditLog({
-          action: AUDIT_ACTIONS.LOGIN_FAILED,
+        await auditLog.log(AUDIT_ACTIONS.LOGIN_FAILED, 'auth', {
           userId: user.id.toString(),
           userEmail: email,
           details: { reason: 'Invalid password' },
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent']
+          ip: req.ip,
+          userAgent: req.headers['user-agent'],
+          status: 'failure'
         });
         
         return res.status(401).json({ 
@@ -114,12 +114,11 @@ export async function setupAuth(app: Express): Promise<void> {
       await storage.updateUserLastLogin(email);
 
       // Log successful login
-      await auditLog({
-        action: AUDIT_ACTIONS.LOGIN,
+      await auditLog.log(AUDIT_ACTIONS.LOGIN, 'auth', {
         userId: user.id.toString(),
         userEmail: email,
         details: { role: user.role },
-        ipAddress: req.ip,
+        ip: req.ip,
         userAgent: req.headers['user-agent']
       });
 
@@ -151,12 +150,11 @@ export async function setupAuth(app: Express): Promise<void> {
         const session = activeSessions.get(userEmail)!;
         
         // Log logout
-        await auditLog({
-          action: AUDIT_ACTIONS.LOGOUT,
+        await auditLog.log(AUDIT_ACTIONS.LOGOUT, 'auth', {
           userId: userEmail,
           userEmail: userEmail,
           details: {},
-          ipAddress: req.ip,
+          ip: req.ip,
           userAgent: req.headers['user-agent']
         });
         
