@@ -975,6 +975,90 @@ export class DatabaseStorage {
       batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? null
     };
   }
+
+  // ============ User Management Operations ============
+  
+  async getAllUsers(): Promise<any[]> {
+    const users = db.getAllActiveUsers();
+    return users.map(u => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.first_name,
+      lastName: u.last_name,
+      role: u.role,
+      assignedStations: u.assigned_stations ? JSON.parse(u.assigned_stations) : [],
+      lastLoginAt: u.last_login_at,
+      createdAt: u.created_at
+    }));
+  }
+
+  async getUserByEmail(email: string): Promise<any | null> {
+    const user = db.getUserByEmail(email);
+    if (!user) return null;
+    
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      passwordHash: user.password_hash,
+      role: user.role,
+      assignedStations: user.assigned_stations ? JSON.parse(user.assigned_stations) : [],
+      lastLoginAt: user.last_login_at,
+      createdAt: user.created_at
+    };
+  }
+
+  async createUser(data: {
+    email: string;
+    firstName: string;
+    lastName?: string;
+    passwordHash: string;
+    role: 'admin' | 'user';
+    assignedStations?: number[];
+  }): Promise<any> {
+    const id = db.createUser(
+      data.email,
+      data.firstName,
+      data.lastName || null,
+      data.passwordHash,
+      data.role,
+      data.assignedStations || []
+    );
+    
+    const user = db.getUserByEmail(data.email);
+    if (!user) throw new Error('Failed to create user');
+    
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      role: user.role,
+      assignedStations: user.assigned_stations ? JSON.parse(user.assigned_stations) : [],
+      createdAt: user.created_at
+    };
+  }
+
+  async updateUserData(email: string, updates: {
+    firstName?: string;
+    lastName?: string;
+    passwordHash?: string;
+    role?: 'admin' | 'user';
+    assignedStations?: number[];
+  }): Promise<any> {
+    db.updateUser(email, updates);
+    return this.getUserByEmail(email);
+  }
+
+  async deleteUserByEmail(email: string): Promise<boolean> {
+    db.deleteUser(email);
+    return true;
+  }
+
+  async updateUserLastLogin(email: string): Promise<void> {
+    db.updateUserLastLogin(email);
+  }
 }
 
 // Export singleton instance

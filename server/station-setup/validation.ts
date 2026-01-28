@@ -207,6 +207,12 @@ export function validateConnectionConfig(
     http: validateHTTPConfig,
     ip: validateHTTPConfig,
     wifi: validateHTTPConfig,
+    tcp: validateHTTPConfig,
+    tcp_ip: validateHTTPConfig,
+    http_post: (c) => ({ valid: true, errors: [] }), // HTTP POST is station-initiated, no validation needed
+    dropbox: (c) => ({ valid: true, errors: [] }), // Dropbox sync is handled by external service
+    import: (c) => ({ valid: true, errors: [] }), // File import doesn't need validation
+    demo: (c) => ({ valid: true, errors: [] }), // Demo mode doesn't need validation
     mqtt: validateMQTTConfig,
     lora: validateLoRaConfig,
     satellite: validateSatelliteConfig,
@@ -215,14 +221,17 @@ export function validateConnectionConfig(
     ble: validateBLEConfig,
     gsm: validateGSMConfig,
     "4g": validateGSMConfig,
-    import: (c) => ({ valid: true, errors: [] }), // Dropbox sync doesn't need validation
+    pakbus: validateHTTPConfig,
   };
 
   const validator = typeMap[connectionType.toLowerCase()];
   if (!validator) {
+    // Return valid for unknown types - allow user to configure custom protocols
+    console.warn(`Unknown connection type: ${connectionType}, allowing configuration`);
     return {
-      valid: false,
-      errors: [`Unknown connection type: ${connectionType}`],
+      valid: true,
+      errors: [],
+      warnings: [`Connection type "${connectionType}" is not a recognized type`],
     };
   }
 
@@ -234,24 +243,43 @@ export function buildProtocolConfig(
   connectionType: string,
   config: any
 ): ProtocolConfig {
+  // Map connection types to protocol adapters
   // Campbell Scientific stations use PakBus via HTTP/TCP or LoRa
   const protocolMap: Record<string, ProtocolConfig['protocol']> = {
     http: "http",
     ip: "http",
     wifi: "http",
+    tcp: "http",
+    tcp_ip: "http",
+    http_post: "http",
+    dropbox: "http", // Dropbox sync uses HTTP internally
     lora: "lora",
     pakbus: "pakbus",
+    gsm: "http",
     "4g": "http",
-    tcp: "http",
+    mqtt: "mqtt" as any,
+    satellite: "satellite" as any,
+    modbus: "modbus" as any,
+    dnp3: "dnp3" as any,
+    demo: "http",
   };
 
   const connectionTypeMap: Record<string, ProtocolConfig['connectionType']> = {
     http: "http",
     ip: "http",
     wifi: "http",
-    lora: "lora",
     tcp: "tcp",
+    tcp_ip: "tcp",
+    http_post: "http",
+    dropbox: "http",
+    lora: "lora",
+    gsm: "http",
     "4g": "http",
+    mqtt: "mqtt" as any,
+    satellite: "satellite" as any,
+    modbus: "modbus" as any,
+    dnp3: "dnp3" as any,
+    demo: "http",
   };
 
   return {

@@ -139,6 +139,37 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
+  // Create default admin user if no users exist
+  try {
+    const { getUserByEmail, createUser, getAllActiveUsers } = await import('./db');
+    const bcrypt = await import('bcryptjs');
+    
+    const users = getAllActiveUsers();
+    if (users.length === 0) {
+      const adminEmail = process.env.ADMIN_EMAIL || "esterhuizen2k@proton.me";
+      const adminPassword = process.env.ADMIN_PASSWORD || "Lukas@6103";
+      
+      // bcryptjs exports hash as a named function
+      const hashFn = bcrypt.hash || bcrypt.default?.hash;
+      if (!hashFn) {
+        throw new Error("bcrypt.hash function not found");
+      }
+      const passwordHash = await hashFn(adminPassword, 10);
+      
+      createUser(
+        adminEmail,
+        "Lukas",
+        "Esterhuizen",
+        passwordHash,
+        "admin",
+        []
+      );
+      log(`Default admin user created: ${adminEmail}`);
+    }
+  } catch (err) {
+    console.error("Failed to create default admin user:", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

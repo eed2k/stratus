@@ -481,6 +481,28 @@ async function runMigrations(database: Database): Promise<void> {
     dbLog.error('Failed to create dropbox_configs table', e);
   }
 
+  // Add users table for multi-user authentication
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        assigned_stations TEXT,
+        is_active INTEGER DEFAULT 1,
+        last_login_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    dbLog.info('Users table ready');
+  } catch (e) {
+    dbLog.error('Failed to create users table', e);
+  }
+
   saveDatabase();
 }
 
@@ -675,6 +697,28 @@ async function createTables(database: Database): Promise<void> {
   // Description columns
   addColumnIfNotExists('site_description', 'TEXT');
   addColumnIfNotExists('notes', 'TEXT');
+
+  // Add users table if it doesn't exist (for migration)
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        assigned_stations TEXT,
+        is_active INTEGER DEFAULT 1,
+        last_login_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    dbLog.info('Users table migration complete');
+  } catch (e) {
+    // Table already exists
+  }
 
   saveDatabase();
 }
@@ -1753,6 +1797,127 @@ export function deleteDropboxConfig(id: number): void {
   saveDatabase();
 }
 
+// ==================== User Management Functions ====================
+
+export interface UserRecord {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string | null;
+  password_hash: string;
+  role: 'admin' | 'user';
+  assigned_stations: string | null; // JSON array of station IDs
+  is_active: number;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getAllActiveUsers(): UserRecord[] {
+  if (!db) return [];
+  
+  const query = 'SELECT * FROM users WHERE is_active = 1 ORDER BY email';
+  const result = db.exec(query);
+  if (result.length === 0) return [];
+  
+  return result[0].values.map((row: any[]) => ({
+    id: row[0] as number,
+    email: row[1] as string,
+    first_name: row[2] as string,
+    last_name: row[3] as string | null,
+    password_hash: row[4] as string,
+    role: row[5] as 'admin' | 'user',
+    assigned_stations: row[6] as string | null,
+    is_active: row[7] as number,
+    last_login_at: row[8] as string | null,
+    created_at: row[9] as string,
+    updated_at: row[10] as string
+  }));
+}
+
+export function getUserByEmail(email: string): UserRecord | null {
+  if (!db) return null;
+  
+  const query = 'SELECT * FROM users WHERE email = ? AND is_active = 1';
+  const result = db.exec(query, [email.toLowerCase()]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const row = result[0].values[0] as any[];
+  return {
+    id: row[0] as number,
+    email: row[1] as string,
+    first_name: row[2] as string,
+    last_name: row[3] as string | null,
+    password_hash: row[4] as string,
+    role: row[5] as 'admin' | 'user',
+    assigned_stations: row[6] as string | null,
+    is_active: row[7] as number,
+    last_login_at: row[8] as string | null,
+    created_at: row[9] as string,
+    updated_at: row[10] as string
+  };
+}
+
+export function createUser(email: string, firstName: string, lastName: string | null, passwordHash: string, role: 'admin' | 'user' = 'user', assignedStations: number[] = []): number {
+  if (!db) throw new Error('Database not initialized');
+  
+  const stationsJson = assignedStations.length > 0 ? JSON.stringify(assignedStations) : null;
+  
+  db.run(
+    `INSERT INTO users (email, first_name, last_name, password_hash, role, assigned_stations) VALUES (?, ?, ?, ?, ?, ?)`,
+    [email.toLowerCase(), firstName, lastName, passwordHash, role, stationsJson]
+  );
+  saveDatabase();
+  
+  const result = db.exec('SELECT last_insert_rowid()');
+  return result[0].values[0][0] as number;
+}
+
+export function updateUser(email: string, updates: {
+  first_name?: string;
+  last_name?: string | null;
+  password_hash?: string;
+  role?: 'admin' | 'user';
+  assigned_stations?: number[];
+}): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  
+  if (updates.first_name !== undefined) { setClauses.push('first_name = ?'); values.push(updates.first_name); }
+  if (updates.last_name !== undefined) { setClauses.push('last_name = ?'); values.push(updates.last_name); }
+  if (updates.password_hash !== undefined) { setClauses.push('password_hash = ?'); values.push(updates.password_hash); }
+  if (updates.role !== undefined) { setClauses.push('role = ?'); values.push(updates.role); }
+  if (updates.assigned_stations !== undefined) { 
+    setClauses.push('assigned_stations = ?'); 
+    values.push(updates.assigned_stations.length > 0 ? JSON.stringify(updates.assigned_stations) : null);
+  }
+  
+  if (setClauses.length === 0) return;
+  
+  setClauses.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(email.toLowerCase());
+  
+  db.run(`UPDATE users SET ${setClauses.join(', ')} WHERE email = ?`, values);
+  saveDatabase();
+}
+
+export function updateUserLastLogin(email: string): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  db.run('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE email = ?', [email.toLowerCase()]);
+  saveDatabase();
+}
+
+export function deleteUser(email: string): void {
+  if (!db) throw new Error('Database not initialized');
+  
+  // Soft delete - set is_active to 0
+  db.run('UPDATE users SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE email = ?', [email.toLowerCase()]);
+  saveDatabase();
+}
+
 // Export database module
 export default {
   initDatabase,
@@ -1806,4 +1971,12 @@ export default {
   createDropboxConfig,
   updateDropboxConfig,
   updateDropboxSyncStatus,
-  deleteDropboxConfig,};
+  deleteDropboxConfig,
+  // User management functions
+  getAllActiveUsers,
+  getUserByEmail,
+  createUser,
+  updateUser,
+  updateUserLastLogin,
+  deleteUser,
+};

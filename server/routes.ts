@@ -32,46 +32,98 @@ const ingestRateLimiter = rateLimit({
 
 // Local schema definitions for validation
 // Enhanced for Campbell Scientific and WMO compliance
+// Supported connection types for Campbell Scientific dataloggers:
+// - dropbox: Dropbox sync for cellular modems uploading to cloud
+// - http_post: HTTP POST from station to server (datalogger pushes data)
+// - tcp_ip, tcp: Direct TCP/IP connection to datalogger (ethernet/WiFi)
+// - ip, wifi, http: HTTP-based polling (server pulls from datalogger API)
+// - lora: LoRaWAN long-range radio
+// - gsm, 4g: Cellular network via GSM/4G modem
+// - mqtt: MQTT publish/subscribe messaging
+// - satellite: Satellite data communication (Iridium, Inmarsat)
+// - modbus: Modbus TCP protocol
+// - dnp3: DNP3 SCADA protocol
+const VALID_CONNECTION_TYPES = [
+  'dropbox', 'http_post', 'tcp_ip', 'tcp', 'ip', 'wifi', 'http',
+  'lora', 'gsm', '4g', 'mqtt', 'satellite', 'modbus', 'dnp3', 'pakbus', 'demo'
+] as const;
+
 const insertWeatherStationSchema = z.object({
   name: z.string().min(1, "Station name is required").max(100, "Station name too long"),
   pakbusAddress: z.number()
     .int("PakBus address must be an integer")
     .min(1, "PakBus address must be at least 1")
-    .max(4094, "PakBus address must be at most 4094"),
-  connectionType: z.enum(['tcp', 'gsm', 'lora', 'http'], {
-    errorMap: () => ({ message: "Invalid connection type. Must be: tcp, gsm, lora, or http" })
+    .max(4094, "PakBus address must be at most 4094")
+    .optional()
+    .default(1),
+  connectionType: z.enum(VALID_CONNECTION_TYPES, {
+    errorMap: () => ({ message: `Invalid connection type. Must be one of: ${VALID_CONNECTION_TYPES.join(', ')}` })
   }),
-  connectionConfig: z.object({
-    host: z.string().optional(),
-    port: z.number().int().min(1).max(65535).optional(),
-    apn: z.string().optional(),
-    gatewayHost: z.string().optional(),
-    gatewayPort: z.number().int().min(1).max(65535).optional(),
-    timeout: z.number().int().min(1000).max(300000).optional(), // 1s to 5min
-    retryAttempts: z.number().int().min(0).max(10).optional(),
-    retryDelay: z.number().int().min(1000).max(60000).optional(), // 1s to 1min
-  }).passthrough().optional(),
+  connectionConfig: z.union([
+    z.string(), // Allow JSON string
+    z.object({
+      host: z.string().optional(),
+      port: z.number().int().min(1).max(65535).optional(),
+      apn: z.string().optional(),
+      gatewayHost: z.string().optional(),
+      gatewayPort: z.number().int().min(1).max(65535).optional(),
+      timeout: z.number().int().min(1000).max(300000).optional(), // 1s to 5min
+      retryAttempts: z.number().int().min(0).max(10).optional(),
+      retryDelay: z.number().int().min(1000).max(60000).optional(), // 1s to 1min
+      folderPath: z.string().optional(), // Dropbox folder path
+      syncInterval: z.number().optional(), // Dropbox sync interval
+      apiEndpoint: z.string().optional(), // HTTP POST endpoint
+      apiKey: z.string().optional(), // API key for HTTP POST
+      broker: z.string().optional(), // MQTT broker
+      topic: z.string().optional(), // MQTT topic
+      frequency: z.string().optional(), // LoRa frequency
+    }).passthrough()
+  ]).optional(),
   securityCode: z.number()
     .int("Security code must be an integer")
     .min(0, "Security code must be at least 0")
     .max(65535, "Security code must be at most 65535")
-    .optional(),
+    .optional()
+    .default(0),
   // WMO-compliant metadata fields
   latitude: z.number()
     .min(-90, "Latitude must be between -90 and 90")
     .max(90, "Latitude must be between -90 and 90")
-    .optional(),
+    .optional()
+    .nullable(),
   longitude: z.number()
     .min(-180, "Longitude must be between -180 and 180")
     .max(180, "Longitude must be between -180 and 180")
-    .optional(),
+    .optional()
+    .nullable(),
   altitude: z.number()
     .min(-500, "Altitude must be at least -500m (Dead Sea level)")
     .max(9000, "Altitude must be at most 9000m (above Everest)")
-    .optional(),
+    .optional()
+    .nullable(),
   timezone: z.string().optional(),
-  location: z.string().max(200, "Location description too long").optional(),
-});
+  location: z.string().max(200, "Location description too long").optional().nullable(),
+  // Additional fields sent by client
+  stationType: z.string().optional(),
+  ipAddress: z.string().optional().nullable(),
+  port: z.number().optional().nullable(),
+  apiKey: z.string().optional().nullable(),
+  apiEndpoint: z.string().optional().nullable(),
+  pollInterval: z.number().optional(),
+  protocol: z.string().optional(),
+  dataTable: z.string().optional(),
+  dataloggerModel: z.string().optional().nullable(),
+  dataloggerSerialNumber: z.string().optional().nullable(),
+  dataloggerProgramName: z.string().optional().nullable(),
+  modemModel: z.string().optional().nullable(),
+  modemSerialNumber: z.string().optional().nullable(),
+  modemPhoneNumber: z.string().optional().nullable(),
+  simCardNumber: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  siteDescription: z.string().optional().nullable(),
+  lastCalibrationDate: z.any().optional().nullable(),
+  nextCalibrationDate: z.any().optional().nullable(),
+}).passthrough();
 
 const insertWeatherDataSchema = z.object({
   stationId: z.number(),
@@ -332,13 +384,10 @@ export async function registerRoutes(
       
       // Map connection type to protocol
       const protocolMap: Record<string, string> = {
-        'mqtt': 'mqtt',
-        'http': 'http',
-        'ip': 'http',
-        'wifi': 'http',
-        'lora': 'lora',
-        'serial': 'modbus',
-        'satellite': 'satellite',
+        'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
+        'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
+        'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
+        'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus',
       };
       
       await protocolManager.registerStation(stationId, {
@@ -485,6 +534,158 @@ export async function registerRoutes(
     }
   });
 
+  // ========== User Management Routes ==========
+  
+  // Get all users (admin only)
+  app.get("/api/users", isAuthenticated, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Remove password hashes from response
+      const sanitizedUsers = users.map(({ passwordHash, ...user }) => user);
+      res.json(sanitizedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Get user by email
+  app.get("/api/users/:email", isAuthenticated, async (req, res) => {
+    try {
+      const user = await storage.getUserByEmail(req.params.email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      // Remove password hash from response
+      const { passwordHash, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Create new user
+  app.post("/api/users", isAuthenticated, async (req, res) => {
+    try {
+      const { email, firstName, lastName, password, passwordHash, role, assignedStations } = req.body;
+      
+      // Validate required fields - accept either password (plain) or passwordHash (pre-hashed)
+      if (!email || !firstName) {
+        return res.status(400).json({ message: "Missing required fields: email, firstName" });
+      }
+      
+      if (!password && !passwordHash) {
+        return res.status(400).json({ message: "Missing required field: password" });
+      }
+
+      // Check if user already exists
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(409).json({ message: "User with this email already exists" });
+      }
+
+      // Hash password with bcrypt if plain password provided
+      const bcrypt = require('bcryptjs');
+      let finalPasswordHash = passwordHash;
+      if (password) {
+        finalPasswordHash = await bcrypt.hash(password, 10);
+      }
+
+      const user = await storage.createUser({
+        email,
+        firstName,
+        lastName,
+        passwordHash: finalPasswordHash,
+        role: role || 'user',
+        assignedStations: assignedStations || []
+      });
+
+      // Log audit event
+      await auditLog({
+        action: AUDIT_ACTIONS.USER_CREATE,
+        userId: getUserId(req),
+        userEmail: email,
+        details: { newUserEmail: email, role: user.role },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      // Remove password hash from response
+      const { passwordHash: _, ...sanitizedUser } = user;
+      res.status(201).json(sanitizedUser);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Update user
+  app.patch("/api/users/:email", isAuthenticated, async (req, res) => {
+    try {
+      const { firstName, lastName, password, passwordHash, role, assignedStations } = req.body;
+      
+      const updates: any = {};
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+      
+      // Handle password update - hash with bcrypt if plain password provided
+      if (password) {
+        const bcrypt = require('bcryptjs');
+        updates.passwordHash = await bcrypt.hash(password, 10);
+      } else if (passwordHash !== undefined) {
+        updates.passwordHash = passwordHash;
+      }
+      
+      if (role !== undefined) updates.role = role;
+      if (assignedStations !== undefined) updates.assignedStations = assignedStations;
+
+      const user = await storage.updateUserData(req.params.email, updates);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Log audit event
+      await auditLog({
+        action: AUDIT_ACTIONS.USER_UPDATE,
+        userId: getUserId(req),
+        userEmail: req.params.email,
+        details: { updates: Object.keys(updates) },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      // Remove password hash from response
+      const { passwordHash: _, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Delete user
+  app.delete("/api/users/:email", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteUserByEmail(req.params.email);
+
+      // Log audit event
+      await auditLog({
+        action: AUDIT_ACTIONS.USER_DELETE,
+        userId: getUserId(req),
+        userEmail: req.params.email,
+        details: { deletedUserEmail: req.params.email },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      res.json({ success: true, message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   // Weather Stations routes (demo mode bypasses auth)
   app.get("/api/stations", optionalAuth, async (req, res) => {
     try {
@@ -564,8 +765,9 @@ export async function registerRoutes(
           
           const protocolMap: Record<string, string> = {
             'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
-            'lora': 'lora', 'serial': 'modbus', 'satellite': 'satellite',
-            'dropbox': 'http', 'http_post': 'http',
+            'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
+            'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
+            'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus',
           };
           
           await protocolManager.registerStation(station.id, {
@@ -656,8 +858,9 @@ export async function registerRoutes(
             
             const protocolMap: Record<string, string> = {
               'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
-              'lora': 'lora', 'serial': 'modbus', 'satellite': 'satellite',
-              'dropbox': 'http', 'http_post': 'http',
+              'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
+              'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
+              'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus',
             };
             
             await protocolManager.registerStation(station.id, {

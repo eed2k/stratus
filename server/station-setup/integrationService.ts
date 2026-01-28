@@ -140,8 +140,17 @@ export class StationIntegrationService {
     try {
       const connectionType = payload.connectionType || "http";
 
+      // Skip connection testing for externally-managed connection types
+      // - dropbox: Sync is initiated by external Dropbox service
+      // - http_post: Data is pushed by the station to the server
+      // - demo: Demo mode doesn't have real connections
+      const skipTestTypes = ["dropbox", "http_post", "demo", "import"];
+      if (skipTestTypes.includes(connectionType.toLowerCase())) {
+        return { success: true };
+      }
+
       // For HTTP-based services, try to fetch from endpoint
-      if (["http", "ip", "wifi"].includes(connectionType)) {
+      if (["http", "ip", "wifi", "tcp", "tcp_ip"].includes(connectionType.toLowerCase())) {
         if (payload.apiEndpoint) {
           const testResult = await ServiceDetector.testEndpoint(
             payload.apiEndpoint,

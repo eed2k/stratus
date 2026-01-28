@@ -14,86 +14,148 @@ export interface StoredUser {
   email: string;
   firstName: string;
   lastName: string;
-  passwordHash?: string;
+  password?: string; // Plain password (sent to server for hashing)
+  passwordHash?: string; // Hashed password (from server)
   role: 'admin' | 'user';
   assignedStations?: number[];
   createdAt: string;
   createdBy?: string;
 }
 
-// Get all users from localStorage
-export function getAllUsers(): StoredUser[] {
-  const usersData = localStorage.getItem('stratus_users');
-  if (usersData) {
-    try {
-      return JSON.parse(usersData);
-    } catch {
+// ============ API Functions - Use server endpoints instead of localStorage ============
+
+// Get all users from server
+export async function getAllUsers(): Promise<StoredUser[]> {
+  try {
+    const userEmail = localStorage.getItem('stratus_user_email');
+    const response = await fetch('/api/users', {
+      headers: {
+        'X-User-Email': userEmail || ''
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to fetch users:', response.statusText);
       return [];
     }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return [];
   }
-  return [];
 }
 
-// Save all users to localStorage
-export function saveAllUsers(users: StoredUser[]): void {
-  localStorage.setItem('stratus_users', JSON.stringify(users));
-}
-
-// Add a new user
-export function addUser(user: StoredUser): void {
-  const users = getAllUsers();
-  // Check if user already exists
-  const existingIndex = users.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
-  if (existingIndex >= 0) {
-    users[existingIndex] = user;
-  } else {
-    users.push(user);
+// Add a new user via API
+export async function addUser(user: StoredUser): Promise<boolean> {
+  try {
+    const userEmail = localStorage.getItem('stratus_user_email');
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Email': userEmail || ''
+      },
+      body: JSON.stringify(user)
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Failed to add user:', error.message);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error adding user:', error);
+    return false;
   }
-  saveAllUsers(users);
 }
 
-// Delete a user
-export function deleteUser(email: string): void {
-  const users = getAllUsers().filter(u => u.email.toLowerCase() !== email.toLowerCase());
-  saveAllUsers(users);
+// Update an existing user via API
+export async function updateUser(email: string, updates: Partial<StoredUser>): Promise<boolean> {
+  try {
+    const userEmail = localStorage.getItem('stratus_user_email');
+    const response = await fetch(`/api/users/${encodeURIComponent(email)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Email': userEmail || ''
+      },
+      body: JSON.stringify(updates)
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Failed to update user:', error.message);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return false;
+  }
+}
+
+// Delete a user via API
+export async function deleteUser(email: string): Promise<boolean> {
+  try {
+    const userEmail = localStorage.getItem('stratus_user_email');
+    const response = await fetch(`/api/users/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+      headers: {
+        'X-User-Email': userEmail || ''
+      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Failed to delete user:', error.message);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return false;
+  }
 }
 
 // Update user's assigned stations
-export function updateUserStations(email: string, stationIds: number[]): void {
-  const users = getAllUsers();
-  const userIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-  if (userIndex >= 0) {
-    users[userIndex].assignedStations = stationIds;
-    saveAllUsers(users);
-  }
+export async function updateUserStations(email: string, stationIds: number[]): Promise<boolean> {
+  return await updateUser(email, { assignedStations: stationIds });
+}
+
+// ============ Legacy localStorage functions (deprecated) ============
+function saveAllUsers(_users: StoredUser[]): void {
+  // Deprecated - users are now stored in database
+  console.warn('saveAllUsers is deprecated - users are now stored in database');
 }
 
 // Desktop app - check for stored user or use default
 const getStoredUser = (): AuthUser | null => {
-  const setupComplete = localStorage.getItem('stratus_setup_complete');
-  if (!setupComplete) {
-    return null; // Need to show login/setup screen
+  const userEmail = localStorage.getItem('stratus_user_email');
+  const userDataStr = localStorage.getItem('stratus_user');
+  
+  if (!userEmail || !userDataStr) {
+    return null;
   }
   
-  const storedUser = localStorage.getItem('stratus_user');
-  if (storedUser) {
-    try {
-      const userData = JSON.parse(storedUser);
-      return {
-        id: userData.email || 'local-user',
-        email: userData.email || 'user@localhost',
-        firstName: userData.firstName || 'Local',
-        lastName: userData.lastName || 'User',
-        profileImageUrl: null,
-        role: userData.role || 'admin', // Default to admin for backwards compatibility
-        assignedStations: userData.assignedStations || [],
-      };
-    } catch {
-      // Fallback to default user
-    }
+  try {
+    const userData = JSON.parse(userDataStr);
+    return {
+      id: userData.email,
+      email: userData.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      profileImageUrl: null,
+      role: userData.role || 'admin',
+      assignedStations: userData.assignedStations || [],
+    };
+  } catch {
+    return null;
   }
-  
-  return null;
 };
 
 export function useAuth() {
@@ -103,7 +165,7 @@ export function useAuth() {
   const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
-    // Check if setup has been completed
+    // Check if user is logged in
     const storedUser = getStoredUser();
     if (storedUser) {
       setUser(storedUser);
@@ -115,40 +177,97 @@ export function useAuth() {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback((userData: { 
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        return { success: false, message: data.message || 'Login failed' };
+      }
+      
+      // Store user data
+      const authUser: AuthUser = {
+        id: data.user.email,
+        email: data.user.email,
+        firstName: data.user.firstName,
+        lastName: data.user.lastName,
+        profileImageUrl: null,
+        role: data.user.role,
+        assignedStations: data.user.assignedStations || [],
+      };
+      
+      setUser(authUser);
+      setNeedsSetup(false);
+      localStorage.setItem('stratus_user_email', data.user.email);
+      localStorage.setItem('stratus_user', JSON.stringify(data.user));
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, message: 'Network error during login' };
+    }
+  }, []);
+  
+  const signup = useCallback(async (userData: { 
     email: string; 
     firstName: string; 
     lastName: string;
-    role?: 'admin' | 'user';
-    assignedStations?: number[];
-  }) => {
-    const authUser: AuthUser = {
-      id: userData.email,
-      email: userData.email,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      profileImageUrl: null,
-      role: userData.role || 'admin',
-      assignedStations: userData.assignedStations || [],
-    };
-    setUser(authUser);
-    setNeedsSetup(false);
-    localStorage.setItem('stratus_user', JSON.stringify({
-      ...userData,
-      role: authUser.role,
-      assignedStations: authUser.assignedStations,
-    }));
-    localStorage.setItem('stratus_setup_complete', 'true');
-  }, []);
-  
-  const signup = useCallback((userData: { email: string; firstName: string; lastName: string }) => {
-    login({ ...userData, role: 'admin' });
+    password: string;
+  }): Promise<{ success: boolean; message?: string }> => {
+    // For initial setup, create admin user
+    try {
+      const bcrypt = await import('bcryptjs');
+      const passwordHash = await bcrypt.hash(userData.password, 10);
+      
+      const newUser: StoredUser = {
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        passwordHash,
+        role: 'admin',
+        assignedStations: [],
+        createdAt: new Date().toISOString()
+      };
+      
+      const success = await addUser(newUser);
+      
+      if (success) {
+        // Auto-login after signup
+        return await login(userData.email, userData.password);
+      } else {
+        return { success: false, message: 'Failed to create user' };
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      return { success: false, message: 'Signup failed' };
+    }
   }, [login]);
   
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      const userEmail = localStorage.getItem('stratus_user_email');
+      
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'X-User-Email': userEmail || ''
+        }
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
     // Clear stored user data
+    localStorage.removeItem('stratus_user_email');
     localStorage.removeItem('stratus_user');
-    localStorage.removeItem('stratus_setup_complete');
     setUser(null);
     setNeedsSetup(true);
   }, []);
@@ -176,4 +295,3 @@ export function useAuth() {
     error,
   };
 }
-

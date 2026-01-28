@@ -33,7 +33,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getAllUsers, addUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
 import { UserPlus, Trash2, User, Edit, MapPin, Loader2 } from "lucide-react";
-import { hashPassword } from "@/lib/passwordUtils";
 
 interface WeatherStation {
   id: number;
@@ -63,7 +62,11 @@ export default function UserManagement() {
 
   // Load users on mount
   useEffect(() => {
-    setUsers(getAllUsers());
+    const loadUsers = async () => {
+      const fetchedUsers = await getAllUsers();
+      setUsers(fetchedUsers);
+    };
+    loadUsers();
   }, []);
 
   const handleAddUser = async () => {
@@ -87,52 +90,70 @@ export default function UserManagement() {
       return;
     }
 
-    // Hash password securely (async)
-    const passwordHash = await hashPassword(newUser.password);
-
-    const user: StoredUser = {
+    // Send plain password to server - server will hash with bcrypt
+    const user: any = {
       email: newUser.email.trim(),
       firstName: newUser.firstName.trim(),
       lastName: newUser.lastName.trim(),
-      passwordHash,
+      password: newUser.password, // Plain password - server will hash
       role: newUser.role,
       assignedStations: newUser.role === "user" ? newUser.assignedStations : [],
       createdAt: new Date().toISOString(),
     };
 
-    addUser(user);
-    setUsers(getAllUsers());
-    setIsAddDialogOpen(false);
-    setNewUser({
-      email: "",
-      firstName: "",
-      lastName: "",
-      password: "",
-      role: "user",
-      assignedStations: [],
-    });
+    const success = await addUser(user);
+    
+    if (success) {
+      const fetchedUsers = await getAllUsers();
+      setUsers(fetchedUsers);
+      setIsAddDialogOpen(false);
+      setNewUser({
+        email: "",
+        firstName: "",
+        lastName: "",
+        password: "",
+        role: "user",
+        assignedStations: [],
+      });
 
-    toast({
-      title: "User created",
-      description: `${user.firstName} ${user.lastName} has been added successfully.`,
-    });
+      toast({
+        title: "User created",
+        description: `${user.firstName} ${user.lastName} has been added successfully.`,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to create user. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleEditUser = () => {
+  const handleEditUser = async () => {
     if (!editingUser) return;
 
-    addUser(editingUser);
-    setUsers(getAllUsers());
-    setIsEditDialogOpen(false);
-    setEditingUser(null);
+    const success = await addUser(editingUser);
+    
+    if (success) {
+      const fetchedUsers = await getAllUsers();
+      setUsers(fetchedUsers);
+      setIsEditDialogOpen(false);
+      setEditingUser(null);
 
-    toast({
-      title: "User updated",
-      description: "User has been updated successfully.",
-    });
+      toast({
+        title: "User updated",
+        description: "User has been updated successfully.",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to update user. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteUser = (email: string) => {
+  const handleDeleteUser = async (email: string) => {
     // Don't allow deleting the main admin
     if (email.toLowerCase() === "esterhuizen2k@proton.me") {
       toast({
@@ -143,12 +164,22 @@ export default function UserManagement() {
       return;
     }
 
-    deleteUser(email);
-    setUsers(getAllUsers());
-    toast({
-      title: "User deleted",
-      description: "User has been removed successfully.",
-    });
+    const success = await deleteUser(email);
+    
+    if (success) {
+      const fetchedUsers = await getAllUsers();
+      setUsers(fetchedUsers);
+      toast({
+        title: "User deleted",
+        description: "User has been removed successfully.",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleStationAssignment = (stationId: number, isAssigning: boolean, forEdit = false) => {
