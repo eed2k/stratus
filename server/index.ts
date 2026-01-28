@@ -139,21 +139,24 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
-  // Create default admin user if no users exist
+  // Create default admin user and demo user if they don't exist
   try {
     const { getUserByEmail, createUser, getAllActiveUsers } = await import('./db');
     const bcrypt = await import('bcryptjs');
     
+    // bcryptjs exports hash as a named function
+    const hashFn = bcrypt.hash || bcrypt.default?.hash;
+    if (!hashFn) {
+      throw new Error("bcrypt.hash function not found");
+    }
+    
     const users = getAllActiveUsers();
+    
+    // Create admin user if no users exist
     if (users.length === 0) {
       const adminEmail = process.env.ADMIN_EMAIL || "esterhuizen2k@proton.me";
       const adminPassword = process.env.ADMIN_PASSWORD || "Lukas@6103";
       
-      // bcryptjs exports hash as a named function
-      const hashFn = bcrypt.hash || bcrypt.default?.hash;
-      if (!hashFn) {
-        throw new Error("bcrypt.hash function not found");
-      }
       const passwordHash = await hashFn(adminPassword, 10);
       
       createUser(
@@ -166,8 +169,23 @@ app.use((req, res, next) => {
       );
       log(`Default admin user created: ${adminEmail}`);
     }
+    
+    // Always ensure demo user exists
+    const demoUser = getUserByEmail("user@domain.com");
+    if (!demoUser) {
+      const demoPasswordHash = await hashFn("123456", 10);
+      createUser(
+        "user@domain.com",
+        "Demo",
+        "User",
+        demoPasswordHash,
+        "user",
+        []
+      );
+      log("Demo user created: user@domain.com");
+    }
   } catch (err) {
-    console.error("Failed to create default admin user:", err);
+    console.error("Failed to create default users:", err);
   }
 
   await registerRoutes(httpServer, app);

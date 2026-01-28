@@ -100,7 +100,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <TabsContent value="admin" className="mt-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                   <p className="text-sm text-blue-800 text-center font-medium">
-                    🔐 Administrator Access
+                    Administrator Access
                   </p>
                   <p className="text-xs text-blue-600 text-center mt-1">
                     Full access to all stations, settings, and user management
@@ -110,7 +110,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <TabsContent value="user" className="mt-4">
                 <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3">
                   <p className="text-sm text-emerald-800 text-center font-medium">
-                    👤 User Access
+                    User Access
                   </p>
                   <p className="text-xs text-emerald-600 text-center mt-1">
                     View data from your assigned weather stations
