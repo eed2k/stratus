@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle, Cloud, Plus, Trash2, RefreshCw, FolderSync, Lock, Eye, EyeOff, ExternalLink } from "lucide-react";
-import { getAllUsers, addUser } from "@/hooks/useAuth";
+import { getAllUsers, addUser, updateUser } from "@/hooks/useAuth";
 import { verifyPassword, hashPassword } from "@/lib/passwordUtils";
 
 // Dropbox config interface
@@ -569,8 +569,8 @@ export default function Settings() {
     
     setIsChangingPassword(true);
     try {
-      // Find current user in storage
-      const users = getAllUsers();
+      // Find current user in storage (await the async function)
+      const users = await getAllUsers();
       const currentUserEmail = email || userProfile?.email;
       const currentUserData = users.find(u => u.email.toLowerCase() === currentUserEmail?.toLowerCase());
       
@@ -594,13 +594,12 @@ export default function Settings() {
         return;
       }
 
-      // Update password with secure hash
-      const newHash = await hashPassword(newPassword);
-      const updatedUser = {
-        ...currentUserData,
-        passwordHash: newHash,
-      };
-      addUser(updatedUser);
+      // Update password via API - send plain password, server will hash
+      const success = await updateUser(currentUserEmail!, { password: newPassword });
+      
+      if (!success) {
+        throw new Error('Failed to update password');
+      }
 
       toast({
         title: "Password Changed",

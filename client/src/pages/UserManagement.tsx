@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { getAllUsers, addUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
+import { getAllUsers, addUser, updateUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
 import { UserPlus, Trash2, User, Edit, MapPin, Loader2 } from "lucide-react";
 
 interface WeatherStation {
@@ -132,7 +132,20 @@ export default function UserManagement() {
   const handleEditUser = async () => {
     if (!editingUser) return;
 
-    const success = await addUser(editingUser);
+    // Build updates object with only changed fields
+    const updates: Partial<StoredUser> = {
+      firstName: editingUser.firstName,
+      lastName: editingUser.lastName,
+      role: editingUser.role,
+      assignedStations: editingUser.assignedStations,
+    };
+    
+    // Include password if it was changed
+    if (editingUser.password) {
+      updates.password = editingUser.password;
+    }
+
+    const success = await updateUser(editingUser.email, updates);
     
     if (success) {
       const fetchedUsers = await getAllUsers();

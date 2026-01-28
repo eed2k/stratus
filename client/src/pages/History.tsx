@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +45,7 @@ export default function History() {
       // Convert dates to ISO strings with time components
       const startISO = new Date(startDate + "T00:00:00").toISOString();
       const endISO = new Date(endDate + "T23:59:59").toISOString();
-      const res = await fetch(
+      const res = await authFetch(
         `/api/stations/${activeStationId}/data?startTime=${startISO}&endTime=${endISO}`
       );
       if (!res.ok) return [];

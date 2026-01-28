@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -56,7 +57,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       // Convert dates to ISO strings with time components
       const startISO = new Date(config.startDate + "T00:00:00").toISOString();
       const endISO = new Date(config.endDate + "T23:59:59").toISOString();
-      const res = await fetch(
+      const res = await authFetch(
         `/api/stations/${config.stationId}/data?startTime=${startISO}&endTime=${endISO}`
       );
       if (!res.ok) throw new Error("Failed to fetch data");

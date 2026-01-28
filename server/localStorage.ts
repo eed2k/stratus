@@ -1047,7 +1047,15 @@ export class DatabaseStorage {
     role?: 'admin' | 'user';
     assignedStations?: number[];
   }): Promise<any> {
-    db.updateUser(email, updates);
+    // Map camelCase to snake_case for database
+    const dbUpdates: any = {};
+    if (updates.firstName !== undefined) dbUpdates.first_name = updates.firstName;
+    if (updates.lastName !== undefined) dbUpdates.last_name = updates.lastName;
+    if (updates.passwordHash !== undefined) dbUpdates.password_hash = updates.passwordHash;
+    if (updates.role !== undefined) dbUpdates.role = updates.role;
+    if (updates.assignedStations !== undefined) dbUpdates.assigned_stations = updates.assignedStations;
+    
+    db.updateUser(email, dbUpdates);
     return this.getUserByEmail(email);
   }
 

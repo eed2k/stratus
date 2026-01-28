@@ -247,7 +247,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       if (!activeStationId) return [];
       const endTime = new Date();
       const startTime = new Date(endTime.getTime() - dashboardConfig.chartTimeRange * 60 * 60 * 1000);
-      const response = await fetch(
+      const response = await authFetch(
         `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
       );
       if (!response.ok) return [];
