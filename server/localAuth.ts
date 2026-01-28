@@ -28,19 +28,49 @@ const activeSessions = new Map<string, {
 export async function setupAuth(app: Express): Promise<void> {
   console.log('[Auth] Multi-user authentication enabled');
 
-  // Session middleware - check for active session
-  app.use((req: Request, _res: Response, next: NextFunction) => {
+  // Session middleware - check for active session or auto-recover from database
+  app.use(async (req: Request, _res: Response, next: NextFunction) => {
     // Check if user email is in headers (set by client after login)
     const userEmail = req.headers['x-user-email'] as string;
     
-    if (userEmail && activeSessions.has(userEmail)) {
-      const session = activeSessions.get(userEmail)!;
-      (req as any).user = {
-        email: session.email,
-        role: session.role,
-        assignedStations: session.assignedStations,
-        isAuthenticated: true
-      };
+    if (userEmail) {
+      // Check if session already exists
+      if (activeSessions.has(userEmail)) {
+        const session = activeSessions.get(userEmail)!;
+        (req as any).user = {
+          email: session.email,
+          role: session.role,
+          assignedStations: session.assignedStations,
+          isAuthenticated: true
+        };
+      } else {
+        // Session not found - try to recover from database
+        // This handles cases where server restarts but client still has the email
+        try {
+          const user = await storage.getUserByEmail(userEmail);
+          if (user && user.isActive !== false) {
+            // Re-establish session
+            activeSessions.set(userEmail, {
+              email: user.email,
+              role: user.role,
+              assignedStations: user.assignedStations || [],
+              loginTime: new Date()
+            });
+            (req as any).user = {
+              email: user.email,
+              role: user.role,
+              assignedStations: user.assignedStations || [],
+              isAuthenticated: true
+            };
+            console.log(`[Auth] Session auto-recovered for user: ${userEmail}`);
+          } else {
+            (req as any).user = { isAuthenticated: false };
+          }
+        } catch (err) {
+          console.error('[Auth] Error recovering session:', err);
+          (req as any).user = { isAuthenticated: false };
+        }
+      }
     } else {
       (req as any).user = {
         isAuthenticated: false
