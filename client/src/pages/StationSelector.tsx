@@ -6,7 +6,6 @@ import {
   Thermometer, 
   Wind, 
   Droplets,
-  Radio,
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -97,12 +96,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
   );
 
   const getConnectionBadge = (type: string) => {
-    const colors: Record<string, string> = {
-      pakbus: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-      http_post: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      dropbox: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-      tcp_ip: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-    };
     const labels: Record<string, string> = {
       pakbus: "PakBus",
       http_post: "HTTP POST",
@@ -110,7 +103,11 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
       tcp_ip: "TCP/IP",
     };
     return (
-      <Badge variant="outline" className={colors[type] || "bg-gray-100 text-gray-800"}>
+      <Badge 
+        variant="outline" 
+        className="bg-white text-black border border-black"
+        style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
+      >
         {labels[type] || type}
       </Badge>
     );
@@ -212,8 +209,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1 min-w-0">
-                    <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                      <Radio className={`h-4 w-4 flex-shrink-0 ${station.isActive ? 'text-green-500' : 'text-gray-400'}`} />
+                    <CardTitle className="text-lg sm:text-xl" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                       <span className="truncate">{station.name}</span>
                     </CardTitle>
                     {station.location && (

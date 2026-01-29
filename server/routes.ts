@@ -917,6 +917,64 @@ export async function registerRoutes(
     }
   });
 
+  // Station image upload endpoint
+  app.post("/api/stations/:id/image", isAuthenticated, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      
+      const { image } = req.body;
+      if (!image || typeof image !== 'string') {
+        return res.status(400).json({ message: "Image data is required" });
+      }
+      
+      // Validate that it's a valid base64 image
+      const base64Regex = /^data:image\/(png|jpeg|jpg|gif|webp);base64,/;
+      if (!base64Regex.test(image)) {
+        return res.status(400).json({ message: "Invalid image format. Must be base64 encoded image." });
+      }
+      
+      // Check image size (max 5MB after base64 encoding)
+      const base64Data = image.split(',')[1];
+      const imageSizeBytes = (base64Data.length * 3) / 4;
+      if (imageSizeBytes > 5 * 1024 * 1024) {
+        return res.status(400).json({ message: "Image too large. Maximum size is 5MB." });
+      }
+      
+      const station = await storage.updateStation(stationId, { stationImage: image });
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      
+      res.json({ success: true, message: "Station image updated" });
+    } catch (error) {
+      console.error("Error uploading station image:", error);
+      res.status(500).json({ message: "Failed to upload station image" });
+    }
+  });
+
+  // Delete station image endpoint
+  app.delete("/api/stations/:id/image", isAuthenticated, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      
+      const station = await storage.updateStation(stationId, { stationImage: null });
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      
+      res.json({ success: true, message: "Station image removed" });
+    } catch (error) {
+      console.error("Error removing station image:", error);
+      res.status(500).json({ message: "Failed to remove station image" });
+    }
+  });
+
   // User-Station routes
   app.get("/api/user/stations", isAuthenticated, async (req, res) => {
     try {

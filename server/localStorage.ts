@@ -73,6 +73,8 @@ export interface WeatherStation {
   stationAdmin?: string;
   stationAdminEmail?: string;
   stationAdminPhone?: string;
+  // Station image (base64)
+  stationImage?: string | null;
 }
 
 export interface WeatherData {
@@ -133,6 +135,8 @@ export interface InsertWeatherStation {
   stationAdmin?: string;
   stationAdminEmail?: string;
   stationAdminPhone?: string;
+  // Station image (base64)
+  stationImage?: string | null;
 }
 
 // Simple user for local desktop app
@@ -315,6 +319,8 @@ export class DatabaseStorage {
     if ((station as any).stationAdmin !== undefined) updateData.station_admin = (station as any).stationAdmin;
     if ((station as any).stationAdminEmail !== undefined) updateData.station_admin_email = (station as any).stationAdminEmail;
     if ((station as any).stationAdminPhone !== undefined) updateData.station_admin_phone = (station as any).stationAdminPhone;
+    // Station image
+    if (station.stationImage !== undefined) updateData.station_image = station.stationImage;
     
     db.updateStation(id, updateData);
     return this.getStation(id);
@@ -942,7 +948,9 @@ export class DatabaseStorage {
       installationTeam: station.installation_team || undefined,
       stationAdmin: station.station_admin || undefined,
       stationAdminEmail: station.station_admin_email || undefined,
-      stationAdminPhone: station.station_admin_phone || undefined
+      stationAdminPhone: station.station_admin_phone || undefined,
+      // Station image
+      stationImage: station.station_image || null
     };
   }
 

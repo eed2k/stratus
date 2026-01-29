@@ -188,6 +188,7 @@ export const weatherStations = pgTable("weather_stations", {
   solarPanelWatts: integer("solar_panel_watts"),
   batteryAmpHours: integer("battery_amp_hours"),
   enclosureType: varchar("enclosure_type", { length: 100 }),
+  stationImage: text("station_image"), // Base64 encoded image or URL
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

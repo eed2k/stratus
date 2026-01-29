@@ -786,6 +786,8 @@ export interface Station {
   station_admin?: string;
   station_admin_email?: string;
   station_admin_phone?: string;
+  // Station image
+  station_image?: string | null;
 }
 
 export function getAllStations(): Station[] {
@@ -793,7 +795,7 @@ export function getAllStations(): Station[] {
   const result = db.exec(`SELECT id, name, pakbus_address, connection_type, connection_config, security_code, 
     created_at, updated_at, last_connected, is_active, location, latitude, longitude, altitude, 
     datalogger_model, datalogger_serial_number, program_name, modem_model, modem_serial_number,
-    site_description, notes, installation_team, station_admin, station_admin_email, station_admin_phone 
+    site_description, notes, installation_team, station_admin, station_admin_email, station_admin_phone, station_image 
     FROM stations WHERE is_active = 1 ORDER BY name`);
   if (result.length === 0) return [];
   
@@ -822,7 +824,8 @@ export function getAllStations(): Station[] {
     installation_team: row[21] as string | undefined,
     station_admin: row[22] as string | undefined,
     station_admin_email: row[23] as string | undefined,
-    station_admin_phone: row[24] as string | undefined
+    station_admin_phone: row[24] as string | undefined,
+    station_image: row[25] as string | null | undefined
   }));
 }
 
@@ -831,7 +834,7 @@ export function getStationById(id: number): Station | null {
   const result = db.exec(`SELECT id, name, pakbus_address, connection_type, connection_config, security_code, 
     created_at, updated_at, last_connected, is_active, location, latitude, longitude, altitude, 
     datalogger_model, datalogger_serial_number, program_name, modem_model, modem_serial_number,
-    site_description, notes, installation_team, station_admin, station_admin_email, station_admin_phone 
+    site_description, notes, installation_team, station_admin, station_admin_email, station_admin_phone, station_image 
     FROM stations WHERE id = ?`, [id]);
   if (result.length === 0 || result[0].values.length === 0) return null;
   
@@ -861,7 +864,8 @@ export function getStationById(id: number): Station | null {
     installation_team: row[21] as string | undefined,
     station_admin: row[22] as string | undefined,
     station_admin_email: row[23] as string | undefined,
-    station_admin_phone: row[24] as string | undefined
+    station_admin_phone: row[24] as string | undefined,
+    station_image: row[25] as string | null | undefined
   };
 }
 
@@ -922,6 +926,8 @@ export function updateStation(id: number, station: Partial<Station>): void {
   if (station.station_admin !== undefined) { fields.push('station_admin = ?'); values.push(station.station_admin); }
   if (station.station_admin_email !== undefined) { fields.push('station_admin_email = ?'); values.push(station.station_admin_email); }
   if (station.station_admin_phone !== undefined) { fields.push('station_admin_phone = ?'); values.push(station.station_admin_phone); }
+  // Station image
+  if (station.station_image !== undefined) { fields.push('station_image = ?'); values.push(station.station_image); }
   
   fields.push('updated_at = CURRENT_TIMESTAMP');
   values.push(id);

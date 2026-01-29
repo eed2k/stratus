@@ -20,12 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Radio, Search, Trash2, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone } from "lucide-react";
+import { MapPin, Plus, Search, Trash2, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone, Camera } from "lucide-react";
 import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { WeatherStation } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StationImageDisplay, StationImageUpload } from "@/components/StationImageUpload";
 
 interface StationWithReading extends WeatherStation {
   lastReading?: {
@@ -118,6 +119,8 @@ const initialFormData: StationFormData = {
 export default function Stations() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [selectedStation, setSelectedStation] = useState<StationWithReading | null>(null);
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
   const { toast } = useToast();
 
@@ -322,16 +325,6 @@ export default function Stations() {
   };
 
   const getConnectionBadge = (type: string) => {
-    const colors: Record<string, string> = {
-      pakbus: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-      http_post: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      dropbox: "bg-blue-600 text-white",
-      tcp_ip: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-      lora: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-      gsm: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
-      "4g": "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
-      mqtt: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
-    };
     const labels: Record<string, string> = {
       pakbus: "PakBus",
       http_post: "HTTP POST",
@@ -343,7 +336,11 @@ export default function Stations() {
       mqtt: "MQTT",
     };
     return (
-      <Badge variant="outline" className={colors[type] || "bg-gray-100 text-gray-800"}>
+      <Badge 
+        variant="outline" 
+        className="bg-white text-black border border-black"
+        style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
+      >
         {labels[type] || type}
       </Badge>
     );
@@ -856,7 +853,7 @@ export default function Stations() {
       ) : filteredStations.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
+            <Cloud className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Stations Found</h3>
             <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
               {search 
@@ -879,11 +876,13 @@ export default function Stations() {
               className="group hover:shadow-lg hover:border-primary/50 transition-all" 
               data-testid={`card-station-${station.id}`}
             >
+              {/* Station Image */}
+              <StationImageDisplay image={station.stationImage} stationName={station.name} />
+              
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1 min-w-0">
-                    <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                      <Radio className={`h-4 w-4 flex-shrink-0 ${station.isActive ? 'text-green-500' : 'text-gray-400'}`} />
+                    <CardTitle className="text-lg sm:text-xl" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                       <span className="truncate">{station.name}</span>
                     </CardTitle>
                     {station.location && (
@@ -936,6 +935,17 @@ export default function Stations() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    onClick={() => {
+                      setSelectedStation(station);
+                      setImageDialogOpen(true);
+                    }}
+                    title="Upload station image"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => deleteMutation.mutate(station.id)}
                     disabled={deleteMutation.isPending}
                     data-testid={`button-delete-${station.id}`}
@@ -949,6 +959,31 @@ export default function Stations() {
           ))}
         </div>
       )}
+
+      {/* Station Image Upload Dialog */}
+      <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              Station Image
+            </DialogTitle>
+            <DialogDescription>
+              Upload or change the image for {selectedStation?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedStation && (
+            <StationImageUpload
+              stationId={selectedStation.id}
+              currentImage={selectedStation.stationImage}
+              stationName={selectedStation.name}
+              onImageChange={() => {
+                setImageDialogOpen(false);
+                queryClient.invalidateQueries({ queryKey: ['/api/stations'] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

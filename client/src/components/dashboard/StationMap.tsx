@@ -417,7 +417,7 @@ export function StationMap({
         const marker = L.marker([lat, lng], { icon: stationIcon }).addTo(map);
         
         marker.bindPopup(`
-          <div style="min-width:180px;font-family:system-ui,sans-serif;">
+          <div style="min-width:180px;font-family:Arial,Helvetica,sans-serif;">
             <strong style="font-size:14px;color:#1e40af;">${stationName}</strong>
             <hr style="margin:6px 0;border:none;border-top:1px solid #e5e7eb;">
             <div style="font-size:12px;color:#4b5563;">
