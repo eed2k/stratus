@@ -154,20 +154,30 @@ app.use((req, res, next) => {
     
     // Create admin user if no users exist
     if (users.length === 0) {
-      const adminEmail = process.env.ADMIN_EMAIL || "esterhuizen2k@proton.me";
-      const adminPassword = process.env.ADMIN_PASSWORD || "Lukas@6103";
+      const adminEmail = process.env.STRATUS_ADMIN_EMAIL || process.env.ADMIN_EMAIL;
+      const adminPassword = process.env.STRATUS_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+      const adminName = process.env.STRATUS_ADMIN_NAME || "Admin";
       
-      const passwordHash = await hashFn(adminPassword, 10);
-      
-      createUser(
-        adminEmail,
-        "Lukas",
-        "Esterhuizen",
-        passwordHash,
-        "admin",
-        []
-      );
-      log(`Default admin user created: ${adminEmail}`);
+      if (adminEmail && adminPassword) {
+        const passwordHash = await hashFn(adminPassword, 10);
+        
+        // Parse admin name (could be "First Last" or just "First")
+        const nameParts = adminName.split(' ');
+        const firstName = nameParts[0] || "Admin";
+        const lastName = nameParts.slice(1).join(' ') || null;
+        
+        createUser(
+          adminEmail,
+          firstName,
+          lastName,
+          passwordHash,
+          "admin",
+          []
+        );
+        log(`Default admin user created: ${adminEmail}`);
+      } else {
+        log("Warning: No admin credentials configured. Set STRATUS_ADMIN_EMAIL and STRATUS_ADMIN_PASSWORD environment variables.");
+      }
     }
     
     // Always ensure demo user exists

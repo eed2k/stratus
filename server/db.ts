@@ -320,7 +320,9 @@ async function runMigrations(database: Database): Promise<void> {
   // Add equipment and description columns if they don't exist
   const textColumns = [
     'location', 'datalogger_model', 'datalogger_serial_number', 'program_name',
-    'modem_model', 'modem_serial_number', 'site_description', 'notes'
+    'modem_model', 'modem_serial_number', 'site_description', 'notes',
+    'installation_team', 'station_admin', 'station_admin_email', 'station_admin_phone',
+    'station_image'
   ];
   for (const col of textColumns) {
     try {

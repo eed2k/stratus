@@ -43,8 +43,11 @@ import {
   MapPin,
   Cpu,
   Edit,
+  Camera,
+  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { StationImageUpload, StationImageDisplay } from "@/components/StationImageUpload";
 
 interface StationInfo {
   id: number;
@@ -64,6 +67,7 @@ interface StationInfo {
   siteDescription?: string;
   lastCalibrationDate?: string;
   nextCalibrationDate?: string;
+  stationImage?: string | null;
 }
 
 interface CalibrationLog {
@@ -90,13 +94,15 @@ interface StationInfoPanelProps {
   station: StationInfo;
   isAdmin?: boolean;
   onSave?: (data: Partial<StationInfo>) => void;
+  onImageChange?: () => void;
 }
 
-export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInfoPanelProps) {
+export function StationInfoPanel({ station, isAdmin = true, onSave, onImageChange }: StationInfoPanelProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<Partial<StationInfo>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [showImageDialog, setShowImageDialog] = useState(false);
   const [calibrationLogs, setCalibrationLogs] = useState<CalibrationLog[]>([]);
   const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>([]);
   const [showAddCalibration, setShowAddCalibration] = useState(false);
@@ -290,6 +296,46 @@ export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInf
 
         {/* Station Info Tab */}
         <TabsContent value="info" className="mt-4">
+          {/* Station Image Section */}
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ImageIcon className="h-4 w-4" />
+                Station Image
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start gap-4">
+                {station.stationImage ? (
+                  <StationImageDisplay 
+                    image={station.stationImage} 
+                    name={station.name}
+                    size="lg"
+                  />
+                ) : (
+                  <div className="w-32 h-32 bg-muted rounded-lg flex items-center justify-center">
+                    <Camera className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Upload a photo of your weather station for easy identification.
+                  </p>
+                  {isAdmin && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowImageDialog(true)}
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      {station.stationImage ? 'Change Image' : 'Upload Image'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -743,6 +789,27 @@ export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInf
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Station Image Upload Dialog */}
+      <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Station Image</DialogTitle>
+            <DialogDescription>
+              Upload or change the image for {station.name}
+            </DialogDescription>
+          </DialogHeader>
+          <StationImageUpload
+            stationId={station.id}
+            currentImage={station.stationImage || undefined}
+            stationName={station.name}
+            onImageChange={() => {
+              setShowImageDialog(false);
+              onImageChange?.();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
