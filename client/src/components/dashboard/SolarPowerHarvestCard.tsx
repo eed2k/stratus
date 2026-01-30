@@ -192,7 +192,6 @@ export function SolarPowerHarvestCard({
         <div className="space-y-4">
           {/* Current Power Output */}
           <div className="flex items-baseline gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
             <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               {(estimates.currentPower * 1000).toFixed(0)}
             </span>
@@ -204,10 +203,7 @@ export function SolarPowerHarvestCard({
           {/* Energy Estimates Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-yellow-50 to-orange-50 p-3">
-              <div className="flex items-center gap-1 mb-1">
-                <Calendar className="h-3 w-3 text-yellow-600" />
-                <p className="text-xs font-medium text-yellow-700">Daily</p>
-              </div>
+              <p className="text-xs font-medium text-yellow-700 mb-1">Daily</p>
               <p className="text-lg font-semibold text-yellow-900">
                 {estimates.dailyEnergy.toFixed(2)}
               </p>
@@ -215,10 +211,7 @@ export function SolarPowerHarvestCard({
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-orange-50 to-amber-50 p-3">
-              <div className="flex items-center gap-1 mb-1">
-                <TrendingUp className="h-3 w-3 text-orange-600" />
-                <p className="text-xs font-medium text-orange-700">Weekly</p>
-              </div>
+              <p className="text-xs font-medium text-orange-700 mb-1">Weekly</p>
               <p className="text-lg font-semibold text-orange-900">
                 {estimates.weeklyEnergy.toFixed(1)}
               </p>
@@ -226,10 +219,7 @@ export function SolarPowerHarvestCard({
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-3">
-              <div className="flex items-center gap-1 mb-1">
-                <Calendar className="h-3 w-3 text-amber-600" />
-                <p className="text-xs font-medium text-amber-700">Monthly</p>
-              </div>
+              <p className="text-xs font-medium text-amber-700 mb-1">Monthly</p>
               <p className="text-lg font-semibold text-amber-900">
                 {estimates.monthlyEnergy.toFixed(1)}
               </p>
@@ -237,10 +227,7 @@ export function SolarPowerHarvestCard({
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-green-50 to-emerald-50 p-3">
-              <div className="flex items-center gap-1 mb-1">
-                <Sun className="h-3 w-3 text-green-600" />
-                <p className="text-xs font-medium text-green-700">Yearly</p>
-              </div>
+              <p className="text-xs font-medium text-green-700 mb-1">Yearly</p>
               <p className="text-lg font-semibold text-green-900">
                 {estimates.yearlyEnergy.toFixed(0)}
               </p>

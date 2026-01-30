@@ -1484,10 +1484,11 @@ export async function registerRoutes(
       }
       
       // Only allow updating specific fields
-      const { name, description } = req.body;
-      const updateData: { name?: string; description?: string } = {};
+      const { name, description, logoUrl } = req.body;
+      const updateData: { name?: string; description?: string | null; logoUrl?: string | null } = {};
       if (name) updateData.name = name.trim();
       if (description !== undefined) updateData.description = description?.trim() || null;
+      if (logoUrl !== undefined) updateData.logoUrl = logoUrl || null;
       
       const org = await storage.updateOrganization(orgId, updateData);
       if (!org) {

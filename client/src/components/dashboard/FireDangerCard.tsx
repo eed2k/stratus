@@ -181,33 +181,21 @@ export function FireDangerCard({
         {/* Detailed Metrics */}
         {showDetailedInfo && (
           <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-            <div className="flex items-center gap-2">
-              <Droplets className="h-4 w-4 text-blue-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Fuel Moisture</p>
-                <p className="text-sm font-medium">{fireDanger.fuelMoisture}%</p>
-              </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Fuel Moisture</p>
+              <p className="text-sm font-medium">{fireDanger.fuelMoisture}%</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Wind className="h-4 w-4 text-cyan-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Spread Potential</p>
-                <p className="text-sm font-medium capitalize">{fireDanger.spreadPotential}</p>
-              </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Spread Potential</p>
+              <p className="text-sm font-medium capitalize">{fireDanger.spreadPotential}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Flame className="h-4 w-4 text-green-600" />
-              <div>
-                <p className="text-xs text-muted-foreground">Grassland FDI</p>
-                <p className="text-sm font-medium">{fireDanger.grasslandFDI.toFixed(1)}</p>
-              </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Grassland FDI</p>
+              <p className="text-sm font-medium">{fireDanger.grasslandFDI.toFixed(1)}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Thermometer className="h-4 w-4 text-orange-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Drought Index</p>
-                <p className="text-sm font-medium">{fireDanger.keetchByramIndex}</p>
-              </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Drought Index</p>
+              <p className="text-sm font-medium">{fireDanger.keetchByramIndex}</p>
             </div>
           </div>
         )}

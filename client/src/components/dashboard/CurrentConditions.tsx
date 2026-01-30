@@ -182,7 +182,7 @@ export function CurrentConditions({
           <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-last-update">
             Last update: {lastUpdate}
           </p>
-          <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-local-time">
+          <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-local-time">
             Local Time: {formatLocalTime()}
           </p>
         </div>

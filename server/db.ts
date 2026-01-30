@@ -1220,7 +1220,7 @@ export function createOrganization(name: string, description?: string, ownerId: 
   return id;
 }
 
-export function updateOrganization(id: number, data: { name?: string; description?: string }): void {
+export function updateOrganization(id: number, data: { name?: string; description?: string | null; logoUrl?: string | null }): void {
   if (!db) throw new Error('Database not initialized');
   
   const updates: string[] = [];
@@ -1235,6 +1235,10 @@ export function updateOrganization(id: number, data: { name?: string; descriptio
   if (data.description !== undefined) {
     updates.push('description = ?');
     params.push(data.description);
+  }
+  if (data.logoUrl !== undefined) {
+    updates.push('logo_url = ?');
+    params.push(data.logoUrl);
   }
   
   if (updates.length === 0) return;

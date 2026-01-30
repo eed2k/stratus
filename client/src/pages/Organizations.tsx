@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Users, Mail, Plus, UserPlus, Copy, Check, Loader2, Trash2 } from "lucide-react";
+import { Building2, Users, Mail, Plus, UserPlus, Copy, Check, Loader2, Trash2, Upload, Settings, ImageIcon } from "lucide-react";
 import type { Organization, OrganizationMember, OrganizationInvitation, User } from "@shared/schema";
 
 export default function Organizations() {
@@ -18,11 +19,18 @@ export default function Organizations() {
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
   const [newOrgDescription, setNewOrgDescription] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  
+  // Organization settings form
+  const [editOrgName, setEditOrgName] = useState("");
+  const [editOrgDescription, setEditOrgDescription] = useState("");
+  const [orgLogo, setOrgLogo] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: organizations, isLoading: orgsLoading } = useQuery<Organization[]>({
     queryKey: ["/api/organizations"],
@@ -39,7 +47,7 @@ export default function Organizations() {
   });
 
   const createOrgMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string }) => {
+    mutationFn: async (data: { name: string; description?: string; logoUrl?: string }) => {
       return apiRequest("POST", "/api/organizations", data);
     },
     onSuccess: () => {
@@ -51,6 +59,35 @@ export default function Organizations() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create organization.", variant: "destructive" });
+    },
+  });
+
+  const updateOrgMutation = useMutation({
+    mutationFn: async (data: { name?: string; description?: string; logoUrl?: string | null }) => {
+      const response = await authFetch(`/api/organizations/${selectedOrg?.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update organization');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organizations"] });
+      setSettingsDialogOpen(false);
+      // Update selected org with new data
+      if (selectedOrg) {
+        setSelectedOrg({
+          ...selectedOrg,
+          name: editOrgName || selectedOrg.name,
+          description: editOrgDescription || selectedOrg.description,
+          logoUrl: orgLogo,
+        });
+      }
+      toast({ title: "Organization updated", description: "Your organization has been updated successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update organization.", variant: "destructive" });
     },
   });
 
@@ -96,6 +133,44 @@ export default function Organizations() {
     setCopiedToken(token);
     setTimeout(() => setCopiedToken(null), 2000);
     toast({ title: "Link copied", description: "Invitation link copied to clipboard." });
+  };
+
+  const openSettingsDialog = () => {
+    if (selectedOrg) {
+      setEditOrgName(selectedOrg.name);
+      setEditOrgDescription(selectedOrg.description || "");
+      setOrgLogo(selectedOrg.logoUrl || null);
+      setSettingsDialogOpen(true);
+    }
+  };
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Logo must be smaller than 2MB.", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setOrgLogo(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveOrgSettings = () => {
+    updateOrgMutation.mutate({
+      name: editOrgName,
+      description: editOrgDescription || undefined,
+      logoUrl: orgLogo,
+    });
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -210,19 +285,38 @@ export default function Organizations() {
             ) : (
               <>
                 <CardHeader className="flex flex-row items-start justify-between gap-4">
-                  <div>
-                    <CardTitle data-testid="text-selected-org-name">{selectedOrg.name}</CardTitle>
-                    {selectedOrg.description && (
-                      <CardDescription>{selectedOrg.description}</CardDescription>
+                  <div className="flex items-start gap-4">
+                    {/* Organization Logo */}
+                    {selectedOrg.logoUrl ? (
+                      <img 
+                        src={selectedOrg.logoUrl} 
+                        alt={`${selectedOrg.name} logo`}
+                        className="w-16 h-16 rounded-lg object-cover border"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center border">
+                        <Building2 className="h-8 w-8 text-muted-foreground" />
+                      </div>
                     )}
+                    <div>
+                      <CardTitle data-testid="text-selected-org-name">{selectedOrg.name}</CardTitle>
+                      {selectedOrg.description && (
+                        <CardDescription>{selectedOrg.description}</CardDescription>
+                      )}
+                    </div>
                   </div>
-                  <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" data-testid="button-invite-member">
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Invite
-                      </Button>
-                    </DialogTrigger>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={openSettingsDialog}>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </Button>
+                    <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" data-testid="button-invite-member">
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Invite
+                        </Button>
+                      </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Invite Team Member</DialogTitle>
@@ -267,6 +361,7 @@ export default function Organizations() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Tabs defaultValue="members">
@@ -388,6 +483,96 @@ export default function Organizations() {
           </Card>
         </div>
       </div>
+
+      {/* Organization Settings Dialog */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Organization Settings</DialogTitle>
+            <DialogDescription>Update your organization details and logo</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Logo Upload */}
+            <div className="space-y-2">
+              <Label>Organization Logo</Label>
+              <div className="flex items-center gap-4">
+                {orgLogo ? (
+                  <img 
+                    src={orgLogo} 
+                    alt="Organization logo"
+                    className="w-20 h-20 rounded-lg object-cover border"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center border">
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Logo
+                  </Button>
+                  {orgLogo && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setOrgLogo(null)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">PNG, JPG, or GIF (max 2MB)</p>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-org-name">Name</Label>
+              <Input 
+                id="edit-org-name" 
+                value={editOrgName} 
+                onChange={(e) => setEditOrgName(e.target.value)} 
+                placeholder="Organization name"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-org-description">Description</Label>
+              <Textarea 
+                id="edit-org-description" 
+                value={editOrgDescription} 
+                onChange={(e) => setEditOrgDescription(e.target.value)} 
+                placeholder="A brief description of your organization"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={handleSaveOrgSettings}
+              disabled={!editOrgName.trim() || updateOrgMutation.isPending}
+            >
+              {updateOrgMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
