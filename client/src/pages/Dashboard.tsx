@@ -1530,7 +1530,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               modemSerialNumber: selectedStation.modemSerialNumber || undefined,
               lastCalibrationDate: selectedStation.lastCalibrationDate ? new Date(selectedStation.lastCalibrationDate).toISOString().split('T')[0] : undefined,
               nextCalibrationDate: selectedStation.nextCalibrationDate ? new Date(selectedStation.nextCalibrationDate).toISOString().split('T')[0] : undefined,
-              stationImage: selectedStation.stationImage || undefined,
             }}
             isAdmin={true}
             onSave={async (data) => {
@@ -1555,9 +1554,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                   variant: "destructive",
                 });
               }
-            }}
-            onImageChange={() => {
-              queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
             }}
           />
           </section>

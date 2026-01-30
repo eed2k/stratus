@@ -1,10 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch, queryClient } from "@/lib/queryClient";
-import { Camera, Trash2, Upload, ImageIcon } from "lucide-react";
+import { Camera, Trash2, Upload, ImageIcon, ZoomIn, ZoomOut, RotateCw, Check } from "lucide-react";
 
 interface StationImageUploadProps {
   stationId: number;
@@ -20,9 +22,62 @@ export function StationImageUpload({
   onImageChange 
 }: StationImageUploadProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null);
+  const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [scale, setScale] = useState(100);
+  const [rotation, setRotation] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
+
+  // Process image with scale and rotation, maintaining aspect ratio
+  const processImage = useCallback((imageSrc: string, targetScale: number, targetRotation: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current || document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        // Calculate scaled dimensions maintaining aspect ratio
+        const scaleFactor = targetScale / 100;
+        let width = img.width * scaleFactor;
+        let height = img.height * scaleFactor;
+
+        // Limit max dimensions to 1200px while maintaining aspect ratio
+        const maxDim = 1200;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width *= ratio;
+          height *= ratio;
+        }
+
+        // For rotation, we may need to swap dimensions
+        const needsSwap = targetRotation === 90 || targetRotation === 270;
+        canvas.width = needsSwap ? height : width;
+        canvas.height = needsSwap ? width : height;
+
+        // Clear and setup
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Translate to center, rotate, then draw
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((targetRotation * Math.PI) / 180);
+        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+
+        // Convert to base64
+        const result = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(result);
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imageSrc;
+    });
+  }, []);
 
   const uploadMutation = useMutation({
     mutationFn: async (imageData: string) => {
@@ -44,6 +99,8 @@ export function StationImageUpload({
       });
       queryClient.invalidateQueries({ queryKey: ['/api/stations'] });
       onImageChange?.(previewUrl);
+      setIsEditing(false);
+      setOriginalImage(null);
     },
     onError: (error: Error) => {
       toast({
@@ -72,6 +129,7 @@ export function StationImageUpload({
         description: "Station image removed",
       });
       setPreviewUrl(null);
+      setOriginalImage(null);
       queryClient.invalidateQueries({ queryKey: ['/api/stations'] });
       onImageChange?.(null);
     },
@@ -84,7 +142,7 @@ export function StationImageUpload({
     },
   });
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -98,11 +156,11 @@ export function StationImageUpload({
       return;
     }
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validate file size (10MB max for original, will be compressed)
+    if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Please select an image smaller than 5MB",
+        description: "Please select an image smaller than 10MB",
         variant: "destructive",
       });
       return;
@@ -111,10 +169,13 @@ export function StationImageUpload({
     setIsUploading(true);
     const reader = new FileReader();
     
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const base64 = e.target?.result as string;
+      setOriginalImage(base64);
       setPreviewUrl(base64);
-      uploadMutation.mutate(base64);
+      setScale(100);
+      setRotation(0);
+      setIsEditing(true);
       setIsUploading(false);
     };
 
@@ -128,6 +189,39 @@ export function StationImageUpload({
     };
 
     reader.readAsDataURL(file);
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  const handleSaveImage = async () => {
+    if (!originalImage) return;
+    
+    setIsUploading(true);
+    try {
+      const processedImage = await processImage(originalImage, scale, rotation);
+      setPreviewUrl(processedImage);
+      uploadMutation.mutate(processedImage);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to process image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setOriginalImage(null);
+    setPreviewUrl(currentImage || null);
+    setScale(100);
+    setRotation(0);
   };
 
   const handleRemoveImage = () => {
@@ -145,12 +239,101 @@ export function StationImageUpload({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {previewUrl ? (
+        {/* Hidden canvas for image processing */}
+        <canvas ref={canvasRef} className="hidden" />
+
+        {isEditing && originalImage ? (
+          // Editing mode with preview and controls
+          <div className="space-y-4">
+            <div className="relative border rounded-lg overflow-hidden bg-gray-100" style={{ minHeight: '200px' }}>
+              <img
+                src={originalImage}
+                alt={`${stationName} station preview`}
+                className="w-full h-auto max-h-64 object-contain mx-auto"
+                style={{
+                  transform: `scale(${scale / 100}) rotate(${rotation}deg)`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.2s ease'
+                }}
+              />
+            </div>
+
+            {/* Image adjustment controls */}
+            <div className="space-y-4 p-3 bg-muted/50 rounded-lg">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <ZoomOut className="h-4 w-4" />
+                    Size
+                    <ZoomIn className="h-4 w-4" />
+                  </Label>
+                  <span className="text-sm text-muted-foreground">{scale}%</span>
+                </div>
+                <Slider
+                  value={[scale]}
+                  onValueChange={([value]) => setScale(value)}
+                  min={25}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Adjust size while maintaining aspect ratio
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRotate}
+                  className="flex-1"
+                >
+                  <RotateCw className="h-4 w-4 mr-2" />
+                  Rotate 90°
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {rotation}°
+                </span>
+              </div>
+            </div>
+
+            {/* Save / Cancel buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleCancelEdit}
+                disabled={uploadMutation.isPending || isUploading}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleSaveImage}
+                disabled={uploadMutation.isPending || isUploading}
+              >
+                {(uploadMutation.isPending || isUploading) ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Save Image
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : previewUrl ? (
+          // Display current image
           <div className="relative">
             <img
               src={previewUrl}
               alt={`${stationName} station`}
-              className="w-full h-48 object-cover rounded-lg border"
+              className="w-full h-48 object-contain rounded-lg border bg-gray-50"
             />
             <div className="absolute top-2 right-2 flex gap-2">
               <Button
@@ -159,6 +342,7 @@ export function StationImageUpload({
                 className="h-8 w-8 bg-white/90 hover:bg-white"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadMutation.isPending || isUploading}
+                title="Upload new image"
               >
                 <Upload className="h-4 w-4" />
               </Button>
@@ -168,12 +352,14 @@ export function StationImageUpload({
                 className="h-8 w-8"
                 onClick={handleRemoveImage}
                 disabled={deleteMutation.isPending}
+                title="Remove image"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           </div>
         ) : (
+          // Empty state - upload prompt
           <div
             className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => fileInputRef.current?.click()}
@@ -183,7 +369,10 @@ export function StationImageUpload({
               Click to upload station image
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              PNG, JPG, GIF, or WebP (max 5MB)
+              PNG, JPG, GIF, or WebP (max 10MB)
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              You can adjust size after selecting
             </p>
           </div>
         )}
@@ -196,7 +385,7 @@ export function StationImageUpload({
           onChange={handleFileSelect}
         />
 
-        {(uploadMutation.isPending || isUploading) && (
+        {(uploadMutation.isPending || isUploading) && !isEditing && (
           <div className="text-center text-sm text-muted-foreground">
             Uploading...
           </div>
@@ -217,7 +406,7 @@ export function StationImageDisplay({
   if (!image) return null;
   
   return (
-    <div className="w-full h-32 rounded-lg overflow-hidden mb-3">
+    <div className="w-full h-32 rounded-t-lg overflow-hidden">
       <img
         src={image}
         alt={`${stationName} station`}
