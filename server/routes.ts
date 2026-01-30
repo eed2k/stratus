@@ -2004,5 +2004,432 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================
+  // Public Embed/Widget API (CORS enabled)
+  // ============================================
+
+  /**
+   * GET /api/embed/stations
+   * Public endpoint to get list of stations for embedding
+   * Supports CORS for cross-origin requests
+   */
+  app.get("/api/embed/stations", async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    try {
+      const stations = await storage.getStations();
+      // Return minimal public data
+      const publicStations = stations.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        altitude: s.altitude,
+        status: s.isActive ? 'online' : 'offline'
+      }));
+      res.json(publicStations);
+    } catch (error) {
+      console.error("Error fetching embed stations:", error);
+      res.status(500).json({ message: "Failed to fetch stations" });
+    }
+  });
+
+  /**
+   * GET /api/embed/station/:id
+   * Public endpoint to get station details and latest data for embedding
+   */
+  app.get("/api/embed/station/:id", async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    try {
+      const stationId = parseInt(req.params.id, 10);
+      if (isNaN(stationId)) {
+        return res.status(400).json({ message: "Invalid station ID" });
+      }
+      
+      const station = await storage.getStation(stationId);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      
+      // Get latest weather data (last 24 hours)
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const weatherData = await storage.getWeatherDataRange(stationId, yesterday, now);
+      
+      // Get latest record
+      const latest = weatherData.length > 0 ? weatherData[weatherData.length - 1] : null;
+      
+      res.json({
+        station: {
+          id: station.id,
+          name: station.name,
+          latitude: station.latitude,
+          longitude: station.longitude,
+          altitude: station.altitude,
+          status: station.isActive ? 'online' : 'offline'
+        },
+        latest: latest ? {
+          timestamp: latest.timestamp,
+          temperature: latest.temperature,
+          humidity: latest.humidity,
+          pressure: latest.pressure,
+          windSpeed: latest.windSpeed,
+          windDirection: latest.windDirection,
+          rainfall: latest.rainfall,
+          solarRadiation: latest.solarRadiation,
+          batteryVoltage: latest.batteryVoltage
+        } : null,
+        recordCount: weatherData.length
+      });
+    } catch (error) {
+      console.error("Error fetching embed station:", error);
+      res.status(500).json({ message: "Failed to fetch station data" });
+    }
+  });
+
+  /**
+   * GET /api/embed/station/:id/data
+   * Public endpoint to get weather data for a station (for charts)
+   */
+  app.get("/api/embed/station/:id/data", async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    try {
+      const stationId = parseInt(req.params.id, 10);
+      if (isNaN(stationId)) {
+        return res.status(400).json({ message: "Invalid station ID" });
+      }
+      
+      const hours = parseInt(req.query.hours as string, 10) || 24;
+      
+      const station = await storage.getStation(stationId);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      
+      const now = new Date();
+      const start = new Date(now.getTime() - hours * 60 * 60 * 1000);
+      const weatherData = await storage.getWeatherDataRange(stationId, start, now);
+      
+      // Return minimal data for charts
+      const chartData = weatherData.map((d: any) => ({
+        t: d.timestamp,
+        temp: d.temperature,
+        hum: d.humidity,
+        pres: d.pressure,
+        wind: d.windSpeed,
+        windDir: d.windDirection,
+        rain: d.rainfall,
+        solar: d.solarRadiation,
+        batt: d.batteryVoltage
+      }));
+      
+      res.json({
+        stationId,
+        stationName: station.name,
+        data: chartData
+      });
+    } catch (error) {
+      console.error("Error fetching embed data:", error);
+      res.status(500).json({ message: "Failed to fetch weather data" });
+    }
+  });
+
+  /**
+   * GET /api/embed/widget.js
+   * Serve the embeddable widget JavaScript
+   */
+  app.get("/api/embed/widget.js", (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    
+    const widgetScript = `
+/**
+ * Stratus Weather Widget
+ * Embed weather station data on any website
+ * Usage: <div id="stratus-widget" data-station="1" data-server="https://your-stratus-server.com"></div>
+ *        <script src="https://your-stratus-server.com/api/embed/widget.js"></script>
+ */
+(function() {
+  'use strict';
+  
+  const StratusWidget = {
+    version: '1.0.0',
+    
+    styles: \`
+      .stratus-widget {
+        font-family: Arial, Helvetica, sans-serif;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        max-width: 400px;
+        color: #000000;
+      }
+      .stratus-widget-dark {
+        background: #1f2937;
+        border-color: #374151;
+        color: #ffffff;
+      }
+      .stratus-widget-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .stratus-widget-dark .stratus-widget-header {
+        border-bottom-color: #374151;
+      }
+      .stratus-widget-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .stratus-widget-status {
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        background: #dcfce7;
+        color: #166534;
+      }
+      .stratus-widget-status.offline {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .stratus-widget-dark .stratus-widget-status {
+        background: #166534;
+        color: #dcfce7;
+      }
+      .stratus-widget-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      .stratus-widget-item {
+        padding: 8px;
+        background: #f9fafb;
+        border-radius: 6px;
+      }
+      .stratus-widget-dark .stratus-widget-item {
+        background: #374151;
+      }
+      .stratus-widget-label {
+        font-size: 11px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
+      .stratus-widget-dark .stratus-widget-label {
+        color: #9ca3af;
+      }
+      .stratus-widget-value {
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .stratus-widget-unit {
+        font-size: 12px;
+        font-weight: 400;
+        color: #6b7280;
+      }
+      .stratus-widget-dark .stratus-widget-unit {
+        color: #9ca3af;
+      }
+      .stratus-widget-footer {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 11px;
+        color: #6b7280;
+        display: flex;
+        justify-content: space-between;
+      }
+      .stratus-widget-dark .stratus-widget-footer {
+        border-top-color: #374151;
+        color: #9ca3af;
+      }
+      .stratus-widget-error {
+        padding: 16px;
+        text-align: center;
+        color: #991b1b;
+      }
+      .stratus-widget-loading {
+        padding: 32px;
+        text-align: center;
+        color: #6b7280;
+      }
+    \`,
+    
+    formatValue: function(value, decimals) {
+      if (value === null || value === undefined) return '--';
+      return Number(value).toFixed(decimals || 1);
+    },
+    
+    formatTimestamp: function(ts) {
+      if (!ts) return '--';
+      const date = new Date(ts);
+      return date.toLocaleString();
+    },
+    
+    getWindDirection: function(deg) {
+      if (deg === null || deg === undefined) return '--';
+      const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+      return dirs[Math.round(deg / 22.5) % 16];
+    },
+    
+    render: function(container, data, options) {
+      const dark = options.theme === 'dark';
+      const latest = data.latest || {};
+      
+      container.innerHTML = \`
+        <div class="stratus-widget \${dark ? 'stratus-widget-dark' : ''}">
+          <div class="stratus-widget-header">
+            <h3 class="stratus-widget-title">\${data.station?.name || 'Weather Station'}</h3>
+            <span class="stratus-widget-status \${data.station?.status !== 'online' ? 'offline' : ''}">\${data.station?.status || 'Unknown'}</span>
+          </div>
+          <div class="stratus-widget-grid">
+            <div class="stratus-widget-item">
+              <div class="stratus-widget-label">Temperature</div>
+              <div class="stratus-widget-value">\${this.formatValue(latest.temperature)}<span class="stratus-widget-unit">°C</span></div>
+            </div>
+            <div class="stratus-widget-item">
+              <div class="stratus-widget-label">Humidity</div>
+              <div class="stratus-widget-value">\${this.formatValue(latest.humidity, 0)}<span class="stratus-widget-unit">%</span></div>
+            </div>
+            <div class="stratus-widget-item">
+              <div class="stratus-widget-label">Pressure</div>
+              <div class="stratus-widget-value">\${this.formatValue(latest.pressure, 0)}<span class="stratus-widget-unit">hPa</span></div>
+            </div>
+            <div class="stratus-widget-item">
+              <div class="stratus-widget-label">Wind</div>
+              <div class="stratus-widget-value">\${this.formatValue(latest.windSpeed)}<span class="stratus-widget-unit">m/s \${this.getWindDirection(latest.windDirection)}</span></div>
+            </div>
+            \${options.showRain !== false ? \`
+            <div class="stratus-widget-item">
+              <div class="stratus-widget-label">Rainfall</div>
+              <div class="stratus-widget-value">\${this.formatValue(latest.rainfall)}<span class="stratus-widget-unit">mm</span></div>
+            </div>
+            \` : ''}
+            \${options.showSolar !== false && latest.solarRadiation !== undefined ? \`
+            <div class="stratus-widget-item">
+              <div class="stratus-widget-label">Solar</div>
+              <div class="stratus-widget-value">\${this.formatValue(latest.solarRadiation, 0)}<span class="stratus-widget-unit">W/m²</span></div>
+            </div>
+            \` : ''}
+          </div>
+          <div class="stratus-widget-footer">
+            <span>Updated: \${this.formatTimestamp(latest.timestamp)}</span>
+            <span>Powered by Stratus</span>
+          </div>
+        </div>
+      \`;
+    },
+    
+    renderError: function(container, message) {
+      container.innerHTML = \`
+        <div class="stratus-widget">
+          <div class="stratus-widget-error">\${message}</div>
+        </div>
+      \`;
+    },
+    
+    renderLoading: function(container) {
+      container.innerHTML = \`
+        <div class="stratus-widget">
+          <div class="stratus-widget-loading">Loading weather data...</div>
+        </div>
+      \`;
+    },
+    
+    init: function(container, options) {
+      const self = this;
+      options = options || {};
+      
+      // Inject styles if not already done
+      if (!document.getElementById('stratus-widget-styles')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'stratus-widget-styles';
+        styleEl.textContent = this.styles;
+        document.head.appendChild(styleEl);
+      }
+      
+      this.renderLoading(container);
+      
+      const server = options.server || container.dataset.server || window.location.origin;
+      const stationId = options.station || container.dataset.station;
+      
+      if (!stationId) {
+        this.renderError(container, 'No station ID specified');
+        return;
+      }
+      
+      fetch(server + '/api/embed/station/' + stationId)
+        .then(function(res) {
+          if (!res.ok) throw new Error('Failed to fetch data');
+          return res.json();
+        })
+        .then(function(data) {
+          self.render(container, data, options);
+          
+          // Auto-refresh every 5 minutes
+          if (options.autoRefresh !== false) {
+            setInterval(function() {
+              fetch(server + '/api/embed/station/' + stationId)
+                .then(function(res) { return res.json(); })
+                .then(function(data) { self.render(container, data, options); })
+                .catch(function() {});
+            }, (options.refreshInterval || 300) * 1000);
+          }
+        })
+        .catch(function(err) {
+          self.renderError(container, 'Unable to load weather data');
+        });
+    }
+  };
+  
+  // Auto-initialize widgets on page load
+  function initWidgets() {
+    var widgets = document.querySelectorAll('[data-stratus-widget], #stratus-widget, .stratus-widget-container');
+    widgets.forEach(function(el) {
+      StratusWidget.init(el, {
+        theme: el.dataset.theme,
+        showRain: el.dataset.showRain !== 'false',
+        showSolar: el.dataset.showSolar !== 'false'
+      });
+    });
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWidgets);
+  } else {
+    initWidgets();
+  }
+  
+  // Expose globally for manual initialization
+  window.StratusWidget = StratusWidget;
+})();
+`;
+    
+    res.send(widgetScript);
+  });
+
+  // Handle OPTIONS for CORS preflight
+  app.options("/api/embed/*", (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.status(204).send();
+  });
+
   return httpServer;
 }
