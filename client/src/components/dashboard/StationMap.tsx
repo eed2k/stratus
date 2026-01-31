@@ -33,8 +33,6 @@ const LEAFLET_CRITICAL_CSS = `
 // Global state to track loading
 let leafletLoadPromise: Promise<void> | null = null;
 let leafletLoaded = false;
-let loadAttempts = 0;
-const MAX_LOAD_ATTEMPTS = 3;
 
 // Inject critical CSS immediately
 function injectCriticalCSS(): void {

@@ -2006,18 +2006,39 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // Public Embed/Widget API (CORS enabled)
+  // Public Embed/Widget API (CORS enabled, read-only)
+  // These endpoints provide READ-ONLY access to weather data
+  // They do NOT expose any admin functions, user accounts, or configuration
   // ============================================
+
+  // Rate limiter for embed API to prevent abuse
+  const embedRateLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 120, // 120 requests per minute per IP
+    message: { success: false, message: 'Too many requests, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Middleware to set CORS headers and validate embed access
+  const embedCorsMiddleware: RequestHandler = (req, res, next) => {
+    // Allow all origins for widget embedding
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Embed-Key');
+    
+    // Block access to sensitive headers that could expose internal info
+    res.removeHeader('X-Powered-By');
+    
+    next();
+  };
 
   /**
    * GET /api/embed/stations
    * Public endpoint to get list of stations for embedding
-   * Supports CORS for cross-origin requests
+   * Returns ONLY public station info (no config, credentials, or admin data)
    */
-  app.get("/api/embed/stations", async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  app.get("/api/embed/stations", embedRateLimiter, embedCorsMiddleware, async (req, res) => {
     
     try {
       const stations = await storage.getStations();
@@ -2040,11 +2061,9 @@ export async function registerRoutes(
   /**
    * GET /api/embed/station/:id
    * Public endpoint to get station details and latest data for embedding
+   * Returns ONLY weather data - no configuration, credentials, or admin info
    */
-  app.get("/api/embed/station/:id", async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  app.get("/api/embed/station/:id", embedRateLimiter, embedCorsMiddleware, async (req, res) => {
     
     try {
       const stationId = parseInt(req.params.id, 10);
@@ -2096,11 +2115,9 @@ export async function registerRoutes(
   /**
    * GET /api/embed/station/:id/data
    * Public endpoint to get weather data for a station (for charts)
+   * Returns ONLY historical weather readings - no admin data
    */
-  app.get("/api/embed/station/:id/data", async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  app.get("/api/embed/station/:id/data", embedRateLimiter, embedCorsMiddleware, async (req, res) => {
     
     try {
       const stationId = parseInt(req.params.id, 10);
@@ -2146,8 +2163,9 @@ export async function registerRoutes(
   /**
    * GET /api/embed/widget.js
    * Serve the embeddable widget JavaScript
+   * This widget can ONLY display weather data - it cannot access admin functions
    */
-  app.get("/api/embed/widget.js", (req, res) => {
+  app.get("/api/embed/widget.js", embedRateLimiter, (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -2424,11 +2442,8 @@ export async function registerRoutes(
     res.send(widgetScript);
   });
 
-  // Handle OPTIONS for CORS preflight
-  app.options("/api/embed/*", (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Handle OPTIONS for CORS preflight on embed endpoints
+  app.options("/api/embed/*", embedCorsMiddleware, (req, res) => {
     res.status(204).send();
   });
 

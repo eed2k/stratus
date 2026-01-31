@@ -406,11 +406,11 @@ export function StationImageDisplay({
   if (!image) return null;
   
   return (
-    <div className="w-full h-32 rounded-t-lg overflow-hidden">
+    <div className="w-full h-48 rounded-t-lg overflow-hidden bg-muted/30 flex items-center justify-center">
       <img
         src={image}
         alt={`${stationName} station`}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain"
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sun, Zap, TrendingUp, Calendar } from "lucide-react";
+import { Sun } from "lucide-react";
 import { useMemo } from "react";
 import {
   AreaChart,

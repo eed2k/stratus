@@ -17,7 +17,7 @@ import { DataImport } from "@/components/dashboard/DataImport";
 import { DashboardConfigPanel } from "@/components/dashboard/DashboardConfigPanel";
 import { ShareDashboard } from "@/components/dashboard/ShareDashboard";
 import { StationInfoPanel } from "@/components/dashboard/StationInfoPanel";
-import { StationMap, StationMapWithErrorBoundary } from "@/components/dashboard/StationMap";
+import { StationMapWithErrorBoundary } from "@/components/dashboard/StationMap";
 import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { AirDensityCard } from "@/components/dashboard/AirDensityCard";
 import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
@@ -470,14 +470,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const isDemoStation = selectedStation?.connectionType === 'demo';
 
   // Use actual data, with sensible defaults for missing fields
-  // Patch: prefer collectedAt for all 'last update' and chart data
   const currentData = latestData
     ? {
         ...latestData,
-        // Patch: prefer collectedAt for last update
-        timestamp: latestData.collectedAt || latestData.timestamp,
       }
     : {
+        timestamp: null as Date | null,
         temperature: null,
         humidity: null,
         pressure: null,

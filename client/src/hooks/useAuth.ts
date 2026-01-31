@@ -127,12 +127,6 @@ export async function updateUserStations(email: string, stationIds: number[]): P
   return await updateUser(email, { assignedStations: stationIds });
 }
 
-// ============ Legacy localStorage functions (deprecated) ============
-function saveAllUsers(_users: StoredUser[]): void {
-  // Deprecated - users are now stored in database
-  console.warn('saveAllUsers is deprecated - users are now stored in database');
-}
-
 // Desktop app - check for stored user or use default
 const getStoredUser = (): AuthUser | null => {
   const userEmail = localStorage.getItem('stratus_user_email');

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, getAllUsers, addUser } from "@/hooks/useAuth";
+import { useAuth, getAllUsers, addUser, type StoredUser } from "@/hooks/useAuth";
 import { User, Lock, CheckCircle } from "lucide-react";
 import { hashPassword, verifyPassword } from "@/lib/passwordUtils";
 
@@ -42,8 +42,8 @@ export default function AccountSettings() {
       }
 
       // Find current user in storage
-      const users = getAllUsers();
-      const currentUser = users.find(u => u.email.toLowerCase() === user?.email?.toLowerCase());
+      const users = await getAllUsers();
+      const currentUser = users.find((u: StoredUser) => u.email.toLowerCase() === user?.email?.toLowerCase());
       
       if (!currentUser) {
         setError("User not found");

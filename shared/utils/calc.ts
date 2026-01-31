@@ -505,7 +505,7 @@ export function calculateHeatIndex(temperature: number, humidity: number): numbe
  * Compatible with both FFDI (Australia) and FWI (International) systems
  */
 export interface FireDangerRating {
-    level: 'low-moderate' | 'high' | 'very-high' | 'severe' | 'extreme' | 'catastrophic';
+    level: 'safe' | 'low' | 'moderate' | 'dangerous' | 'extremely-dangerous';
     label: string;
     color: string;
     description: string;

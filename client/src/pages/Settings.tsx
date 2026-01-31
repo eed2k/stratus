@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle, Cloud, Plus, Trash2, RefreshCw, FolderSync, Lock, Eye, EyeOff, ExternalLink } from "lucide-react";
-import { getAllUsers, addUser, updateUser } from "@/hooks/useAuth";
-import { verifyPassword, hashPassword } from "@/lib/passwordUtils";
+import { getAllUsers, updateUser } from "@/hooks/useAuth";
+import { verifyPassword } from "@/lib/passwordUtils";
 
 // Dropbox config interface
 interface DropboxConfig {

@@ -53,9 +53,11 @@ const SENSOR_ICONS: Record<string, typeof Thermometer> = {
   rain: Droplets,
 };
 
-// Future feature: Logger selection dropdown data
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _COMMON_LOGGERS = [
+/*
+ * Future feature: Logger and connection type reference data
+ * Uncomment when implementing logger/connection selection dropdowns
+ *
+const COMMON_LOGGERS = [
   { name: "Campbell Scientific CR1000X", category: "campbell" },
   { name: "Campbell Scientific CR1000XE (Ethernet)", category: "campbell" },
   { name: "Campbell Scientific CR6 (WiFi)", category: "campbell" },
@@ -84,9 +86,7 @@ const _COMMON_LOGGERS = [
   { name: "Custom Logger (NB-IoT)", category: "generic" },
 ];
 
-// Future feature: Connection type selection dropdown data
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _CONNECTION_TYPES = [
+const CONNECTION_TYPES = [
   { value: "http", label: "HTTP/REST API", description: "Standard web API connection" },
   { value: "https", label: "HTTPS (Secure)", description: "Encrypted web API connection" },
   { value: "mqtt", label: "MQTT", description: "Lightweight IoT messaging protocol" },
@@ -106,6 +106,7 @@ const _CONNECTION_TYPES = [
   { value: "arduino_iot", label: "Arduino IoT Cloud", description: "Arduino cloud platform" },
   { value: "blynk", label: "Blynk IoT", description: "Blynk IoT platform" },
 ];
+*/
 
 const COMMON_SENSORS = [
   { name: "RM Young 05103 Wind Monitor", type: "wind", manufacturer: "RM Young" },

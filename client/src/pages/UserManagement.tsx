@@ -465,7 +465,7 @@ export default function UserManagement() {
                           Admin
                         </Badge>
                       ) : (
-                        <Badge variant="secondary">
+                        <Badge className="bg-green-600 text-white">
                           User
                         </Badge>
                       )}

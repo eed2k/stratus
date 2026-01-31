@@ -1,22 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
-import { authFetch } from "@/lib/queryClient";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { authFetch, queryClient, apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { 
   MapPin, 
-  Thermometer, 
-  Wind, 
-  Droplets,
   AlertCircle,
   CheckCircle2,
   Clock,
   BarChart3,
   Settings,
-  ArrowRight
+  ArrowRight,
+  Camera,
+  Trash2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { StationImageDisplay, StationImageUpload } from "@/components/StationImageUpload";
+import { useToast } from "@/hooks/use-toast";
 
 interface Station {
   id: number;
@@ -24,9 +27,11 @@ interface Station {
   location: string | null;
   latitude: number | null;
   longitude: number | null;
+  altitude: number | null;
   connectionType: string;
   isActive: boolean;
   lastSyncTime: string | null;
+  stationImage?: string | null;
   lastReading?: {
     temperature: number | null;
     humidity: number | null;
@@ -45,7 +50,31 @@ interface StationSelectorProps {
 
 export default function StationSelector({ isAdmin, canAccessStation, onSelectStation }: StationSelectorProps) {
   const [, setLocation] = useLocation();
+  const [imageDialogStation, setImageDialogStation] = useState<Station | null>(null);
+  const [deleteDialogStation, setDeleteDialogStation] = useState<Station | null>(null);
+  const { toast } = useToast();
   
+  const deleteMutation = useMutation({
+    mutationFn: async (stationId: number) => {
+      return await apiRequest("DELETE", `/api/stations/${stationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
+      toast({ 
+        title: "Station deleted", 
+        description: `${deleteDialogStation?.name} has been permanently deleted.` 
+      });
+      setDeleteDialogStation(null);
+    },
+    onError: () => {
+      toast({ 
+        title: "Error", 
+        description: "Failed to delete station. Please try again.", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   const { data: stations = [], isLoading, error } = useQuery<Station[]>({
     queryKey: ["/api/stations"],
     queryFn: async () => {
@@ -99,8 +128,13 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
     const labels: Record<string, string> = {
       pakbus: "PakBus",
       http_post: "HTTP POST",
+      http: "HTTP",
       dropbox: "Dropbox",
       tcp_ip: "TCP/IP",
+      lora: "LoRa",
+      gsm: "GSM",
+      "4g": "4G/LTE",
+      mqtt: "MQTT",
     };
     return (
       <Badge 
@@ -206,6 +240,36 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
               className="group cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 active:scale-[0.98]"
               onClick={() => onSelectStation(station.id)}
             >
+              {/* Station Image */}
+              <div className="relative">
+                <StationImageDisplay image={station.stationImage} stationName={station.name} />
+                {isAdmin && (
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImageDialogStation(station);
+                      }}
+                    >
+                      <Camera className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteDialogStation(station);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+              
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1 min-w-0">
@@ -218,6 +282,15 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                         <span className="truncate">{station.location}</span>
                       </CardDescription>
                     )}
+                    {(station.latitude !== null && station.longitude !== null) && (
+                      <CardDescription className="text-xs text-muted-foreground">
+                        {station.latitude?.toFixed(4)}°, {station.longitude?.toFixed(4)}°
+                        {station.altitude ? ` • ${station.altitude}m` : ''}
+                      </CardDescription>
+                    )}
+                    <Badge variant="outline" className="text-xs mt-1 bg-sky-50 text-sky-700 border-sky-200">
+                      Campbell Scientific
+                    </Badge>
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     {getConnectionBadge(station.connectionType)}
@@ -274,6 +347,56 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
           </div>
         )}
       </div>
+
+      {/* Image Upload Dialog */}
+      <Dialog open={!!imageDialogStation} onOpenChange={(open) => !open && setImageDialogStation(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {imageDialogStation?.name} - Station Image
+            </DialogTitle>
+          </DialogHeader>
+          {imageDialogStation && (
+            <StationImageUpload
+              stationId={imageDialogStation.id}
+              currentImage={imageDialogStation.stationImage}
+              stationName={imageDialogStation.name}
+              onImageChange={() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
+                setImageDialogStation(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Station Confirmation Dialog */}
+      <Dialog open={!!deleteDialogStation} onOpenChange={(open) => !open && setDeleteDialogStation(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Station</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteDialogStation?.name}</strong>? 
+              This will permanently remove the station and all its weather data. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogStation(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteDialogStation && deleteMutation.mutate(deleteDialogStation.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Station"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
