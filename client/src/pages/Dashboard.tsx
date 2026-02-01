@@ -388,6 +388,106 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [sortedHistoricalData, windRoseData, windScatterData]);
 
+  // Calculate temperature statistics for 24h and 7d periods
+  const temperatureStats = useMemo(() => {
+    const now = Date.now();
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    const last7d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+
+    const calculateStats = (data: WeatherData[]) => {
+      const temps = data
+        .map(d => d.temperature)
+        .filter((t): t is number => t !== null && t !== undefined && !isNaN(t));
+      
+      if (temps.length === 0) {
+        return { min: null, max: null, avg: null, range: null };
+      }
+
+      const min = Math.min(...temps);
+      const max = Math.max(...temps);
+      const avg = temps.reduce((sum, t) => sum + t, 0) / temps.length;
+      const range = max - min;
+
+      return {
+        min: Math.round(min * 10) / 10,
+        max: Math.round(max * 10) / 10,
+        avg: Math.round(avg * 10) / 10,
+        range: Math.round(range * 10) / 10,
+      };
+    };
+
+    return {
+      '24h': calculateStats(last24h),
+      '7d': calculateStats(last7d),
+    };
+  }, [sortedHistoricalData]);
+
+  // Calculate solar radiation statistics from historical data
+  const solarStats = useMemo(() => {
+    const now = Date.now();
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+
+    const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+
+    // Get valid solar radiation values
+    const radiationValues = last24h
+      .map(d => d.solarRadiation)
+      .filter((r): r is number => r !== null && r !== undefined && !isNaN(r));
+
+    if (radiationValues.length === 0) {
+      return { peak: null, avg: null, dailyEnergy: null };
+    }
+
+    const peak = Math.max(...radiationValues);
+    const avg = radiationValues.reduce((sum, r) => sum + r, 0) / radiationValues.length;
+    
+    // Estimate daily energy in MJ/m² (rough approximation: avg W/m² * hours * 0.0036)
+    // This assumes data points are roughly evenly distributed
+    const hoursOfData = last24h.length > 1 
+      ? (new Date(last24h[last24h.length - 1].timestamp).getTime() - new Date(last24h[0].timestamp).getTime()) / (1000 * 60 * 60)
+      : 0;
+    const dailyEnergy = avg * hoursOfData * 0.0036;
+
+    return {
+      peak: Math.round(peak),
+      avg: Math.round(avg),
+      dailyEnergy: Math.round(dailyEnergy * 10) / 10,
+    };
+  }, [sortedHistoricalData]);
+
+  // Calculate ETo statistics from historical data
+  const etoStats = useMemo(() => {
+    const now = Date.now();
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+    const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    const last7d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    const last30d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > thirtyDaysAgo);
+
+    // Calculate cumulative ETo for each period
+    const calculateCumulativeETo = (data: WeatherData[]) => {
+      const etoValues = data
+        .map(d => d.eto)
+        .filter((e): e is number => e !== null && e !== undefined && !isNaN(e));
+      
+      if (etoValues.length === 0) return null;
+      
+      // Sum up ETo values (assumes each reading is hourly increment)
+      return Math.round(etoValues.reduce((sum, e) => sum + e, 0) * 10) / 10;
+    };
+
+    return {
+      daily: calculateCumulativeETo(last24h),
+      weekly: calculateCumulativeETo(last7d),
+      monthly: calculateCumulativeETo(last30d),
+    };
+  }, [sortedHistoricalData]);
+
   // Save config to localStorage and invalidate queries when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
     setDashboardConfig(newConfig);
@@ -1470,15 +1570,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <SolarRadiationCard
               currentRadiation={currentData.solarRadiation || 0}
-              peakRadiation={1050}
-              dailyEnergy={18.5}
-              avgRadiation={450}
+              peakRadiation={solarStats.peak ?? 0}
+              dailyEnergy={solarStats.dailyEnergy ?? 0}
+              avgRadiation={solarStats.avg ?? 0}
               panelTemperature={currentData.panelTemperature ?? undefined}
             />
             <EToCard
-              dailyETo={currentData.eto || 4.85}
-              weeklyETo={32.4}
-              monthlyETo={128.5}
+              dailyETo={currentData.eto ?? etoStats.daily ?? 0}
+              weeklyETo={etoStats.weekly ?? 0}
+              monthlyETo={etoStats.monthly ?? 0}
             />
             <StatisticsCard
               title="Temperature Statistics"
@@ -1486,19 +1586,19 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 {
                   period: "24h",
                   stats: [
-                    { label: "Min", value: 15.2, unit: "°C" },
-                    { label: "Max", value: 28.4, unit: "°C" },
-                    { label: "Avg", value: 21.8, unit: "°C" },
-                    { label: "Range", value: 13.2, unit: "°C" },
+                    { label: "Min", value: temperatureStats['24h'].min ?? '--', unit: "°C" },
+                    { label: "Max", value: temperatureStats['24h'].max ?? '--', unit: "°C" },
+                    { label: "Avg", value: temperatureStats['24h'].avg ?? '--', unit: "°C" },
+                    { label: "Range", value: temperatureStats['24h'].range ?? '--', unit: "°C" },
                   ],
                 },
                 {
                   period: "7d",
                   stats: [
-                    { label: "Min", value: 12.1, unit: "°C" },
-                    { label: "Max", value: 31.5, unit: "°C" },
-                    { label: "Avg", value: 20.3, unit: "°C" },
-                    { label: "Range", value: 19.4, unit: "°C" },
+                    { label: "Min", value: temperatureStats['7d'].min ?? '--', unit: "°C" },
+                    { label: "Max", value: temperatureStats['7d'].max ?? '--', unit: "°C" },
+                    { label: "Avg", value: temperatureStats['7d'].avg ?? '--', unit: "°C" },
+                    { label: "Range", value: temperatureStats['7d'].range ?? '--', unit: "°C" },
                   ],
                 },
               ]}
