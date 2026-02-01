@@ -1043,10 +1043,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               humidity={currentData.humidity ?? undefined}
             />
             <EvapotranspirationCard
-              currentETo={(currentData.eto || calculatedETo) / 24}
-              dailyETo={currentData.eto || calculatedETo}
-              weeklyETo={(currentData.eto || calculatedETo) * 7}
-              monthlyETo={(currentData.eto || calculatedETo) * 30}
+              currentETo={(currentData.eto ?? etoStats.daily ?? 0) / 24}
+              dailyETo={currentData.eto ?? etoStats.daily ?? 0}
+              weeklyETo={etoStats.weekly ?? 0}
+              monthlyETo={etoStats.monthly ?? 0}
             />
           </div>
           
