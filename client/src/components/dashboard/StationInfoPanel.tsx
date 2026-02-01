@@ -195,7 +195,11 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
     toast({ title: "Maintenance Log Added" });
   };
 
-  const exportToCSV = (data: any[], filename: string) => {
+  const exportToCSV = (data: Record<string, unknown>[], filename: string) => {
+    if (data.length === 0) {
+      toast({ title: "Export Failed", description: "No data to export.", variant: "destructive" });
+      return;
+    }
     const headers = Object.keys(data[0]).join(',');
     const rows = data.map(row => Object.values(row).map(v => `"${v || ''}"`).join(',')).join('\n');
     const csv = `${headers}\n${rows}`;
@@ -209,7 +213,11 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
     toast({ title: "Export Complete", description: `${filename}.csv downloaded` });
   };
 
-  const exportToPDF = (title: string, data: any[]) => {
+  const exportToPDF = (title: string, data: Record<string, unknown>[]) => {
+    if (data.length === 0) {
+      toast({ title: "Export Failed", description: "No data to export.", variant: "destructive" });
+      return;
+    }
     // Simple PDF export using browser print
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;

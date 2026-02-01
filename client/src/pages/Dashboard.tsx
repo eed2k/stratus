@@ -206,7 +206,6 @@ const calculateWindPower = (windSpeed: number, airDensity: number = 1.225): numb
 interface DashboardProps {
   isAdmin?: boolean;
   canAccessStation?: (stationId: number) => boolean;
-  assignedStations?: number[];
   stationId?: number;  // If provided, use this station directly
   onBackToStations?: () => void;
 }

@@ -122,7 +122,6 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                   <Dashboard 
                     isAdmin={isAdmin} 
                     canAccessStation={canAccessStation} 
-                    assignedStations={user.assignedStations}
                     stationId={parseInt(params.stationId)}
                     onBackToStations={handleBackToStations}
                   />
