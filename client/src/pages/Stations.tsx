@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Search, Trash2, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone, Camera, Radio, Settings } from "lucide-react";
+import { MapPin, Plus, Search, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone, Camera, Radio, Settings } from "lucide-react";
 import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -284,24 +284,6 @@ export default function Stations() {
         return;
       }
       toast({ title: "Error", description: "Failed to add station.", variant: "destructive" });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/stations/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
-      toast({ title: "Station deleted", description: "Weather station has been removed." });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({ title: "Unauthorized", description: "Please log in again.", variant: "destructive" });
-        setTimeout(() => { window.location.href = "/api/login"; }, 500);
-        return;
-      }
-      toast({ title: "Error", description: "Failed to delete station.", variant: "destructive" });
     },
   });
 
@@ -792,16 +774,6 @@ export default function Stations() {
                         title="Upload station image"
                       >
                         <Camera className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(station.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-${station.id}`}
-                        title="Delete station"
-                      >
-                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </CardContent>

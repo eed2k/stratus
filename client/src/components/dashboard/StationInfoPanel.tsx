@@ -43,6 +43,8 @@ import {
   MapPin,
   Cpu,
   Edit,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -90,13 +92,16 @@ interface StationInfoPanelProps {
   station: StationInfo;
   isAdmin?: boolean;
   onSave?: (data: Partial<StationInfo>) => void;
+  onDelete?: () => Promise<void>;
 }
 
-export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInfoPanelProps) {
+export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: StationInfoPanelProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<Partial<StationInfo>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [calibrationLogs, setCalibrationLogs] = useState<CalibrationLog[]>([]);
   const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>([]);
   const [showAddCalibration, setShowAddCalibration] = useState(false);
@@ -134,6 +139,27 @@ export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInf
       // Error handled by parent
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete();
+      setShowDeleteDialog(false);
+      toast({
+        title: "Station Deleted",
+        description: `${station.name} has been permanently deleted.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete station. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -233,40 +259,83 @@ export function StationInfoPanel({ station, isAdmin = true, onSave }: StationInf
 
   return (
     <section className="space-y-4 mt-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
           Station Administration
           <Badge variant="secondary" className="ml-2">Admin Only</Badge>
         </h2>
-        {!isEditing ? (
-          <Button variant="outline" size="sm" onClick={startEditing}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Info
-          </Button>
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={isSaving}>
+        <div className="flex gap-2">
+          {!isEditing ? (
+            <>
+              <Button variant="outline" size="sm" onClick={startEditing}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Info
+              </Button>
+              {onDelete && (
+                <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Station
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </span>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Delete Station Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Station
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{station.name}</strong>?
+              This will permanently remove the station and all its weather data.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isDeleting}
+            >
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Saving...
-                </span>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
-                </>
-              )}
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete Station"}
             </Button>
-          </div>
-        )}
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="info" className="w-full">
         <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">

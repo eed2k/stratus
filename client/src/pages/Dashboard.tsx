@@ -1653,6 +1653,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 });
               }
             }}
+            onDelete={async () => {
+              const response = await authFetch(`/api/stations/${selectedStation.id}`, {
+                method: 'DELETE',
+              });
+              if (!response.ok) throw new Error('Failed to delete station');
+              // Refresh station data and navigate back
+              await queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
+              // Navigate back to station selector
+              if (onBackToStations) {
+                onBackToStations();
+              }
+            }}
           />
           </section>
         )}

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { authFetch, queryClient, apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { authFetch, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { 
   MapPin, 
@@ -10,16 +10,14 @@ import {
   BarChart3,
   Settings,
   ArrowRight,
-  Camera,
-  Trash2
+  Camera
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StationImageDisplay, StationImageUpload } from "@/components/StationImageUpload";
-import { useToast } from "@/hooks/use-toast";
 
 interface Station {
   id: number;
@@ -51,29 +49,6 @@ interface StationSelectorProps {
 export default function StationSelector({ isAdmin, canAccessStation, onSelectStation }: StationSelectorProps) {
   const [, setLocation] = useLocation();
   const [imageDialogStation, setImageDialogStation] = useState<Station | null>(null);
-  const [deleteDialogStation, setDeleteDialogStation] = useState<Station | null>(null);
-  const { toast } = useToast();
-  
-  const deleteMutation = useMutation({
-    mutationFn: async (stationId: number) => {
-      return await apiRequest("DELETE", `/api/stations/${stationId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
-      toast({ 
-        title: "Station deleted", 
-        description: `${deleteDialogStation?.name} has been permanently deleted.` 
-      });
-      setDeleteDialogStation(null);
-    },
-    onError: () => {
-      toast({ 
-        title: "Error", 
-        description: "Failed to delete station. Please try again.", 
-        variant: "destructive" 
-      });
-    },
-  });
 
   const { data: stations = [], isLoading, error } = useQuery<Station[]>({
     queryKey: ["/api/stations"],
@@ -256,16 +231,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                       <Camera className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteDialogStation(station);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 )}
               </div>
@@ -367,34 +332,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
               }}
             />
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Station Confirmation Dialog */}
-      <Dialog open={!!deleteDialogStation} onOpenChange={(open) => !open && setDeleteDialogStation(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-red-600">Delete Station</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>{deleteDialogStation?.name}</strong>? 
-              This will permanently remove the station and all its weather data. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogStation(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteDialogStation && deleteMutation.mutate(deleteDialogStation.id)}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete Station"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
