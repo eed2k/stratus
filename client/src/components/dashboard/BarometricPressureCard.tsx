@@ -51,16 +51,19 @@ export function BarometricPressureCard({
   const pressureTrend = getPressureTrend(trend);
   const weatherOutlook = getWeatherOutlook(calculatedSeaLevel, trend);
 
-  // Generate sparkline data if not provided
-  const stationChartData = sparklineDataStation.length > 0 
-    ? sparklineDataStation 
-    : Array.from({ length: 24 }, (_, i) => stationPressure + Math.sin(i / 4) * 2 + (Math.random() - 0.5) * 1);
-
-  const seaLevelChartData = sparklineDataSeaLevel.length > 0 
-    ? sparklineDataSeaLevel 
-    : Array.from({ length: 24 }, (_, i) => calculatedSeaLevel + Math.sin(i / 4) * 2 + (Math.random() - 0.5) * 1);
+  // Only use sparkline data if provided - no fake data generation
+  const stationChartData = sparklineDataStation.length > 0 ? sparklineDataStation : [];
+  const seaLevelChartData = sparklineDataSeaLevel.length > 0 ? sparklineDataSeaLevel : [];
 
   const renderSparkline = (data: number[], color: string) => {
+    if (data.length === 0) {
+      return (
+        <div className="h-12 flex items-center justify-center text-xs text-muted-foreground">
+          No historical data
+        </div>
+      );
+    }
+    
     const max = Math.max(...data);
     const min = Math.min(...data);
     const range = max - min || 1;

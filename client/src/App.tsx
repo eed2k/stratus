@@ -37,25 +37,26 @@ function Router() {
   const { isLoading, user, logout, needsSetup, login, isAdmin, canAccessStation } = useAuth();
   const [location] = useLocation();
 
-  // Shared dashboard routes don't need authentication
-  if (location.startsWith('/shared/')) {
+  // Shared dashboard routes don't need authentication - render separately
+  const isSharedRoute = location.startsWith('/shared/');
+  
+  // Determine what to render based on state
+  // Always return the same component structure to avoid React hook order issues
+  if (isSharedRoute) {
     return <SharedDashboard />;
   }
-
+  
   if (isLoading) {
     return <LoadingScreen />;
   }
 
-  // Show login/setup screen on first launch
   if (needsSetup || !user) {
     return <LoginPage onLogin={login} />;
   }
 
   // Desktop app - authenticated
   return (
-    <ErrorBoundary>
-      <AuthenticatedApp user={user!} logout={logout} isAdmin={isAdmin} canAccessStation={canAccessStation} />
-    </ErrorBoundary>
+    <AuthenticatedApp user={user} logout={logout} isAdmin={isAdmin} canAccessStation={canAccessStation} />
   );
 }
 
@@ -138,24 +139,34 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 />
               </Route>
               
-              {/* Admin-only routes */}
-              {isAdmin && (
-                <>
-                  <Route path="/campbell" component={CampbellDashboard} />
-                  <Route path="/stations" component={Stations} />
-                  <Route path="/users" component={UserManagement} />
-                  <Route path="/organizations" component={Organizations} />
-                  <Route path="/history" component={History} />
-                  <Route path="/alarms" component={Alarms} />
-                  <Route path="/reports" component={Reports} />
-                  <Route path="/settings" component={Settings} />
-                </>
-              )}
+              {/* Admin routes */}
+              <Route path="/campbell">
+                <AdminRoute isAdmin={isAdmin}><CampbellDashboard /></AdminRoute>
+              </Route>
+              <Route path="/stations">
+                <AdminRoute isAdmin={isAdmin}><Stations /></AdminRoute>
+              </Route>
+              <Route path="/users">
+                <AdminRoute isAdmin={isAdmin}><UserManagement /></AdminRoute>
+              </Route>
+              <Route path="/organizations">
+                <AdminRoute isAdmin={isAdmin}><Organizations /></AdminRoute>
+              </Route>
+              <Route path="/history">
+                <AdminRoute isAdmin={isAdmin}><History /></AdminRoute>
+              </Route>
+              <Route path="/alarms">
+                <AdminRoute isAdmin={isAdmin}><Alarms /></AdminRoute>
+              </Route>
+              <Route path="/reports">
+                <AdminRoute isAdmin={isAdmin}><Reports /></AdminRoute>
+              </Route>
+              <Route path="/settings">
+                <AdminRoute isAdmin={isAdmin}><Settings /></AdminRoute>
+              </Route>
               
               {/* User routes */}
-              {!isAdmin && (
-                <Route path="/account" component={AccountSettings} />
-              )}
+              <Route path="/account" component={AccountSettings} />
               
               {/* Documentation - available to all users */}
               <Route path="/docs" component={Documentation} />
@@ -167,6 +178,14 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
       </div>
     </SidebarProvider>
   );
+}
+
+// Wrapper component for admin-only routes
+function AdminRoute({ isAdmin, children }: { isAdmin: boolean; children: React.ReactNode }) {
+  if (!isAdmin) {
+    return <NotFound />;
+  }
+  return <>{children}</>;
 }
 
 function App() {

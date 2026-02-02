@@ -47,15 +47,8 @@ export function EvapotranspirationCard({
   // Calculate ETc (Crop Evapotranspiration)
   const dailyETc = dailyETo * cropCoefficient;
   
-  // Generate sparkline if not provided
-  const chartData = sparklineData.length > 0 
-    ? sparklineData 
-    : Array.from({ length: 24 }, (_, i) => {
-        // Simulate daily ETo pattern (low at night, peak at midday)
-        const hour = i;
-        const peak = Math.sin((hour - 6) * Math.PI / 12);
-        return Math.max(0, dailyETo / 10 * Math.max(0, peak) + Math.random() * 0.1);
-      });
+  // Only use sparkline data if provided - no fake data generation
+  const chartData = sparklineData.length > 0 ? sparklineData : [];
 
   return (
     <Card className="border border-gray-300 bg-white" data-testid="card-evapotranspiration">
@@ -91,19 +84,25 @@ export function EvapotranspirationCard({
           {/* Hourly ETo chart */}
           <div className="space-y-1">
             <p className="text-xs text-gray-500">24-Hour Pattern</p>
-            <div className="h-12 flex items-end gap-0.5">
-              {chartData.map((val, i) => {
-                const max = Math.max(...chartData, 0.1);
-                const height = (val / max) * 100;
-                return (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t-sm bg-cyan-500 transition-all duration-300"
-                    style={{ height: `${Math.max(height, 2)}%` }}
-                  />
-                );
-              })}
-            </div>
+            {chartData.length > 0 ? (
+              <div className="h-12 flex items-end gap-0.5">
+                {chartData.map((val, i) => {
+                  const max = Math.max(...chartData, 0.1);
+                  const height = (val / max) * 100;
+                  return (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-t-sm bg-cyan-500 transition-all duration-300"
+                      style={{ height: `${Math.max(height, 2)}%` }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="h-12 flex items-center justify-center text-xs text-gray-400">
+                No historical data available
+              </div>
+            )}
           </div>
 
           {/* Cumulative values */}

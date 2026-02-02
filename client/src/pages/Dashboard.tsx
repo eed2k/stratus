@@ -164,6 +164,8 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
     windSpeed: d.windSpeed ?? 0,
     solar: d.solarRadiation ?? 0,
     rain: d.rainfall ?? 0,
+    soilTemperature: d.soilTemperature ?? null,
+    soilMoisture: d.soilMoisture ?? null,
   }));
 };
 
@@ -177,8 +179,11 @@ const processWindEnergyData = (historicalData: WeatherData[]) => {
   
   return historicalData.map(d => {
     const windSpeed = d.windSpeed ?? 0;
+    const windGust = d.windGust ?? windSpeed; // Fall back to windSpeed if no gust data
     const speedMs = windSpeed / 3.6; // Convert km/h to m/s
+    const gustMs = windGust / 3.6; // Convert gust km/h to m/s
     const windPower = 0.5 * airDensity * Math.pow(speedMs, 3); // W/m²
+    const gustPower = 0.5 * airDensity * Math.pow(gustMs, 3); // W/m² for gusts
     
     // Cumulative energy - assuming 1 hour intervals for simplicity
     cumulativeEnergy += windPower / 1000; // kWh/m²
@@ -186,7 +191,9 @@ const processWindEnergyData = (historicalData: WeatherData[]) => {
     return {
       timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
       windSpeed,
+      windGust,
       windPower,
+      gustPower,
       cumulativeEnergy,
     };
   });
@@ -1234,7 +1241,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {hasValidData(currentData.soilTemperature) && (
             <DataBlockChart
               title="Soil Temperature"
-              data={chartData.map(d => ({ ...d, soilTemp: 18 + Math.sin(parseFloat(d.timestamp.split(':')[0]) / 4) * 3 }))}
+              data={chartData.filter(d => d.soilTemperature !== null).map(d => ({ ...d, soilTemp: d.soilTemperature }))}
               series={[
                 { dataKey: "soilTemp", name: "Soil Temp", color: "#a16207", unit: "°C" },
               ]}
@@ -1249,7 +1256,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {hasValidData(currentData.soilMoisture) && (
             <DataBlockChart
               title="Soil Moisture"
-              data={chartData.map(d => ({ ...d, soilMoist: 30 + Math.random() * 10 }))}
+              data={chartData.filter(d => d.soilMoisture !== null).map(d => ({ ...d, soilMoist: d.soilMoisture }))}
               series={[
                 { dataKey: "soilMoist", name: "Moisture", color: "#15803d", unit: "%" },
               ]}
@@ -1405,7 +1412,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Peak Gust Power"
               value={calculateWindPower(currentData.windGust || 0, currentData.airDensity || 1.225).toFixed(1)}
               unit="W/m²"
-              sparklineData={windEnergyData.slice(-12).map(d => d.windPower * 1.5)}
+              sparklineData={windEnergyData.slice(-12).map(d => d.gustPower)}
               chartColor="#f97316"
             />
             <MetricCard
@@ -1438,13 +1445,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Fire Danger Section */}
+        {/* Fire Danger Section - Only show when we have actual data */}
+        {(hasValidData(currentData.temperature) && hasValidData(currentData.humidity) && hasValidData(currentData.windSpeed)) && (
         <section className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FireDangerCard
-              temperature={currentData.temperature || 25}
-              humidity={currentData.humidity || 40}
-              windSpeed={currentData.windSpeed || 10}
+              temperature={currentData.temperature!}
+              humidity={currentData.humidity!}
+              windSpeed={currentData.windSpeed!}
             />
             <FireDangerChart
               data={fireDangerChartData}
@@ -1452,6 +1460,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
           </div>
         </section>
+        )}
 
         {/* Rainfall Section - Only show if rainfall data available */}
         {availableFields.rainfall && (

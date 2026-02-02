@@ -19,16 +19,6 @@ interface MetricCardProps {
   showChart?: boolean; // Control whether to show the mini chart
 }
 
-// Generate default sparkline data if none provided
-const generateDefaultSparkline = (currentValue: number): number[] => {
-  const data: number[] = [];
-  const variation = currentValue * 0.1 || 5;
-  for (let i = 0; i < 12; i++) {
-    data.push(currentValue + (Math.random() - 0.5) * variation);
-  }
-  return data;
-};
-
 export function MetricCard({
   title,
   value,
@@ -40,13 +30,17 @@ export function MetricCard({
   chartColor = "#3b82f6",
   showChart = true, // Default to showing chart for backward compatibility
 }: MetricCardProps) {
-  // Generate sparkline data if showing chart and not provided
+  // Only use sparkline data if provided - no fake data generation
   const chartData = useMemo(() => {
     if (!showChart) return [];
-    if (sparklineData && sparklineData.length > 0) return sparklineData;
-    const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-    return generateDefaultSparkline(numValue);
-  }, [sparklineData, value, showChart]);
+    // Only use real data that was passed in
+    if (sparklineData && sparklineData.length > 0) {
+      // Filter out any zero or null values for cleaner display
+      const validData = sparklineData.filter(v => v !== null && v !== undefined);
+      return validData.length > 0 ? validData : [];
+    }
+    return [];
+  }, [sparklineData, showChart]);
 
   if (isFaulty) {
     return (

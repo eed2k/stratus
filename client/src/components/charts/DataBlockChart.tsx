@@ -17,7 +17,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import { Maximize2, Minimize2, TrendingUp, TrendingDown } from "lucide-react";
+import { Maximize2, Minimize2, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
 
 /**
  * Format numbers with appropriate decimal precision
@@ -360,11 +360,22 @@ export function DataBlockChart({
       </CardHeader>
       
       <CardContent className={compact ? "px-3 pb-3" : ""}>
-        <div style={{ height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
-            {renderChart()}
-          </ResponsiveContainer>
-        </div>
+        {data.length === 0 ? (
+          <div 
+            className="flex flex-col items-center justify-center text-muted-foreground gap-2"
+            style={{ height: chartHeight }}
+          >
+            <AlertCircle className="h-8 w-8 opacity-50" />
+            <p className="text-sm">No data available for this time range</p>
+            <p className="text-xs opacity-70">Try selecting a different time period or check station sync</p>
+          </div>
+        ) : (
+          <div style={{ height: chartHeight }}>
+            <ResponsiveContainer width="100%" height="100%">
+              {renderChart()}
+            </ResponsiveContainer>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
