@@ -1,27 +1,25 @@
 /**
  * Email Service for Stratus Weather Server
- * Uses SendGrid for transactional email delivery
+ * Uses MailerSend for transactional email delivery
  * 
  * Setup:
- * 1. Sign up at https://sendgrid.com (free tier: 100 emails/day)
- * 2. Create an API key in Settings > API Keys
- * 3. Verify a sender email in Settings > Sender Authentication
+ * 1. Sign up at https://www.mailersend.com (free tier: 3,000 emails/month)
+ * 2. Add and verify your domain in Domains
+ * 3. Create an API token in API Tokens
  * 4. Set environment variables:
- *    - SENDGRID_API_KEY=your_api_key
- *    - SENDGRID_FROM_EMAIL=your_verified_email@domain.com
+ *    - MAILERSEND_API_KEY=your_api_token
+ *    - MAILERSEND_FROM_EMAIL=noreply@yourdomain.com
+ *    - MAILERSEND_FROM_NAME=Stratus Weather (optional)
  *    - PUBLIC_URL=https://your-domain.com (optional)
  */
 
-import sgMail from '@sendgrid/mail';
+// MailerSend REST API - no SDK needed
+const MAILERSEND_API_URL = 'https://api.mailersend.com/v1/email';
 
-// Initialize SendGrid with API key
-const apiKey = process.env.SENDGRID_API_KEY;
-if (apiKey) {
-  sgMail.setApiKey(apiKey);
-}
-
-const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'alerts@stratus.weather';
-const fromName = process.env.SENDGRID_FROM_NAME || 'Stratus Weather Server';
+const apiKey = process.env.MAILERSEND_API_KEY;
+const fromEmail = process.env.MAILERSEND_FROM_EMAIL || 'noreply@stratusweather.co.za';
+const fromName = process.env.MAILERSEND_FROM_NAME || 'Stratus Weather';
+const alertsEmail = process.env.MAILERSEND_ALERTS_EMAIL || 'alerts@stratusweather.co.za';
 
 export interface EmailOptions {
   to: string | string[];
@@ -47,35 +45,95 @@ export interface AlarmEmailData {
  * Check if email service is configured
  */
 export function isEmailConfigured(): boolean {
-  return !!process.env.SENDGRID_API_KEY && !!process.env.SENDGRID_FROM_EMAIL;
+  return !!process.env.MAILERSEND_API_KEY && !!process.env.MAILERSEND_FROM_EMAIL;
 }
 
 /**
- * Send a generic email
+ * Send a generic email via MailerSend API
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   if (!isEmailConfigured()) {
-    console.warn('[Email] SendGrid not configured. Set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables.');
+    console.warn('[Email] MailerSend not configured. Set MAILERSEND_API_KEY and MAILERSEND_FROM_EMAIL environment variables.');
     return false;
   }
 
   try {
-    const msg = {
-      to: options.to,
+    const recipients = Array.isArray(options.to) ? options.to : [options.to];
+    
+    const payload = {
       from: {
         email: fromEmail,
         name: fromName,
       },
+      to: recipients.map(email => ({ email })),
       subject: options.subject,
       text: options.text || '',
       html: options.html || options.text || '',
     };
 
-    await sgMail.send(msg);
-    console.log(`[Email] Sent to ${Array.isArray(options.to) ? options.to.join(', ') : options.to}`);
+    const response = await fetch(MAILERSEND_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`MailerSend API error: ${response.status} - ${errorData}`);
+    }
+
+    console.log(`[Email] Sent to ${recipients.join(', ')}`);
     return true;
   } catch (error: any) {
-    console.error('[Email] Failed to send:', error.response?.body || error.message);
+    console.error('[Email] Failed to send:', error.message);
+    return false;
+  }
+}
+
+/**
+ * Send email using alerts address (for alarm notifications)
+ */
+export async function sendAlertEmail(options: EmailOptions): Promise<boolean> {
+  if (!isEmailConfigured()) {
+    console.warn('[Email] MailerSend not configured.');
+    return false;
+  }
+
+  try {
+    const recipients = Array.isArray(options.to) ? options.to : [options.to];
+    
+    const payload = {
+      from: {
+        email: alertsEmail,
+        name: 'Stratus Weather Alerts',
+      },
+      to: recipients.map(email => ({ email })),
+      subject: options.subject,
+      text: options.text || '',
+      html: options.html || options.text || '',
+    };
+
+    const response = await fetch(MAILERSEND_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`MailerSend API error: ${response.status} - ${errorData}`);
+    }
+
+    console.log(`[Email/Alert] Sent to ${recipients.join(', ')}`);
+    return true;
+  } catch (error: any) {
+    console.error('[Email/Alert] Failed to send:', error.message);
     return false;
   }
 }
@@ -213,7 +271,7 @@ View Dashboard: ${dashboardUrl}
 Stratus Weather Server
 `;
 
-  return sendEmail({
+  return sendAlertEmail({
     to: recipients,
     subject,
     html,

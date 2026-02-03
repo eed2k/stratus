@@ -5,15 +5,15 @@
  * Migrates data from the SQLite database to a PostgreSQL database.
  * 
  * Usage:
- *   node scripts/migrate-to-postgres.js
+ *   node scripts/migrate-to-postgres.js [sqlite-path]
  * 
  * Environment Variables:
  *   DATABASE_URL - PostgreSQL connection string (required)
- *   STRATUS_DATA_DIR - SQLite database directory (optional, defaults to /app/data)
+ *   STRATUS_DATA_DIR - SQLite database directory (optional)
  */
 
 const { Pool } = require('pg');
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 
@@ -33,9 +33,174 @@ function log(message, color = 'reset') {
   console.log(`${colors[color]}[Migration] ${message}${colors.reset}`);
 }
 
+// Helper to convert sql.js result to array of objects
+function resultToObjects(result) {
+  if (!result || !result.columns || !result.values) return [];
+  return result.values.map(row => {
+    const obj = {};
+    result.columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  });
+}
+
+// Helper to run a query and get single value
+function getScalarValue(sqlite, query) {
+  const result = sqlite.exec(query);
+  if (result.length === 0 || result[0].values.length === 0) return 0;
+  return result[0].values[0][0];
+}
+
+// Helper to run a query with pagination
+function getPaginatedResults(sqlite, table, limit, offset) {
+  const result = sqlite.exec(`SELECT * FROM ${table} ORDER BY id LIMIT ${limit} OFFSET ${offset}`);
+  return result.length > 0 ? resultToObjects(result[0]) : [];
+}
+
 function getLocalDbPath() {
-  const dataDir = process.env.STRATUS_DATA_DIR || '/app/data';
+  // Check command line argument first
+  if (process.argv[2]) {
+    return process.argv[2];
+  }
+  const dataDir = process.env.STRATUS_DATA_DIR || '/home/stratus/.local/share/Stratus Weather Server';
   return path.join(dataDir, 'stratus.db');
+}
+
+async function createTables(postgres) {
+  log('Creating PostgreSQL tables...', 'cyan');
+  
+  await postgres.query(`
+    CREATE TABLE IF NOT EXISTS stations (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      pakbus_address INTEGER DEFAULT 1,
+      connection_type VARCHAR(50) DEFAULT 'http',
+      connection_config JSONB DEFAULT '{}',
+      security_code INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_connected TIMESTAMP,
+      is_active BOOLEAN DEFAULT true,
+      latitude DECIMAL(10, 8),
+      longitude DECIMAL(11, 8),
+      altitude DECIMAL(10, 2),
+      location VARCHAR(255),
+      datalogger_model VARCHAR(100),
+      datalogger_serial_number VARCHAR(100),
+      program_name VARCHAR(255),
+      modem_model VARCHAR(100),
+      modem_serial_number VARCHAR(100),
+      site_description TEXT,
+      notes TEXT,
+      station_image TEXT,
+      protocol VARCHAR(50) DEFAULT 'pakbus',
+      station_type VARCHAR(50) DEFAULT 'http'
+    )
+  `);
+  
+  await postgres.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      first_name VARCHAR(100),
+      last_name VARCHAR(100),
+      password_hash VARCHAR(255) NOT NULL,
+      role VARCHAR(50) DEFAULT 'user',
+      assigned_stations TEXT,
+      is_active BOOLEAN DEFAULT true,
+      last_login_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  await postgres.query(`
+    CREATE TABLE IF NOT EXISTS dropbox_configs (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255),
+      folder_path VARCHAR(500),
+      file_pattern VARCHAR(255),
+      station_id INTEGER REFERENCES stations(id),
+      sync_interval INTEGER DEFAULT 3600000,
+      enabled BOOLEAN DEFAULT true,
+      last_sync_at TIMESTAMP,
+      last_sync_status VARCHAR(100),
+      last_sync_records INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  await postgres.query(`
+    CREATE TABLE IF NOT EXISTS weather_data (
+      id SERIAL PRIMARY KEY,
+      station_id INTEGER NOT NULL REFERENCES stations(id),
+      table_name VARCHAR(100),
+      record_number INTEGER,
+      timestamp TIMESTAMP NOT NULL,
+      data JSONB,
+      collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  await postgres.query(`
+    CREATE INDEX IF NOT EXISTS idx_weather_data_station_timestamp 
+    ON weather_data(station_id, timestamp)
+  `);
+  
+  await postgres.query(`
+    CREATE TABLE IF NOT EXISTS shares (
+      id SERIAL PRIMARY KEY,
+      station_id INTEGER REFERENCES stations(id),
+      share_token VARCHAR(100) UNIQUE,
+      name VARCHAR(255),
+      email VARCHAR(255),
+      access_level VARCHAR(50),
+      password VARCHAR(255),
+      expires_at TIMESTAMP,
+      is_active BOOLEAN DEFAULT true,
+      last_accessed_at TIMESTAMP,
+      access_count INTEGER DEFAULT 0,
+      created_by INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  await postgres.query(`
+    CREATE TABLE IF NOT EXISTS alarms (
+      id SERIAL PRIMARY KEY,
+      station_id INTEGER REFERENCES stations(id),
+      parameter VARCHAR(100),
+      condition VARCHAR(50),
+      threshold DECIMAL(15, 5),
+      severity VARCHAR(50),
+      enabled BOOLEAN DEFAULT true,
+      email_notifications BOOLEAN DEFAULT false,
+      email_recipients TEXT,
+      last_triggered_at TIMESTAMP,
+      trigger_count INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  await postgres.query(`
+    CREATE TABLE IF NOT EXISTS alarm_events (
+      id SERIAL PRIMARY KEY,
+      alarm_id INTEGER REFERENCES alarms(id),
+      station_id INTEGER REFERENCES stations(id),
+      triggered_value DECIMAL(15, 5),
+      message TEXT,
+      acknowledged BOOLEAN DEFAULT false,
+      acknowledged_by INTEGER,
+      acknowledged_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  log('Tables created successfully', 'green');
 }
 
 async function main() {
@@ -54,8 +219,11 @@ async function main() {
   log(`SQLite database: ${sqlitePath}`, 'cyan');
   log(`PostgreSQL: ${postgresUrl.replace(/:[^:@]+@/, ':****@')}`, 'cyan');
 
-  // Connect to databases
-  const sqlite = new Database(sqlitePath, { readonly: true });
+  // Initialize sql.js and load SQLite database
+  const SQL = await initSqlJs();
+  const fileBuffer = fs.readFileSync(sqlitePath);
+  const sqlite = new SQL.Database(fileBuffer);
+  
   const postgres = new Pool({
     connectionString: postgresUrl,
     ssl: postgresUrl.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
@@ -66,6 +234,9 @@ async function main() {
     const pgClient = await postgres.connect();
     log('Connected to PostgreSQL', 'green');
     pgClient.release();
+
+    // Create tables first
+    await createTables(postgres);
 
     // Migrate stations
     await migrateStations(sqlite, postgres);
@@ -102,7 +273,8 @@ async function main() {
 async function migrateStations(sqlite, postgres) {
   log('Migrating stations...', 'cyan');
   
-  const stations = sqlite.prepare('SELECT * FROM stations').all();
+  const result = sqlite.exec('SELECT * FROM stations');
+  const stations = result.length > 0 ? resultToObjects(result[0]) : [];
   log(`Found ${stations.length} stations`, 'yellow');
 
   for (const station of stations) {
@@ -171,7 +343,8 @@ async function migrateStations(sqlite, postgres) {
 async function migrateUsers(sqlite, postgres) {
   log('Migrating users...', 'cyan');
   
-  const users = sqlite.prepare('SELECT * FROM users').all();
+  const result = sqlite.exec('SELECT * FROM users');
+  const users = result.length > 0 ? resultToObjects(result[0]) : [];
   log(`Found ${users.length} users`, 'yellow');
 
   for (const user of users) {
@@ -212,7 +385,8 @@ async function migrateUsers(sqlite, postgres) {
 async function migrateDropboxConfigs(sqlite, postgres) {
   log('Migrating Dropbox configs...', 'cyan');
   
-  const configs = sqlite.prepare('SELECT * FROM dropbox_configs').all();
+  const result = sqlite.exec('SELECT * FROM dropbox_configs');
+  const configs = result.length > 0 ? resultToObjects(result[0]) : [];
   log(`Found ${configs.length} Dropbox configs`, 'yellow');
 
   for (const config of configs) {
@@ -256,8 +430,7 @@ async function migrateWeatherData(sqlite, postgres) {
   log('Migrating weather data...', 'cyan');
   
   // Get total count
-  const countResult = sqlite.prepare('SELECT COUNT(*) as count FROM weather_data').get();
-  const totalRecords = countResult.count;
+  const totalRecords = getScalarValue(sqlite, 'SELECT COUNT(*) FROM weather_data');
   log(`Found ${totalRecords} weather data records`, 'yellow');
 
   if (totalRecords === 0) {
@@ -275,11 +448,7 @@ async function migrateWeatherData(sqlite, postgres) {
   let skipped = 0;
 
   while (offset < totalRecords) {
-    const records = sqlite.prepare(`
-      SELECT * FROM weather_data 
-      ORDER BY id 
-      LIMIT ? OFFSET ?
-    `).all(BATCH_SIZE, offset);
+    const records = getPaginatedResults(sqlite, 'weather_data', BATCH_SIZE, offset);
 
     if (records.length === 0) break;
 
@@ -353,7 +522,8 @@ async function migrateShares(sqlite, postgres) {
   log('Migrating shares...', 'cyan');
   
   try {
-    const shares = sqlite.prepare('SELECT * FROM shares').all();
+    const result = sqlite.exec('SELECT * FROM shares');
+    const shares = result.length > 0 ? resultToObjects(result[0]) : [];
     log(`Found ${shares.length} shares`, 'yellow');
 
     for (const share of shares) {
@@ -395,7 +565,8 @@ async function migrateAlarms(sqlite, postgres) {
   log('Migrating alarms...', 'cyan');
   
   try {
-    const alarms = sqlite.prepare('SELECT * FROM alarms').all();
+    const result = sqlite.exec('SELECT * FROM alarms');
+    const alarms = result.length > 0 ? resultToObjects(result[0]) : [];
     log(`Found ${alarms.length} alarms`, 'yellow');
 
     for (const alarm of alarms) {
@@ -437,7 +608,8 @@ async function migrateAlarmEvents(sqlite, postgres) {
   log('Migrating alarm events...', 'cyan');
   
   try {
-    const events = sqlite.prepare('SELECT * FROM alarm_events').all();
+    const result = sqlite.exec('SELECT * FROM alarm_events');
+    const events = result.length > 0 ? resultToObjects(result[0]) : [];
     log(`Found ${events.length} alarm events`, 'yellow');
 
     for (const event of events) {
