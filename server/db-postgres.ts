@@ -11,13 +11,10 @@
  * If DATABASE_URL is not set, the application falls back to SQLite (server/db.ts)
  */
 
-import { Pool, PoolClient, QueryResult } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import * as schema from '../shared/schema';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 // PostgreSQL connection pool
 let pool: Pool | null = null;
-let drizzleDb: ReturnType<typeof drizzle> | null = null;
 
 // Logger
 const pgLog = {
@@ -71,9 +68,6 @@ export async function initPostgresDatabase(): Promise<void> {
     client.release();
     
     pgLog.info(`Connected to PostgreSQL at ${result.rows[0].now}`);
-
-    // Initialize Drizzle ORM
-    drizzleDb = drizzle(pool, { schema });
     
     // Run migrations/table creation
     await createTables();
@@ -325,16 +319,9 @@ export function getPool(): Pool | null {
 }
 
 /**
- * Get the Drizzle ORM instance
- */
-export function getDrizzle(): ReturnType<typeof drizzle> | null {
-  return drizzleDb;
-}
-
-/**
  * Execute a raw query
  */
-export async function query<T = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+export async function query(text: string, params?: any[]): Promise<QueryResult<QueryResultRow>> {
   if (!pool) throw new Error('Database not initialized');
   return pool.query(text, params);
 }
@@ -355,7 +342,6 @@ export async function closePostgresDatabase(): Promise<void> {
     pgLog.info('Closing PostgreSQL connection pool...');
     await pool.end();
     pool = null;
-    drizzleDb = null;
     pgLog.info('PostgreSQL connection closed');
   }
 }
@@ -882,7 +868,6 @@ export default {
   initPostgresDatabase,
   closePostgresDatabase,
   getPool,
-  getDrizzle,
   query,
   getClient,
   getAllStations,

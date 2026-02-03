@@ -929,6 +929,85 @@ export class DropboxSyncService extends EventEmitter {
       };
     }
   }
+
+  /**
+   * List ALL files and folders in Dropbox root (for discovery)
+   */
+  async listAllDropboxContents(): Promise<{ folders: string[]; files: { name: string; path: string; modified: string; size: number }[] }> {
+    if (!this.config) {
+      throw new Error('Not configured');
+    }
+
+    await this.ensureValidToken();
+
+    // List recursively from root
+    const response = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.config.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        path: '', // Root of app folder
+        recursive: true, // Get everything
+        include_media_info: false,
+        include_deleted: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Dropbox API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json() as DropboxListResponse;
+    let allEntries = data.entries;
+
+    // Handle pagination
+    let cursor = data.cursor;
+    let hasMore = data.has_more;
+    while (hasMore) {
+      const continueResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder/continue', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cursor }),
+      });
+
+      if (!continueResponse.ok) break;
+
+      const continueData = await continueResponse.json() as DropboxListResponse;
+      allEntries = allEntries.concat(continueData.entries);
+      cursor = continueData.cursor;
+      hasMore = continueData.has_more;
+    }
+
+    // Separate folders and files
+    const folders = allEntries
+      .filter(e => e['.tag'] === 'folder')
+      .map(e => e.path_display);
+
+    const files = allEntries
+      .filter(e => e['.tag'] === 'file')
+      .map(e => ({
+        name: e.name,
+        path: e.path_display,
+        modified: e.server_modified || '',
+        size: e.size || 0,
+      }));
+
+    // Log discovery results
+    console.log('[DropboxSync] === DROPBOX CONTENTS DISCOVERY ===');
+    console.log(`[DropboxSync] Found ${folders.length} folders:`);
+    folders.forEach(f => console.log(`[DropboxSync]   📁 ${f}`));
+    console.log(`[DropboxSync] Found ${files.length} files:`);
+    files.forEach(f => console.log(`[DropboxSync]   📄 ${f.path} (${(f.size / 1024).toFixed(1)} KB, modified: ${f.modified})`));
+    console.log('[DropboxSync] === END DISCOVERY ===');
+
+    return { folders, files };
+  }
 }
 
 // Singleton instance

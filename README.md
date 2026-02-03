@@ -8,7 +8,7 @@ A professional web application for Campbell Scientific weather station managemen
 
 ---
 
-Access Stratus: http://stratus.dynv6.net:5000
+Access Stratus: https://stratus.dynv6.net
 
 Server IP: 129.151.183.183
 

@@ -209,6 +209,20 @@ router.get('/files', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/dropbox-sync/discover
+ * Discover ALL files and folders in Dropbox (for finding new data sources)
+ */
+router.get('/discover', async (req: Request, res: Response) => {
+  try {
+    const contents = await dropboxSyncService.listAllDropboxContents();
+    res.json(contents);
+  } catch (err: any) {
+    console.error('[DropboxSync] Error discovering contents:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /api/dropbox-sync/credentials
  * Check if Dropbox credentials are configured
  */

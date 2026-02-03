@@ -9,7 +9,7 @@
  * without changing application code.
  */
 
-import { isPostgresMode } from './db-postgres';
+import { isPostgresEnabled } from './db-postgres';
 
 // Type definitions for database operations
 export interface Station {
@@ -90,7 +90,7 @@ export interface DropboxConfig {
 }
 
 // Database mode detection
-const usePostgres = isPostgresMode();
+const usePostgres = isPostgresEnabled();
 
 // Log which database mode is being used
 console.log(`[Database] Mode: ${usePostgres ? 'PostgreSQL' : 'SQLite'}`);
