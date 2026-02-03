@@ -1,3 +1,15 @@
+# Docker Compose for Production with Vultr Managed PostgreSQL
+# 
+# This configuration uses an external managed PostgreSQL database
+# instead of a local container, reducing CPU load and providing
+# automatic backups, scaling, and maintenance.
+#
+# Required environment variables in .env:
+# - DATABASE_URL: Vultr Managed PostgreSQL connection string
+#   Format: postgresql://user:password@host:port/database?sslmode=require
+#
+# To use local PostgreSQL container instead, use docker-compose.yml
+
 services:
   stratus:
     build:
@@ -16,31 +28,17 @@ services:
       - DROPBOX_APP_SECRET=${DROPBOX_APP_SECRET}
       - DROPBOX_REFRESH_TOKEN=${DROPBOX_REFRESH_TOKEN}
       - DROPBOX_FOLDER_PATH=${DROPBOX_FOLDER_PATH}
+      # Vultr Managed PostgreSQL connection
+      - DATABASE_URL=${DATABASE_URL}
     network_mode: host
-    depends_on:
-      postgres:
-        condition: service_healthy
     volumes:
       - stratus-data:/home/stratus/.local/share/Stratus Weather Server
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: stratus-postgres
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=stratus
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=stratus
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U stratus -d stratus"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   stratus-data:
-  postgres-data:
