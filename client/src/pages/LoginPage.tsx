@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, Lock, Eye, EyeOff, Shield, User } from "lucide-react";
 
 interface LoginPageProps {
   onLogin: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
@@ -15,7 +14,6 @@ interface LoginPageProps {
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [, setLocation] = useLocation();
   const [loginType, setLoginType] = useState<'admin' | 'user'>('admin');
-  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -86,16 +84,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 h-12">
                 <TabsTrigger 
                   value="admin" 
-                  className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white h-10 font-medium"
+                  className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-10 font-medium"
                 >
-                  <Shield className="h-4 w-4" />
                   Admin Login
                 </TabsTrigger>
                 <TabsTrigger 
                   value="user" 
-                  className="flex items-center gap-2 data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-10 font-medium"
+                  className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-10 font-medium"
                 >
-                  <User className="h-4 w-4" />
                   User Login
                 </TabsTrigger>
               </TabsList>
@@ -130,41 +126,28 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    className="pl-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                  />
-                </div>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-gray-700">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="pl-9 pr-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                />
               </div>
 
               <Button 

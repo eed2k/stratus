@@ -7,12 +7,46 @@
  * - Secure password hashing with bcrypt
  * - Session management
  * - Role-based access control (admin/user)
+ * - Rate limiting on authentication endpoints
  */
 
 import type { Express, Request, Response, NextFunction, RequestHandler } from 'express';
 import { storage } from './localStorage';
 import { auditLog, AUDIT_ACTIONS } from './services/auditLogService';
 import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
+
+// Constants
+const BCRYPT_SALT_ROUNDS = 10;
+const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5;
+const PASSWORD_RESET_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const PASSWORD_RESET_RATE_LIMIT_MAX_ATTEMPTS = 3;
+
+// Rate limiter for login attempts
+const loginRateLimiter = rateLimit({
+  windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
+  max: LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+  message: { 
+    success: false, 
+    message: 'Too many login attempts. Please try again in 15 minutes.' 
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+});
+
+// Rate limiter for password reset requests
+const passwordResetRateLimiter = rateLimit({
+  windowMs: PASSWORD_RESET_RATE_LIMIT_WINDOW_MS,
+  max: PASSWORD_RESET_RATE_LIMIT_MAX_ATTEMPTS,
+  message: { 
+    success: false, 
+    message: 'Too many password reset attempts. Please try again later.' 
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Session storage - map of email to user data
 const activeSessions = new Map<string, {
@@ -80,8 +114,8 @@ export async function setupAuth(app: Express): Promise<void> {
     next();
   });
 
-  // Login endpoint
-  app.post('/api/auth/login', async (req: Request, res: Response) => {
+  // Login endpoint with rate limiting
+  app.post('/api/auth/login', loginRateLimiter, async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
       
@@ -198,8 +232,8 @@ export async function setupAuth(app: Express): Promise<void> {
     }
   });
 
-  // Forgot Password endpoint - sends reset email
-  app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+  // Forgot Password endpoint - sends reset email (with rate limiting)
+  app.post('/api/auth/forgot-password', passwordResetRateLimiter, async (req: Request, res: Response) => {
     try {
       const { email } = req.body;
       
@@ -228,12 +262,13 @@ export async function setupAuth(app: Express): Promise<void> {
       
       // Send reset email
       const { sendPasswordResetEmail } = require('./services/emailService');
-      const resetUrl = `${process.env.APP_BASE_URL || 'https://stratusweather.co.za'}/reset-password?token=${token}`;
       
       const emailSent = await sendPasswordResetEmail(
-        email, 
-        user.firstName || 'User',
-        resetUrl
+        email,
+        {
+          firstName: user.firstName || 'User',
+          resetToken: token
+        }
       );
 
       if (!emailSent) {
@@ -263,8 +298,8 @@ export async function setupAuth(app: Express): Promise<void> {
     }
   });
 
-  // Reset Password endpoint - validates token and sets new password
-  app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+  // Reset Password endpoint - validates token and sets new password (with rate limiting)
+  app.post('/api/auth/reset-password', passwordResetRateLimiter, async (req: Request, res: Response) => {
     try {
       const { token, newPassword } = req.body;
       

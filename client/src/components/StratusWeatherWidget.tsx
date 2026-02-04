@@ -39,7 +39,7 @@ interface StratusWeatherWidgetProps {
  * ```tsx
  * <StratusWeatherWidget
  *   stationId={1}
- *   server="https://stratusweather1.dynv6.net"
+ *   server="https://stratusweather.co.za"
  *   theme="light"
  * />
  * ```
@@ -158,7 +158,7 @@ interface UseStratusDataOptions {
  * ```tsx
  * const { data, loading, error, refresh } = useStratusData({
  *   stationId: 1,
- *   server: 'https://stratusweather1.dynv6.net',
+ *   server: 'https://stratusweather.co.za',
  *   refreshInterval: 300
  * });
  * 

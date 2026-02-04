@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
 
 export function ForgotPasswordPage() {
   const [, setLocation] = useLocation();
@@ -65,7 +64,7 @@ export function ForgotPasswordPage() {
             <CardHeader className="space-y-1 pb-4">
               <div className="flex justify-center mb-4">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  <span className="text-2xl text-green-600">✓</span>
                 </div>
               </div>
               <CardTitle className="text-2xl text-center text-gray-900">
@@ -84,7 +83,6 @@ export function ForgotPasswordPage() {
                 variant="outline"
                 className="w-full"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Login
               </Button>
             </CardContent>
@@ -129,18 +127,15 @@ export function ForgotPasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700">Email Address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    className="pl-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
 
               <Button 
@@ -157,7 +152,6 @@ export function ForgotPasswordPage() {
                 variant="ghost"
                 className="w-full"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Login
               </Button>
             </form>

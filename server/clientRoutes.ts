@@ -15,21 +15,37 @@ import { auditLog, AUDIT_ACTIONS } from './services/auditLogService';
 
 const router = Router();
 
+// Constants for security configuration
+const BCRYPT_SALT_ROUNDS = 10;
+const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5;
+const REGISTER_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const REGISTER_RATE_LIMIT_MAX_ATTEMPTS = 3;
+
 // Secret for JWT tokens - MUST be set via environment variable
 const JWT_SECRET = process.env.CLIENT_JWT_SECRET;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Fail-fast in production if JWT secret is not configured
 if (!JWT_SECRET) {
-  console.warn('[Security] CLIENT_JWT_SECRET not set - using random secret (tokens will be invalid after restart)');
+  if (NODE_ENV === 'production') {
+    console.error('[CRITICAL] CLIENT_JWT_SECRET is not set. This is required in production.');
+    console.error('[CRITICAL] Generate a secret with: openssl rand -hex 32');
+    process.exit(1);
+  } else {
+    console.warn('[Security] CLIENT_JWT_SECRET not set - using random secret (development only)');
+  }
 }
 const ACTIVE_JWT_SECRET = JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 // Rate limiter for login attempts - prevent brute force attacks
 const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minute window
-  max: 5, // Max 5 login attempts per window
+  windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
+  max: LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
   message: { 
     success: false, 
     error: 'Too many login attempts. Please try again in 15 minutes.',
-    retryAfter: 15 * 60
+    retryAfter: Math.floor(LOGIN_RATE_LIMIT_WINDOW_MS / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -38,12 +54,12 @@ const loginRateLimiter = rateLimit({
 
 // Rate limiter for registration
 const registerRateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour window
-  max: 3, // Max 3 registration attempts per hour
+  windowMs: REGISTER_RATE_LIMIT_WINDOW_MS,
+  max: REGISTER_RATE_LIMIT_MAX_ATTEMPTS,
   message: { 
     success: false, 
     error: 'Too many registration attempts. Please try again later.',
-    retryAfter: 60 * 60
+    retryAfter: Math.floor(REGISTER_RATE_LIMIT_WINDOW_MS / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,

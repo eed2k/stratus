@@ -1,6 +1,6 @@
 Stratus Weather Station
 
-Version 1.1.0
+Version 1.2.0
 Developer: Lukas Esterhuizen
 Contact: esterhuizen2k@proton.me
 
@@ -8,9 +8,7 @@ A professional web application for Campbell Scientific weather station managemen
 
 ---
 
-Access Stratus: https://stratusweather.co.za
-
-Server IP: YOUR_SERVER_IP
+Live Demo: https://stratusweather.co.za
 
 ---
 
@@ -78,12 +76,24 @@ Data Management
 
 ---
 
+Security Features
+
+- Rate Limiting - Protection against brute force attacks on login and password reset
+- Secure JWT Tokens - Cryptographically signed tokens with environment-configurable secrets
+- Password Hashing - bcrypt with configurable salt rounds
+- Input Validation - Zod schema validation on all API endpoints
+- HTTPS Enforcement - TLS encryption for all traffic
+- Session Management - Secure session handling with automatic recovery
+- Audit Logging - Comprehensive logging of security-relevant events
+
+---
+
 User Management
 
 - Admin and User Roles - Admins have full access, users view assigned stations only
 - Station Assignment - Assign specific stations to individual users
 - User Invitation System - Invite users via email with secure setup links
-- Password Reset - Self-service password reset via email
+- Password Reset - Self-service password reset via email (rate limited)
 - Secure Authentication - bcrypt password hashing
 - Session Management - Secure tokens with proper expiration
 
@@ -140,8 +150,12 @@ Environment Variables
 Required environment variables for deployment:
 
 ```
-# Database
+# Database (Required)
 DATABASE_URL=postgresql://user:password@host/database
+
+# Security (Required in production)
+CLIENT_JWT_SECRET=<generate with: openssl rand -hex 32>
+APP_BASE_URL=https://yourdomain.com
 
 # Email (MailerSend)
 MAILERSEND_API_KEY=your_api_key

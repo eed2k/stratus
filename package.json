@@ -1,6 +1,6 @@
 {
   "name": "stratus-weather-server",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Campbell Scientific Weather Station Management - Web Application",
   "author": "Lukas Esterhuizen <esterhuizen2k@proton.me>",
   "license": "MIT",

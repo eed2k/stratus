@@ -5,15 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, Eye, EyeOff, CheckCircle, XCircle, ArrowLeft, Loader2 } from "lucide-react";
 
 export function ResetPasswordPage() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const token = new URLSearchParams(search).get('token');
   
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +102,7 @@ export function ResetPasswordPage() {
 
           <Card className="shadow-xl border border-gray-200 bg-white">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600">Validating reset link...</p>
             </CardContent>
           </Card>
@@ -135,7 +132,7 @@ export function ResetPasswordPage() {
             <CardHeader className="space-y-1 pb-4">
               <div className="flex justify-center mb-4">
                 <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                  <XCircle className="w-8 h-8 text-red-600" />
+                  <span className="text-2xl text-red-600 font-bold">✗</span>
                 </div>
               </div>
               <CardTitle className="text-2xl text-center text-gray-900">
@@ -160,7 +157,6 @@ export function ResetPasswordPage() {
                 variant="ghost"
                 className="w-full"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Login
               </Button>
             </CardContent>
@@ -191,7 +187,7 @@ export function ResetPasswordPage() {
             <CardHeader className="space-y-1 pb-4">
               <div className="flex justify-center mb-4">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  <span className="text-2xl text-green-600">✓</span>
                 </div>
               </div>
               <CardTitle className="text-2xl text-center text-gray-900">
@@ -250,50 +246,30 @@ export function ResetPasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-gray-700">New Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter new password"
-                    className="pl-9 pr-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={8}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter new password"
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                />
                 <p className="text-xs text-gray-500">Must be at least 8 characters</p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-gray-700">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm new password"
-                    className="pl-9 pr-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm new password"
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
               </div>
 
               <Button 

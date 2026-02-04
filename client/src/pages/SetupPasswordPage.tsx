@@ -5,15 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, Eye, EyeOff, CheckCircle, XCircle, ArrowLeft, Loader2, Mail } from "lucide-react";
 
 export function SetupPasswordPage() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const token = new URLSearchParams(search).get('token');
   
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +104,7 @@ export function SetupPasswordPage() {
 
           <Card className="shadow-xl border border-gray-200 bg-white">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600">Validating invitation link...</p>
             </CardContent>
           </Card>
@@ -137,7 +134,7 @@ export function SetupPasswordPage() {
             <CardHeader className="space-y-1 pb-4">
               <div className="flex justify-center mb-4">
                 <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                  <XCircle className="w-8 h-8 text-red-600" />
+                  <span className="text-2xl text-red-600 font-bold">✗</span>
                 </div>
               </div>
               <CardTitle className="text-2xl text-center text-gray-900">
@@ -156,7 +153,6 @@ export function SetupPasswordPage() {
                 variant="outline"
                 className="w-full"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
                 Go to Login
               </Button>
             </CardContent>
@@ -187,7 +183,7 @@ export function SetupPasswordPage() {
             <CardHeader className="space-y-1 pb-4">
               <div className="flex justify-center mb-4">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  <span className="text-2xl text-green-600">✓</span>
                 </div>
               </div>
               <CardTitle className="text-2xl text-center text-gray-900">
@@ -240,10 +236,7 @@ export function SetupPasswordPage() {
             {/* Show user email */}
             {userEmail && (
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm text-blue-800 font-medium">{userEmail}</span>
-                </div>
+                <span className="text-sm text-blue-800 font-medium">{userEmail}</span>
               </div>
             )}
 
@@ -263,50 +256,30 @@ export function SetupPasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-gray-700">Create Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="pl-9 pr-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={8}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                />
                 <p className="text-xs text-gray-500">Must be at least 8 characters</p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-gray-700">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    className="pl-9 pr-9 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm your password"
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
               </div>
 
               <Button 

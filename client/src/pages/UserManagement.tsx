@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getAllUsers, addUser, updateUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
-import { UserPlus, Trash2, User, Edit, MapPin, Loader2, Mail, RefreshCw } from "lucide-react";
+import { UserPlus, Trash2, User, Edit, MapPin, Loader2, Mail } from "lucide-react";
 
 interface WeatherStation {
   id: number;

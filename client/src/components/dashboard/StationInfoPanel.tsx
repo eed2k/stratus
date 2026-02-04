@@ -77,6 +77,7 @@ interface CalibrationLog {
   preValue?: string;
   postValue?: string;
   notes?: string;
+  [key: string]: string | number | undefined;
 }
 
 interface MaintenanceLog {
@@ -86,6 +87,7 @@ interface MaintenanceLog {
   description: string;
   performedBy: string;
   nextScheduled?: string;
+  [key: string]: string | number | undefined;
 }
 
 interface StationInfoPanelProps {

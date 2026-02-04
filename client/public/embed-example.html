@@ -121,12 +121,12 @@
 &lt;div 
   data-stratus-widget 
   data-station="1" 
-  data-server="https://stratusweather1.dynv6.net"
+  data-server="https://stratusweather.co.za"
   data-theme="light"
 &gt;&lt;/div&gt;
 
 &lt;!-- Include the widget script (at end of body) --&gt;
-&lt;script src="https://stratusweather1.dynv6.net/api/embed/widget.js"&gt;&lt;/script&gt;</code></pre>
+&lt;script src="https://stratusweather.co.za/api/embed/widget.js"&gt;&lt;/script&gt;</code></pre>
     </div>
 
     <!-- Options Section -->
@@ -177,7 +177,7 @@
       <pre><code>// Manual initialization
 StratusWidget.init(document.getElementById('my-widget'), {
   station: 1,
-  server: 'https://stratusweather1.dynv6.net',
+  server: 'https://stratusweather.co.za',
   theme: 'dark',
   showRain: true,
   showSolar: true,
@@ -221,7 +221,7 @@ function StratusWeatherWidget({ stationId, server, theme = 'light' }) {
 // Usage:
 &lt;StratusWeatherWidget 
   stationId={1} 
-  server="https://stratusweather1.dynv6.net" 
+  server="https://stratusweather.co.za" 
   theme="dark" 
 /&gt;</code></pre>
     </div>

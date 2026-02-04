@@ -43,7 +43,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 interface ChartDataPoint {
   timestamp: string;
-  [key: string]: string | number;
+  [key: string]: string | number | null;
 }
 
 interface ChartSeries {
