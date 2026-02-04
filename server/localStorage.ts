@@ -1284,6 +1284,14 @@ export class DatabaseStorage {
   }
 
   async updateUserLastLogin(email: string): Promise<void> {
+    if (usePostgres) {
+      // Get user by email first to get the ID
+      const user = await postgres.getUserByEmail(email);
+      if (user && user.id) {
+        await postgres.updateUserLastLogin(user.id);
+      }
+      return;
+    }
     db.updateUserLastLogin(email);
   }
 }

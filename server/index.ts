@@ -32,6 +32,10 @@ const { port: validatedPort } = validateEnvironment();
 const app = express();
 const httpServer = createServer(app);
 
+// Trust proxy when behind reverse proxy (nginx)
+// This is required for rate limiting to work correctly with X-Forwarded-For headers
+app.set('trust proxy', 1);
+
 // Security headers with Helmet.js
 // Note: upgrade-insecure-requests disabled for HTTP-only deployments
 app.use(helmet({
