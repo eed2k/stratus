@@ -3,12 +3,18 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Configure npm for better reliability
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-timeout 300000
+
 # Copy package files
 COPY package*.json ./
 COPY client/package*.json ./client/
 
-# Install dependencies
-RUN npm ci --legacy-peer-deps
+# Install dependencies with retries
+RUN npm ci --legacy-peer-deps || npm ci --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -21,9 +27,15 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
+# Configure npm for better reliability
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-timeout 300000
+
 # Install production dependencies only
 COPY package*.json ./
-RUN npm ci --omit=dev --legacy-peer-deps
+RUN npm ci --omit=dev --legacy-peer-deps || npm ci --omit=dev --legacy-peer-deps
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
