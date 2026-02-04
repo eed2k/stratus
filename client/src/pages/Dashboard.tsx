@@ -55,11 +55,22 @@ import {
 import { DEFAULT_DASHBOARD_CONFIG, type DashboardConfig } from "../../../shared/dashboardConfig";
 
 /**
+ * Helper function to safely convert to number and format to fixed decimals
+ * Handles strings, nulls, and undefined values
+ */
+const safeNumber = (value: number | string | null | undefined): number => {
+  if (value == null) return 0;
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return isNaN(num) ? 0 : num;
+};
+
+/**
  * Helper function to format numbers to a maximum of 3 decimal places
  * Removes trailing zeros for cleaner display
  */
-const formatValue = (value: number, maxDecimals: number = 3): string => {
-  return parseFloat(value.toFixed(maxDecimals)).toString();
+const formatValue = (value: number | string | null | undefined, maxDecimals: number = 3): string => {
+  const num = safeNumber(value);
+  return parseFloat(num.toFixed(maxDecimals)).toString();
 };
 
 /**

@@ -2,6 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMemo } from "react";
 import { getWindDirectionLabel } from "@/lib/windConstants";
 
+// Helper to safely convert to number and format
+const safeFixed = (value: number | string | null | undefined, decimals: number = 1): string => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return (num != null && !isNaN(num)) ? num.toFixed(decimals) : '--';
+};
+
 interface SolarPositionCardProps {
   elevation: number;         // degrees above horizon
   azimuth: number;           // degrees from north
@@ -69,7 +75,7 @@ export function SolarPositionCard({
               <p className="text-xs font-normal text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Elevation</p>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {elevation.toFixed(1)}
+                  {safeFixed(elevation, 1)}
                 </span>
                 <span className="text-sm text-gray-500">°</span>
               </div>
@@ -81,7 +87,7 @@ export function SolarPositionCard({
               <p className="text-xs font-normal text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Azimuth</p>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {azimuth.toFixed(1)}
+                  {safeFixed(azimuth, 1)}
                 </span>
                 <span className="text-sm text-gray-500">°</span>
               </div>

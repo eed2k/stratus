@@ -1,5 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Helper to safely convert to number and format
+const safeFixed = (value: number | string | null | undefined, decimals: number = 1): string => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return (num != null && !isNaN(num)) ? num.toFixed(decimals) : '--';
+};
+
 interface WindCompassProps {
   direction: number; // 0-360 degrees
   speed: number;
@@ -159,9 +165,9 @@ export function WindCompass({ direction, speed, gust, unit = "km/h" }: WindCompa
             <span className="text-xl font-normal text-primary">{cardinal}</span>
           </div>
           <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-            <span>Speed: <span className="font-normal text-foreground">{speed.toFixed(1)} {unit}</span></span>
+            <span>Speed: <span className="font-normal text-foreground">{safeFixed(speed, 1)} {unit}</span></span>
             {gust !== undefined && (
-              <span>Gust: <span className="font-normal text-foreground">{gust.toFixed(1)} {unit}</span></span>
+              <span>Gust: <span className="font-normal text-foreground">{safeFixed(gust, 1)} {unit}</span></span>
             )}
           </div>
         </div>
