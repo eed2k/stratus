@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeFixed } from "@/lib/utils";
 
 interface AirDensityCardProps {
   airDensity: number;           // kg/m³
@@ -38,7 +39,7 @@ export function AirDensityCard({
           {/* Main value */}
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              {airDensity.toFixed(3)}
+              {safeFixed(airDensity, 3)}
             </span>
             <span className="text-sm font-normal text-gray-500">kg/m³</span>
           </div>
@@ -49,7 +50,7 @@ export function AirDensityCard({
               {densityStatus.status}
             </span>
             <span className={`text-sm ${deviationPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {deviationPercent >= 0 ? '+' : ''}{deviationPercent.toFixed(1)}% vs std
+              {deviationPercent >= 0 ? '+' : ''}{safeFixed(deviationPercent, 1)}% vs std
             </span>
           </div>
 
@@ -58,19 +59,19 @@ export function AirDensityCard({
             {temperature !== undefined && (
               <div className="text-center">
                 <p className="text-xs text-gray-500">Temperature</p>
-                <p className="text-sm font-normal text-black">{temperature.toFixed(1)}°C</p>
+                <p className="text-sm font-normal text-black">{safeFixed(temperature, 1)}°C</p>
               </div>
             )}
             {pressure !== undefined && (
               <div className="text-center">
                 <p className="text-xs text-gray-500">Pressure</p>
-                <p className="text-sm font-normal text-black">{pressure.toFixed(0)} hPa</p>
+                <p className="text-sm font-normal text-black">{safeFixed(pressure, 0)} hPa</p>
               </div>
             )}
             {humidity !== undefined && (
               <div className="text-center">
                 <p className="text-xs text-gray-500">Humidity</p>
-                <p className="text-sm font-normal text-black">{humidity.toFixed(0)}%</p>
+                <p className="text-sm font-normal text-black">{safeFixed(humidity, 0)}%</p>
               </div>
             )}
           </div>

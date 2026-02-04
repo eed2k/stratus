@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sun } from "lucide-react";
 import { useMemo } from "react";
+import { safeFixed } from "@/lib/utils";
 import {
   AreaChart,
   Area,
@@ -184,7 +185,7 @@ export function SolarPowerHarvestCard({
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Solar Power Harvesting Potential
           <Badge variant="outline" className="ml-auto text-xs">
-            {(panelEfficiency * 100).toFixed(0)}% efficiency
+            {safeFixed(panelEfficiency * 100, 0)}% efficiency
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -193,7 +194,7 @@ export function SolarPowerHarvestCard({
           {/* Current Power Output */}
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              {(estimates.currentPower * 1000).toFixed(0)}
+              {safeFixed(estimates.currentPower * 1000, 0)}
             </span>
             <span className="text-sm font-normal text-muted-foreground" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               W/m² (current output)
@@ -205,7 +206,7 @@ export function SolarPowerHarvestCard({
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-yellow-50 to-orange-50 p-3">
               <p className="text-xs font-medium text-yellow-700 mb-1">Daily</p>
               <p className="text-lg font-semibold text-yellow-900">
-                {estimates.dailyEnergy.toFixed(2)}
+                {safeFixed(estimates.dailyEnergy, 2)}
               </p>
               <p className="text-xs text-yellow-600">kWh/m²</p>
             </div>
@@ -213,7 +214,7 @@ export function SolarPowerHarvestCard({
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-orange-50 to-amber-50 p-3">
               <p className="text-xs font-medium text-orange-700 mb-1">Weekly</p>
               <p className="text-lg font-semibold text-orange-900">
-                {estimates.weeklyEnergy.toFixed(1)}
+                {safeFixed(estimates.weeklyEnergy, 1)}
               </p>
               <p className="text-xs text-orange-600">kWh/m²</p>
             </div>
@@ -221,7 +222,7 @@ export function SolarPowerHarvestCard({
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-3">
               <p className="text-xs font-medium text-amber-700 mb-1">Monthly</p>
               <p className="text-lg font-semibold text-amber-900">
-                {estimates.monthlyEnergy.toFixed(1)}
+                {safeFixed(estimates.monthlyEnergy, 1)}
               </p>
               <p className="text-xs text-amber-600">kWh/m²</p>
             </div>
@@ -229,7 +230,7 @@ export function SolarPowerHarvestCard({
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-green-50 to-emerald-50 p-3">
               <p className="text-xs font-medium text-green-700 mb-1">Yearly</p>
               <p className="text-lg font-semibold text-green-900">
-                {estimates.yearlyEnergy.toFixed(0)}
+                {safeFixed(estimates.yearlyEnergy, 0)}
               </p>
               <p className="text-xs text-green-600">kWh/m²</p>
             </div>
@@ -241,13 +242,13 @@ export function SolarPowerHarvestCard({
               <div>
                 <p className="text-xs font-medium text-gray-600">Peak Sun Hours (Daily Avg)</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {estimates.peakSunHours.toFixed(1)} hours
+                  {safeFixed(estimates.peakSunHours, 1)} hours
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-xs font-medium text-gray-600">Current Radiation</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {(currentRadiation || 0).toFixed(0)} W/m²
+                  {safeFixed(currentRadiation ?? 0, 0)} W/m²
                 </p>
               </div>
             </div>
@@ -327,7 +328,7 @@ export function SolarPowerHarvestCard({
 
           {/* Info Text */}
           <p className="text-[10px] text-muted-foreground text-center">
-            Estimates based on {(panelEfficiency * 100).toFixed(0)}% panel efficiency, {(systemLosses * 100).toFixed(0)}% system losses.
+            Estimates based on {safeFixed(panelEfficiency * 100, 0)}% panel efficiency, {safeFixed(systemLosses * 100, 0)}% system losses.
             Actual output varies with weather, shading, and panel orientation.
           </p>
         </div>

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { safeFixed } from "@/lib/utils";
 
 interface ContourPlotProps {
   data: Array<{
@@ -150,11 +151,11 @@ export function ContourPlot({
                   className="transition-opacity hover:opacity-80"
                 >
                   <title>
-                    {xLabel}: {(xRange.min + (i / (grid[0].length - 1)) * (xRange.max - xRange.min)).toFixed(1)}
+                    {xLabel}: {safeFixed(xRange.min + (i / (grid[0].length - 1)) * (xRange.max - xRange.min), 1)}
                     {"\n"}
-                    {yLabel}: {(yRange.min + (j / (grid.length - 1)) * (yRange.max - yRange.min)).toFixed(1)}
+                    {yLabel}: {safeFixed(yRange.min + (j / (grid.length - 1)) * (yRange.max - yRange.min), 1)}
                     {"\n"}
-                    {valueLabel}: {value.toFixed(2)}
+                    {valueLabel}: {safeFixed(value, 2)}
                   </title>
                 </rect>
               ))
@@ -189,7 +190,7 @@ export function ContourPlot({
         </div>
 
         <div className="flex flex-col justify-between py-2">
-          <span className="text-xs text-muted-foreground">{maxValue.toFixed(1)}</span>
+          <span className="text-xs text-muted-foreground">{safeFixed(maxValue, 1)}</span>
           <div className="flex flex-col h-full my-2">
             {CONTOUR_COLORS.slice().reverse().map((color, i) => (
               <div
@@ -199,7 +200,7 @@ export function ContourPlot({
               />
             ))}
           </div>
-          <span className="text-xs text-muted-foreground">{minValue.toFixed(1)}</span>
+          <span className="text-xs text-muted-foreground">{safeFixed(minValue, 1)}</span>
           <span className="text-xs text-muted-foreground mt-1">{valueLabel}</span>
         </div>
       </div>

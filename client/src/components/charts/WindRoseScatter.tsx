@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { safeFixed } from "@/lib/utils";
 import { WIND_DIRECTIONS, WMO_SPEED_CLASSES, getSpeedColor } from "@/lib/windConstants";
 
 /**
@@ -150,7 +151,7 @@ export function WindRoseScatter({
                 y={center - circle.radius + 12}
                 className="fill-muted-foreground text-[9px]"
               >
-                {circle.speed.toFixed(0)} km/h
+                {safeFixed(circle.speed, 0)} km/h
               </text>
             </g>
           ))}
@@ -203,7 +204,7 @@ export function WindRoseScatter({
                 className="transition-opacity hover:opacity-100"
               >
                 <title>
-                  {point.speed.toFixed(1)} km/h @ {point.direction.toFixed(0)}°
+                  {safeFixed(point.speed, 1)} km/h @ {safeFixed(point.direction, 0)}°
                   {point.timestamp && `\n${point.timestamp.toLocaleTimeString()}`}
                 </title>
               </circle>
@@ -224,15 +225,15 @@ export function WindRoseScatter({
         <div className="mt-3 grid grid-cols-4 gap-2 text-xs text-center w-full">
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Avg</div>
-            <div className="font-normal">{stats.avgSpeed.toFixed(1)} km/h</div>
+            <div className="font-normal">{safeFixed(stats.avgSpeed, 1)} km/h</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Max</div>
-            <div className="font-normal">{stats.maxSpeed.toFixed(1)} km/h</div>
+            <div className="font-normal">{safeFixed(stats.maxSpeed, 1)} km/h</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Min</div>
-            <div className="font-normal">{stats.minSpeed.toFixed(1)} km/h</div>
+            <div className="font-normal">{safeFixed(stats.minSpeed, 1)} km/h</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Dominant</div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
+import { safeFixed } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -304,34 +305,34 @@ function SharedDashboardContent() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <MetricCard
             title="Temperature"
-            value={weatherData?.temperature?.toFixed(1) || '--'}
+            value={safeFixed(weatherData?.temperature, 1)}
             unit="°C"
             trend={{ value: 2.5, label: "vs yesterday" }}
           />
           <MetricCard
             title="Humidity"
-            value={weatherData?.humidity?.toFixed(0) || '--'}
+            value={safeFixed(weatherData?.humidity, 0)}
             unit="%"
           />
           <MetricCard
             title="Wind Speed"
-            value={weatherData?.windSpeed?.toFixed(1) || '--'}
+            value={safeFixed(weatherData?.windSpeed, 1)}
             unit="km/h"
-            subMetrics={[{ label: "Gust", value: `${weatherData?.windGust?.toFixed(1) ?? '--'} km/h` }]}
+            subMetrics={[{ label: "Gust", value: `${safeFixed(weatherData?.windGust, 1)} km/h` }]}
           />
           <MetricCard
             title="Pressure"
-            value={weatherData?.pressure?.toFixed(1) || '--'}
+            value={safeFixed(weatherData?.pressure, 1)}
             unit="hPa"
           />
           <MetricCard
             title="Solar Radiation"
-            value={weatherData?.solarRadiation?.toFixed(0) || '--'}
+            value={safeFixed(weatherData?.solarRadiation, 0)}
             unit="W/m²"
           />
           <MetricCard
             title="UV Index"
-            value={weatherData?.uvIndex?.toFixed(0) || '--'}
+            value={safeFixed(weatherData?.uvIndex, 0)}
             unit=""
           />
         </div>
@@ -383,11 +384,11 @@ function SharedDashboardContent() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Average Speed</p>
-                      <p className="text-2xl font-semibold">{weatherData?.windSpeed?.toFixed(1) ?? '--'} km/h</p>
+                      <p className="text-2xl font-semibold">{safeFixed(weatherData?.windSpeed, 1)} km/h</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Max Gust</p>
-                      <p className="text-2xl font-semibold">{weatherData?.windGust?.toFixed(1) ?? '--'} km/h</p>
+                      <p className="text-2xl font-semibold">{safeFixed(weatherData?.windGust, 1)} km/h</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Direction</p>
@@ -409,7 +410,7 @@ function SharedDashboardContent() {
                 title="Temperature"
                 periods={[
                   { period: "Today", stats: [
-                    { label: "Current", value: weatherData?.temperature?.toFixed(1) || 0, unit: "°C" },
+                    { label: "Current", value: safeFixed(weatherData?.temperature, 1, '0'), unit: "°C" },
                     { label: "Min", value: "15.2", unit: "°C" },
                     { label: "Max", value: "28.5", unit: "°C" },
                     { label: "Avg", value: "21.3", unit: "°C" },
@@ -425,7 +426,7 @@ function SharedDashboardContent() {
                 title="Humidity"
                 periods={[
                   { period: "Today", stats: [
-                    { label: "Current", value: weatherData?.humidity?.toFixed(0) || 0, unit: "%" },
+                    { label: "Current", value: safeFixed(weatherData?.humidity, 0, '0'), unit: "%" },
                     { label: "Min", value: "45", unit: "%" },
                     { label: "Max", value: "85", unit: "%" },
                     { label: "Avg", value: "65", unit: "%" },
@@ -441,9 +442,9 @@ function SharedDashboardContent() {
                 title="Wind Speed"
                 periods={[
                   { period: "Today", stats: [
-                    { label: "Current", value: weatherData?.windSpeed?.toFixed(1) || 0, unit: "km/h" },
+                    { label: "Current", value: safeFixed(weatherData?.windSpeed, 1, '0'), unit: "km/h" },
                     { label: "Min", value: "0", unit: "km/h" },
-                    { label: "Max", value: (weatherData?.windGust || 25).toFixed(1), unit: "km/h" },
+                    { label: "Max", value: safeFixed(weatherData?.windGust ?? 25, 1), unit: "km/h" },
                     { label: "Avg", value: "12.5", unit: "km/h" },
                   ]},
                   { period: "Week", stats: [

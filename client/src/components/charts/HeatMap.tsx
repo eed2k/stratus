@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { safeFixed } from "@/lib/utils";
 
 interface HeatMapProps {
   data: Array<{
@@ -130,7 +131,7 @@ export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatM
       <div className="flex items-center justify-between">
         <h3 className="font-medium">{title}</h3>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{minValue.toFixed(1)}</span>
+          <span>{safeFixed(minValue, 1)}</span>
           <div className="flex h-3 w-24 rounded overflow-hidden">
             {scale.map((s, i) => (
               <div
@@ -140,7 +141,7 @@ export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatM
               />
             ))}
           </div>
-          <span>{maxValue.toFixed(1)} {unit}</span>
+          <span>{safeFixed(maxValue, 1)} {unit}</span>
         </div>
       </div>
 
@@ -178,7 +179,7 @@ export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatM
                       minWidth: "12px",
                     }}
                     title={value !== null
-                      ? `${formatDay(row.day)} ${formatHour(hourIndex)}: ${value.toFixed(1)} ${unit}`
+                      ? `${formatDay(row.day)} ${formatHour(hourIndex)}: ${safeFixed(value, 1)} ${unit}`
                       : "No data"
                     }
                   />

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
+import { safeFixed } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -142,11 +143,11 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
 
           doc.setFontSize(10);
           doc.setFont("helvetica", "normal");
-          doc.text(`Minimum: ${stats.min.toFixed(1)} ${section.unit}`, 25, y);
+          doc.text(`Minimum: ${safeFixed(stats.min, 1)} ${section.unit}`, 25, y);
           y += 5;
-          doc.text(`Maximum: ${stats.max.toFixed(1)} ${section.unit}`, 25, y);
+          doc.text(`Maximum: ${safeFixed(stats.max, 1)} ${section.unit}`, 25, y);
           y += 5;
-          doc.text(`Average: ${stats.avg.toFixed(1)} ${section.unit}`, 25, y);
+          doc.text(`Average: ${safeFixed(stats.avg, 1)} ${section.unit}`, 25, y);
           y += 5;
           doc.text(`Data Points: ${stats.count}`, 25, y);
           y += 10;

@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeFixed } from "@/lib/utils";
 
 interface EvapotranspirationCardProps {
   currentETo: number;           // mm/hour (instantaneous rate)
@@ -64,7 +65,7 @@ export function EvapotranspirationCard({
             <div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {dailyETo.toFixed(2)}
+                  {safeFixed(dailyETo, 2)}
                 </span>
                 <span className="text-sm font-normal text-gray-500">mm/day</span>
               </div>
@@ -72,7 +73,7 @@ export function EvapotranspirationCard({
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500">Current Rate</p>
-              <p className="text-lg font-normal text-black">{currentETo.toFixed(3)} mm/hr</p>
+              <p className="text-lg font-normal text-black">{safeFixed(currentETo, 3)} mm/hr</p>
             </div>
           </div>
 
@@ -109,19 +110,19 @@ export function EvapotranspirationCard({
           <div className="grid grid-cols-4 gap-2">
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
               <p className="text-xs text-gray-500">24h</p>
-              <p className="text-sm font-normal text-black">{dailyETo.toFixed(1)} mm</p>
+              <p className="text-sm font-normal text-black">{safeFixed(dailyETo, 1)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
               <p className="text-xs text-gray-500">7d</p>
-              <p className="text-sm font-normal text-black">{(weeklyETo ?? dailyETo * 7).toFixed(1)} mm</p>
+              <p className="text-sm font-normal text-black">{safeFixed(weeklyETo ?? dailyETo * 7, 1)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
               <p className="text-xs text-gray-500">30d</p>
-              <p className="text-sm font-normal text-black">{(monthlyETo ?? dailyETo * 30).toFixed(0)} mm</p>
+              <p className="text-sm font-normal text-black">{safeFixed(monthlyETo ?? dailyETo * 30, 0)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
               <p className="text-xs text-gray-500">Year</p>
-              <p className="text-sm font-normal text-black">{(yearlyETo ?? dailyETo * 180).toFixed(0)} mm</p>
+              <p className="text-sm font-normal text-black">{safeFixed(yearlyETo ?? dailyETo * 180, 0)} mm</p>
             </div>
           </div>
 
@@ -131,11 +132,11 @@ export function EvapotranspirationCard({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-green-700">Crop ET (ETc)</span>
                 <span className="text-sm font-medium text-green-700">
-                  {dailyETc.toFixed(2)} mm/day
+                  {safeFixed(dailyETc, 2)} mm/day
                 </span>
               </div>
               <p className="text-xs text-green-600 mt-1">
-                Kc = {cropCoefficient.toFixed(2)} applied
+                Kc = {safeFixed(cropCoefficient, 2)} applied
               </p>
             </div>
           )}

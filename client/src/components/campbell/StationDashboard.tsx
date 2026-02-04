@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { authFetch } from "@/lib/queryClient";
+import { safeFixed } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
@@ -165,11 +166,11 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </div>
             <div>
               <span className="text-muted-foreground">Battery Voltage:</span>
-              <p className="font-medium text-foreground">{station.batteryVoltage.toFixed(2)} V</p>
+              <p className="font-medium text-foreground">{safeFixed(station.batteryVoltage, 2)} V</p>
             </div>
             <div>
               <span className="text-muted-foreground">Panel Temperature:</span>
-              <p className="font-medium text-foreground">{station.panelTemperature.toFixed(1)} °C</p>
+              <p className="font-medium text-foreground">{safeFixed(station.panelTemperature, 1)} °C</p>
             </div>
           </div>
         </CardContent>
@@ -187,14 +188,14 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                {latestData.temperature.toFixed(1)}°C
+                {safeFixed(latestData.temperature, 1)}°C
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Dew Point: {latestData.dewPoint.toFixed(1)}°C
+                Dew Point: {safeFixed(latestData.dewPoint, 1)}°C
               </p>
               {latestData.temperatureMin !== undefined && latestData.temperatureMax !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  Min: {latestData.temperatureMin.toFixed(1)}°C | Max: {latestData.temperatureMax.toFixed(1)}°C
+                  Min: {safeFixed(latestData.temperatureMin, 1)}°C | Max: {safeFixed(latestData.temperatureMax, 1)}°C
                 </p>
               )}
             </CardContent>
@@ -209,14 +210,14 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                {latestData.humidity.toFixed(1)}%
+                {safeFixed(latestData.humidity, 1)}%
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Relative Humidity
               </p>
               {latestData.airDensity !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  Air Density: {latestData.airDensity.toFixed(4)} kg/m³
+                  Air Density: {safeFixed(latestData.airDensity, 4)} kg/m³
                 </p>
               )}
             </CardContent>
@@ -231,14 +232,14 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                {latestData.windSpeed.toFixed(1)} km/h
+                {safeFixed(latestData.windSpeed, 1)} km/h
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Gust: {latestData.windGust.toFixed(1)} km/h | Dir: {latestData.windDirection}°
+                Gust: {safeFixed(latestData.windGust, 1)} km/h | Dir: {latestData.windDirection}°
               </p>
               {latestData.windGust10min !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  10-min Gust: {latestData.windGust10min.toFixed(1)} km/h
+                  10-min Gust: {safeFixed(latestData.windGust10min, 1)} km/h
                 </p>
               )}
             </CardContent>
@@ -254,7 +255,7 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-foreground">
-                  {latestData.windPower.toFixed(1)} W/m²
+                  {safeFixed(latestData.windPower, 1)} W/m²
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Power Density (0.5 × ρ × v³)
@@ -272,14 +273,14 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                {latestData.pressure.toFixed(1)} hPa
+                {safeFixed(latestData.pressure, 1)} hPa
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Station Pressure
               </p>
               {latestData.pressureSeaLevel !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  Sea Level: {latestData.pressureSeaLevel.toFixed(1)} hPa
+                  Sea Level: {safeFixed(latestData.pressureSeaLevel, 1)} hPa
                 </p>
               )}
             </CardContent>
@@ -294,16 +295,16 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                {latestData.solarRadiation.toFixed(0)} W/m²
+                {safeFixed(latestData.solarRadiation, 0)} W/m²
               </div>
               {latestData.solarRadiationMax !== undefined && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Max: {latestData.solarRadiationMax.toFixed(0)} W/m²
+                  Max: {safeFixed(latestData.solarRadiationMax, 0)} W/m²
                 </p>
               )}
               {latestData.uvIndex !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  UV Index: {latestData.uvIndex.toFixed(1)}
+                  UV Index: {safeFixed(latestData.uvIndex, 1)}
                 </p>
               )}
             </CardContent>
@@ -318,16 +319,16 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                {latestData.rainfall.toFixed(2)} mm
+                {safeFixed(latestData.rainfall, 2)} mm
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {latestData.rainfall10min !== undefined && `10-min: ${latestData.rainfall10min.toFixed(2)} mm`}
-                {latestData.rainfall24h !== undefined && ` | 24h: ${latestData.rainfall24h.toFixed(1)} mm`}
+                {latestData.rainfall10min !== undefined && `10-min: ${safeFixed(latestData.rainfall10min, 2)} mm`}
+                {latestData.rainfall24h !== undefined && ` | 24h: ${safeFixed(latestData.rainfall24h, 1)} mm`}
               </p>
               {(latestData.rainfall7d !== undefined || latestData.rainfall30d !== undefined) && (
                 <p className="text-xs text-muted-foreground">
-                  {latestData.rainfall7d !== undefined && `7d: ${latestData.rainfall7d.toFixed(1)} mm`}
-                  {latestData.rainfall30d !== undefined && ` | 30d: ${latestData.rainfall30d.toFixed(1)} mm`}
+                  {latestData.rainfall7d !== undefined && `7d: ${safeFixed(latestData.rainfall7d, 1)} mm`}
+                  {latestData.rainfall30d !== undefined && ` | 30d: ${safeFixed(latestData.rainfall30d, 1)} mm`}
                 </p>
               )}
             </CardContent>
@@ -343,15 +344,15 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-foreground">
-                  {latestData.eto.toFixed(2)} mm
+                  {safeFixed(latestData.eto, 2)} mm
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Evapotranspiration
                 </p>
                 {(latestData.eto24h !== undefined || latestData.eto7d !== undefined) && (
                   <p className="text-xs text-muted-foreground">
-                    {latestData.eto24h !== undefined && `24h: ${latestData.eto24h.toFixed(2)} mm`}
-                    {latestData.eto7d !== undefined && ` | 7d: ${latestData.eto7d.toFixed(1)} mm`}
+                    {latestData.eto24h !== undefined && `24h: ${safeFixed(latestData.eto24h, 2)} mm`}
+                    {latestData.eto7d !== undefined && ` | 7d: ${safeFixed(latestData.eto7d, 1)} mm`}
                   </p>
                 )}
               </CardContent>
@@ -368,11 +369,11 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">
-                  {latestData.sunElevation > 0 ? `${latestData.sunElevation.toFixed(1)}°` : "Below horizon"}
+                  {latestData.sunElevation > 0 ? `${safeFixed(latestData.sunElevation, 1)}°` : "Below horizon"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Elevation: {latestData.sunElevation.toFixed(1)}°
-                  {latestData.sunAzimuth !== undefined && ` | Azimuth: ${latestData.sunAzimuth.toFixed(1)}°`}
+                  Elevation: {safeFixed(latestData.sunElevation, 1)}°
+                  {latestData.sunAzimuth !== undefined && ` | Azimuth: ${safeFixed(latestData.sunAzimuth, 1)}°`}
                 </p>
               </CardContent>
             </Card>
@@ -419,14 +420,14 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-foreground">
-                  {latestData.soilTemperature.toFixed(1)}°C
+                  {safeFixed(latestData.soilTemperature, 1)}°C
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Ground Temperature
                 </p>
                 {latestData.soilMoisture !== undefined && (
                   <p className="text-xs text-muted-foreground">
-                    Moisture: {latestData.soilMoisture.toFixed(1)}%
+                    Moisture: {safeFixed(latestData.soilMoisture, 1)}%
                   </p>
                 )}
               </CardContent>
@@ -442,13 +443,13 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">
-                {latestData.batteryVoltage?.toFixed(2) || station.batteryVoltage.toFixed(2)} V
+                {safeFixed(latestData.batteryVoltage, 2) !== '--' ? safeFixed(latestData.batteryVoltage, 2) : safeFixed(station.batteryVoltage, 2)} V
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Battery Voltage
               </p>
               <p className="text-xs text-muted-foreground">
-                Panel: {latestData.panelTemperature?.toFixed(1) || station.panelTemperature.toFixed(1)}°C
+                Panel: {safeFixed(latestData.panelTemperature, 1) !== '--' ? safeFixed(latestData.panelTemperature, 1) : safeFixed(station.panelTemperature, 1)}°C
               </p>
             </CardContent>
           </Card>

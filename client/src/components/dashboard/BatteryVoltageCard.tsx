@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeFixed } from "@/lib/utils";
 
 interface BatteryVoltageCardProps {
   voltage: number;             // Volts
@@ -57,7 +58,7 @@ export function BatteryVoltageCard({
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {voltage.toFixed(2)}
+                {safeFixed(voltage, 2)}
               </span>
               <span className="text-sm font-normal text-gray-500">V</span>
             </div>
@@ -72,7 +73,7 @@ export function BatteryVoltageCard({
           <div className="space-y-1">
             <div className="flex items-center justify-between text-sm">
               <span className={`font-medium ${status.color}`}>{status.status}</span>
-              <span className="text-gray-500">{status.percentage.toFixed(0)}%</span>
+              <span className="text-gray-500">{safeFixed(status.percentage, 0)}%</span>
             </div>
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
@@ -117,15 +118,15 @@ export function BatteryVoltageCard({
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200">
             <div className="text-center">
               <p className="text-xs text-gray-500">Min</p>
-              <p className="text-sm font-normal text-red-500">{minVoltage.toFixed(1)}V</p>
+              <p className="text-sm font-normal text-red-500">{safeFixed(minVoltage, 1)}V</p>
             </div>
             <div className="text-center">
               <p className="text-xs text-gray-500">Current</p>
-              <p className="text-sm font-normal text-black">{voltage.toFixed(2)}V</p>
+              <p className="text-sm font-normal text-black">{safeFixed(voltage, 2)}V</p>
             </div>
             <div className="text-center">
               <p className="text-xs text-gray-500">Max</p>
-              <p className="text-sm font-normal text-green-500">{maxVoltage.toFixed(1)}V</p>
+              <p className="text-sm font-normal text-green-500">{safeFixed(maxVoltage, 1)}V</p>
             </div>
           </div>
         </div>

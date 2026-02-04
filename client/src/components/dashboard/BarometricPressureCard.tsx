@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeFixed } from "@/lib/utils";
 
 interface BarometricPressureCardProps {
   stationPressure: number;      // hPa/mbar at station altitude
@@ -102,7 +103,7 @@ export function BarometricPressureCard({
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {stationPressure.toFixed(1)}
+                  {safeFixed(stationPressure, 1)}
                 </span>
                 <span className="text-sm text-gray-500">hPa</span>
               </div>
@@ -116,7 +117,7 @@ export function BarometricPressureCard({
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {calculatedSeaLevel.toFixed(1)}
+                  {safeFixed(calculatedSeaLevel, 1)}
                 </span>
                 <span className="text-sm text-gray-500">hPa</span>
               </div>
@@ -134,7 +135,7 @@ export function BarometricPressureCard({
                 {pressureTrend.label}
               </span>
               <span className="text-xs text-gray-400">
-                ({trend >= 0 ? '+' : ''}{trend.toFixed(1)} hPa/3h)
+                ({trend >= 0 ? '+' : ''}{safeFixed(trend, 1)} hPa/3h)
               </span>
             </div>
           </div>
@@ -147,10 +148,10 @@ export function BarometricPressureCard({
           {/* Conversion info */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 text-xs text-gray-400">
             <div className="text-center">
-              <p>Station: {(stationPressure * 0.02953).toFixed(2)} inHg</p>
+              <p>Station: {safeFixed(stationPressure * 0.02953, 2)} inHg</p>
             </div>
             <div className="text-center">
-              <p>Sea Level: {(calculatedSeaLevel * 0.02953).toFixed(2)} inHg</p>
+              <p>Sea Level: {safeFixed(calculatedSeaLevel * 0.02953, 2)} inHg</p>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { safeFixed } from "@/lib/utils";
 import { 
   WIND_DIRECTIONS, 
   WMO_SIMPLIFIED_CLASSES, 
@@ -43,9 +44,9 @@ const calculateWindStats = (data: WindRoseData[]) => {
 
   return {
     totalObservations,
-    calmPercentage: totalObservations > 0 ? ((calmObservations / totalObservations) * 100).toFixed(1) : "0",
+    calmPercentage: totalObservations > 0 ? safeFixed((calmObservations / totalObservations) * 100, 1) : "0",
     dominantDirection: WIND_DIRECTIONS[dominantDirection],
-    dominantPercentage: totalObservations > 0 ? ((maxDirectionCount / totalObservations) * 100).toFixed(1) : "0",
+    dominantPercentage: totalObservations > 0 ? safeFixed((maxDirectionCount / totalObservations) * 100, 1) : "0",
   };
 };
 
@@ -144,7 +145,7 @@ export function WindRose({
                 y={center - maxRadius * ratio + 12}
                 className="fill-muted-foreground text-[10px]"
               >
-                {(ratio * 100).toFixed(0)}%
+                {safeFixed(ratio * 100, 0)}%
               </text>
             </g>
           ))}
@@ -171,7 +172,7 @@ export function WindRose({
           {data.map((d, dirIndex) => {
             let currentRadius = 0;
             return d.speeds.map((count, speedIndex) => {
-              const roundedCount = Number(count.toFixed(3));
+              const roundedCount = Number(safeFixed(count, 3));
               const innerRadius = currentRadius;
               const height = (roundedCount / maxValue) * maxRadius;
               currentRadius += height;
@@ -217,7 +218,7 @@ export function WindRose({
 
         {/* Max wind speed and current classification */}
         <div className="mt-2 text-center text-xs text-muted-foreground">
-          Max: {calculatedMaxSpeed.toFixed(1)} km/h ({getWindDescription(calculatedMaxSpeed)})
+          Max: {safeFixed(calculatedMaxSpeed, 1)} km/h ({getWindDescription(calculatedMaxSpeed)})
         </div>
 
         {/* Legend */}

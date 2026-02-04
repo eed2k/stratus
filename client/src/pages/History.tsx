@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
+import { safeFixed } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -258,12 +259,12 @@ export default function History() {
                           <TableCell className="font-mono text-sm">
                             {new Date(row.timestamp).toLocaleString()}
                           </TableCell>
-                          <TableCell className="text-right font-mono">{row.temperature?.toFixed(1) || "-"}</TableCell>
+                          <TableCell className="text-right font-mono">{safeFixed(row.temperature, 1, "-")}</TableCell>
                           <TableCell className="text-right font-mono">{row.humidity || "-"}</TableCell>
-                          <TableCell className="text-right font-mono">{row.pressure?.toFixed(1) || "-"}</TableCell>
-                          <TableCell className="text-right font-mono">{row.windSpeed?.toFixed(1) || "-"}</TableCell>
+                          <TableCell className="text-right font-mono">{safeFixed(row.pressure, 1, "-")}</TableCell>
+                          <TableCell className="text-right font-mono">{safeFixed(row.windSpeed, 1, "-")}</TableCell>
                           <TableCell className="text-right font-mono">{row.windDirection || "-"}</TableCell>
-                          <TableCell className="text-right font-mono">{row.rainfall?.toFixed(2) || "-"}</TableCell>
+                          <TableCell className="text-right font-mono">{safeFixed(row.rainfall, 2, "-")}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

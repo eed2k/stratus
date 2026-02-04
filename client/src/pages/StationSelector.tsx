@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch, queryClient } from "@/lib/queryClient";
+import { safeFixed } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { 
   MapPin, 
@@ -249,7 +250,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                     )}
                     {(station.latitude !== null && station.longitude !== null) && (
                       <CardDescription className="text-xs text-muted-foreground">
-                        {station.latitude?.toFixed(4)}°, {station.longitude?.toFixed(4)}°
+                        {safeFixed(station.latitude, 4)}°, {safeFixed(station.longitude, 4)}°
                         {station.altitude ? ` • ${station.altitude}m` : ''}
                       </CardDescription>
                     )}

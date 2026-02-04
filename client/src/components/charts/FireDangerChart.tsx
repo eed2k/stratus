@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { safeFixed } from "@/lib/utils";
 import {
   AreaChart,
   Area,
@@ -82,9 +83,9 @@ export function FireDangerChart({
       count: chartData.filter(d => 
         d.ffdi >= rating.minValue && d.ffdi <= rating.maxValue
       ).length,
-      percentage: (chartData.filter(d => 
+      percentage: safeFixed(chartData.filter(d => 
         d.ffdi >= rating.minValue && d.ffdi <= rating.maxValue
-      ).length / chartData.length * 100).toFixed(1)
+      ).length / chartData.length * 100, 1)
     }));
     
     return {
@@ -111,15 +112,15 @@ export function FireDangerChart({
         <p className="font-medium text-foreground">{label}</p>
         <div className="mt-2 space-y-1">
           <p style={{ color: rating?.color }}>
-            <span className="font-semibold">FDI:</span> {data.ffdi.toFixed(1)}
+            <span className="font-semibold">FDI:</span> {safeFixed(data.ffdi, 1)}
           </p>
           <p style={{ color: rating?.color }}>
             <span className="font-semibold">Rating:</span> {rating?.label}
           </p>
           <div className="border-t pt-1 mt-1 text-muted-foreground">
-            <p>Temp: {data.temperature.toFixed(1)}°C</p>
-            <p>Humidity: {data.humidity.toFixed(0)}%</p>
-            <p>Wind: {data.windSpeed.toFixed(1)} km/h</p>
+            <p>Temp: {safeFixed(data.temperature, 1)}°C</p>
+            <p>Humidity: {safeFixed(data.humidity, 0)}%</p>
+            <p>Wind: {safeFixed(data.windSpeed, 1)} km/h</p>
           </div>
         </div>
       </div>
@@ -160,19 +161,19 @@ export function FireDangerChart({
           <div className="grid grid-cols-4 gap-4 mb-4 text-center">
             <div className="rounded bg-muted/50 p-2">
               <p className="text-xs text-muted-foreground">Current</p>
-              <p className="text-lg font-semibold">{statistics.current.toFixed(1)}</p>
+              <p className="text-lg font-semibold">{safeFixed(statistics.current, 1)}</p>
             </div>
             <div className="rounded bg-muted/50 p-2">
               <p className="text-xs text-muted-foreground">Max</p>
-              <p className="text-lg font-semibold text-red-500">{statistics.max.toFixed(1)}</p>
+              <p className="text-lg font-semibold text-red-500">{safeFixed(statistics.max, 1)}</p>
             </div>
             <div className="rounded bg-muted/50 p-2">
               <p className="text-xs text-muted-foreground">Min</p>
-              <p className="text-lg font-semibold text-green-500">{statistics.min.toFixed(1)}</p>
+              <p className="text-lg font-semibold text-green-500">{safeFixed(statistics.min, 1)}</p>
             </div>
             <div className="rounded bg-muted/50 p-2">
               <p className="text-xs text-muted-foreground">Average</p>
-              <p className="text-lg font-semibold">{statistics.avg.toFixed(1)}</p>
+              <p className="text-lg font-semibold">{safeFixed(statistics.avg, 1)}</p>
             </div>
           </div>
         )}

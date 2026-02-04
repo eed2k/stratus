@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useMemo } from "react";
+import { safeFixed } from "@/lib/utils";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -172,12 +173,12 @@ export function WindDirectionChart({
                 {hasData ? degreesToDirection(currentDirection!) : '--'}
               </span>
               <span className="text-sm font-normal text-muted-foreground" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                ({hasData ? `${currentDirection!.toFixed(0)}°` : '--'})
+                ({hasData ? `${safeFixed(currentDirection, 0)}°` : '--'})
               </span>
             </div>
             {currentSpeed !== null && currentSpeed !== undefined && (
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{currentSpeed.toFixed(1)} km/h</p>
+                <p className="text-sm font-medium text-gray-900">{safeFixed(currentSpeed, 1)} km/h</p>
                 <p className="text-xs text-muted-foreground">Current Speed</p>
               </div>
             )}
@@ -194,7 +195,7 @@ export function WindDirectionChart({
             <div className="flex-1 text-right">
               <p className="text-xs font-medium text-gray-600">Frequency</p>
               <p className="text-lg font-semibold text-gray-900">
-                {directionStats.dominantPercentage.toFixed(1)}%
+                {safeFixed(directionStats.dominantPercentage, 1)}%
               </p>
             </div>
             <div className="flex-1 text-right">
@@ -280,10 +281,11 @@ export function WindDirectionChart({
                   {d.direction}
                 </p>
                 <p className="text-[10px] text-gray-600">
-                  {d.percentage.toFixed(1)}%
+                  {safeFixed(d.percentage, 1)}%
                 </p>
               </div>
             ))}
+          </div>
           </div>
         </div>
       </CardContent>

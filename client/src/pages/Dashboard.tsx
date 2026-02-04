@@ -28,6 +28,7 @@ import { WindDirectionChart } from "@/components/dashboard/WindDirectionChart";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { FireDangerChart } from "@/components/charts/FireDangerChart";
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
+import { safeFixed } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -784,7 +785,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title={`Data from ${dataTimeRange.earliest.toLocaleString()} to ${dataTimeRange.latest.toLocaleString()}`}
             >
               {dataTimeRange.hoursAvailable < dashboardConfig.chartTimeRange 
-                ? `${dataTimeRange.hoursAvailable.toFixed(1)}h of ${dashboardConfig.chartTimeRange}h data`
+                ? `${safeFixed(dataTimeRange.hoursAvailable, 1)}h of ${dashboardConfig.chartTimeRange}h data`
                 : `${dashboardConfig.chartTimeRange}h data`
               } ({dataTimeRange.recordCount} records)
             </Badge>
@@ -853,11 +854,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Latitude</p>
-                    <p className="text-sm font-normal">{selectedStation?.latitude?.toFixed(6) || "Not set"}°</p>
+                    <p className="text-sm font-normal">{safeFixed(selectedStation?.latitude, 6, "Not set")}°</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Longitude</p>
-                    <p className="text-sm font-normal">{selectedStation?.longitude?.toFixed(6) || "Not set"}°</p>
+                    <p className="text-sm font-normal">{safeFixed(selectedStation?.longitude, 6, "Not set")}°</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Altitude</p>
@@ -885,7 +886,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Temperature"
               value={formatValue(currentData.temperature || 0, 1)}
               unit="°C"
-              trend={trends.temperature !== null ? { value: parseFloat(trends.temperature.toFixed(1)), label: "vs avg" } : undefined}
+              trend={trends.temperature !== null ? { value: parseFloat(safeFixed(trends.temperature, 1, "0")), label: "vs avg" } : undefined}
               sparklineData={sparkline}
               chartColor="#ef4444"
             />
@@ -893,7 +894,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Humidity"
               value={formatValue(currentData.humidity || 0, 1)}
               unit="%"
-              trend={trends.humidity !== null ? { value: parseFloat(trends.humidity.toFixed(1)), label: "vs avg" } : undefined}
+              trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
               sparklineData={chartData.slice(-12).map(d => d.humidity)}
               chartColor="#3b82f6"
             />
@@ -909,7 +910,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Pressure"
               value={formatValue(currentData.pressure || 0, 1)}
               unit="mbar"
-              trend={trends.pressure !== null ? { value: parseFloat(trends.pressure.toFixed(1)), label: "vs avg" } : undefined}
+              trend={trends.pressure !== null ? { value: parseFloat(safeFixed(trends.pressure, 1, "0")), label: "vs avg" } : undefined}
               sparklineData={chartData.slice(-12).map(d => d.pressure)}
               chartColor="#8b5cf6"
             />
@@ -950,7 +951,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 showAverage={true}
                 showMinMax={true}
                 currentValue={currentData.temperature || 0}
-                trend={trends.temperature !== null ? { value: parseFloat(trends.temperature.toFixed(1)), label: "vs avg" } : undefined}
+                trend={trends.temperature !== null ? { value: parseFloat(safeFixed(trends.temperature, 1, "0")), label: "vs avg" } : undefined}
               />
             )}
             {availableFields.humidity && (
@@ -966,7 +967,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.humidity || 0}
-              trend={trends.humidity !== null ? { value: parseFloat(trends.humidity.toFixed(1)), label: "vs avg" } : undefined}
+              trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
             />
             )}
           </div>
@@ -979,7 +980,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               seaLevelPressure={seaLevelPressure}
               altitude={selectedStation?.altitude || 0}
               temperature={currentData.temperature || 20}
-              trend={trends.pressure !== null ? parseFloat(trends.pressure.toFixed(1)) : 0}
+              trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
               sparklineDataStation={chartData.slice(-24).map(d => d.pressure)}
               sparklineDataSeaLevel={chartData.slice(-24).map(d => d.pressure + 10)}
             />
@@ -1414,21 +1415,21 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             <MetricCard
               title="Current Wind Power"
-              value={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225).toFixed(1)}
+              value={safeFixed(calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225), 1)}
               unit="W/m²"
               sparklineData={windEnergyData.slice(-12).map(d => d.windPower)}
               chartColor="#14b8a6"
             />
             <MetricCard
               title="Peak Gust Power"
-              value={calculateWindPower(currentData.windGust || 0, currentData.airDensity || 1.225).toFixed(1)}
+              value={safeFixed(calculateWindPower(currentData.windGust || 0, currentData.airDensity || 1.225), 1)}
               unit="W/m²"
               sparklineData={windEnergyData.slice(-12).map(d => d.gustPower)}
               chartColor="#f97316"
             />
             <MetricCard
               title="Daily Energy Potential"
-              value={(windEnergyData.reduce((sum, d) => sum + d.cumulativeEnergy, 0)).toFixed(2)}
+              value={safeFixed(windEnergyData.reduce((sum, d) => sum + d.cumulativeEnergy, 0), 2)}
               unit="kWh/m²"
               sparklineData={windEnergyData.slice(-12).map(d => d.cumulativeEnergy)}
               chartColor="#8b5cf6"

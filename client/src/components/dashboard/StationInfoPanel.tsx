@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { safeFixed } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -422,7 +423,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                       onChange={(e) => setEditedData({ ...editedData, latitude: parseFloat(e.target.value) })}
                     />
                   ) : (
-                    <p className="text-sm font-medium">{station.latitude?.toFixed(6) || "Not specified"}</p>
+                    <p className="text-sm font-medium">{safeFixed(station.latitude, 6, "Not specified")}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -435,7 +436,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                       onChange={(e) => setEditedData({ ...editedData, longitude: parseFloat(e.target.value) })}
                     />
                   ) : (
-                    <p className="text-sm font-medium">{station.longitude?.toFixed(6) || "Not specified"}</p>
+                    <p className="text-sm font-medium">{safeFixed(station.longitude, 6, "Not specified")}</p>
                   )}
                 </div>
               </div>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MapPin, Maximize2, Minimize2, Navigation, ExternalLink, Search, Loader2, X, AlertTriangle, RefreshCw } from "lucide-react";
+import { safeFixed } from "@/lib/utils";
 
 // ============================================================================
 // BULLETPROOF LEAFLET LOADER - Multiple CDNs, retries, fallbacks
@@ -419,8 +420,8 @@ export function StationMap({
             <strong style="font-size:14px;color:#1e40af;">${stationName}</strong>
             <hr style="margin:6px 0;border:none;border-top:1px solid #e5e7eb;">
             <div style="font-size:12px;color:#4b5563;">
-              <div>Lat: ${lat.toFixed(5)}°</div>
-              <div>Lng: ${lng.toFixed(5)}°</div>
+              <div>Lat: ${safeFixed(lat, 5)}°</div>
+              <div>Lng: ${safeFixed(lng, 5)}°</div>
               ${altitude !== undefined ? `<div>Alt: ${altitude}m</div>` : ''}
             </div>
           </div>
@@ -542,7 +543,7 @@ export function StationMap({
           </CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              {lat.toFixed(4)}°, {lng.toFixed(4)}°
+              {safeFixed(lat, 4)}°, {safeFixed(lng, 4)}°
             </Badge>
             <Button variant="ghost" size="icon" onClick={centerOnStation} title="Center on station">
               <Navigation className="h-4 w-4" />

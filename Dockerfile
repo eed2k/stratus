@@ -19,7 +19,8 @@ RUN npm ci --legacy-peer-deps || npm ci --legacy-peer-deps
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application with increased memory limit
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 RUN npm run build
 
 # Production stage

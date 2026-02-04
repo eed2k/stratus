@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { safeFixed } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Info } from "lucide-react";
 import { 
@@ -165,7 +166,7 @@ export function FireDangerCard({
           {/* FDI Value */}
           <div className="text-center mt-2">
             <div className="text-4xl font-bold" style={{ color: fireDanger.rating.color }}>
-              {fireDanger.ffdi.toFixed(1)}
+              {safeFixed(fireDanger.ffdi, 1)}
             </div>
             <div className="text-sm text-muted-foreground">SA Fire Danger Index</div>
           </div>
@@ -191,7 +192,7 @@ export function FireDangerCard({
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Grassland FDI</p>
-              <p className="text-sm font-medium">{fireDanger.grasslandFDI.toFixed(1)}</p>
+              <p className="text-sm font-medium">{safeFixed(fireDanger.grasslandFDI, 1)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Drought Index</p>
@@ -209,9 +210,9 @@ export function FireDangerCard({
 
         {/* Input conditions summary */}
         <div className="flex justify-between text-xs text-muted-foreground pt-2 border-t">
-          <span>{temperature.toFixed(1)}°C</span>
-          <span>{humidity.toFixed(0)}% RH</span>
-          <span>{windSpeed.toFixed(1)} km/h</span>
+          <span>{safeFixed(temperature, 1)}°C</span>
+          <span>{safeFixed(humidity, 0)}% RH</span>
+          <span>{safeFixed(windSpeed, 1)} km/h</span>
         </div>
       </CardContent>
     </Card>
