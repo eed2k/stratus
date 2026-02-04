@@ -194,6 +194,34 @@ async function createTables(): Promise<void> {
   `);
   pgLog.info('Users table ready');
 
+  // Password reset tokens
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id SERIAL PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  pgLog.info('Password reset tokens table ready');
+
+  // User invitation tokens (for new user setup)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_invitation_tokens (
+      id SERIAL PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      invited_by TEXT,
+      custom_message TEXT,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  pgLog.info('User invitation tokens table ready');
+
   // Dropbox configs
   await pool.query(`
     CREATE TABLE IF NOT EXISTS dropbox_configs (
@@ -863,6 +891,110 @@ export async function updateDropboxConfigSyncStatus(
   `, [id, status, recordCount]);
 }
 
+// ============================================================================
+// Password Reset Token Operations
+// ============================================================================
+
+/**
+ * Create a password reset token
+ */
+export async function createPasswordResetToken(email: string): Promise<string> {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  
+  // Invalidate any existing tokens for this email
+  await query('UPDATE password_reset_tokens SET used = true WHERE user_email = $1 AND used = false', [email]);
+  
+  await query(`
+    INSERT INTO password_reset_tokens (user_email, token, expires_at)
+    VALUES ($1, $2, $3)
+  `, [email, token, expiresAt.toISOString()]);
+  
+  return token;
+}
+
+/**
+ * Validate a password reset token
+ */
+export async function validatePasswordResetToken(token: string): Promise<string | null> {
+  const result = await query(`
+    SELECT user_email FROM password_reset_tokens 
+    WHERE token = $1 AND used = false AND expires_at > CURRENT_TIMESTAMP
+  `, [token]);
+  
+  if (result.rows.length === 0) return null;
+  return result.rows[0].user_email;
+}
+
+/**
+ * Mark a password reset token as used
+ */
+export async function markPasswordResetTokenUsed(token: string): Promise<void> {
+  await query('UPDATE password_reset_tokens SET used = true WHERE token = $1', [token]);
+}
+
+// ============================================================================
+// User Invitation Token Operations
+// ============================================================================
+
+/**
+ * Create a user invitation token
+ */
+export async function createUserInvitationToken(
+  email: string, 
+  invitedBy?: string, 
+  customMessage?: string
+): Promise<string> {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
+  
+  // Invalidate any existing tokens for this email
+  await query('UPDATE user_invitation_tokens SET used = true WHERE user_email = $1 AND used = false', [email]);
+  
+  await query(`
+    INSERT INTO user_invitation_tokens (user_email, token, invited_by, custom_message, expires_at)
+    VALUES ($1, $2, $3, $4, $5)
+  `, [email, token, invitedBy || null, customMessage || null, expiresAt.toISOString()]);
+  
+  return token;
+}
+
+/**
+ * Validate a user invitation token
+ */
+export async function validateUserInvitationToken(token: string): Promise<{email: string; invitedBy?: string; customMessage?: string} | null> {
+  const result = await query(`
+    SELECT user_email, invited_by, custom_message FROM user_invitation_tokens 
+    WHERE token = $1 AND used = false AND expires_at > CURRENT_TIMESTAMP
+  `, [token]);
+  
+  if (result.rows.length === 0) return null;
+  return {
+    email: result.rows[0].user_email,
+    invitedBy: result.rows[0].invited_by,
+    customMessage: result.rows[0].custom_message
+  };
+}
+
+/**
+ * Mark a user invitation token as used
+ */
+export async function markUserInvitationTokenUsed(token: string): Promise<void> {
+  await query('UPDATE user_invitation_tokens SET used = true WHERE token = $1', [token]);
+}
+
+/**
+ * Update user password hash
+ */
+export async function updateUserPassword(email: string, passwordHash: string): Promise<void> {
+  await query(`
+    UPDATE users SET password_hash = $2, updated_at = CURRENT_TIMESTAMP
+    WHERE email = $1
+  `, [email.toLowerCase(), passwordHash]);
+}
+
 export default {
   isPostgresEnabled,
   initPostgresDatabase,
@@ -883,4 +1015,13 @@ export default {
   updateUserLastLogin,
   getAllDropboxConfigs,
   updateDropboxConfigSyncStatus,
+  // Password reset
+  createPasswordResetToken,
+  validatePasswordResetToken,
+  markPasswordResetTokenUsed,
+  // User invitation
+  createUserInvitationToken,
+  validateUserInvitationToken,
+  markUserInvitationTokenUsed,
+  updateUserPassword,
 };

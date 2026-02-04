@@ -5,7 +5,11 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initDatabase } from "./db";
+import * as postgres from "./db-postgres";
 import { auditLog, AUDIT_ACTIONS } from "./services/auditLogService";
+
+// Check if PostgreSQL mode is enabled
+const usePostgres = postgres.isPostgresEnabled();
 
 // Environment validation
 const validateEnvironment = () => {
@@ -132,17 +136,24 @@ app.use((req, res, next) => {
 (async () => {
   // Initialize database first
   try {
-    await initDatabase();
-    log("Database initialized successfully");
+    if (usePostgres) {
+      await postgres.initPostgresDatabase();
+      log("PostgreSQL database initialized successfully");
+    } else {
+      await initDatabase();
+      log("SQLite database initialized successfully");
+    }
   } catch (error) {
     console.error("Failed to initialize database:", error);
     process.exit(1);
   }
 
   // Create default admin user and demo user if they don't exist
-  try {
-    const { getUserByEmail, createUser, getAllActiveUsers } = await import('./db');
-    const bcrypt = await import('bcryptjs');
+  // Skip user creation for PostgreSQL mode - users already exist from migration
+  if (!usePostgres) {
+    try {
+      const { getUserByEmail, createUser, getAllActiveUsers } = await import('./db');
+      const bcrypt = await import('bcryptjs');
     
     // bcryptjs exports hash as a named function
     const hashFn = bcrypt.hash || bcrypt.default?.hash;
@@ -194,8 +205,11 @@ app.use((req, res, next) => {
       );
       log("Demo user created: user@domain.com");
     }
-  } catch (err) {
-    console.error("Failed to create default users:", err);
+    } catch (err) {
+      console.error("Failed to create default users:", err);
+    }
+  } else {
+    log("PostgreSQL mode - skipping default user creation (users from migration)");
   }
 
   await registerRoutes(httpServer, app);

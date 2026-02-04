@@ -1,6 +1,8 @@
 /**
  * Local Storage Layer for Desktop App
  * Wraps the SQLite database operations with an interface compatible with the server routes
+ * 
+ * Supports both SQLite (local) and PostgreSQL (cloud) modes based on DATABASE_URL
  */
 
 import db, { 
@@ -16,6 +18,11 @@ import db, {
   getAlarmEvents as dbGetAlarmEvents,
   acknowledgeAlarmEvent as dbAcknowledgeAlarmEvent
 } from './db';
+
+import * as postgres from './db-postgres';
+
+// Check if PostgreSQL mode is enabled
+const usePostgres = postgres.isPostgresEnabled();
 
 // Storage logging utility (Issue #7 fix)
 const storageLog = {
@@ -249,6 +256,11 @@ export class DatabaseStorage {
 
   // Weather Station operations
   async getStation(id: number): Promise<WeatherStation | undefined> {
+    if (usePostgres) {
+      const station = await postgres.getStationById(id);
+      if (!station) return undefined;
+      return this.mapPgStation(station);
+    }
     const station = db.getStationById(id);
     if (!station) return undefined;
     return this.mapDbStation(station);
@@ -259,11 +271,32 @@ export class DatabaseStorage {
   }
 
   async getStations(): Promise<WeatherStation[]> {
+    if (usePostgres) {
+      const stations = await postgres.getAllStations();
+      return stations.map(s => this.mapPgStation(s));
+    }
     const stations = db.getAllStations();
     return stations.map(s => this.mapDbStation(s));
   }
 
   async createStation(station: InsertWeatherStation): Promise<WeatherStation> {
+    if (usePostgres) {
+      const id = await postgres.createStation({
+        name: station.name,
+        pakbusAddress: station.pakbusAddress || 1,
+        connectionType: station.connectionType,
+        connectionConfig: station.connectionConfig || {},
+        securityCode: station.securityCode,
+        latitude: station.latitude,
+        longitude: station.longitude,
+        altitude: station.altitude,
+        location: (station as any).location,
+      });
+      const created = await postgres.getStationById(id);
+      if (!created) throw new Error('Failed to create station');
+      return this.mapPgStation(created);
+    }
+    
     const config = {
       ...(station.connectionConfig || {}),
       ipAddress: station.ipAddress,
@@ -337,8 +370,13 @@ export class DatabaseStorage {
     const tableNames = tableName ? [tableName] : ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily'];
     
     for (const tbl of tableNames) {
-      const record = db.getLatestWeatherData(stationId, tbl);
-      if (record) return this.mapDbWeatherData(record);
+      if (usePostgres) {
+        const record = await postgres.getLatestWeatherData(stationId, tbl);
+        if (record) return this.mapPgWeatherData(record);
+      } else {
+        const record = db.getLatestWeatherData(stationId, tbl);
+        if (record) return this.mapDbWeatherData(record);
+      }
     }
     return undefined;
   }
@@ -348,14 +386,25 @@ export class DatabaseStorage {
     const tableNames = tableName ? [tableName] : ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily'];
     
     for (const tbl of tableNames) {
-      const records = db.getWeatherData(
-        stationId, 
-        tbl, 
-        startTime.toISOString(), 
-        endTime.toISOString()
-      );
-      if (records.length > 0) {
-        return records.map(r => this.mapDbWeatherData(r));
+      if (usePostgres) {
+        const result = await postgres.getWeatherData(stationId, {
+          tableName: tbl,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString()
+        });
+        if (result.records && result.records.length > 0) {
+          return result.records.map((r: any) => this.mapPgWeatherData(r));
+        }
+      } else {
+        const records = db.getWeatherData(
+          stationId, 
+          tbl, 
+          startTime.toISOString(), 
+          endTime.toISOString()
+        );
+        if (records.length > 0) {
+          return records.map(r => this.mapDbWeatherData(r));
+        }
       }
     }
     return [];
@@ -365,16 +414,26 @@ export class DatabaseStorage {
     const tableName = data.tableName || 'Table1';
     
     try {
-      db.insertWeatherData([{
-        station_id: data.stationId,
-        table_name: tableName,
-        record_number: data.recordNumber,
-        timestamp: data.timestamp.toISOString(),
-        data: JSON.stringify(data.data)
-      }]);
+      if (usePostgres) {
+        await postgres.insertWeatherData([{
+          stationId: data.stationId,
+          tableName: tableName,
+          recordNumber: data.recordNumber,
+          timestamp: data.timestamp.toISOString(),
+          data: JSON.stringify(data.data)
+        }]);
+      } else {
+        db.insertWeatherData([{
+          station_id: data.stationId,
+          table_name: tableName,
+          record_number: data.recordNumber,
+          timestamp: data.timestamp.toISOString(),
+          data: JSON.stringify(data.data)
+        }]);
+      }
     } catch (err: any) {
       // Check for UNIQUE constraint violation (duplicate record) - this is expected
-      if (err.message?.includes('UNIQUE constraint')) {
+      if (err.message?.includes('UNIQUE constraint') || err.message?.includes('duplicate key')) {
         // Record already exists, fetch and return it
         const existing = await this.getLatestWeatherData(data.stationId, tableName);
         if (existing) return existing;
@@ -829,6 +888,24 @@ export class DatabaseStorage {
   // ==================== Dropbox Config Methods ====================
   
   async getDropboxConfigs(): Promise<any[]> {
+    if (usePostgres) {
+      const results = await postgres.getAllDropboxConfigs();
+      return results.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        folderPath: row.folderPath ?? row.folder_path,
+        filePattern: row.filePattern ?? row.file_pattern,
+        stationId: row.stationId ?? row.station_id,
+        syncInterval: row.syncInterval ?? row.sync_interval,
+        enabled: !!row.enabled,
+        lastSyncAt: row.lastSyncAt ?? row.last_sync_at ? new Date(row.lastSyncAt ?? row.last_sync_at) : null,
+        lastSyncStatus: row.lastSyncStatus ?? row.last_sync_status,
+        lastSyncRecords: row.lastSyncRecords ?? row.last_sync_records ?? 0,
+        createdAt: new Date(row.createdAt ?? row.created_at),
+        updatedAt: new Date(row.updatedAt ?? row.updated_at),
+      }));
+    }
+    
     const results = db.getAllDropboxConfigs();
     return results.map((row: any) => ({
       id: row.id,
@@ -954,6 +1031,64 @@ export class DatabaseStorage {
     };
   }
 
+  // Map PostgreSQL station (uses camelCase from db-postgres.ts)
+  private mapPgStation(station: any): WeatherStation {
+    let connectionConfig: any = {};
+    try {
+      connectionConfig = typeof station.connectionConfig === 'string' 
+        ? JSON.parse(station.connectionConfig || '{}')
+        : station.connectionConfig || {};
+    } catch (e) {
+      storageLog.warn(`Failed to parse connection_config for station ${station.id}`, e);
+      connectionConfig = {};
+    }
+
+    return {
+      id: station.id,
+      name: station.name,
+      pakbusAddress: station.pakbusAddress,
+      connectionType: station.connectionType,
+      connectionConfig,
+      securityCode: station.securityCode,
+      createdAt: station.createdAt ? new Date(station.createdAt) : new Date(),
+      updatedAt: station.updatedAt ? new Date(station.updatedAt) : new Date(),
+      lastConnected: station.lastConnected ? new Date(station.lastConnected) : undefined,
+      isActive: station.isActive !== false,
+      // Extract extended properties from connectionConfig
+      ipAddress: connectionConfig.ipAddress || connectionConfig.host,
+      port: connectionConfig.port,
+      serialPort: connectionConfig.serialPort,
+      baudRate: connectionConfig.baudRate,
+      protocol: connectionConfig.protocol || station.protocol || 'pakbus',
+      dataTable: connectionConfig.dataTable,
+      pollInterval: connectionConfig.pollInterval,
+      apiKey: connectionConfig.apiKey,
+      apiEndpoint: connectionConfig.apiEndpoint,
+      stationType: connectionConfig.stationType || station.stationType || station.connectionType,
+      // Location fields
+      location: station.location || undefined,
+      latitude: station.latitude || undefined,
+      longitude: station.longitude || undefined,
+      altitude: station.altitude || undefined,
+      // Equipment fields
+      dataloggerModel: station.dataloggerModel || undefined,
+      dataloggerSerialNumber: station.dataloggerSerialNumber || undefined,
+      programName: station.programName || undefined,
+      modemModel: station.modemModel || undefined,
+      modemSerialNumber: station.modemSerialNumber || undefined,
+      // Description fields
+      siteDescription: station.siteDescription || undefined,
+      notes: station.notes || undefined,
+      // Personnel fields (may not exist in postgres)
+      installationTeam: station.installationTeam || undefined,
+      stationAdmin: station.stationAdmin || undefined,
+      stationAdminEmail: station.stationAdminEmail || undefined,
+      stationAdminPhone: station.stationAdminPhone || undefined,
+      // Station image
+      stationImage: station.stationImage || null
+    };
+  }
+
   private mapDbWeatherData(record: any): WeatherData {
     let data: Record<string, any> = {};
     try {
@@ -970,6 +1105,37 @@ export class DatabaseStorage {
       recordNumber: record.record_number,
       timestamp: new Date(record.timestamp),
       collectedAt: new Date(record.collected_at),
+      // Map data fields - support common Campbell Scientific and Hopefield field names
+      temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? null,
+      humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? null,
+      pressure: data.pressure ?? data.BP_mbar ?? data.Pressure ?? data.Pressure_Avg ?? null,
+      windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? null,
+      windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? null,
+      windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? null,
+      rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? null,
+      solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? null,
+      dewPoint: data.dewPoint ?? null,
+      batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? null
+    };
+  }
+
+  // Map PostgreSQL weather data (uses camelCase from db-postgres.ts)
+  private mapPgWeatherData(record: any): WeatherData {
+    let data: Record<string, any> = {};
+    try {
+      data = typeof record.data === 'string' ? JSON.parse(record.data || '{}') : record.data || {};
+    } catch (e) {
+      storageLog.warn(`Failed to parse weather data for record ${record.id}`, e);
+      data = {};
+    }
+
+    return {
+      id: record.id,
+      stationId: record.stationId ?? record.station_id,
+      tableName: record.tableName ?? record.table_name,
+      recordNumber: record.recordNumber ?? record.record_number,
+      timestamp: new Date(record.timestamp),
+      collectedAt: new Date(record.collectedAt ?? record.collected_at ?? new Date()),
       // Map data fields - support common Campbell Scientific and Hopefield field names
       temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? null,
       humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? null,
@@ -1001,6 +1167,27 @@ export class DatabaseStorage {
   }
 
   async getUserByEmail(email: string): Promise<any | null> {
+    if (usePostgres) {
+      const user = await postgres.getUserByEmail(email) as any;
+      if (!user) return null;
+      
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        passwordHash: user.passwordHash,
+        role: user.role,
+        assignedStations: user.assignedStations 
+          ? (typeof user.assignedStations === 'string' 
+            ? JSON.parse(user.assignedStations) 
+            : user.assignedStations)
+          : [],
+        lastLoginAt: user.lastLoginAt,
+        createdAt: user.createdAt
+      };
+    }
+    
     const user = db.getUserByEmail(email);
     if (!user) return null;
     
@@ -1025,6 +1212,30 @@ export class DatabaseStorage {
     role: 'admin' | 'user';
     assignedStations?: number[];
   }): Promise<any> {
+    if (usePostgres) {
+      const id = await postgres.createUser({
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName || null,
+        passwordHash: data.passwordHash,
+        role: data.role,
+        assignedStations: data.assignedStations ? JSON.stringify(data.assignedStations) : null
+      });
+      
+      const user = await postgres.getUserByEmail(data.email) as any;
+      if (!user) throw new Error('Failed to create user');
+      
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        assignedStations: [],
+        createdAt: user.createdAt
+      };
+    }
+    
     const id = db.createUser(
       data.email,
       data.firstName,

@@ -568,15 +568,11 @@ export async function registerRoutes(
   // Create new user
   app.post("/api/users", isAuthenticated, async (req, res) => {
     try {
-      const { email, firstName, lastName, password, passwordHash, role, assignedStations } = req.body;
+      const { email, firstName, lastName, password, passwordHash, role, assignedStations, sendInvitation, customMessage } = req.body;
       
-      // Validate required fields - accept either password (plain) or passwordHash (pre-hashed)
+      // Validate required fields
       if (!email || !firstName) {
         return res.status(400).json({ message: "Missing required fields: email, firstName" });
-      }
-      
-      if (!password && !passwordHash) {
-        return res.status(400).json({ message: "Missing required field: password" });
       }
 
       // Check if user already exists
@@ -588,8 +584,20 @@ export async function registerRoutes(
       // Hash password with bcrypt if plain password provided
       const bcrypt = require('bcryptjs');
       let finalPasswordHash = passwordHash;
-      if (password) {
-        finalPasswordHash = await bcrypt.hash(password, 10);
+      
+      // If sendInvitation is true, create user without password and send invitation email
+      if (sendInvitation === true) {
+        // Create user with a temporary placeholder password (will be set via invitation)
+        const tempHash = await bcrypt.hash(require('crypto').randomBytes(32).toString('hex'), 10);
+        finalPasswordHash = tempHash;
+      } else {
+        // Traditional flow - password required
+        if (!password && !passwordHash) {
+          return res.status(400).json({ message: "Missing required field: password (or set sendInvitation: true)" });
+        }
+        if (password) {
+          finalPasswordHash = await bcrypt.hash(password, 10);
+        }
       }
 
       const user = await storage.createUser({
@@ -605,17 +613,97 @@ export async function registerRoutes(
       await auditLog.log(AUDIT_ACTIONS.USER_CREATE, 'users', {
         userId: getUserId(req),
         userEmail: email,
-        details: { newUserEmail: email, role: user.role },
+        details: { newUserEmail: email, role: user.role, invitationSent: sendInvitation === true },
         ip: req.ip,
         userAgent: req.headers['user-agent']
       });
 
+      // Send invitation email if requested
+      if (sendInvitation === true) {
+        try {
+          const postgres = require('./db-postgres');
+          const invitedBy = getUserId(req);
+          const token = await postgres.createUserInvitationToken(email, invitedBy, customMessage);
+          
+          const { sendUserInvitationEmail } = require('./services/emailService');
+          const setupUrl = `${process.env.APP_BASE_URL || 'https://stratusweather.co.za'}/setup-password?token=${token}`;
+          
+          const emailSent = await sendUserInvitationEmail(
+            email,
+            firstName,
+            invitedBy,
+            setupUrl,
+            customMessage
+          );
+          
+          if (!emailSent) {
+            console.error(`[Routes] Failed to send invitation email to ${email}`);
+          } else {
+            console.log(`[Routes] Invitation email sent to ${email}`);
+          }
+        } catch (emailError) {
+          console.error('[Routes] Error sending invitation email:', emailError);
+          // Don't fail the request - user was created, email just failed
+        }
+      }
+
       // Remove password hash from response
       const { passwordHash: _, ...sanitizedUser } = user;
-      res.status(201).json(sanitizedUser);
+      res.status(201).json({
+        ...sanitizedUser,
+        invitationSent: sendInvitation === true
+      });
     } catch (error) {
       console.error("Error creating user:", error);
       res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Resend invitation email to a user
+  app.post("/api/users/:email/resend-invitation", isAuthenticated, async (req, res) => {
+    try {
+      const { email } = req.params;
+      const { customMessage } = req.body;
+      
+      // Check if user exists
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Create new invitation token and send email
+      const postgres = require('./db-postgres');
+      const invitedBy = getUserId(req);
+      const token = await postgres.createUserInvitationToken(email, invitedBy, customMessage);
+      
+      const { sendUserInvitationEmail } = require('./services/emailService');
+      const setupUrl = `${process.env.APP_BASE_URL || 'https://stratusweather.co.za'}/setup-password?token=${token}`;
+      
+      const emailSent = await sendUserInvitationEmail(
+        email,
+        user.firstName || 'User',
+        invitedBy,
+        setupUrl,
+        customMessage
+      );
+      
+      if (!emailSent) {
+        return res.status(500).json({ message: "Failed to send invitation email" });
+      }
+
+      // Log audit event
+      await auditLog.log(AUDIT_ACTIONS.USER_UPDATE, 'users', {
+        userId: getUserId(req),
+        userEmail: email,
+        details: { action: 'resend_invitation' },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      res.json({ success: true, message: "Invitation email sent successfully" });
+    } catch (error) {
+      console.error("Error resending invitation:", error);
+      res.status(500).json({ message: "Failed to resend invitation" });
     }
   });
 

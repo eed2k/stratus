@@ -198,6 +198,247 @@ export async function setupAuth(app: Express): Promise<void> {
     }
   });
 
+  // Forgot Password endpoint - sends reset email
+  app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Email is required' 
+        });
+      }
+
+      // Check if user exists
+      const user = await storage.getUserByEmail(email);
+      
+      // Always return success to prevent email enumeration attacks
+      if (!user) {
+        console.log(`[Auth] Password reset requested for non-existent email: ${email}`);
+        return res.json({ 
+          success: true, 
+          message: 'If an account with that email exists, a password reset link has been sent.' 
+        });
+      }
+
+      // Create password reset token
+      const postgres = require('./db-postgres');
+      const token = await postgres.createPasswordResetToken(email);
+      
+      // Send reset email
+      const { sendPasswordResetEmail } = require('./services/emailService');
+      const resetUrl = `${process.env.APP_BASE_URL || 'https://stratusweather.co.za'}/reset-password?token=${token}`;
+      
+      const emailSent = await sendPasswordResetEmail(
+        email, 
+        user.firstName || 'User',
+        resetUrl
+      );
+
+      if (!emailSent) {
+        console.error('[Auth] Failed to send password reset email');
+        // Still return success to prevent enumeration
+      }
+
+      // Log the password reset request
+      await auditLog.log(AUDIT_ACTIONS.PASSWORD_RESET_REQUEST || 'password_reset_request', 'auth', {
+        userId: user.id?.toString() || 'unknown',
+        userEmail: email,
+        details: { emailSent },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      res.json({ 
+        success: true, 
+        message: 'If an account with that email exists, a password reset link has been sent.' 
+      });
+    } catch (error) {
+      console.error('[Auth] Forgot password error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to process password reset request' 
+      });
+    }
+  });
+
+  // Reset Password endpoint - validates token and sets new password
+  app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Token and new password are required' 
+        });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Password must be at least 8 characters long' 
+        });
+      }
+
+      // Validate the token
+      const postgres = require('./db-postgres');
+      const email = await postgres.validatePasswordResetToken(token);
+      
+      if (!email) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid or expired reset token' 
+        });
+      }
+
+      // Hash the new password
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      
+      // Update the user's password
+      await postgres.updateUserPassword(email, passwordHash);
+      
+      // Mark the token as used
+      await postgres.markPasswordResetTokenUsed(token);
+      
+      // Clear any existing sessions for this user
+      activeSessions.delete(email);
+
+      // Log the password reset
+      await auditLog.log(AUDIT_ACTIONS.PASSWORD_RESET || 'password_reset', 'auth', {
+        userId: email,
+        userEmail: email,
+        details: { success: true },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      res.json({ 
+        success: true, 
+        message: 'Password has been reset successfully. You can now log in with your new password.' 
+      });
+    } catch (error) {
+      console.error('[Auth] Reset password error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to reset password' 
+      });
+    }
+  });
+
+  // Validate reset token endpoint - checks if token is valid without using it
+  app.get('/api/auth/validate-reset-token/:token', async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      
+      const postgres = require('./db-postgres');
+      const email = await postgres.validatePasswordResetToken(token);
+      
+      if (!email) {
+        return res.status(400).json({ 
+          valid: false, 
+          message: 'Invalid or expired reset token' 
+        });
+      }
+
+      res.json({ 
+        valid: true, 
+        email: email // Optionally show masked email
+      });
+    } catch (error) {
+      console.error('[Auth] Validate token error:', error);
+      res.status(500).json({ valid: false, message: 'Failed to validate token' });
+    }
+  });
+
+  // Setup Password endpoint - for new invited users to set initial password
+  app.post('/api/auth/setup-password', async (req: Request, res: Response) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Token and password are required' 
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Password must be at least 8 characters long' 
+        });
+      }
+
+      // Validate the invitation token
+      const postgres = require('./db-postgres');
+      const invitation = await postgres.validateUserInvitationToken(token);
+      
+      if (!invitation) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid or expired invitation token' 
+        });
+      }
+
+      // Hash the password
+      const passwordHash = await bcrypt.hash(password, 10);
+      
+      // Update the user's password
+      await postgres.updateUserPassword(invitation.email, passwordHash);
+      
+      // Mark the invitation token as used
+      await postgres.markUserInvitationTokenUsed(token);
+
+      // Log the account activation
+      await auditLog.log(AUDIT_ACTIONS.USER_ACTIVATED || 'user_activated', 'auth', {
+        userId: invitation.email,
+        userEmail: invitation.email,
+        details: { invitedBy: invitation.invitedBy },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      res.json({ 
+        success: true, 
+        message: 'Password set successfully. You can now log in.' 
+      });
+    } catch (error) {
+      console.error('[Auth] Setup password error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to set password' 
+      });
+    }
+  });
+
+  // Validate invitation token endpoint
+  app.get('/api/auth/validate-invitation/:token', async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      
+      const postgres = require('./db-postgres');
+      const invitation = await postgres.validateUserInvitationToken(token);
+      
+      if (!invitation) {
+        return res.status(400).json({ 
+          valid: false, 
+          message: 'Invalid or expired invitation token' 
+        });
+      }
+
+      res.json({ 
+        valid: true, 
+        email: invitation.email,
+        customMessage: invitation.customMessage
+      });
+    } catch (error) {
+      console.error('[Auth] Validate invitation error:', error);
+      res.status(500).json({ valid: false, message: 'Failed to validate invitation' });
+    }
+  });
+
   // Get current user endpoint
   app.get('/api/auth/current', (req: Request, res: Response) => {
     const user = (req as any).user;

@@ -1,6 +1,6 @@
 Stratus Weather Station
 
-Version 1.0.0
+Version 1.1.0
 Developer: Lukas Esterhuizen
 Contact: esterhuizen2k@proton.me
 
@@ -8,9 +8,9 @@ A professional web application for Campbell Scientific weather station managemen
 
 ---
 
-Access Stratus: https://stratus.dynv6.net
+Access Stratus: https://stratusweather.co.za
 
-Server IP: 129.151.183.183
+Server IP: YOUR_SERVER_IP
 
 ---
 
@@ -82,8 +82,21 @@ User Management
 
 - Admin and User Roles - Admins have full access, users view assigned stations only
 - Station Assignment - Assign specific stations to individual users
-- Secure Authentication - PBKDF2 password hashing with automatic legacy migration
+- User Invitation System - Invite users via email with secure setup links
+- Password Reset - Self-service password reset via email
+- Secure Authentication - bcrypt password hashing
 - Session Management - Secure tokens with proper expiration
+
+---
+
+Email Notifications
+
+Stratus supports email notifications via MailerSend:
+
+- User Invitations - Send email invitations to new users with password setup links
+- Password Reset - Self-service password reset emails
+- Alarm Notifications - Email alerts when alarm thresholds are triggered
+- Professional HTML Templates - Branded email templates with clear instructions
 
 ---
 
@@ -114,10 +127,39 @@ Hosting
 
 Stratus Weather Station is designed for cloud VPS deployment for 24/7 availability.
 
-- Recommended: Hetzner CX22, Linode, DigitalOcean, or Vultr
+- Recommended: Vultr, Hetzner, Linode, DigitalOcean
 - 1-2 vCPU, 2-4 GB RAM sufficient
-- Continuous operation with PM2 process manager
+- Docker containerized deployment
+- PostgreSQL database (Neon serverless supported)
 - Automatic restart on failure
+
+---
+
+Environment Variables
+
+Required environment variables for deployment:
+
+```
+# Database
+DATABASE_URL=postgresql://user:password@host/database
+
+# Email (MailerSend)
+MAILERSEND_API_KEY=your_api_key
+MAILERSEND_FROM_EMAIL=noreply@yourdomain.com
+MAILERSEND_ALERTS_EMAIL=alerts@yourdomain.com
+
+# Dropbox Integration (optional)
+DROPBOX_APP_KEY=your_app_key
+DROPBOX_APP_SECRET=your_app_secret
+DROPBOX_REFRESH_TOKEN=your_refresh_token
+DROPBOX_FOLDER_PATH=/CR300/Data
+
+# Admin Account
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=secure_password
+ADMIN_FIRST_NAME=Admin
+ADMIN_LAST_NAME=User
+```
 
 ---
 

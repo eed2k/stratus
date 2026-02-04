@@ -361,6 +361,204 @@ export async function sendAlarmResolvedEmail(
 }
 
 /**
+ * Send user invitation email with password setup link
+ */
+export async function sendUserInvitationEmail(
+  to: string,
+  data: {
+    firstName: string;
+    inviterName?: string;
+    setupToken: string;
+    customMessage?: string;
+  }
+): Promise<boolean> {
+  const publicUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+  const setupUrl = `${publicUrl}/setup-password?token=${data.setupToken}`;
+
+  const subject = `Welcome to Stratus Weather - Set Up Your Account`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border-radius: 12px 12px 0 0; padding: 24px; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
+        ☁️ Stratus Weather
+      </h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">
+        Weather Station Management
+      </p>
+    </div>
+    
+    <!-- Content -->
+    <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+      <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 20px;">
+        Welcome, ${data.firstName}!
+      </h2>
+      
+      <p style="color: #4b5563; line-height: 1.6; margin: 0 0 16px 0;">
+        ${data.inviterName ? `${data.inviterName} has invited you` : 'You have been invited'} to join Stratus Weather Server. 
+        Click the button below to set up your password and access your account.
+      </p>
+      
+      ${data.customMessage ? `
+      <div style="background: #f8fafc; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
+        <p style="margin: 0; color: #4b5563; font-style: italic;">"${data.customMessage}"</p>
+        ${data.inviterName ? `<p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px;">— ${data.inviterName}</p>` : ''}
+      </div>
+      ` : ''}
+      
+      <!-- Action Button -->
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${setupUrl}" style="display: inline-block; background: #3b82f6; color: white; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+          Set Up Your Password
+        </a>
+      </div>
+      
+      <p style="color: #9ca3af; font-size: 13px; text-align: center; margin: 0;">
+        This link will expire in 72 hours.
+      </p>
+      
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+      
+      <p style="color: #6b7280; font-size: 13px; margin: 0;">
+        If you didn't expect this email, you can safely ignore it.
+      </p>
+    </div>
+    
+    <!-- Footer -->
+    <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px;">
+      <p style="margin: 0;">Stratus Weather Server</p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+  const text = `
+Welcome to Stratus Weather, ${data.firstName}!
+
+${data.inviterName ? `${data.inviterName} has invited you` : 'You have been invited'} to join Stratus Weather Server.
+
+Set up your password here: ${setupUrl}
+
+${data.customMessage ? `Message from ${data.inviterName || 'Admin'}: "${data.customMessage}"` : ''}
+
+This link will expire in 72 hours.
+
+--
+Stratus Weather Server
+`;
+
+  return sendEmail({
+    to,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send password reset email
+ */
+export async function sendPasswordResetEmail(
+  to: string,
+  data: {
+    firstName: string;
+    resetToken: string;
+  }
+): Promise<boolean> {
+  const publicUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+  const resetUrl = `${publicUrl}/reset-password?token=${data.resetToken}`;
+
+  const subject = `Password Reset Request - Stratus Weather`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px 12px 0 0; padding: 24px; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
+        🔐 Password Reset
+      </h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">
+        Stratus Weather Server
+      </p>
+    </div>
+    
+    <!-- Content -->
+    <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+      <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 20px;">
+        Hi ${data.firstName},
+      </h2>
+      
+      <p style="color: #4b5563; line-height: 1.6; margin: 0 0 16px 0;">
+        We received a request to reset your password. Click the button below to create a new password.
+      </p>
+      
+      <!-- Action Button -->
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${resetUrl}" style="display: inline-block; background: #f59e0b; color: white; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+          Reset Password
+        </a>
+      </div>
+      
+      <p style="color: #9ca3af; font-size: 13px; text-align: center; margin: 0;">
+        This link will expire in 1 hour.
+      </p>
+      
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+      
+      <p style="color: #6b7280; font-size: 13px; margin: 0;">
+        If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.
+      </p>
+    </div>
+    
+    <!-- Footer -->
+    <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px;">
+      <p style="margin: 0;">Stratus Weather Server</p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+  const text = `
+Hi ${data.firstName},
+
+We received a request to reset your password for Stratus Weather Server.
+
+Reset your password here: ${resetUrl}
+
+This link will expire in 1 hour.
+
+If you didn't request a password reset, you can safely ignore this email.
+
+--
+Stratus Weather Server
+`;
+
+  return sendEmail({
+    to,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
  * Send test email to verify configuration
  */
 export async function sendTestEmail(to: string): Promise<boolean> {

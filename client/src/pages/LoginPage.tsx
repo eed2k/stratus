@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
+  const [, setLocation] = useLocation();
   const [loginType, setLoginType] = useState<'admin' | 'user'>('admin');
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -172,6 +174,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               >
                 {isLoading ? "Signing in..." : `Sign In as ${loginType === 'admin' ? 'Admin' : 'User'}`}
               </Button>
+              
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setLocation('/forgot-password')}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             </form>
           </CardContent>
         </Card>

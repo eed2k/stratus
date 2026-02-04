@@ -23,6 +23,9 @@ import UserManagement from "@/pages/UserManagement";
 import AccountSettings from "@/pages/AccountSettings";
 import Documentation from "@/pages/Documentation";
 import { LoginPage } from "@/pages/LoginPage";
+import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
+import { SetupPasswordPage } from "@/pages/SetupPasswordPage";
 import { Loader2 } from "lucide-react";
 
 function LoadingScreen() {
@@ -37,13 +40,27 @@ function Router() {
   const { isLoading, user, logout, needsSetup, login, isAdmin, canAccessStation } = useAuth();
   const [location] = useLocation();
 
-  // Shared dashboard routes don't need authentication - render separately
+  // Public routes that don't need authentication
   const isSharedRoute = location.startsWith('/shared/');
+  const isForgotPasswordRoute = location === '/forgot-password';
+  const isResetPasswordRoute = location.startsWith('/reset-password');
+  const isSetupPasswordRoute = location.startsWith('/setup-password');
   
-  // Determine what to render based on state
-  // Always return the same component structure to avoid React hook order issues
+  // Handle public routes first (before auth check)
   if (isSharedRoute) {
     return <SharedDashboard />;
+  }
+  
+  if (isForgotPasswordRoute) {
+    return <ForgotPasswordPage />;
+  }
+  
+  if (isResetPasswordRoute) {
+    return <ResetPasswordPage />;
+  }
+  
+  if (isSetupPasswordRoute) {
+    return <SetupPasswordPage />;
   }
   
   if (isLoading) {

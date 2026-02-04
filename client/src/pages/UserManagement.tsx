@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +34,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getAllUsers, addUser, updateUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
-import { UserPlus, Trash2, User, Edit, MapPin, Loader2 } from "lucide-react";
+import { UserPlus, Trash2, User, Edit, MapPin, Loader2, Mail, RefreshCw } from "lucide-react";
 
 interface WeatherStation {
   id: number;
@@ -53,7 +55,10 @@ export default function UserManagement() {
     password: "",
     role: "user" as "admin" | "user",
     assignedStations: [] as number[],
+    sendInvitation: true, // Default to sending invitation
+    customMessage: "",
   });
+  const [resendingInvitation, setResendingInvitation] = useState<string | null>(null);
 
   // Fetch stations for assignment
   const { data: stations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
@@ -70,10 +75,20 @@ export default function UserManagement() {
   }, []);
 
   const handleAddUser = async () => {
-    if (!newUser.email || !newUser.firstName || !newUser.password) {
+    if (!newUser.email || !newUser.firstName) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in email and first name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // If not sending invitation, password is required
+    if (!newUser.sendInvitation && !newUser.password) {
+      toast({
+        title: "Error",
+        description: "Password is required when not sending an invitation",
         variant: "destructive",
       });
       return;
@@ -90,16 +105,22 @@ export default function UserManagement() {
       return;
     }
 
-    // Send plain password to server - server will hash with bcrypt
+    // Build user object
     const user: any = {
       email: newUser.email.trim(),
       firstName: newUser.firstName.trim(),
       lastName: newUser.lastName.trim(),
-      password: newUser.password, // Plain password - server will hash
       role: newUser.role,
       assignedStations: newUser.role === "user" ? newUser.assignedStations : [],
+      sendInvitation: newUser.sendInvitation,
+      customMessage: newUser.customMessage.trim() || undefined,
       createdAt: new Date().toISOString(),
     };
+
+    // Only include password if not sending invitation
+    if (!newUser.sendInvitation) {
+      user.password = newUser.password;
+    }
 
     const success = await addUser(user);
     
@@ -114,11 +135,15 @@ export default function UserManagement() {
         password: "",
         role: "user",
         assignedStations: [],
+        sendInvitation: true,
+        customMessage: "",
       });
 
       toast({
         title: "User created",
-        description: `${user.firstName} ${user.lastName} has been added successfully.`,
+        description: newUser.sendInvitation 
+          ? `${user.firstName} has been added and an invitation email has been sent.`
+          : `${user.firstName} ${user.lastName} has been added successfully.`,
       });
     } else {
       toast({
@@ -195,6 +220,42 @@ export default function UserManagement() {
     }
   };
 
+  const handleResendInvitation = async (email: string, firstName: string) => {
+    setResendingInvitation(email);
+    try {
+      const response = await fetch(`/api/users/${encodeURIComponent(email)}/resend-invitation`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-email': localStorage.getItem('userEmail') || '',
+        },
+        body: JSON.stringify({})
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Invitation sent",
+          description: `A new invitation email has been sent to ${firstName}.`,
+        });
+      } else {
+        const data = await response.json();
+        toast({
+          title: "Error",
+          description: data.message || "Failed to send invitation",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send invitation email",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingInvitation(null);
+    }
+  };
+
   const toggleStationAssignment = (stationId: number, isAssigning: boolean, forEdit = false) => {
     if (forEdit && editingUser) {
       const currentStations = editingUser.assignedStations || [];
@@ -265,16 +326,51 @@ export default function UserManagement() {
                   placeholder="user@example.com"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  placeholder="Enter password"
+              
+              {/* Send Invitation Toggle */}
+              <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="space-y-0.5">
+                  <Label htmlFor="sendInvitation" className="text-sm font-medium text-blue-900">
+                    Send invitation email
+                  </Label>
+                  <p className="text-xs text-blue-700">
+                    User will receive an email to set their own password
+                  </p>
+                </div>
+                <Switch
+                  id="sendInvitation"
+                  checked={newUser.sendInvitation}
+                  onCheckedChange={(checked) => setNewUser({ ...newUser, sendInvitation: checked })}
                 />
               </div>
+              
+              {/* Custom Message (only shown when sending invitation) */}
+              {newUser.sendInvitation && (
+                <div className="space-y-2">
+                  <Label htmlFor="customMessage">Custom Message (Optional)</Label>
+                  <Textarea
+                    id="customMessage"
+                    value={newUser.customMessage}
+                    onChange={(e) => setNewUser({ ...newUser, customMessage: e.target.value })}
+                    placeholder="Include a personal message in the invitation email..."
+                    rows={2}
+                  />
+                </div>
+              )}
+              
+              {/* Password (only shown when NOT sending invitation) */}
+              {!newUser.sendInvitation && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    placeholder="Enter password"
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select
@@ -488,6 +584,19 @@ export default function UserManagement() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Resend invitation email"
+                          onClick={() => handleResendInvitation(user.email, user.firstName)}
+                          disabled={resendingInvitation === user.email}
+                        >
+                          {resendingInvitation === user.email ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Mail className="h-4 w-4" />
+                          )}
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
