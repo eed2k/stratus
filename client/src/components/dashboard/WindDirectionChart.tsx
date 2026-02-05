@@ -286,7 +286,6 @@ export function WindDirectionChart({
               </div>
             ))}
           </div>
-          </div>
         </div>
       </CardContent>
     </Card>
