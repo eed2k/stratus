@@ -434,12 +434,27 @@ export class DatabaseStorage {
     // Station image
     if (station.stationImage !== undefined) updateData.station_image = station.stationImage;
     
-    db.updateStation(id, updateData);
+    if (usePostgres) {
+      // Map snake_case DB fields back to camelCase for postgres.updateStation
+      const pgUpdates: any = {};
+      for (const [key, value] of Object.entries(updateData)) {
+        // Convert snake_case to camelCase for the PG adapter
+        const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+        pgUpdates[camelKey] = value;
+      }
+      await postgres.updateStation(id, pgUpdates);
+    } else {
+      db.updateStation(id, updateData);
+    }
     return this.getStation(id);
   }
 
   async deleteStation(id: number): Promise<boolean> {
-    db.deleteStation(id);
+    if (usePostgres) {
+      await postgres.deleteStation(id);
+    } else {
+      db.deleteStation(id);
+    }
     return true;
   }
 

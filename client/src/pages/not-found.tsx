@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 
 export default function NotFound() {
@@ -12,8 +13,15 @@ export default function NotFound() {
           </div>
 
           <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
+            The page you're looking for doesn't exist or has been moved.
           </p>
+
+          <Button
+            className="mt-6 w-full"
+            onClick={() => window.location.href = '/'}
+          >
+            Go to Dashboard
+          </Button>
         </CardContent>
       </Card>
     </div>

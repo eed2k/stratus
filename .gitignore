@@ -20,6 +20,7 @@ shared/*.d.ts
 .env.local
 .env.*.local
 .env.production.local
+deploy/.env.production
 # IDE
 .vscode/
 .idea/
@@ -58,3 +59,11 @@ node_modules
 # Exclude demo_data from ignore (allow tracking)
 !demo_data/
 *.tar.gz
+
+# Sensitive / ad-hoc scripts
+scripts/login.json
+test_neon.js
+check_timestamps.js
+del_stations.js
+set_server.js
+.neon

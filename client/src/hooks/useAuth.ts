@@ -218,14 +218,11 @@ export function useAuth() {
   }): Promise<{ success: boolean; message?: string }> => {
     // For initial setup, create admin user
     try {
-      const bcrypt = await import('bcryptjs');
-      const passwordHash = await bcrypt.hash(userData.password, 10);
-      
       const newUser: StoredUser = {
         email: userData.email,
         firstName: userData.firstName,
         lastName: userData.lastName,
-        passwordHash,
+        password: userData.password, // Send plain password - server hashes it
         role: 'admin',
         assignedStations: [],
         createdAt: new Date().toISOString()

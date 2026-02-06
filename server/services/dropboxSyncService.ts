@@ -252,7 +252,8 @@ export class DropboxSyncService extends EventEmitter {
 
     // Handle pagination
     let cursor = data.cursor;
-    while (data.has_more) {
+    let hasMore = data.has_more;
+    while (hasMore) {
       const continueResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder/continue', {
         method: 'POST',
         headers: {
@@ -267,8 +268,7 @@ export class DropboxSyncService extends EventEmitter {
       const continueData = await continueResponse.json() as DropboxListResponse;
       allEntries = allEntries.concat(continueData.entries);
       cursor = continueData.cursor;
-
-      if (!continueData.has_more) break;
+      hasMore = continueData.has_more;
     }
 
     // Filter to .dat files only
@@ -804,7 +804,7 @@ export class DropboxSyncService extends EventEmitter {
   /**
    * List files in Dropbox folder
    */
-  private async listFiles(folderPath: string): Promise<DropboxEntry[]> {
+  private async listFiles(folderPath: string, retried = false): Promise<DropboxEntry[]> {
     // Ensure we have a valid token before making API calls
     await this.ensureValidToken();
     
@@ -827,13 +827,13 @@ export class DropboxSyncService extends EventEmitter {
     if (!response.ok) {
       const errorText = await response.text();
       
-      // If we get a 401, try to refresh the token and retry once
-      if (response.status === 401 && this.config?.refreshToken) {
+      // If we get a 401, try to refresh the token and retry ONCE
+      if (response.status === 401 && this.config?.refreshToken && !retried) {
         console.log('[DropboxSync] Got 401, attempting token refresh and retry...');
         const refreshed = await this.refreshAccessToken();
         if (refreshed) {
-          // Retry the request with the new token
-          return this.listFiles(folderPath);
+          // Retry the request with the new token (only once)
+          return this.listFiles(folderPath, true);
         }
       }
       
@@ -872,7 +872,7 @@ export class DropboxSyncService extends EventEmitter {
   /**
    * Download file content from Dropbox
    */
-  private async downloadFile(filePath: string): Promise<string> {
+  private async downloadFile(filePath: string, retried = false): Promise<string> {
     // Ensure we have a valid token before making API calls
     await this.ensureValidToken();
     
@@ -887,13 +887,13 @@ export class DropboxSyncService extends EventEmitter {
     if (!response.ok) {
       const errorText = await response.text();
       
-      // If we get a 401, try to refresh the token and retry once
-      if (response.status === 401 && this.config?.refreshToken) {
+      // If we get a 401, try to refresh the token and retry ONCE
+      if (response.status === 401 && this.config?.refreshToken && !retried) {
         console.log('[DropboxSync] Got 401 on download, attempting token refresh and retry...');
         const refreshed = await this.refreshAccessToken();
         if (refreshed) {
-          // Retry the request with the new token
-          return this.downloadFile(filePath);
+          // Retry the request with the new token (only once)
+          return this.downloadFile(filePath, true);
         }
       }
       

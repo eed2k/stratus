@@ -622,10 +622,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Calculate solar position based on station coordinates
   const solarPosition = useMemo(() => {
-    const lat = selectedStation?.latitude || 0;
-    const lon = selectedStation?.longitude || 0;
-    if (lat === 0 && lon === 0) {
-      // No coordinates set - return null values
+    const lat = selectedStation?.latitude ?? null;
+    const lon = selectedStation?.longitude ?? null;
+    if (lat === null || lon === null) {
+      // No coordinates set - return default values
       return {
         elevation: 0,
         azimuth: 0,

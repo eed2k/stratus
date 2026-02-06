@@ -149,7 +149,7 @@ export function SetupPasswordPage() {
                 Invitation links expire after 72 hours for security reasons. Please contact your administrator for a new invitation.
               </p>
               <Button 
-                onClick={() => setLocation('/login')}
+                onClick={() => setLocation('/')}
                 variant="outline"
                 className="w-full"
               >
@@ -195,7 +195,7 @@ export function SetupPasswordPage() {
             </CardHeader>
             <CardContent>
               <Button 
-                onClick={() => setLocation('/login')}
+                onClick={() => setLocation('/')}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Go to Login

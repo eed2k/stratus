@@ -53,7 +53,7 @@ export const MESSAGE_TYPES = {
   
   // Table transactions
   GET_TABLE_DEFS: 0x19,
-  COLLECT_DATA: 0x09,
+  COLLECT_DATA: 0x1a,
   
   // File transactions  
   FILE_SEND: 0x1c,

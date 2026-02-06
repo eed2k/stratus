@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Search, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone, Camera, Radio, Settings } from "lucide-react";
+import { MapPin, Plus, Search, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone, Camera, Radio, Settings, Globe } from "lucide-react";
 import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -40,7 +40,7 @@ interface StationWithReading extends WeatherStation {
 }
 
 type StationType = "campbell";
-type ConnectionType = "dropbox" | "lora" | "gsm" | "ip" | "mqtt" | "4g" | "tcp_ip" | "http_post";
+type ConnectionType = "dropbox" | "lora" | "gsm" | "ip" | "mqtt" | "4g" | "tcp_ip" | "http_post" | "rikacloud";
 
 interface StationFormData {
   name: string;
@@ -267,6 +267,15 @@ export default function Stations() {
           password: data.apiKey?.split(":")[1] || null,
           useTls: payload.port === 8883,
         });
+      } else if (data.connectionType === "rikacloud") {
+        // RikaCloud HTTP API - e.g., https://cloud-en.rikacloud.com/service/user/api/getDeviceData/{device_id}
+        payload.protocol = "http";
+        payload.connectionConfig = JSON.stringify({
+          type: "rikacloud",
+          apiEndpoint: data.apiEndpoint,
+          apiKey: data.apiKey,
+          pollInterval: parseInt(data.pollInterval) || 60,
+        });
       }
 
       return await apiRequest("POST", "/api/stations", payload);
@@ -280,7 +289,7 @@ export default function Stations() {
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({ title: "Unauthorized", description: "Please log in again.", variant: "destructive" });
-        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        setTimeout(() => { window.location.href = "/"; }, 500);
         return;
       }
       toast({ title: "Error", description: "Failed to add station.", variant: "destructive" });
@@ -407,6 +416,12 @@ export default function Stations() {
                         <div className="flex items-center gap-2">
                           <Radio className="h-4 w-4" />
                           MQTT Protocol
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="rikacloud">
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4" />
+                          RikaCloud HTTP API
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -547,6 +562,45 @@ export default function Stations() {
                         value={formData.apiKey}
                         onChange={(e) => updateForm({ apiKey: e.target.value })}
                       />
+                    </div>
+                  </div>
+                )}
+
+                {formData.connectionType === "rikacloud" && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>RikaCloud API Endpoint</Label>
+                      <Input
+                        placeholder="https://cloud-en.rikacloud.com/service/user/api/getDeviceData/r20230704"
+                        value={formData.apiEndpoint}
+                        onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Full URL to your RikaCloud device data endpoint. Get this from POSTMAN or your RikaCloud dashboard.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>API Key / Token (optional)</Label>
+                      <Input
+                        placeholder="Your RikaCloud API token if required"
+                        value={formData.apiKey}
+                        onChange={(e) => updateForm({ apiKey: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Poll Interval (seconds)</Label>
+                      <Select value={formData.pollInterval} onValueChange={(v) => updateForm({ pollInterval: v })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="60">1 minute</SelectItem>
+                          <SelectItem value="300">5 minutes</SelectItem>
+                          <SelectItem value="600">10 minutes</SelectItem>
+                          <SelectItem value="1800">30 minutes</SelectItem>
+                          <SelectItem value="3600">1 hour</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 )}
@@ -758,7 +812,7 @@ export default function Stations() {
                       <Button 
                         className="flex-1 group-hover:bg-primary transition-colors" 
                         variant="outline"
-                        onClick={() => window.location.href = `/?station=${station.id}`}
+                        onClick={() => window.location.href = `/dashboard/${station.id}`}
                         data-testid={`button-view-${station.id}`}
                       >
                         View Dashboard

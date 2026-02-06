@@ -153,7 +153,7 @@ export function ResetPasswordPage() {
                 Request New Reset Link
               </Button>
               <Button 
-                onClick={() => setLocation('/login')}
+                onClick={() => setLocation('/')}
                 variant="ghost"
                 className="w-full"
               >
@@ -199,7 +199,7 @@ export function ResetPasswordPage() {
             </CardHeader>
             <CardContent>
               <Button 
-                onClick={() => setLocation('/login')}
+                onClick={() => setLocation('/')}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Go to Login

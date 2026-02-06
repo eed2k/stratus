@@ -146,11 +146,15 @@ async function createTables(): Promise<void> {
     ON weather_data(station_id, record_number)
   `);
   
-  // Add unique constraint to prevent duplicate records
+  // Add unique constraint to prevent duplicate records (includes table_name for multi-table stations)
   await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_weather_data_unique_station_time
-    ON weather_data(station_id, timestamp)
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_weather_data_unique_station_table_time
+    ON weather_data(station_id, table_name, timestamp)
   `);
+  // Drop old incomplete index if it exists
+  await pool.query(`
+    DROP INDEX IF EXISTS idx_weather_data_unique_station_time
+  `).catch(() => {});
   pgLog.info('Weather data indexes ready');
 
   // Table definitions
@@ -544,19 +548,19 @@ export async function createStation(station: Station): Promise<number> {
     RETURNING id
   `, [
     station.name,
-    station.pakbusAddress || 1,
-    station.connectionType || 'http',
-    JSON.stringify(station.connectionConfig || {}),
-    station.securityCode || null,
+    station.pakbusAddress ?? 1,
+    station.connectionType ?? 'http',
+    JSON.stringify(station.connectionConfig ?? {}),
+    station.securityCode ?? null,
     station.isActive !== false,
-    station.latitude || null,
-    station.longitude || null,
-    station.altitude || null,
-    station.location || null,
-    station.dataloggerModel || null,
-    station.dataloggerSerialNumber || null,
-    station.programName || null,
-    station.modemModel || null,
+    station.latitude ?? null,
+    station.longitude ?? null,
+    station.altitude ?? null,
+    station.location ?? null,
+    station.dataloggerModel ?? null,
+    station.dataloggerSerialNumber ?? null,
+    station.programName ?? null,
+    station.modemModel ?? null,
     station.modemSerialNumber || null,
     station.siteDescription || null,
     station.notes || null,
@@ -662,7 +666,7 @@ export async function insertWeatherData(records: WeatherRecord[]): Promise<numbe
       const result = await client.query(`
         INSERT INTO weather_data (station_id, table_name, record_number, timestamp, data)
         VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (station_id, timestamp) DO NOTHING
+        ON CONFLICT (station_id, table_name, timestamp) DO NOTHING
       `, [
         record.stationId,
         record.tableName || 'Table1',

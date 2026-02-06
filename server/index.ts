@@ -194,21 +194,6 @@ app.use((req, res, next) => {
         log("Warning: No admin credentials configured. Set STRATUS_ADMIN_EMAIL and STRATUS_ADMIN_PASSWORD environment variables.");
       }
     }
-    
-    // Always ensure demo user exists
-    const demoUser = getUserByEmail("user@domain.com");
-    if (!demoUser) {
-      const demoPasswordHash = await hashFn("123456", 10);
-      createUser(
-        "user@domain.com",
-        "Demo",
-        "User",
-        demoPasswordHash,
-        "user",
-        []
-      );
-      log("Demo user created: user@domain.com");
-    }
     } catch (err) {
       console.error("Failed to create default users:", err);
     }

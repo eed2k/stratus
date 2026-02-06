@@ -130,6 +130,21 @@ function SharedDashboardContent() {
     return Math.max(weatherData?.windGust || 0, ...speeds) || 25;
   }, [historicalData, weatherData?.windGust]);
 
+  // Compute real statistics from historical data
+  const stats = useMemo(() => {
+    const temps = historicalData.map(d => d.temperature).filter((v): v is number => v != null);
+    const humids = historicalData.map(d => d.humidity).filter((v): v is number => v != null);
+    const winds = historicalData.map(d => d.windSpeed).filter((v): v is number => v != null);
+    const avg = (arr: number[]) => arr.length > 0 ? (arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+    const min = (arr: number[]) => arr.length > 0 ? Math.min(...arr) : null;
+    const max = (arr: number[]) => arr.length > 0 ? Math.max(...arr) : null;
+    return {
+      temp: { min: min(temps), max: max(temps), avg: avg(temps) },
+      humid: { min: min(humids), max: max(humids), avg: avg(humids) },
+      wind: { min: min(winds), max: max(winds), avg: avg(winds) },
+    };
+  }, [historicalData]);
+
   // Fetch station info once we have access
   const { data: stationData } = useQuery({
     queryKey: ['shared-station', access?.stationId],
@@ -409,48 +424,33 @@ function SharedDashboardContent() {
               <StatisticsCard
                 title="Temperature"
                 periods={[
-                  { period: "Today", stats: [
-                    { label: "Current", value: safeFixed(weatherData?.temperature, 1, '0'), unit: "°C" },
-                    { label: "Min", value: "15.2", unit: "°C" },
-                    { label: "Max", value: "28.5", unit: "°C" },
-                    { label: "Avg", value: "21.3", unit: "°C" },
-                  ]},
-                  { period: "Week", stats: [
-                    { label: "Min", value: "12.1", unit: "°C" },
-                    { label: "Max", value: "31.2", unit: "°C" },
-                    { label: "Avg", value: "20.8", unit: "°C" },
+                  { period: "Last 24h", stats: [
+                    { label: "Current", value: safeFixed(weatherData?.temperature, 1, '--'), unit: "°C" },
+                    { label: "Min", value: stats.temp.min != null ? stats.temp.min.toFixed(1) : '--', unit: "°C" },
+                    { label: "Max", value: stats.temp.max != null ? stats.temp.max.toFixed(1) : '--', unit: "°C" },
+                    { label: "Avg", value: stats.temp.avg != null ? stats.temp.avg.toFixed(1) : '--', unit: "°C" },
                   ]},
                 ]}
               />
               <StatisticsCard
                 title="Humidity"
                 periods={[
-                  { period: "Today", stats: [
-                    { label: "Current", value: safeFixed(weatherData?.humidity, 0, '0'), unit: "%" },
-                    { label: "Min", value: "45", unit: "%" },
-                    { label: "Max", value: "85", unit: "%" },
-                    { label: "Avg", value: "65", unit: "%" },
-                  ]},
-                  { period: "Week", stats: [
-                    { label: "Min", value: "38", unit: "%" },
-                    { label: "Max", value: "92", unit: "%" },
-                    { label: "Avg", value: "62", unit: "%" },
+                  { period: "Last 24h", stats: [
+                    { label: "Current", value: safeFixed(weatherData?.humidity, 0, '--'), unit: "%" },
+                    { label: "Min", value: stats.humid.min != null ? stats.humid.min.toFixed(0) : '--', unit: "%" },
+                    { label: "Max", value: stats.humid.max != null ? stats.humid.max.toFixed(0) : '--', unit: "%" },
+                    { label: "Avg", value: stats.humid.avg != null ? stats.humid.avg.toFixed(0) : '--', unit: "%" },
                   ]},
                 ]}
               />
               <StatisticsCard
                 title="Wind Speed"
                 periods={[
-                  { period: "Today", stats: [
-                    { label: "Current", value: safeFixed(weatherData?.windSpeed, 1, '0'), unit: "km/h" },
-                    { label: "Min", value: "0", unit: "km/h" },
-                    { label: "Max", value: safeFixed(weatherData?.windGust ?? 25, 1), unit: "km/h" },
-                    { label: "Avg", value: "12.5", unit: "km/h" },
-                  ]},
-                  { period: "Week", stats: [
-                    { label: "Min", value: "0", unit: "km/h" },
-                    { label: "Max", value: "35.2", unit: "km/h" },
-                    { label: "Avg", value: "11.8", unit: "km/h" },
+                  { period: "Last 24h", stats: [
+                    { label: "Current", value: safeFixed(weatherData?.windSpeed, 1, '--'), unit: "km/h" },
+                    { label: "Min", value: stats.wind.min != null ? stats.wind.min.toFixed(1) : '--', unit: "km/h" },
+                    { label: "Max", value: stats.wind.max != null ? stats.wind.max.toFixed(1) : '--', unit: "km/h" },
+                    { label: "Avg", value: stats.wind.avg != null ? stats.wind.avg.toFixed(1) : '--', unit: "km/h" },
                   ]},
                 ]}
               />

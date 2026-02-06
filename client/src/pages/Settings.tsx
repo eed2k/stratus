@@ -421,8 +421,19 @@ export default function Settings() {
       
       if (!res.ok) throw new Error('Failed to save');
       
-      // Also save to localStorage for offline access
+      // Update ALL localStorage keys so UI reflects changes immediately
       localStorage.setItem('stratus_user_profile', JSON.stringify({ firstName, lastName, email }));
+      
+      // Also update stratus_user (used by navbar/auth) so name shows without re-login
+      const existingUserStr = localStorage.getItem('stratus_user');
+      if (existingUserStr) {
+        try {
+          const existingUser = JSON.parse(existingUserStr);
+          existingUser.firstName = firstName;
+          existingUser.lastName = lastName;
+          localStorage.setItem('stratus_user', JSON.stringify(existingUser));
+        } catch { /* ignore parse error */ }
+      }
       
       // Invalidate query to refresh
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
@@ -718,10 +729,12 @@ export default function Settings() {
                 id="email" 
                 type="email" 
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                readOnly
+                disabled
+                className="bg-muted cursor-not-allowed"
                 data-testid="input-settings-email" 
               />
+              <p className="text-xs text-muted-foreground">Email address cannot be changed as it is used for authentication.</p>
             </div>
             <Button data-testid="button-save-profile" onClick={handleSaveProfile} disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

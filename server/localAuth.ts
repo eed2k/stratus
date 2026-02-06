@@ -387,6 +387,46 @@ export async function setupAuth(app: Express): Promise<void> {
     }
   });
 
+  // Self-service password change - any authenticated user can change their own password
+  app.post('/api/auth/change-password', async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      if (!user?.isAuthenticated || !user?.email) {
+        return res.status(401).json({ success: false, message: 'Authentication required' });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+      }
+      if (newPassword.length < 8) {
+        return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+      }
+
+      // Verify current password
+      const existingUser = await storage.getUserByEmail(user.email);
+      if (!existingUser) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      const bcrypt = require('bcryptjs');
+      const isValid = await bcrypt.compare(currentPassword, existingUser.passwordHash || '');
+      if (!isValid) {
+        return res.status(403).json({ success: false, message: 'Current password is incorrect' });
+      }
+
+      // Hash and save new password
+      const newHash = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserData(user.email, { passwordHash: newHash });
+
+      console.log(`[Auth] Password changed for user: ${user.email}`);
+      res.json({ success: true, message: 'Password changed successfully' });
+    } catch (error) {
+      console.error('[Auth] Change password error:', error);
+      res.status(500).json({ success: false, message: 'Failed to change password' });
+    }
+  });
+
   // Setup Password endpoint - for new invited users to set initial password
   app.post('/api/auth/setup-password', async (req: Request, res: Response) => {
     try {

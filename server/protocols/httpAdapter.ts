@@ -188,16 +188,63 @@ export class HTTPAdapter extends BaseProtocolAdapter {
   }
 
   private parseRikaCloudResponse(data: any): Record<string, number | null> {
-    const record = data?.lastData || data;
-    return {
-      temperature: record.temperature ?? null,
-      humidity: record.humidity ?? null,
-      pressure: record.pressure ?? null,
-      windSpeed: record.windSpeed ?? null,
-      windDirection: record.windDirection ?? null,
-      rainfall: record.rainfall ?? null,
-      solarRadiation: record.radiation ?? null,
+    // RikaCloud API returns array of sensor readings:
+    // [{ device_id, sensor_id, time, agri_name, value, unit }, ...]
+    // Or a single device response with lastData
+    
+    const result: Record<string, number | null> = {
+      temperature: null,
+      humidity: null,
+      pressure: null,
+      windSpeed: null,
+      windDirection: null,
+      rainfall: null,
+      solarRadiation: null,
     };
+    
+    // Handle array of sensor readings from getDeviceData API
+    if (Array.isArray(data)) {
+      for (const sensor of data) {
+        const name = (sensor.agri_name || '').toLowerCase();
+        const value = typeof sensor.value === 'number' ? sensor.value : parseFloat(sensor.value);
+        
+        if (isNaN(value)) continue;
+        
+        // Map sensor names to normalized fields
+        if (name.includes('temp') || name.includes('温度')) {
+          result.temperature = value;
+        } else if (name.includes('humid') || name.includes('湿度')) {
+          result.humidity = value;
+        } else if (name.includes('press') || name.includes('气压') || name.includes('baro')) {
+          result.pressure = value;
+        } else if (name.includes('wind') && (name.includes('speed') || name.includes('速'))) {
+          result.windSpeed = value;
+        } else if (name.includes('wind') && (name.includes('dir') || name.includes('向'))) {
+          result.windDirection = value;
+        } else if (name.includes('rain') || name.includes('precip') || name.includes('降')) {
+          result.rainfall = value;
+        } else if (name.includes('solar') || name.includes('radiation') || name.includes('辐射')) {
+          result.solarRadiation = value;
+        }
+      }
+      return result;
+    }
+    
+    // Handle object response with lastData or direct sensor data
+    const record = data?.lastData || data?.data || data;
+    
+    if (record) {
+      // Try direct field mapping
+      result.temperature = record.temperature ?? record.temp ?? null;
+      result.humidity = record.humidity ?? record.rh ?? null;
+      result.pressure = record.pressure ?? record.baro ?? null;
+      result.windSpeed = record.windSpeed ?? record.wind_speed ?? null;
+      result.windDirection = record.windDirection ?? record.wind_dir ?? null;
+      result.rainfall = record.rainfall ?? record.rain ?? null;
+      result.solarRadiation = record.radiation ?? record.solar ?? null;
+    }
+    
+    return result;
   }
 
   private parseArduinoIoTResponse(data: any): Record<string, number | null> {

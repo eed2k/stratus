@@ -254,7 +254,7 @@ export default function History() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {weatherData.slice(0, 50).map((row, i) => (
+                      {weatherData.map((row, i) => (
                         <TableRow key={i} data-testid={`row-history-${i}`}>
                           <TableCell className="font-mono text-sm">
                             {new Date(row.timestamp).toLocaleString()}

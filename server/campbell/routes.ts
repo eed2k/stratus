@@ -585,7 +585,7 @@ export function registerCampbellRoutes(app: Express): void {
   app.get("/api/email/status", async (req, res) => {
     res.json({
       configured: isEmailConfigured(),
-      provider: 'SendGrid',
+      provider: 'MailerSend',
     });
   });
 

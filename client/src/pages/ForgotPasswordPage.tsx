@@ -79,7 +79,7 @@ export function ForgotPasswordPage() {
                 The link will expire in 1 hour. If you don't see the email, check your spam folder.
               </p>
               <Button 
-                onClick={() => setLocation('/login')}
+                onClick={() => setLocation('/')}
                 variant="outline"
                 className="w-full"
               >
@@ -148,7 +148,7 @@ export function ForgotPasswordPage() {
 
               <Button 
                 type="button"
-                onClick={() => setLocation('/login')}
+                onClick={() => setLocation('/')}
                 variant="ghost"
                 className="w-full"
               >

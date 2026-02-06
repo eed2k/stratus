@@ -5,9 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, getAllUsers, addUser, type StoredUser } from "@/hooks/useAuth";
+import { useAuth, type StoredUser } from "@/hooks/useAuth";
 import { User, Lock, CheckCircle } from "lucide-react";
-import { hashPassword, verifyPassword } from "@/lib/passwordUtils";
 
 export default function AccountSettings() {
   const { user } = useAuth();
@@ -41,29 +40,25 @@ export default function AccountSettings() {
         return;
       }
 
-      // Find current user in storage
-      const users = await getAllUsers();
-      const currentUser = users.find((u: StoredUser) => u.email.toLowerCase() === user?.email?.toLowerCase());
-      
-      if (!currentUser) {
-        setError("User not found");
+      // Call server-side password change endpoint
+      const userEmail = localStorage.getItem('stratus_user_email');
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Email': userEmail || '',
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.message || "Failed to change password");
         return;
       }
-
-      // Verify current password (async)
-      const isValid = await verifyPassword(passwordData.currentPassword, currentUser.passwordHash || "");
-      if (!isValid) {
-        setError("Current password is incorrect");
-        return;
-      }
-
-      // Update password with secure hash
-      const newHash = await hashPassword(passwordData.newPassword);
-      const updatedUser = {
-        ...currentUser,
-        passwordHash: newHash,
-      };
-      addUser(updatedUser);
 
       setSuccess(true);
       setPasswordData({
@@ -77,6 +72,8 @@ export default function AccountSettings() {
         title: "Password changed",
         description: "Your password has been updated successfully.",
       });
+    } catch (err) {
+      setError("Network error. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

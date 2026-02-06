@@ -192,13 +192,19 @@ export default function UserManagement() {
   };
 
   const handleDeleteUser = async (email: string) => {
-    // Don't allow deleting the main admin
-    if (email.toLowerCase() === "esterhuizen2k@proton.me") {
+    // Don't allow deleting yourself
+    const currentEmail = localStorage.getItem('stratus_user_email');
+    if (email.toLowerCase() === currentEmail?.toLowerCase()) {
       toast({
         title: "Cannot delete",
-        description: "The primary admin account cannot be deleted.",
+        description: "You cannot delete your own account.",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Confirm before deleting
+    if (!window.confirm(`Are you sure you want to delete the user "${email}"? This action cannot be undone.`)) {
       return;
     }
 
@@ -227,7 +233,7 @@ export default function UserManagement() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-user-email': localStorage.getItem('userEmail') || '',
+          'x-user-email': localStorage.getItem('stratus_user_email') || '',
         },
         body: JSON.stringify({})
       });
@@ -477,7 +483,7 @@ export default function UserManagement() {
                 <Select
                   value={editingUser.role}
                   onValueChange={(value: "admin" | "user") => setEditingUser({ ...editingUser, role: value })}
-                  disabled={editingUser.email.toLowerCase() === "esterhuizen2k@proton.me"}
+                  disabled={editingUser.email.toLowerCase() === localStorage.getItem('stratus_user_email')?.toLowerCase()}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -611,7 +617,7 @@ export default function UserManagement() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDeleteUser(user.email)}
-                          disabled={user.email.toLowerCase() === "esterhuizen2k@proton.me"}
+                          disabled={user.email.toLowerCase() === localStorage.getItem('stratus_user_email')?.toLowerCase()}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>

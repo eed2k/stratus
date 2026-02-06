@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage, type WeatherData } from "./localStorage";
-import { setupAuth, isAuthenticated, getUserId } from "./localAuth";
+import { setupAuth, isAuthenticated, isAdmin, getUserId } from "./localAuth";
 import { z } from "zod";
 import path from "path";
 import fs from "fs";
@@ -139,7 +139,14 @@ const insertUserPreferencesSchema = z.object({
   windSpeedUnit: z.string().optional(),
   pressureUnit: z.string().optional(),
   precipitationUnit: z.string().optional(),
-  theme: z.string().optional()
+  theme: z.string().optional(),
+  emailNotifications: z.boolean().optional(),
+  pushNotifications: z.boolean().optional(),
+  tempHighAlert: z.number().optional(),
+  windHighAlert: z.number().optional(),
+  units: z.string().optional(),
+  timezone: z.string().optional(),
+  serverAddress: z.string().optional(),
 });
 
 const insertStationLogSchema = z.object({
@@ -537,7 +544,7 @@ export async function registerRoutes(
   // ========== User Management Routes ==========
   
   // Get all users (admin only)
-  app.get("/api/users", isAuthenticated, async (req, res) => {
+  app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       // Remove password hashes from response
@@ -565,10 +572,10 @@ export async function registerRoutes(
     }
   });
 
-  // Create new user
-  app.post("/api/users", isAuthenticated, async (req, res) => {
+  // Create new user (admin only)
+  app.post("/api/users", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { email, firstName, lastName, password, passwordHash, role, assignedStations, sendInvitation, customMessage } = req.body;
+      const { email, firstName, lastName, password, role, assignedStations, sendInvitation, customMessage } = req.body;
       
       // Validate required fields
       if (!email || !firstName) {
@@ -581,9 +588,9 @@ export async function registerRoutes(
         return res.status(409).json({ message: "User with this email already exists" });
       }
 
-      // Hash password with bcrypt if plain password provided
+      // Hash password with bcrypt - never accept pre-hashed passwords from client
       const bcrypt = require('bcryptjs');
-      let finalPasswordHash = passwordHash;
+      let finalPasswordHash: string | undefined;
       
       // If sendInvitation is true, create user without password and send invitation email
       if (sendInvitation === true) {
@@ -592,12 +599,10 @@ export async function registerRoutes(
         finalPasswordHash = tempHash;
       } else {
         // Traditional flow - password required
-        if (!password && !passwordHash) {
+        if (!password) {
           return res.status(400).json({ message: "Missing required field: password (or set sendInvitation: true)" });
         }
-        if (password) {
-          finalPasswordHash = await bcrypt.hash(password, 10);
-        }
+        finalPasswordHash = await bcrypt.hash(password, 10);
       }
 
       const user = await storage.createUser({
@@ -626,14 +631,15 @@ export async function registerRoutes(
           const token = await postgres.createUserInvitationToken(email, invitedBy, customMessage);
           
           const { sendUserInvitationEmail } = require('./services/emailService');
-          const setupUrl = `${process.env.APP_BASE_URL || 'https://stratusweather.co.za'}/setup-password?token=${token}`;
           
           const emailSent = await sendUserInvitationEmail(
             email,
-            firstName,
-            invitedBy,
-            setupUrl,
-            customMessage
+            {
+              firstName,
+              inviterName: invitedBy,
+              setupToken: token,
+              customMessage
+            }
           );
           
           if (!emailSent) {
@@ -659,8 +665,8 @@ export async function registerRoutes(
     }
   });
 
-  // Resend invitation email to a user
-  app.post("/api/users/:email/resend-invitation", isAuthenticated, async (req, res) => {
+  // Resend invitation email to a user (admin only)
+  app.post("/api/users/:email/resend-invitation", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { email } = req.params;
       const { customMessage } = req.body;
@@ -677,14 +683,15 @@ export async function registerRoutes(
       const token = await postgres.createUserInvitationToken(email, invitedBy, customMessage);
       
       const { sendUserInvitationEmail } = require('./services/emailService');
-      const setupUrl = `${process.env.APP_BASE_URL || 'https://stratusweather.co.za'}/setup-password?token=${token}`;
       
       const emailSent = await sendUserInvitationEmail(
         email,
-        user.firstName || 'User',
-        invitedBy,
-        setupUrl,
-        customMessage
+        {
+          firstName: user.firstName || 'User',
+          inviterName: invitedBy,
+          setupToken: token,
+          customMessage
+        }
       );
       
       if (!emailSent) {
@@ -707,21 +714,19 @@ export async function registerRoutes(
     }
   });
 
-  // Update user
-  app.patch("/api/users/:email", isAuthenticated, async (req, res) => {
+  // Update user (admin only)
+  app.patch("/api/users/:email", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { firstName, lastName, password, passwordHash, role, assignedStations } = req.body;
+      const { firstName, lastName, password, role, assignedStations } = req.body;
       
       const updates: any = {};
       if (firstName !== undefined) updates.firstName = firstName;
       if (lastName !== undefined) updates.lastName = lastName;
       
-      // Handle password update - hash with bcrypt if plain password provided
+      // Handle password update - always hash server-side, never accept pre-hashed
       if (password) {
         const bcrypt = require('bcryptjs');
         updates.passwordHash = await bcrypt.hash(password, 10);
-      } else if (passwordHash !== undefined) {
-        updates.passwordHash = passwordHash;
       }
       
       if (role !== undefined) updates.role = role;
@@ -750,8 +755,8 @@ export async function registerRoutes(
     }
   });
 
-  // Delete user
-  app.delete("/api/users/:email", isAuthenticated, async (req, res) => {
+  // Delete user (admin only)
+  app.delete("/api/users/:email", isAuthenticated, isAdmin, async (req, res) => {
     try {
       await storage.deleteUserByEmail(req.params.email);
 
