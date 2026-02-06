@@ -153,6 +153,7 @@ export interface User {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
+  role?: string;
   createdAt: Date;
 }
 
@@ -203,6 +204,46 @@ export interface Organization {
 export class DatabaseStorage {
   // User operations - simplified for desktop
   async getUser(id: string): Promise<User | undefined> {
+    // Use PostgreSQL if available
+    if (usePostgres) {
+      try {
+        // First try to parse as numeric ID
+        const numericId = parseInt(id, 10);
+        if (!isNaN(numericId)) {
+          const result = await postgres.query('SELECT id, email, first_name, last_name, role, created_at FROM users WHERE id = $1', [numericId]);
+          if (result.rows.length > 0) {
+            const row = result.rows[0];
+            return {
+              id: String(row.id),
+              email: row.email,
+              firstName: row.first_name,
+              lastName: row.last_name,
+              role: row.role,
+              createdAt: row.created_at
+            };
+          }
+        }
+        
+        // If not numeric or not found, try to lookup by email
+        if (id.includes('@')) {
+          const result = await postgres.query('SELECT id, email, first_name, last_name, role, created_at FROM users WHERE LOWER(email) = LOWER($1)', [id]);
+          if (result.rows.length > 0) {
+            const row = result.rows[0];
+            return {
+              id: String(row.id),
+              email: row.email,
+              firstName: row.first_name,
+              lastName: row.last_name,
+              role: row.role,
+              createdAt: row.created_at
+            };
+          }
+        }
+      } catch (error) {
+        storageLog.error('Failed to get user from PostgreSQL, falling back to local storage', error);
+      }
+    }
+    
     // Load from stored profile if available
     const storedProfile = db.getSetting('user_profile');
     if (storedProfile) {
@@ -240,7 +281,45 @@ export class DatabaseStorage {
   }
 
   async updateUser(userId: string, updates: Partial<User>): Promise<User> {
-    // Store user updates in settings
+    // Use PostgreSQL if available
+    if (usePostgres) {
+      try {
+        let userIdNum: number | undefined;
+        
+        // First try to parse as numeric ID
+        const numericId = parseInt(userId, 10);
+        if (!isNaN(numericId)) {
+          userIdNum = numericId;
+        } else if (userId.includes('@')) {
+          // If email, lookup the numeric ID
+          const result = await postgres.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [userId]);
+          if (result.rows.length > 0) {
+            userIdNum = result.rows[0].id;
+          }
+        }
+        
+        if (userIdNum) {
+          const updated = await postgres.updateUserProfile(userIdNum, {
+            firstName: updates.firstName,
+            lastName: updates.lastName,
+            email: updates.email
+          });
+          if (updated) {
+            return {
+              id: String(updated.id),
+              email: updated.email,
+              firstName: updated.firstName,
+              lastName: updated.lastName,
+              createdAt: updated.createdAt
+            };
+          }
+        }
+      } catch (error) {
+        storageLog.error('Failed to update user in PostgreSQL, falling back to local storage', error);
+      }
+    }
+    
+    // Fallback to local storage
     const existingUser = JSON.parse(db.getSetting('user_profile') || '{}');
     const updatedUser = { ...existingUser, ...updates, id: userId };
     db.setSetting('user_profile', JSON.stringify(updatedUser));
@@ -480,19 +559,37 @@ export class DatabaseStorage {
     if (records.length === 0) return 0;
     
     try {
-      const dbRecords = records.map(data => ({
-        station_id: data.stationId,
-        table_name: data.tableName || 'Table1',
-        record_number: data.recordNumber,
-        timestamp: data.timestamp.toISOString(),
-        data: JSON.stringify(data.data)
-      }));
-      
-      db.insertWeatherData(dbRecords);
-      return records.length;
+      if (usePostgres) {
+        // Use PostgreSQL batch insert
+        // Note: postgres.insertWeatherData will JSON.stringify the data internally
+        const pgRecords = records.map(data => ({
+          stationId: data.stationId,
+          tableName: data.tableName || 'Table1',
+          recordNumber: data.recordNumber,
+          timestamp: data.timestamp.toISOString(),
+          data: data.data  // Pass raw object, postgres will stringify
+        }));
+        
+        const inserted = await postgres.insertWeatherData(pgRecords);
+        storageLog.info(`Batch inserted ${inserted} records to PostgreSQL`);
+        return inserted;
+      } else {
+        // Use SQLite batch insert
+        const dbRecords = records.map(data => ({
+          station_id: data.stationId,
+          table_name: data.tableName || 'Table1',
+          record_number: data.recordNumber,
+          timestamp: data.timestamp.toISOString(),
+          data: JSON.stringify(data.data)
+        }));
+        
+        db.insertWeatherData(dbRecords);
+        return records.length;
+      }
     } catch (err: any) {
       // If batch fails due to duplicates, fall back to individual inserts
-      if (err.message?.includes('UNIQUE constraint')) {
+      if (err.message?.includes('UNIQUE constraint') || err.message?.includes('duplicate key')) {
+        storageLog.warn(`Batch insert failed with duplicates, falling back to individual inserts`);
         let inserted = 0;
         for (const data of records) {
           try {
@@ -544,7 +641,6 @@ export class DatabaseStorage {
 
   // User Preferences - full settings storage
   async getUserPreferences(userId: string): Promise<any> {
-    const storedPrefs = db.getSetting('user_preferences');
     const defaults = {
       userId,
       temperatureUnit: 'celsius',
@@ -561,6 +657,36 @@ export class DatabaseStorage {
       serverAddress: ''
     };
     
+    // Use PostgreSQL if available
+    if (usePostgres) {
+      try {
+        let userIdNum: number | undefined;
+        
+        // First try to parse as numeric ID
+        const numericId = parseInt(userId, 10);
+        if (!isNaN(numericId)) {
+          userIdNum = numericId;
+        } else if (userId.includes('@')) {
+          // If email, lookup the numeric ID
+          const result = await postgres.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [userId]);
+          if (result.rows.length > 0) {
+            userIdNum = result.rows[0].id;
+          }
+        }
+        
+        if (userIdNum) {
+          const prefs = await postgres.getUserPreferences(userIdNum);
+          if (prefs) {
+            return { ...defaults, ...prefs, userId };
+          }
+        }
+      } catch (error) {
+        storageLog.error('Failed to get preferences from PostgreSQL', error);
+      }
+    }
+    
+    // Fallback to local storage
+    const storedPrefs = db.getSetting('user_preferences');
     if (storedPrefs) {
       try {
         return { ...defaults, ...JSON.parse(storedPrefs), userId };
@@ -573,7 +699,47 @@ export class DatabaseStorage {
   }
 
   async upsertUserPreferences(prefs: any): Promise<any> {
-    // Get existing preferences
+    // Use PostgreSQL if available
+    if (usePostgres) {
+      try {
+        let userIdNum: number | undefined;
+        
+        // First try to parse as numeric ID
+        const numericId = parseInt(prefs.userId, 10);
+        if (!isNaN(numericId)) {
+          userIdNum = numericId;
+        } else if (prefs.userId && prefs.userId.includes('@')) {
+          // If email, lookup the numeric ID
+          const result = await postgres.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [prefs.userId]);
+          if (result.rows.length > 0) {
+            userIdNum = result.rows[0].id;
+          }
+        }
+        
+        if (userIdNum) {
+          const updated = await postgres.upsertUserPreferences({
+            userId: userIdNum,
+            temperatureUnit: prefs.temperatureUnit,
+            windSpeedUnit: prefs.windSpeedUnit,
+            pressureUnit: prefs.pressureUnit,
+            precipitationUnit: prefs.precipitationUnit,
+            theme: prefs.theme,
+            emailNotifications: prefs.emailNotifications,
+            pushNotifications: prefs.pushNotifications,
+            tempHighAlert: prefs.tempHighAlert,
+            windHighAlert: prefs.windHighAlert,
+            units: prefs.units,
+            timezone: prefs.timezone,
+            serverAddress: prefs.serverAddress,
+          });
+          return updated;
+        }
+      } catch (error) {
+        storageLog.error('Failed to upsert preferences in PostgreSQL', error);
+      }
+    }
+    
+    // Fallback to local storage
     const existing = await this.getUserPreferences(prefs.userId);
     const updated = { ...existing, ...prefs };
     
@@ -1153,6 +1319,25 @@ export class DatabaseStorage {
   // ============ User Management Operations ============
   
   async getAllUsers(): Promise<any[]> {
+    if (usePostgres) {
+      try {
+        const users = await postgres.getAllUsers();
+        return users.map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          role: u.role,
+          assignedStations: u.assignedStations
+            ? (typeof u.assignedStations === 'string' ? JSON.parse(u.assignedStations) : u.assignedStations)
+            : [],
+          lastLoginAt: u.lastLoginAt,
+          createdAt: u.createdAt
+        }));
+      } catch (error) {
+        storageLog.error('Failed to get all users from PostgreSQL', error);
+      }
+    }
     const users = db.getAllActiveUsers();
     return users.map(u => ({
       id: u.id,
@@ -1266,7 +1451,15 @@ export class DatabaseStorage {
     role?: 'admin' | 'user';
     assignedStations?: number[];
   }): Promise<any> {
-    // Map camelCase to snake_case for database
+    if (usePostgres) {
+      try {
+        const updated = await postgres.updateUserDataByEmail(email, updates);
+        if (updated) return updated;
+      } catch (error) {
+        storageLog.error('Failed to update user data in PostgreSQL', error);
+      }
+    }
+    // Fallback to SQLite
     const dbUpdates: any = {};
     if (updates.firstName !== undefined) dbUpdates.first_name = updates.firstName;
     if (updates.lastName !== undefined) dbUpdates.last_name = updates.lastName;
@@ -1279,6 +1472,13 @@ export class DatabaseStorage {
   }
 
   async deleteUserByEmail(email: string): Promise<boolean> {
+    if (usePostgres) {
+      try {
+        return await postgres.deleteUserByEmail(email);
+      } catch (error) {
+        storageLog.error('Failed to delete user from PostgreSQL', error);
+      }
+    }
     db.deleteUser(email);
     return true;
   }
