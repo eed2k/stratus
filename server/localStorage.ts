@@ -370,6 +370,15 @@ export class DatabaseStorage {
         longitude: station.longitude,
         altitude: station.altitude,
         location: (station as any).location,
+        stationType: (station as any).stationType || null,
+        protocol: (station as any).protocol || 'pakbus',
+        dataloggerModel: (station as any).dataloggerModel || null,
+        dataloggerSerialNumber: (station as any).dataloggerSerialNumber || null,
+        programName: (station as any).dataloggerProgramName || null,
+        modemModel: (station as any).modemModel || null,
+        modemSerialNumber: (station as any).modemSerialNumber || null,
+        siteDescription: (station as any).siteDescription || null,
+        notes: (station as any).notes || null,
       });
       const created = await postgres.getStationById(id);
       if (!created) throw new Error('Failed to create station');

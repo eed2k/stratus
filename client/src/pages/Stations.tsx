@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Search, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone, Camera, Radio, Settings, Globe } from "lucide-react";
+import { MapPin, Plus, Search, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone, Camera, Radio, Globe } from "lucide-react";
 import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -700,12 +700,10 @@ export default function Stations() {
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "stations" | "setup")} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="stations" className="flex items-center gap-2">
-            <Cloud className="h-4 w-4" />
+          <TabsTrigger value="stations">
             Active Stations
           </TabsTrigger>
-          <TabsTrigger value="setup" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
+          <TabsTrigger value="setup">
             Add New Station
           </TabsTrigger>
         </TabsList>

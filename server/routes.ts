@@ -45,7 +45,7 @@ const ingestRateLimiter = rateLimit({
 // - dnp3: DNP3 SCADA protocol
 const VALID_CONNECTION_TYPES = [
   'dropbox', 'http_post', 'tcp_ip', 'tcp', 'ip', 'wifi', 'http',
-  'lora', 'gsm', '4g', 'mqtt', 'satellite', 'modbus', 'dnp3', 'pakbus', 'demo'
+  'lora', 'gsm', '4g', 'mqtt', 'satellite', 'modbus', 'dnp3', 'pakbus', 'demo', 'rikacloud'
 ] as const;
 
 const insertWeatherStationSchema = z.object({
@@ -857,7 +857,7 @@ export async function registerRoutes(
             'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
             'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
             'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
-            'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus',
+            'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus', 'rikacloud': 'http',
           };
           
           await protocolManager.registerStation(station.id, {
@@ -950,7 +950,7 @@ export async function registerRoutes(
               'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
               'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
               'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
-              'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus',
+              'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus', 'rikacloud': 'http',
             };
             
             await protocolManager.registerStation(station.id, {
