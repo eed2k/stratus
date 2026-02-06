@@ -609,7 +609,7 @@ export async function registerRoutes(
         email,
         firstName,
         lastName,
-        passwordHash: finalPasswordHash,
+        passwordHash: finalPasswordHash!,
         role: role || 'user',
         assignedStations: assignedStations || []
       });
