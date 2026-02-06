@@ -494,12 +494,13 @@ export class DatabaseStorage {
     
     try {
       if (usePostgres) {
+        // Note: postgres.insertWeatherData will JSON.stringify the data internally
         await postgres.insertWeatherData([{
           stationId: data.stationId,
           tableName: tableName,
           recordNumber: data.recordNumber,
           timestamp: data.timestamp.toISOString(),
-          data: JSON.stringify(data.data)
+          data: data.data  // Pass raw object, postgres will stringify
         }]);
       } else {
         db.insertWeatherData([{

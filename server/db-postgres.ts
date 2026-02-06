@@ -145,6 +145,12 @@ async function createTables(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_weather_data_record 
     ON weather_data(station_id, record_number)
   `);
+  
+  // Add unique constraint to prevent duplicate records
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_weather_data_unique_station_time
+    ON weather_data(station_id, timestamp)
+  `);
   pgLog.info('Weather data indexes ready');
 
   // Table definitions
@@ -337,6 +343,39 @@ async function createTables(): Promise<void> {
     )
   `);
   pgLog.info('Organization invitations table ready');
+
+  // Settings table for app configuration
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  pgLog.info('Settings table ready');
+
+  // User preferences table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL UNIQUE,
+      temperature_unit TEXT DEFAULT 'celsius',
+      wind_speed_unit TEXT DEFAULT 'ms',
+      pressure_unit TEXT DEFAULT 'hpa',
+      precipitation_unit TEXT DEFAULT 'mm',
+      theme TEXT DEFAULT 'system',
+      email_notifications BOOLEAN DEFAULT true,
+      push_notifications BOOLEAN DEFAULT false,
+      temp_high_alert REAL DEFAULT 35,
+      wind_high_alert REAL DEFAULT 50,
+      units TEXT DEFAULT 'metric',
+      timezone TEXT DEFAULT 'auto',
+      server_address TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  pgLog.info('User preferences table ready');
 }
 
 /**
@@ -619,24 +658,19 @@ export async function insertWeatherData(records: WeatherRecord[]): Promise<numbe
     await client.query('BEGIN');
     
     for (const record of records) {
-      // Check for duplicate
-      const existing = await client.query(`
-        SELECT id FROM weather_data 
-        WHERE station_id = $1 AND timestamp = $2
-        LIMIT 1
-      `, [record.stationId, record.timestamp]);
-      
-      if (existing.rows.length === 0) {
-        await client.query(`
-          INSERT INTO weather_data (station_id, table_name, record_number, timestamp, data)
-          VALUES ($1, $2, $3, $4, $5)
-        `, [
-          record.stationId,
-          record.tableName,
-          record.recordNumber || null,
-          record.timestamp,
-          JSON.stringify(record.data),
-        ]);
+      // Use ON CONFLICT DO NOTHING to efficiently skip duplicates
+      const result = await client.query(`
+        INSERT INTO weather_data (station_id, table_name, record_number, timestamp, data)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (station_id, timestamp) DO NOTHING
+      `, [
+        record.stationId,
+        record.tableName || 'Table1',
+        record.recordNumber || null,
+        record.timestamp,
+        typeof record.data === 'string' ? record.data : JSON.stringify(record.data),
+      ]);
+      if (result.rowCount && result.rowCount > 0) {
         insertedCount++;
       }
     }
@@ -986,6 +1020,99 @@ export async function markUserInvitationTokenUsed(token: string): Promise<void> 
 }
 
 /**
+ * Get all active users
+ */
+export async function getAllUsers(): Promise<User[]> {
+  const result = await query(`
+    SELECT * FROM users WHERE is_active = true ORDER BY created_at DESC
+  `);
+  
+  return result.rows.map((row: any) => ({
+    id: row.id,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    passwordHash: row.password_hash,
+    role: row.role,
+    assignedStations: row.assigned_stations,
+    isActive: row.is_active,
+    lastLoginAt: row.last_login_at?.toISOString(),
+    createdAt: row.created_at?.toISOString(),
+    updatedAt: row.updated_at?.toISOString(),
+  }));
+}
+
+/**
+ * Delete user by email
+ */
+export async function deleteUserByEmail(email: string): Promise<boolean> {
+  const result = await query(`
+    DELETE FROM users WHERE LOWER(email) = LOWER($1)
+  `, [email]);
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Update user data by email (admin path)
+ */
+export async function updateUserDataByEmail(email: string, updates: {
+  firstName?: string;
+  lastName?: string;
+  passwordHash?: string;
+  role?: string;
+  assignedStations?: number[];
+}): Promise<any> {
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  if (updates.firstName !== undefined) {
+    setClauses.push(`first_name = $${paramIndex++}`);
+    values.push(updates.firstName);
+  }
+  if (updates.lastName !== undefined) {
+    setClauses.push(`last_name = $${paramIndex++}`);
+    values.push(updates.lastName);
+  }
+  if (updates.passwordHash !== undefined) {
+    setClauses.push(`password_hash = $${paramIndex++}`);
+    values.push(updates.passwordHash);
+  }
+  if (updates.role !== undefined) {
+    setClauses.push(`role = $${paramIndex++}`);
+    values.push(updates.role);
+  }
+  if (updates.assignedStations !== undefined) {
+    setClauses.push(`assigned_stations = $${paramIndex++}`);
+    values.push(JSON.stringify(updates.assignedStations));
+  }
+
+  if (setClauses.length === 0) return null;
+
+  setClauses.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(email.toLowerCase());
+
+  const result = await query(`
+    UPDATE users SET ${setClauses.join(', ')}
+    WHERE LOWER(email) = LOWER($${paramIndex})
+    RETURNING id, email, first_name, last_name, role, assigned_stations, last_login_at, created_at
+  `, values);
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    role: row.role,
+    assignedStations: row.assigned_stations ? (typeof row.assigned_stations === 'string' ? JSON.parse(row.assigned_stations) : row.assigned_stations) : [],
+    lastLoginAt: row.last_login_at?.toISOString(),
+    createdAt: row.created_at?.toISOString(),
+  };
+}
+
+/**
  * Update user password hash
  */
 export async function updateUserPassword(email: string, passwordHash: string): Promise<void> {
@@ -993,6 +1120,204 @@ export async function updateUserPassword(email: string, passwordHash: string): P
     UPDATE users SET password_hash = $2, updated_at = CURRENT_TIMESTAMP
     WHERE email = $1
   `, [email.toLowerCase(), passwordHash]);
+}
+
+/**
+ * Update user profile (firstName, lastName, email)
+ */
+export async function updateUserProfile(userId: number, updates: { firstName?: string; lastName?: string; email?: string }): Promise<any> {
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+  
+  if (updates.firstName !== undefined) {
+    setClauses.push(`first_name = $${paramIndex++}`);
+    values.push(updates.firstName);
+  }
+  if (updates.lastName !== undefined) {
+    setClauses.push(`last_name = $${paramIndex++}`);
+    values.push(updates.lastName);
+  }
+  if (updates.email !== undefined) {
+    setClauses.push(`email = $${paramIndex++}`);
+    values.push(updates.email.toLowerCase());
+  }
+  
+  if (setClauses.length === 0) {
+    // No updates provided, just return the current user
+    const result = await query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      email: row.email,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      role: row.role,
+      createdAt: row.created_at
+    };
+  }
+  
+  setClauses.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(userId);
+  
+  const result = await query(`
+    UPDATE users SET ${setClauses.join(', ')}
+    WHERE id = $${paramIndex}
+    RETURNING id, email, first_name, last_name, role, created_at
+  `, values);
+  
+  if (result.rows.length === 0) return null;
+  
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    role: row.role,
+    createdAt: row.created_at
+  };
+}
+
+// ============================================================================
+// Settings Operations
+// ============================================================================
+
+/**
+ * Get a setting by key
+ */
+export async function getSetting(key: string): Promise<string | null> {
+  const result = await query('SELECT value FROM settings WHERE key = $1', [key]);
+  if (result.rows.length === 0) return null;
+  return result.rows[0].value;
+}
+
+/**
+ * Set a setting value
+ */
+export async function setSetting(key: string, value: string): Promise<void> {
+  await query(`
+    INSERT INTO settings (key, value, updated_at) 
+    VALUES ($1, $2, CURRENT_TIMESTAMP)
+    ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+  `, [key, value]);
+}
+
+/**
+ * Get all settings
+ */
+export async function getAllSettings(): Promise<Record<string, string>> {
+  const result = await query('SELECT key, value FROM settings');
+  const settings: Record<string, string> = {};
+  for (const row of result.rows) {
+    settings[row.key] = row.value;
+  }
+  return settings;
+}
+
+// ============================================================================
+// User Preferences Operations
+// ============================================================================
+
+export interface UserPreferences {
+  userId: number;
+  temperatureUnit: string;
+  windSpeedUnit: string;
+  pressureUnit: string;
+  precipitationUnit: string;
+  theme: string;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  tempHighAlert: number;
+  windHighAlert: number;
+  units: string;
+  timezone: string;
+  serverAddress: string;
+}
+
+/**
+ * Get user preferences
+ */
+export async function getUserPreferences(userId: number): Promise<UserPreferences | null> {
+  const result = await query('SELECT * FROM user_preferences WHERE user_id = $1', [userId]);
+  if (result.rows.length === 0) return null;
+  
+  const row = result.rows[0];
+  return {
+    userId: row.user_id,
+    temperatureUnit: row.temperature_unit,
+    windSpeedUnit: row.wind_speed_unit,
+    pressureUnit: row.pressure_unit,
+    precipitationUnit: row.precipitation_unit,
+    theme: row.theme,
+    emailNotifications: row.email_notifications,
+    pushNotifications: row.push_notifications,
+    tempHighAlert: row.temp_high_alert,
+    windHighAlert: row.wind_high_alert,
+    units: row.units,
+    timezone: row.timezone,
+    serverAddress: row.server_address,
+  };
+}
+
+/**
+ * Upsert user preferences
+ */
+export async function upsertUserPreferences(prefs: Partial<UserPreferences> & { userId: number }): Promise<UserPreferences> {
+  const result = await query(`
+    INSERT INTO user_preferences (
+      user_id, temperature_unit, wind_speed_unit, pressure_unit, precipitation_unit,
+      theme, email_notifications, push_notifications, temp_high_alert, wind_high_alert,
+      units, timezone, server_address
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    ON CONFLICT (user_id) DO UPDATE SET
+      temperature_unit = COALESCE($2, user_preferences.temperature_unit),
+      wind_speed_unit = COALESCE($3, user_preferences.wind_speed_unit),
+      pressure_unit = COALESCE($4, user_preferences.pressure_unit),
+      precipitation_unit = COALESCE($5, user_preferences.precipitation_unit),
+      theme = COALESCE($6, user_preferences.theme),
+      email_notifications = COALESCE($7, user_preferences.email_notifications),
+      push_notifications = COALESCE($8, user_preferences.push_notifications),
+      temp_high_alert = COALESCE($9, user_preferences.temp_high_alert),
+      wind_high_alert = COALESCE($10, user_preferences.wind_high_alert),
+      units = COALESCE($11, user_preferences.units),
+      timezone = COALESCE($12, user_preferences.timezone),
+      server_address = COALESCE($13, user_preferences.server_address),
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING *
+  `, [
+    prefs.userId,
+    prefs.temperatureUnit || 'celsius',
+    prefs.windSpeedUnit || 'ms',
+    prefs.pressureUnit || 'hpa',
+    prefs.precipitationUnit || 'mm',
+    prefs.theme || 'system',
+    prefs.emailNotifications ?? true,
+    prefs.pushNotifications ?? false,
+    prefs.tempHighAlert ?? 35,
+    prefs.windHighAlert ?? 50,
+    prefs.units || 'metric',
+    prefs.timezone || 'auto',
+    prefs.serverAddress || '',
+  ]);
+  
+  const row = result.rows[0];
+  return {
+    userId: row.user_id,
+    temperatureUnit: row.temperature_unit,
+    windSpeedUnit: row.wind_speed_unit,
+    pressureUnit: row.pressure_unit,
+    precipitationUnit: row.precipitation_unit,
+    theme: row.theme,
+    emailNotifications: row.email_notifications,
+    pushNotifications: row.push_notifications,
+    tempHighAlert: row.temp_high_alert,
+    windHighAlert: row.wind_high_alert,
+    units: row.units,
+    timezone: row.timezone,
+    serverAddress: row.server_address,
+  };
 }
 
 export default {
@@ -1024,4 +1349,12 @@ export default {
   validateUserInvitationToken,
   markUserInvitationTokenUsed,
   updateUserPassword,
+  updateUserProfile,
+  // Settings
+  getSetting,
+  setSetting,
+  getAllSettings,
+  // User preferences
+  getUserPreferences,
+  upsertUserPreferences,
 };
