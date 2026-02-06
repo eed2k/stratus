@@ -1494,7 +1494,7 @@ export async function registerRoutes(
       res.json(orgs);
     } catch (error) {
       console.error("Error fetching organizations:", error);
-      res.status(500).json({ message: "Failed to fetch organizations" });
+      res.status(500).json({ message: "Failed to fetch organisations" });
     }
   });
 
@@ -1506,7 +1506,7 @@ export async function registerRoutes(
       }
       const org = await storage.getOrganization(orgId);
       if (!org) {
-        return res.status(404).json({ message: "Organization not found" });
+        return res.status(404).json({ message: "Organisation not found" });
       }
       
       // Check membership unless demo mode
@@ -1520,7 +1520,7 @@ export async function registerRoutes(
       res.json(org);
     } catch (error) {
       console.error("Error fetching organization:", error);
-      res.status(500).json({ message: "Failed to fetch organization" });
+      res.status(500).json({ message: "Failed to fetch organisation" });
     }
   });
 
@@ -1530,7 +1530,7 @@ export async function registerRoutes(
       const { name, description } = req.body;
       
       if (!name || typeof name !== 'string' || name.trim().length === 0) {
-        return res.status(400).json({ message: "Organization name is required" });
+        return res.status(400).json({ message: "Organisation name is required" });
       }
       
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -1543,7 +1543,7 @@ export async function registerRoutes(
       });
       
       if (!parsed.success) {
-        return res.status(400).json({ message: "Invalid organization data", errors: parsed.error.errors });
+        return res.status(400).json({ message: "Invalid organisation data", errors: parsed.error.errors });
       }
       
       const org = await storage.createOrganization(parsed.data);
@@ -1559,7 +1559,7 @@ export async function registerRoutes(
       res.status(201).json(org);
     } catch (error) {
       console.error("Error creating organization:", error);
-      res.status(500).json({ message: "Failed to create organization" });
+      res.status(500).json({ message: "Failed to create organisation" });
     }
   });
 
@@ -1573,7 +1573,7 @@ export async function registerRoutes(
       
       // Only admins can update organization
       if (!(await isOrgAdmin(orgId, userId))) {
-        return res.status(403).json({ message: "Only organization admins can update organization" });
+        return res.status(403).json({ message: "Only organisation admins can update organisation" });
       }
       
       // Only allow updating specific fields
@@ -1585,12 +1585,12 @@ export async function registerRoutes(
       
       const org = await storage.updateOrganization(orgId, updateData);
       if (!org) {
-        return res.status(404).json({ message: "Organization not found" });
+        return res.status(404).json({ message: "Organisation not found" });
       }
       res.json(org);
     } catch (error) {
       console.error("Error updating organization:", error);
-      res.status(500).json({ message: "Failed to update organization" });
+      res.status(500).json({ message: "Failed to update organisation" });
     }
   });
 
@@ -1605,17 +1605,17 @@ export async function registerRoutes(
       // Only owner can delete organization
       const org = await storage.getOrganization(orgId);
       if (!org) {
-        return res.status(404).json({ message: "Organization not found" });
+        return res.status(404).json({ message: "Organisation not found" });
       }
       if (org.ownerId !== userId) {
-        return res.status(403).json({ message: "Only the organization owner can delete it" });
+        return res.status(403).json({ message: "Only the organisation owner can delete it" });
       }
       
       await storage.deleteOrganization(orgId);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting organization:", error);
-      res.status(500).json({ message: "Failed to delete organization" });
+      res.status(500).json({ message: "Failed to delete organisation" });
     }
   });
 
@@ -1653,7 +1653,7 @@ export async function registerRoutes(
       
       // Only admins can add members directly
       if (!(await isOrgAdmin(orgId, userId))) {
-        return res.status(403).json({ message: "Only organization admins can add members" });
+        return res.status(403).json({ message: "Only organisation admins can add members" });
       }
       
       const { userId: targetUserId, role } = req.body;
@@ -1686,7 +1686,7 @@ export async function registerRoutes(
       
       // Only admins can update roles
       if (!(await isOrgAdmin(orgId, currentUserId))) {
-        return res.status(403).json({ message: "Only organization admins can update roles" });
+        return res.status(403).json({ message: "Only organisation admins can update roles" });
       }
       
       const { role } = req.body;
@@ -1716,13 +1716,13 @@ export async function registerRoutes(
       
       // Only admins can remove members (or user can remove themselves)
       if (targetUserId !== currentUserId && !(await isOrgAdmin(orgId, currentUserId))) {
-        return res.status(403).json({ message: "Only organization admins can remove members" });
+        return res.status(403).json({ message: "Only organisation admins can remove members" });
       }
       
       // Prevent owner from being removed
       const org = await storage.getOrganization(orgId);
       if (org && org.ownerId === targetUserId) {
-        return res.status(400).json({ message: "Cannot remove the organization owner" });
+        return res.status(400).json({ message: "Cannot remove the organisation owner" });
       }
       
       const removed = await storage.removeOrganizationMember(orgId, targetUserId);
@@ -1770,7 +1770,7 @@ export async function registerRoutes(
       
       // Only admins can create invitations
       if (!(await isOrgAdmin(orgId, userId))) {
-        return res.status(403).json({ message: "Only organization admins can send invitations" });
+        return res.status(403).json({ message: "Only organisation admins can send invitations" });
       }
       
       const { email, role } = req.body;
@@ -2274,7 +2274,7 @@ export async function registerRoutes(
   'use strict';
   
   const StratusWidget = {
-    version: '1.0.0',
+    version: '1.1.0',
     
     styles: \`
       .stratus-widget {

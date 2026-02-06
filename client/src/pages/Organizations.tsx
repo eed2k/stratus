@@ -55,10 +55,10 @@ export default function Organizations() {
       setCreateDialogOpen(false);
       setNewOrgName("");
       setNewOrgDescription("");
-      toast({ title: "Organization created", description: "Your organization has been created successfully." });
+      toast({ title: "Organisation created", description: "Your organisation has been created successfully." });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to create organization.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to create organisation.", variant: "destructive" });
     },
   });
 
@@ -69,7 +69,7 @@ export default function Organizations() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error('Failed to update organization');
+      if (!response.ok) throw new Error('Failed to update organisation');
       return response.json();
     },
     onSuccess: () => {
@@ -84,10 +84,10 @@ export default function Organizations() {
           logoUrl: orgLogo,
         });
       }
-      toast({ title: "Organization updated", description: "Your organization has been updated successfully." });
+      toast({ title: "Organisation updated", description: "Your organisation has been updated successfully." });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update organization.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update organisation.", variant: "destructive" });
     },
   });
 
@@ -123,7 +123,7 @@ export default function Organizations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/organizations", selectedOrg?.id, "members"] });
-      toast({ title: "Member removed", description: "Member has been removed from the organization." });
+      toast({ title: "Member removed", description: "Member has been removed from the organisation." });
     },
   });
 
@@ -195,20 +195,20 @@ export default function Organizations() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold" data-testid="text-page-title">Organizations</h1>
-            <p className="text-muted-foreground">Manage your organizations and team members</p>
+            <h1 className="text-2xl font-semibold" data-testid="text-page-title">Organisations</h1>
+            <p className="text-muted-foreground">Manage your organisations and team members</p>
           </div>
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-create-org">
                 <Plus className="h-4 w-4 mr-2" />
-                Create Organization
+                Create Organisation
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Organization</DialogTitle>
-                <DialogDescription>Create a new organization to manage weather stations with your team.</DialogDescription>
+                <DialogTitle>Create Organisation</DialogTitle>
+                <DialogDescription>Create a new organisation to manage weather stations with your team.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -217,7 +217,7 @@ export default function Organizations() {
                     id="org-name" 
                     value={newOrgName} 
                     onChange={(e) => setNewOrgName(e.target.value)} 
-                    placeholder="My Organization"
+                    placeholder="My Organisation"
                     data-testid="input-org-name"
                   />
                 </div>
@@ -227,7 +227,7 @@ export default function Organizations() {
                     id="org-description" 
                     value={newOrgDescription} 
                     onChange={(e) => setNewOrgDescription(e.target.value)} 
-                    placeholder="A brief description of your organization"
+                    placeholder="A brief description of your organisation"
                     data-testid="input-org-description"
                   />
                 </div>
@@ -252,13 +252,13 @@ export default function Organizations() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
-                Your Organizations
+                Your Organisations
               </CardTitle>
-              <CardDescription>Select an organization to manage</CardDescription>
+              <CardDescription>Select an organisation to manage</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {!organizations?.length ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No organizations yet. Create one to get started.</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">No organisations yet. Create one to get started.</p>
               ) : (
                 organizations.map((org) => (
                   <Button
@@ -280,7 +280,7 @@ export default function Organizations() {
             {!selectedOrg ? (
               <CardContent className="flex flex-col items-center justify-center h-64 text-center">
                 <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Select an organization to view details and manage members</p>
+                <p className="text-muted-foreground">Select an organisation to view details and manage members</p>
               </CardContent>
             ) : (
               <>
@@ -341,7 +341,7 @@ export default function Organizations() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Admin - Full access to manage organization</SelectItem>
+                              <SelectItem value="admin">Admin - Full access to manage organisation</SelectItem>
                               <SelectItem value="member">Member - Can manage assigned stations</SelectItem>
                               <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
                             </SelectContent>
@@ -488,18 +488,18 @@ export default function Organizations() {
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Organization Settings</DialogTitle>
-            <DialogDescription>Update your organization details and logo</DialogDescription>
+            <DialogTitle>Organisation Settings</DialogTitle>
+            <DialogDescription>Update your organisation details and logo</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Logo Upload */}
             <div className="space-y-2">
-              <Label>Organization Logo</Label>
+              <Label>Organisation Logo</Label>
               <div className="flex items-center gap-4">
                 {orgLogo ? (
                   <img 
                     src={orgLogo} 
-                    alt="Organization logo"
+                    alt="Organisation logo"
                     className="w-20 h-20 rounded-lg object-cover border"
                   />
                 ) : (
@@ -545,7 +545,7 @@ export default function Organizations() {
                 id="edit-org-name" 
                 value={editOrgName} 
                 onChange={(e) => setEditOrgName(e.target.value)} 
-                placeholder="Organization name"
+                placeholder="Organisation name"
               />
             </div>
 
@@ -556,7 +556,7 @@ export default function Organizations() {
                 id="edit-org-description" 
                 value={editOrgDescription} 
                 onChange={(e) => setEditOrgDescription(e.target.value)} 
-                placeholder="A brief description of your organization"
+                placeholder="A brief description of your organisation"
                 rows={3}
               />
             </div>

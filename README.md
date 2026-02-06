@@ -1,6 +1,6 @@
 Stratus Weather Station
 
-Version 1.2.0
+Version 1.1.0
 Developer: Lukas Esterhuizen
 Contact: esterhuizen2k@proton.me
 

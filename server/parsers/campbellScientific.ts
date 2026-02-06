@@ -75,7 +75,12 @@ export function parseTOA5(content: string): ParsedFile {
       const values = parseCSVLine(lines[i]);
       if (values.length === 0) continue;
 
-      const timestamp = new Date(values[0].replace(/"/g, ""));
+      const rawTimestamp = values[0].replace(/"/g, "").trim();
+      // Campbell Scientific TOA5 timestamps are in station local time (SAST = UTC+2)
+      // without timezone markers. Append +02:00 so JS Date parses them correctly.
+      const hasTimezone = /[Z+-]\d{2}:?\d{2}$/.test(rawTimestamp) || rawTimestamp.endsWith('Z');
+      const timestampStr = hasTimezone ? rawTimestamp : rawTimestamp.replace(' ', 'T') + '+02:00';
+      const timestamp = new Date(timestampStr);
       const recordNumber = parseInt(values[1]) || i - 3;
 
       const data: Record<string, number | string | null> = {};
@@ -263,7 +268,10 @@ function parseGenericCSV(content: string): ParsedFile {
 
       // Check for timestamp columns
       if (header.toLowerCase().includes("time") || header.toLowerCase().includes("date")) {
-        const parsed = new Date(value);
+        // Assume station local time (SAST = UTC+2) if no timezone marker
+        const hasTimezone = /[Z+-]\d{2}:?\d{2}$/.test(value) || value.endsWith('Z');
+        const tsStr = hasTimezone ? value : value.replace(' ', 'T') + '+02:00';
+        const parsed = new Date(tsStr);
         if (!isNaN(parsed.getTime())) {
           timestamp = parsed;
           continue;

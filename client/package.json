@@ -1,6 +1,6 @@
 {
   "name": "stratus-client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Stratus weather station monitoring frontend - DEPRECATED: Use root package.json for all dependencies",
   "private": true,
   "type": "module",

@@ -845,7 +845,7 @@ export default function Compliance() {
                         </TableCell>
                         <TableCell>
                           {cert.station?.name || (
-                            <span className="text-muted-foreground">Organization-wide</span>
+                            <span className="text-muted-foreground">Organisation-wide</span>
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-xs">

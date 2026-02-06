@@ -1324,6 +1324,231 @@ export async function upsertUserPreferences(prefs: Partial<UserPreferences> & { 
   };
 }
 
+// ==================== Alarm Functions ====================
+
+export interface PgAlarm {
+  id: number;
+  station_id: number;
+  parameter: string;
+  condition: string;
+  threshold: number;
+  severity: string;
+  enabled: boolean;
+  email_notifications: boolean;
+  email_recipients?: string | null;
+  last_triggered_at?: string | null;
+  trigger_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PgAlarmEvent {
+  id: number;
+  alarm_id: number;
+  station_id: number;
+  triggered_value?: number | null;
+  message?: string | null;
+  acknowledged: boolean;
+  acknowledged_by?: string | null;
+  acknowledged_at?: string | null;
+  created_at: string;
+}
+
+export async function pgCreateAlarm(alarm: {
+  station_id: number;
+  parameter: string;
+  condition: string;
+  threshold: number;
+  severity?: string;
+  enabled?: boolean;
+  email_notifications?: boolean;
+  email_recipients?: string | null;
+}): Promise<number> {
+  const pool = getPool();
+  const result = await pool.query(
+    `INSERT INTO alarms (station_id, parameter, condition, threshold, severity, enabled, email_notifications, email_recipients)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+    [
+      alarm.station_id,
+      alarm.parameter,
+      alarm.condition,
+      alarm.threshold,
+      alarm.severity || 'warning',
+      alarm.enabled !== false,
+      alarm.email_notifications || false,
+      alarm.email_recipients || null
+    ]
+  );
+  pgLog.info(`Created alarm ${result.rows[0].id} for station ${alarm.station_id}`);
+  return result.rows[0].id;
+}
+
+export async function pgGetAlarmById(id: number): Promise<PgAlarm | null> {
+  const pool = getPool();
+  const result = await pool.query('SELECT * FROM alarms WHERE id = $1', [id]);
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    station_id: row.station_id,
+    parameter: row.parameter,
+    condition: row.condition,
+    threshold: row.threshold,
+    severity: row.severity,
+    enabled: row.enabled,
+    email_notifications: row.email_notifications,
+    email_recipients: row.email_recipients,
+    last_triggered_at: row.last_triggered_at?.toISOString() ?? null,
+    trigger_count: row.trigger_count || 0,
+    created_at: row.created_at?.toISOString() || new Date().toISOString(),
+    updated_at: row.updated_at?.toISOString() || new Date().toISOString(),
+  };
+}
+
+export async function pgGetAlarmsByStation(stationId: number): Promise<PgAlarm[]> {
+  const pool = getPool();
+  const result = await pool.query('SELECT * FROM alarms WHERE station_id = $1 ORDER BY created_at DESC', [stationId]);
+  return result.rows.map((row: any) => ({
+    id: row.id,
+    station_id: row.station_id,
+    parameter: row.parameter,
+    condition: row.condition,
+    threshold: row.threshold,
+    severity: row.severity,
+    enabled: row.enabled,
+    email_notifications: row.email_notifications,
+    email_recipients: row.email_recipients,
+    last_triggered_at: row.last_triggered_at?.toISOString() ?? null,
+    trigger_count: row.trigger_count || 0,
+    created_at: row.created_at?.toISOString() || new Date().toISOString(),
+    updated_at: row.updated_at?.toISOString() || new Date().toISOString(),
+  }));
+}
+
+export async function pgGetAllAlarms(): Promise<PgAlarm[]> {
+  const pool = getPool();
+  const result = await pool.query('SELECT * FROM alarms ORDER BY created_at DESC');
+  return result.rows.map((row: any) => ({
+    id: row.id,
+    station_id: row.station_id,
+    parameter: row.parameter,
+    condition: row.condition,
+    threshold: row.threshold,
+    severity: row.severity,
+    enabled: row.enabled,
+    email_notifications: row.email_notifications,
+    email_recipients: row.email_recipients,
+    last_triggered_at: row.last_triggered_at?.toISOString() ?? null,
+    trigger_count: row.trigger_count || 0,
+    created_at: row.created_at?.toISOString() || new Date().toISOString(),
+    updated_at: row.updated_at?.toISOString() || new Date().toISOString(),
+  }));
+}
+
+export async function pgUpdateAlarm(id: number, updates: Partial<{
+  parameter: string;
+  condition: string;
+  threshold: number;
+  severity: string;
+  enabled: boolean;
+  email_notifications: boolean;
+  email_recipients: string | null;
+  last_triggered_at: string;
+  trigger_count: number;
+}>): Promise<void> {
+  const fields: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  if (updates.parameter !== undefined) { fields.push(`parameter = $${paramIndex++}`); values.push(updates.parameter); }
+  if (updates.condition !== undefined) { fields.push(`condition = $${paramIndex++}`); values.push(updates.condition); }
+  if (updates.threshold !== undefined) { fields.push(`threshold = $${paramIndex++}`); values.push(updates.threshold); }
+  if (updates.severity !== undefined) { fields.push(`severity = $${paramIndex++}`); values.push(updates.severity); }
+  if (updates.enabled !== undefined) { fields.push(`enabled = $${paramIndex++}`); values.push(updates.enabled); }
+  if (updates.email_notifications !== undefined) { fields.push(`email_notifications = $${paramIndex++}`); values.push(updates.email_notifications); }
+  if (updates.email_recipients !== undefined) { fields.push(`email_recipients = $${paramIndex++}`); values.push(updates.email_recipients); }
+  if (updates.last_triggered_at !== undefined) { fields.push(`last_triggered_at = $${paramIndex++}`); values.push(updates.last_triggered_at); }
+  if (updates.trigger_count !== undefined) { fields.push(`trigger_count = $${paramIndex++}`); values.push(updates.trigger_count); }
+
+  if (fields.length === 0) return;
+
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(id);
+
+  await getPool().query(`UPDATE alarms SET ${fields.join(', ')} WHERE id = $${paramIndex}`, values);
+  pgLog.info(`Updated alarm ${id}`);
+}
+
+export async function pgDeleteAlarm(id: number): Promise<void> {
+  await getPool().query('DELETE FROM alarms WHERE id = $1', [id]);
+  pgLog.info(`Deleted alarm ${id}`);
+}
+
+export async function pgTriggerAlarm(alarmId: number, triggeredValue: number, message?: string): Promise<number> {
+  const alarm = await pgGetAlarmById(alarmId);
+  if (!alarm) throw new Error(`Alarm ${alarmId} not found`);
+
+  const pool = getPool();
+  const result = await pool.query(
+    `INSERT INTO alarm_events (alarm_id, station_id, triggered_value, message)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [alarmId, alarm.station_id, triggeredValue, message || null]
+  );
+
+  await pool.query(
+    `UPDATE alarms SET last_triggered_at = CURRENT_TIMESTAMP, trigger_count = COALESCE(trigger_count, 0) + 1 WHERE id = $1`,
+    [alarmId]
+  );
+
+  const eventId = result.rows[0].id;
+  pgLog.warn(`Alarm ${alarmId} triggered with value ${triggeredValue}, event ${eventId}`);
+  return eventId;
+}
+
+export async function pgGetAlarmEvents(alarmId?: number, stationId?: number, limit: number = 100): Promise<PgAlarmEvent[]> {
+  let query = 'SELECT * FROM alarm_events';
+  const conditions: string[] = [];
+  const params: any[] = [];
+  let paramIndex = 1;
+
+  if (alarmId !== undefined) {
+    conditions.push(`alarm_id = $${paramIndex++}`);
+    params.push(alarmId);
+  }
+  if (stationId !== undefined) {
+    conditions.push(`station_id = $${paramIndex++}`);
+    params.push(stationId);
+  }
+
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+
+  query += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
+  params.push(limit);
+
+  const result = await getPool().query(query, params);
+  return result.rows.map((row: any) => ({
+    id: row.id,
+    alarm_id: row.alarm_id,
+    station_id: row.station_id,
+    triggered_value: row.triggered_value,
+    message: row.message,
+    acknowledged: row.acknowledged || false,
+    acknowledged_by: row.acknowledged_by,
+    acknowledged_at: row.acknowledged_at?.toISOString() ?? null,
+    created_at: row.created_at?.toISOString() || new Date().toISOString(),
+  }));
+}
+
+export async function pgAcknowledgeAlarmEvent(eventId: number, acknowledgedBy: string): Promise<void> {
+  await getPool().query(
+    `UPDATE alarm_events SET acknowledged = true, acknowledged_by = $1, acknowledged_at = CURRENT_TIMESTAMP WHERE id = $2`,
+    [acknowledgedBy, eventId]
+  );
+  pgLog.info(`Alarm event ${eventId} acknowledged by ${acknowledgedBy}`);
+}
+
 export default {
   isPostgresEnabled,
   initPostgresDatabase,
@@ -1361,4 +1586,14 @@ export default {
   // User preferences
   getUserPreferences,
   upsertUserPreferences,
+  // Alarms
+  pgCreateAlarm,
+  pgGetAlarmById,
+  pgGetAlarmsByStation,
+  pgGetAllAlarms,
+  pgUpdateAlarm,
+  pgDeleteAlarm,
+  pgTriggerAlarm,
+  pgGetAlarmEvents,
+  pgAcknowledgeAlarmEvent,
 };

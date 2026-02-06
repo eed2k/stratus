@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -274,7 +274,35 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     enabled: !!activeStationId,
     refetchInterval: dashboardConfig.updatePeriod * 1000,
     staleTime: 0, // Always refetch when timeframe changes - don't use cached data
+    placeholderData: keepPreviousData, // Show previous data while new range loads
   });
+
+  // Separate query for 7-day stats data (always fetches 7 days regardless of chart time range)
+  const statsTimeRangeHours = 7 * 24; // 168 hours = 7 days
+  const { data: statsData = [] } = useQuery<WeatherData[]>({
+    queryKey: ["/api/stations", activeStationId, "data", "stats-7d"],
+    queryFn: async () => {
+      if (!activeStationId) return [];
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - statsTimeRangeHours * 60 * 60 * 1000);
+      const response = await authFetch(
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeStationId,
+    refetchInterval: dashboardConfig.updatePeriod * 1000,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes - stats don't change as fast
+  });
+
+  // Sort stats data by timestamp ascending
+  const sortedStatsData = useMemo(() => {
+    if (statsData.length === 0) return [];
+    return [...statsData].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  }, [statsData]);
 
   // Calculate actual data time range for display
   const dataTimeRange = useMemo(() => {
@@ -369,8 +397,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const last60Min = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > oneHourAgo);
     const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
     const last48h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > fortyEightHoursAgo);
-    const last7d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
-    const last31d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > thirtyOneDaysAgo);
+    // Use sortedStatsData (7-day dataset) for 7d/31d wind periods so they have real data
+    const windDataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    const last7d = windDataSource.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    const last31d = windDataSource.filter(d => new Date(d.timestamp).getTime() > thirtyOneDaysAgo);
     
     return {
       '60min': {
@@ -404,16 +434,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         count: sortedHistoricalData.length
       }
     };
-  }, [sortedHistoricalData, windRoseData, windScatterData]);
+  }, [sortedHistoricalData, sortedStatsData, windRoseData, windScatterData]);
 
-  // Calculate temperature statistics for 24h and 7d periods
+  // Calculate temperature statistics for 24h and 7d periods (uses 7-day stats data)
   const temperatureStats = useMemo(() => {
     const now = Date.now();
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
-    const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
-    const last7d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    // Use sortedStatsData (7-day dataset) so 7d stats are accurate
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    const last24h = dataSource.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    const last7d = dataSource.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
 
     const calculateStats = (data: WeatherData[]) => {
       const temps = data
@@ -441,7 +473,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       '24h': calculateStats(last24h),
       '7d': calculateStats(last7d),
     };
-  }, [sortedHistoricalData]);
+  }, [sortedStatsData, sortedHistoricalData]);
 
   // Calculate solar radiation statistics from historical data
   const solarStats = useMemo(() => {
@@ -476,16 +508,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [sortedHistoricalData]);
 
-  // Calculate ETo statistics from historical data
+  // Calculate ETo statistics from historical data (uses 7-day stats data)
   const etoStats = useMemo(() => {
     const now = Date.now();
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-    const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
-    const last7d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
-    const last30d = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > thirtyDaysAgo);
+    // Use sortedStatsData (7-day dataset) for more accurate period stats
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    const last24h = dataSource.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    const last7d = dataSource.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    const last30d = dataSource.filter(d => new Date(d.timestamp).getTime() > thirtyDaysAgo);
 
     // Calculate cumulative ETo for each period
     const calculateCumulativeETo = (data: WeatherData[]) => {
@@ -504,7 +538,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       weekly: calculateCumulativeETo(last7d),
       monthly: calculateCumulativeETo(last30d),
     };
-  }, [sortedHistoricalData]);
+  }, [sortedStatsData, sortedHistoricalData]);
 
   // Save config to localStorage and invalidate queries when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {

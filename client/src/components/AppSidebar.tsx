@@ -31,7 +31,7 @@ const adminNavItems = [
   { title: "Stations", url: "/" },
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
-  { title: "Organizations", url: "/organizations" },
+  { title: "Organisations", url: "/organizations" },
   { title: "History", url: "/history" },
   { title: "Alarms", url: "/alarms" },
   { title: "Reports", url: "/reports" },
@@ -121,7 +121,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
         )}
         <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">
-          <p>Credit: Lukas Esterhuizen 2025</p>
+          <p>Credit: Lukas Esterhuizen 2025-2026</p>
           <a 
             href="mailto:esterhuizen2k@proton.me" 
             className="hover:underline"

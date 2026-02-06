@@ -809,22 +809,50 @@ export class DatabaseStorage {
 
   // Alarm operations - now with real database persistence (Issue #10 fix)
   async getAlarms(stationId: number): Promise<Alarm[]> {
+    if (usePostgres) {
+      const alarms = await postgres.pgGetAlarmsByStation(stationId);
+      return alarms.map(a => this.mapDbAlarm(a));
+    }
     const alarms = dbGetAlarmsByStation(stationId);
     return alarms.map(a => this.mapDbAlarm(a));
   }
 
   async getAllAlarms(): Promise<Alarm[]> {
+    if (usePostgres) {
+      const alarms = await postgres.pgGetAllAlarms();
+      return alarms.map(a => this.mapDbAlarm(a));
+    }
     const alarms = dbGetAllAlarms();
     return alarms.map(a => this.mapDbAlarm(a));
   }
 
   async getAlarm(alarmId: number): Promise<Alarm | undefined> {
+    if (usePostgres) {
+      const alarm = await postgres.pgGetAlarmById(alarmId);
+      if (!alarm) return undefined;
+      return this.mapDbAlarm(alarm);
+    }
     const alarm = dbGetAlarmById(alarmId);
     if (!alarm) return undefined;
     return this.mapDbAlarm(alarm);
   }
 
   async createAlarm(alarm: any): Promise<Alarm> {
+    if (usePostgres) {
+      const id = await postgres.pgCreateAlarm({
+        station_id: alarm.stationId,
+        parameter: alarm.name || alarm.parameter,
+        condition: alarm.condition || 'above',
+        threshold: alarm.threshold,
+        severity: alarm.severity || 'warning',
+        enabled: alarm.isEnabled !== false,
+        email_notifications: alarm.emailNotifications || false,
+        email_recipients: alarm.emailRecipients
+      });
+      const created = await postgres.pgGetAlarmById(id);
+      if (!created) throw new Error('Failed to create alarm');
+      return this.mapDbAlarm(created);
+    }
     const id = dbCreateAlarm({
       station_id: alarm.stationId,
       parameter: alarm.name || alarm.parameter,
@@ -842,6 +870,18 @@ export class DatabaseStorage {
   }
 
   async updateAlarm(id: number, data: any): Promise<Alarm | undefined> {
+    if (usePostgres) {
+      await postgres.pgUpdateAlarm(id, {
+        parameter: data.name || data.parameter,
+        condition: data.condition,
+        threshold: data.threshold,
+        severity: data.severity,
+        enabled: data.isEnabled,
+        email_notifications: data.emailNotifications,
+        email_recipients: data.emailRecipients
+      });
+      return this.getAlarm(id);
+    }
     dbUpdateAlarm(id, {
       parameter: data.name || data.parameter,
       condition: data.condition,
@@ -855,11 +895,29 @@ export class DatabaseStorage {
   }
 
   async deleteAlarm(id: number): Promise<boolean> {
+    if (usePostgres) {
+      await postgres.pgDeleteAlarm(id);
+      return true;
+    }
     dbDeleteAlarm(id);
     return true;
   }
 
   async getActiveAlarmEvents(stationId?: number): Promise<any[]> {
+    if (usePostgres) {
+      const events = await postgres.pgGetAlarmEvents(undefined, stationId, 100);
+      return events.filter(e => !e.acknowledged).map(e => ({
+        id: e.id,
+        alarmId: e.alarm_id,
+        stationId: e.station_id,
+        triggeredValue: e.triggered_value,
+        message: e.message,
+        acknowledged: e.acknowledged,
+        acknowledgedBy: e.acknowledged_by,
+        acknowledgedAt: e.acknowledged_at ? new Date(e.acknowledged_at) : undefined,
+        createdAt: new Date(e.created_at || Date.now())
+      }));
+    }
     const events = dbGetAlarmEvents(undefined, stationId, 100);
     return events.filter(e => !e.acknowledged).map(e => ({
       id: e.id,
@@ -875,6 +933,20 @@ export class DatabaseStorage {
   }
 
   async getAlarmEvents(alarmId?: number, stationId?: number, limit: number = 100): Promise<any[]> {
+    if (usePostgres) {
+      const events = await postgres.pgGetAlarmEvents(alarmId, stationId, limit);
+      return events.map(e => ({
+        id: e.id,
+        alarmId: e.alarm_id,
+        stationId: e.station_id,
+        triggeredValue: e.triggered_value,
+        message: e.message,
+        acknowledged: e.acknowledged,
+        acknowledgedBy: e.acknowledged_by,
+        acknowledgedAt: e.acknowledged_at ? new Date(e.acknowledged_at) : undefined,
+        createdAt: new Date(e.created_at || Date.now())
+      }));
+    }
     const events = dbGetAlarmEvents(alarmId, stationId, limit);
     return events.map(e => ({
       id: e.id,
@@ -890,10 +962,17 @@ export class DatabaseStorage {
   }
 
   async triggerAlarm(alarmId: number, value: number, message?: string): Promise<number> {
+    if (usePostgres) {
+      return postgres.pgTriggerAlarm(alarmId, value, message);
+    }
     return dbTriggerAlarm(alarmId, value, message);
   }
 
   async acknowledgeAlarmEvent(eventId: number, acknowledgedBy: string, notes?: string): Promise<any> {
+    if (usePostgres) {
+      await postgres.pgAcknowledgeAlarmEvent(eventId, acknowledgedBy);
+      return { id: eventId, acknowledgedBy, notes, acknowledgedAt: new Date() };
+    }
     dbAcknowledgeAlarmEvent(eventId, acknowledgedBy);
     return { id: eventId, acknowledgedBy, notes, acknowledgedAt: new Date() };
   }

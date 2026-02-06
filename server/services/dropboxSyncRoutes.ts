@@ -34,7 +34,7 @@ router.post('/oauth/token', async (req: Request, res: Response) => {
     const { appKey, appSecret, authCode } = req.body;
     
     if (!appKey || !appSecret || !authCode) {
-      return res.status(400).json({ error: 'App Key, App Secret, and Authorization Code are required' });
+      return res.status(400).json({ error: 'App Key, App Secret, and Authorisation Code are required' });
     }
     
     // Exchange code for tokens using Dropbox OAuth endpoint

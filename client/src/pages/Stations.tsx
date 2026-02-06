@@ -288,7 +288,7 @@ export default function Stations() {
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
-        toast({ title: "Unauthorized", description: "Please log in again.", variant: "destructive" });
+        toast({ title: "Unauthorised", description: "Please log in again.", variant: "destructive" });
         setTimeout(() => { window.location.href = "/"; }, 500);
         return;
       }
