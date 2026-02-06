@@ -986,14 +986,14 @@ export class DatabaseStorage {
     return { id: eventId, acknowledgedBy, notes, acknowledgedAt: new Date() };
   }
 
-  private mapDbAlarm(alarm: DbAlarm): Alarm {
+  private mapDbAlarm(alarm: DbAlarm | postgres.PgAlarm): Alarm {
     return {
       id: alarm.id!,
       stationId: alarm.station_id,
       name: alarm.parameter,
-      condition: alarm.condition,
+      condition: alarm.condition as string,
       threshold: alarm.threshold,
-      severity: alarm.severity || 'warning',
+      severity: (alarm.severity || 'warning') as string,
       isEnabled: alarm.enabled !== false,
       createdAt: new Date(alarm.created_at || Date.now())
     };

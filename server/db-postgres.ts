@@ -1365,6 +1365,7 @@ export async function pgCreateAlarm(alarm: {
   email_recipients?: string | null;
 }): Promise<number> {
   const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query(
     `INSERT INTO alarms (station_id, parameter, condition, threshold, severity, enabled, email_notifications, email_recipients)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
@@ -1385,6 +1386,7 @@ export async function pgCreateAlarm(alarm: {
 
 export async function pgGetAlarmById(id: number): Promise<PgAlarm | null> {
   const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query('SELECT * FROM alarms WHERE id = $1', [id]);
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
@@ -1407,6 +1409,7 @@ export async function pgGetAlarmById(id: number): Promise<PgAlarm | null> {
 
 export async function pgGetAlarmsByStation(stationId: number): Promise<PgAlarm[]> {
   const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query('SELECT * FROM alarms WHERE station_id = $1 ORDER BY created_at DESC', [stationId]);
   return result.rows.map((row: any) => ({
     id: row.id,
@@ -1427,6 +1430,7 @@ export async function pgGetAlarmsByStation(stationId: number): Promise<PgAlarm[]
 
 export async function pgGetAllAlarms(): Promise<PgAlarm[]> {
   const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query('SELECT * FROM alarms ORDER BY created_at DESC');
   return result.rows.map((row: any) => ({
     id: row.id,
@@ -1489,6 +1493,7 @@ export async function pgTriggerAlarm(alarmId: number, triggeredValue: number, me
   if (!alarm) throw new Error(`Alarm ${alarmId} not found`);
 
   const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query(
     `INSERT INTO alarm_events (alarm_id, station_id, triggered_value, message)
      VALUES ($1, $2, $3, $4) RETURNING id`,
