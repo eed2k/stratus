@@ -1479,12 +1479,16 @@ export async function pgUpdateAlarm(id: number, updates: Partial<{
   fields.push(`updated_at = CURRENT_TIMESTAMP`);
   values.push(id);
 
-  await getPool().query(`UPDATE alarms SET ${fields.join(', ')} WHERE id = $${paramIndex}`, values);
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query(`UPDATE alarms SET ${fields.join(', ')} WHERE id = $${paramIndex}`, values);
   pgLog.info(`Updated alarm ${id}`);
 }
 
 export async function pgDeleteAlarm(id: number): Promise<void> {
-  await getPool().query('DELETE FROM alarms WHERE id = $1', [id]);
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query('DELETE FROM alarms WHERE id = $1', [id]);
   pgLog.info(`Deleted alarm ${id}`);
 }
 
@@ -1532,7 +1536,9 @@ export async function pgGetAlarmEvents(alarmId?: number, stationId?: number, lim
   query += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
   params.push(limit);
 
-  const result = await getPool().query(query, params);
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(query, params);
   return result.rows.map((row: any) => ({
     id: row.id,
     alarm_id: row.alarm_id,
@@ -1547,7 +1553,9 @@ export async function pgGetAlarmEvents(alarmId?: number, stationId?: number, lim
 }
 
 export async function pgAcknowledgeAlarmEvent(eventId: number, acknowledgedBy: string): Promise<void> {
-  await getPool().query(
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query(
     `UPDATE alarm_events SET acknowledged = true, acknowledged_by = $1, acknowledged_at = CURRENT_TIMESTAMP WHERE id = $2`,
     [acknowledgedBy, eventId]
   );
