@@ -117,7 +117,7 @@ export default function History() {
   }
 
   const chartData = weatherData.map((d) => ({
-    timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+    timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
     temperature: d.temperature || 0,
     humidity: d.humidity || 0,
     pressure: d.pressure || 0,

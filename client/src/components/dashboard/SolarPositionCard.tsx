@@ -22,7 +22,7 @@ interface SolarPositionCardProps {
 function formatTime(date: Date | string | undefined): string {
   if (!date) return "--:--";
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function formatDayLength(minutes: number | undefined): string {

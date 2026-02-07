@@ -111,7 +111,7 @@ export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatM
 
   const formatDay = (day: string) => {
     const date = new Date(day);
-    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return date.toLocaleDateString("en-ZA", { weekday: "short", month: "short", day: "numeric" });
   };
 
   const formatHour = (hour: number) => {

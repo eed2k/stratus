@@ -81,7 +81,7 @@ export function StationLogs({ stationId }: StationLogsProps) {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString("en-ZA", {
       month: "short",
       day: "numeric",
       year: "numeric",

@@ -145,25 +145,25 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
   const formatTimestamp = (date: Date) => {
     if (effectiveRange <= 2) {
       // Under 2 hours: show HH:MM
-      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      return date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
     } else if (effectiveRange <= 24) {
       // 2-24 hours: show HH:MM
-      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      return date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
     } else if (effectiveRange <= 72) {
       // 1-3 days: show Day HH:MM
-      return date.toLocaleDateString("en-US", { weekday: "short" }) + " " +
-             date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      return date.toLocaleDateString("en-ZA", { weekday: "short" }) + " " +
+             date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
     } else if (effectiveRange <= 168) {
       // 3-7 days: show Day DD HH:00
-      return date.toLocaleDateString("en-US", { weekday: "short", day: "numeric" }) + " " +
-             date.toLocaleTimeString("en-US", { hour: "2-digit" });
+      return date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric" }) + " " +
+             date.toLocaleTimeString("en-ZA", { hour: "2-digit", hour12: false });
     } else if (effectiveRange <= 720) {
-      // 7-30 days: show MM/DD HH:00
-      return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" }) + " " +
-             date.toLocaleTimeString("en-US", { hour: "2-digit" });
+      // 7-30 days: show DD/MM HH:00
+      return date.toLocaleDateString("en-ZA", { month: "numeric", day: "numeric" }) + " " +
+             date.toLocaleTimeString("en-ZA", { hour: "2-digit", hour12: false });
     } else {
-      // Over 30 days: show MM/DD
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      // Over 30 days: show DD MMM
+      return date.toLocaleDateString("en-ZA", { month: "short", day: "numeric" });
     }
   };
   
@@ -201,7 +201,7 @@ const processWindEnergyData = (historicalData: WeatherData[]) => {
     cumulativeEnergy += windPower / 1000; // kWh/m²
     
     return {
-      timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
       windSpeed,
       windGust,
       windPower,
@@ -770,7 +770,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Extract battery voltage from historical data for proper charting
   const batteryChartData = useMemo(() => {
     return historicalData.map(d => ({
-      timestamp: new Date(d.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
       batteryVoltage: d.batteryVoltage ?? 0,
     }));
   }, [historicalData]);
@@ -1186,7 +1186,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                     Math.cos(lat * Math.PI / 180) * Math.cos(declination * Math.PI / 180) * Math.cos(hourAngle * Math.PI / 180)
                   ) * 180 / Math.PI;
                   points.push({
-                    timestamp: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+                    timestamp: time.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
                     sunElevation: Math.max(-20, elevation)
                   });
                 }

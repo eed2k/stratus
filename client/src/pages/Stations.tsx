@@ -165,9 +165,8 @@ export default function Stations() {
                   timestamp: latestReading.timestamp
                 } : undefined,
                 recordCount: data.length,
-                // Use collectedAt (when data was synced) instead of timestamp (datalogger clock)
-                // This ensures "Last sync" shows when data was actually imported, not the datalogger's time
-                lastSyncTime: latestReading?.collectedAt || latestReading?.timestamp || null
+                // Use the data timestamp (datalogger clock) so "Last sync" matches the dashboard display
+                lastSyncTime: latestReading?.timestamp || latestReading?.collectedAt || null
               } as StationWithReading;
             }
           } catch (e) {
@@ -318,13 +317,14 @@ export default function Stations() {
   const formatLastSync = (timestamp: string | null | undefined) => {
     if (!timestamp) return "Never";
     const date = new Date(timestamp);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffMinutes < 1) return "Just now";
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
-    return `${Math.floor(diffMinutes / 1440)}d ago`;
+    return date.toLocaleString('en-ZA', {
+      timeZone: 'Africa/Johannesburg',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
   };
 
   // Station Setup Form Component (extracted for tabs)

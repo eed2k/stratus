@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -24,7 +23,6 @@ import {
   Gauge,
   Droplets,
   Cloud,
-  Zap,
   Loader2,
   RefreshCw,
   Navigation,
@@ -50,7 +48,6 @@ import {
 // ============================================================
 interface WeatherConfig {
   windy: { configured: boolean; mapApiKey: string };
-  afrigis: { configured: boolean };
 }
 
 interface GeoResult {
@@ -66,14 +63,6 @@ interface ForecastData {
   [key: string]: unknown;
 }
 
-interface LightningStrike {
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  intensity?: number;
-  type?: string;
-}
-
 // ============================================================
 // Weather Layers for Windy Map
 // ============================================================
@@ -85,7 +74,7 @@ const WINDY_LAYERS = [
   { id: "clouds", label: "Clouds", icon: Cloud },
   { id: "rh", label: "Humidity", icon: Droplets },
   { id: "gust", label: "Wind Gusts", icon: Wind },
-  { id: "cape", label: "CAPE Index", icon: Zap },
+  { id: "cape", label: "CAPE Index", icon: Cloud },
 ] as const;
 
 const FORECAST_MODELS = [
@@ -144,26 +133,6 @@ export default function Weather() {
     },
     enabled: !!selectedLocation && !!config?.windy?.configured,
     staleTime: 10 * 60 * 1000, // 10 min cache
-  });
-
-  // Lightning data
-  const { data: lightningData, isLoading: lightningLoading } = useQuery({
-    queryKey: ["/api/weather/lightning/feed", selectedLocation?.lat, selectedLocation?.lon],
-    queryFn: async () => {
-      if (!selectedLocation) return null;
-      const res = await authFetch(
-        `/api/weather/lightning/feed?lat=${selectedLocation.lat}&lon=${selectedLocation.lon}&radius=50`
-      );
-      if (!res.ok) {
-        const err = await res.json();
-        if (res.status === 503) return { notConfigured: true, message: err.message };
-        throw new Error("Lightning request failed");
-      }
-      const json = await res.json();
-      return json.data;
-    },
-    enabled: !!selectedLocation && !!config?.afrigis?.configured,
-    staleTime: 30 * 1000, // 30 sec for near-real-time
   });
 
   // ============================================================
@@ -342,29 +311,10 @@ export default function Weather() {
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Weather</h1>
           <p className="text-muted-foreground">
-            Live weather maps, forecasts and lightning data
+            Live weather maps and forecasts
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {config?.windy?.configured ? (
-            <Badge variant="default" className="bg-green-600">
-              <Wind className="h-3 w-3 mr-1" /> Windy Connected
-            </Badge>
-          ) : (
-            <Badge variant="secondary">
-              <Wind className="h-3 w-3 mr-1" /> Windy Not Configured
-            </Badge>
-          )}
-          {config?.afrigis?.configured ? (
-            <Badge variant="default" className="bg-amber-600">
-              <Zap className="h-3 w-3 mr-1" /> Lightning Active
-            </Badge>
-          ) : (
-            <Badge variant="secondary">
-              <Zap className="h-3 w-3 mr-1" /> Lightning N/A
-            </Badge>
-          )}
-        </div>
+
       </div>
 
       {/* Location Search */}
@@ -517,11 +467,6 @@ export default function Weather() {
               <TabsTrigger value="precipitation">Precipitation</TabsTrigger>
               <TabsTrigger value="pressure">Pressure</TabsTrigger>
               <TabsTrigger value="clouds">Clouds</TabsTrigger>
-              {config?.afrigis?.configured && (
-                <TabsTrigger value="lightning">
-                  <Zap className="h-3 w-3 mr-1" /> Lightning
-                </TabsTrigger>
-              )}
             </TabsList>
 
             <div className="flex items-center gap-2">
@@ -708,207 +653,14 @@ export default function Weather() {
                 </Card>
               </TabsContent>
 
-              {/* Lightning Tab */}
-              {config?.afrigis?.configured && (
-                <TabsContent value="lightning">
-                  <LightningPanel
-                    location={selectedLocation}
-                    data={lightningData}
-                    isLoading={lightningLoading}
-                  />
-                </TabsContent>
-              )}
             </>
           )}
         </Tabs>
       )}
 
-      {/* API Info */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-            <Info className="h-4 w-4" /> Data Sources & Configuration
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-2">
-              <h4 className="font-medium">Windy API</h4>
-              <p className="text-muted-foreground">
-                Interactive weather map with wind, rain, temperature, pressure, clouds and more.
-                Point forecast provides detailed hourly data for any coordinate.
-              </p>
-              <div className="flex items-center gap-2">
-                <Badge variant={config?.windy?.configured ? "default" : "secondary"} className="text-xs">
-                  {config?.windy?.configured ? "Configured" : "Not Configured"}
-                </Badge>
-                <a
-                  href="https://api.windy.com/keys"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary text-xs flex items-center gap-1 hover:underline"
-                >
-                  Get API Key <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium">AfriGIS Lightning API</h4>
-              <p className="text-muted-foreground">
-                Near real-time lightning strike data with historical records and PDF reports.
-                Free trial available for South African weather stations.
-              </p>
-              <div className="flex items-center gap-2">
-                <Badge variant={config?.afrigis?.configured ? "default" : "secondary"} className="text-xs">
-                  {config?.afrigis?.configured ? "Configured" : "Not Configured"}
-                </Badge>
-                <a
-                  href="mailto:products@afrigis.co.za?subject=Lightning%20API%20Trial%20-%20Stratus%20Weather"
-                  className="text-primary text-xs flex items-center gap-1 hover:underline"
-                >
-                  Request Trial <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 }
 
-// ============================================================
-// Lightning Panel Component
-// ============================================================
-function LightningPanel({
-  location,
-  data,
-  isLoading,
-}: {
-  location: GeoResult;
-  data: any;
-  isLoading: boolean;
-}) {
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          <span className="text-muted-foreground">Loading lightning data...</span>
-        </CardContent>
-      </Card>
-    );
-  }
 
-  if (data?.notConfigured) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <Zap className="h-12 w-12 text-amber-500 mb-4" />
-          <p className="font-medium text-lg">Lightning Data Not Available</p>
-          <p className="text-sm text-muted-foreground mt-2 max-w-md">
-            {data.message || "AfriGIS Lightning API credentials not configured."}
-          </p>
-          <div className="mt-4 p-3 bg-muted rounded-md text-xs text-left font-mono max-w-sm space-y-1">
-            <p># Contact AfriGIS for free trial:</p>
-            <a
-              href="mailto:products@afrigis.co.za?subject=Lightning%20API%20Trial%20-%20Stratus%20Weather"
-              className="text-primary hover:underline block"
-            >
-              products@afrigis.co.za
-            </a>
-            <p className="mt-2"># Required environment variables:</p>
-            <p>AFRIGIS_CLIENT_ID=your_client_id</p>
-            <p>AFRIGIS_CLIENT_SECRET=your_secret</p>
-            <p>AFRIGIS_API_KEY=your_api_key</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const strikes: LightningStrike[] = Array.isArray(data) ? data : data?.strikes || data?.features || [];
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Zap className="h-4 w-4 text-amber-500" />
-          Lightning Activity — {location.displayName.split(",")[0]}
-          <Badge variant="secondary" className="ml-auto text-xs">
-            50 km radius
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {strikes.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Zap className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            <p>No lightning strikes detected in this area recently</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-md p-3 text-center">
-                <p className="text-2xl font-bold text-amber-600">{strikes.length}</p>
-                <p className="text-xs text-muted-foreground">Total Strikes</p>
-              </div>
-              <div className="bg-red-50 dark:bg-red-950/20 rounded-md p-3 text-center">
-                <p className="text-2xl font-bold text-red-600">
-                  {strikes.filter((s) => s.type === "CG" || s.type === "cloud-to-ground").length || "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">Cloud-to-Ground</p>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-md p-3 text-center">
-                <p className="text-2xl font-bold text-blue-600">
-                  {strikes.filter((s) => s.type === "CC" || s.type === "cloud-to-cloud").length || "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">Cloud-to-Cloud</p>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-950/20 rounded-md p-3 text-center">
-                <p className="text-2xl font-bold text-purple-600">
-                  {strikes[0]?.intensity ? Math.round(Math.max(...strikes.map((s) => Math.abs(s.intensity || 0)))) + " kA" : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">Peak Intensity</p>
-              </div>
-            </div>
-            <div className="max-h-64 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted sticky top-0">
-                  <tr>
-                    <th className="p-2 text-left font-medium">Time</th>
-                    <th className="p-2 text-left font-medium">Location</th>
-                    <th className="p-2 text-left font-medium">Type</th>
-                    <th className="p-2 text-right font-medium">Intensity</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {strikes.slice(0, 50).map((strike, idx) => (
-                    <tr key={idx} className="hover:bg-accent/50">
-                      <td className="p-2 text-xs">
-                        {strike.timestamp
-                          ? new Date(strike.timestamp).toLocaleString("en-ZA", { hour12: false })
-                          : "—"}
-                      </td>
-                      <td className="p-2 text-xs">
-                        {strike.latitude?.toFixed(3)}, {strike.longitude?.toFixed(3)}
-                      </td>
-                      <td className="p-2">
-                        <Badge variant="outline" className="text-xs">
-                          {strike.type || "Unknown"}
-                        </Badge>
-                      </td>
-                      <td className="p-2 text-right text-xs font-mono">
-                        {strike.intensity ? `${strike.intensity.toFixed(1)} kA` : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}

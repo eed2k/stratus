@@ -7,7 +7,7 @@ const generateMockData = () => {
   for (let i = 24; i >= 0; i--) {
     const time = new Date(now.getTime() - i * 60 * 60 * 1000);
     data.push({
-      timestamp: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      timestamp: time.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
       temperature: 20 + Math.sin(i / 4) * 5 + Math.random() * 2,
       humidity: 60 + Math.cos(i / 6) * 15 + Math.random() * 5,
     });

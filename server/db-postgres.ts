@@ -277,9 +277,11 @@ async function createTables(): Promise<void> {
     CREATE TABLE IF NOT EXISTS alarms (
       id SERIAL PRIMARY KEY,
       station_id INTEGER NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
+      name TEXT,
       parameter TEXT NOT NULL,
       condition TEXT NOT NULL,
       threshold REAL NOT NULL,
+      unit VARCHAR(20) DEFAULT '',
       severity TEXT DEFAULT 'warning',
       enabled BOOLEAN DEFAULT true,
       email_notifications BOOLEAN DEFAULT false,
@@ -1322,9 +1324,11 @@ export async function upsertUserPreferences(prefs: Partial<UserPreferences> & { 
 export interface PgAlarm {
   id: number;
   station_id: number;
+  name: string;
   parameter: string;
   condition: string;
   threshold: number;
+  unit: string;
   severity: string;
   enabled: boolean;
   email_notifications: boolean;
@@ -1349,9 +1353,11 @@ export interface PgAlarmEvent {
 
 export async function pgCreateAlarm(alarm: {
   station_id: number;
+  name: string;
   parameter: string;
   condition: string;
   threshold: number;
+  unit?: string;
   severity?: string;
   enabled?: boolean;
   email_notifications?: boolean;
@@ -1360,13 +1366,15 @@ export async function pgCreateAlarm(alarm: {
   const pool = getPool();
   if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query(
-    `INSERT INTO alarms (station_id, parameter, condition, threshold, severity, enabled, email_notifications, email_recipients)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+    `INSERT INTO alarms (station_id, name, parameter, condition, threshold, unit, severity, enabled, email_notifications, email_recipients)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
     [
       alarm.station_id,
+      alarm.name,
       alarm.parameter,
       alarm.condition,
       alarm.threshold,
+      alarm.unit || '',
       alarm.severity || 'warning',
       alarm.enabled !== false,
       alarm.email_notifications || false,
@@ -1383,20 +1391,27 @@ export async function pgGetAlarmById(id: number): Promise<PgAlarm | null> {
   const result = await pool.query('SELECT * FROM alarms WHERE id = $1', [id]);
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
+  return mapPgAlarmRow(row);
+}
+
+/** Map a raw postgres row to PgAlarm */
+function mapPgAlarmRow(row: any): PgAlarm {
   return {
     id: row.id,
     station_id: row.station_id,
-    parameter: row.parameter,
+    name: row.name || row.parameter || '',
+    parameter: row.parameter || '',
     condition: row.condition,
-    threshold: row.threshold,
+    threshold: parseFloat(row.threshold) || 0,
+    unit: row.unit || '',
     severity: row.severity,
     enabled: row.enabled,
     email_notifications: row.email_notifications,
     email_recipients: row.email_recipients,
-    last_triggered_at: row.last_triggered_at?.toISOString() ?? null,
+    last_triggered_at: row.last_triggered_at?.toISOString?.() ?? (row.last_triggered_at || null),
     trigger_count: row.trigger_count || 0,
-    created_at: row.created_at?.toISOString() || new Date().toISOString(),
-    updated_at: row.updated_at?.toISOString() || new Date().toISOString(),
+    created_at: row.created_at?.toISOString?.() || new Date().toISOString(),
+    updated_at: row.updated_at?.toISOString?.() || new Date().toISOString(),
   };
 }
 
@@ -1404,48 +1419,22 @@ export async function pgGetAlarmsByStation(stationId: number): Promise<PgAlarm[]
   const pool = getPool();
   if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query('SELECT * FROM alarms WHERE station_id = $1 ORDER BY created_at DESC', [stationId]);
-  return result.rows.map((row: any) => ({
-    id: row.id,
-    station_id: row.station_id,
-    parameter: row.parameter,
-    condition: row.condition,
-    threshold: row.threshold,
-    severity: row.severity,
-    enabled: row.enabled,
-    email_notifications: row.email_notifications,
-    email_recipients: row.email_recipients,
-    last_triggered_at: row.last_triggered_at?.toISOString() ?? null,
-    trigger_count: row.trigger_count || 0,
-    created_at: row.created_at?.toISOString() || new Date().toISOString(),
-    updated_at: row.updated_at?.toISOString() || new Date().toISOString(),
-  }));
+  return result.rows.map(mapPgAlarmRow);
 }
 
 export async function pgGetAllAlarms(): Promise<PgAlarm[]> {
   const pool = getPool();
   if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query('SELECT * FROM alarms ORDER BY created_at DESC');
-  return result.rows.map((row: any) => ({
-    id: row.id,
-    station_id: row.station_id,
-    parameter: row.parameter,
-    condition: row.condition,
-    threshold: row.threshold,
-    severity: row.severity,
-    enabled: row.enabled,
-    email_notifications: row.email_notifications,
-    email_recipients: row.email_recipients,
-    last_triggered_at: row.last_triggered_at?.toISOString() ?? null,
-    trigger_count: row.trigger_count || 0,
-    created_at: row.created_at?.toISOString() || new Date().toISOString(),
-    updated_at: row.updated_at?.toISOString() || new Date().toISOString(),
-  }));
+  return result.rows.map(mapPgAlarmRow);
 }
 
 export async function pgUpdateAlarm(id: number, updates: Partial<{
+  name: string;
   parameter: string;
   condition: string;
   threshold: number;
+  unit: string;
   severity: string;
   enabled: boolean;
   email_notifications: boolean;
@@ -1457,9 +1446,11 @@ export async function pgUpdateAlarm(id: number, updates: Partial<{
   const values: any[] = [];
   let paramIndex = 1;
 
+  if (updates.name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(updates.name); }
   if (updates.parameter !== undefined) { fields.push(`parameter = $${paramIndex++}`); values.push(updates.parameter); }
   if (updates.condition !== undefined) { fields.push(`condition = $${paramIndex++}`); values.push(updates.condition); }
   if (updates.threshold !== undefined) { fields.push(`threshold = $${paramIndex++}`); values.push(updates.threshold); }
+  if (updates.unit !== undefined) { fields.push(`unit = $${paramIndex++}`); values.push(updates.unit); }
   if (updates.severity !== undefined) { fields.push(`severity = $${paramIndex++}`); values.push(updates.severity); }
   if (updates.enabled !== undefined) { fields.push(`enabled = $${paramIndex++}`); values.push(updates.enabled); }
   if (updates.email_notifications !== undefined) { fields.push(`email_notifications = $${paramIndex++}`); values.push(updates.email_notifications); }

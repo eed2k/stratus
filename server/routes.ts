@@ -180,18 +180,37 @@ const insertAlarmSchema = z.object({
   stationId: z.number(),
   name: z.string().min(1, "Alarm name is required"),
   parameter: z.string().min(1, "Parameter is required"),
-  condition: z.enum(['above', 'below', 'equals', 'not_equals'], {
-    errorMap: () => ({ message: "Condition must be one of: above, below, equals, not_equals" })
+  condition: z.enum(['above', 'below', 'equals', 'not_equals', 'change'], {
+    errorMap: () => ({ message: "Condition must be one of: above, below, equals, not_equals, change" })
   }),
   threshold: z.number({
     required_error: "Threshold is required",
     invalid_type_error: "Threshold must be a number"
   }),
-  unit: z.string().optional(),
+  unit: z.string().optional().default(''),
   enabled: z.boolean().optional().default(true),
   notifyEmail: z.boolean().optional().default(true),
   notifyPush: z.boolean().optional().default(false)
 });
+
+// Map storage Alarm to client-expected format
+function mapAlarmToClient(alarm: any) {
+  return {
+    id: alarm.id,
+    stationId: alarm.stationId,
+    name: alarm.name || alarm.parameter || '',
+    parameter: alarm.parameter || '',
+    condition: alarm.condition,
+    threshold: alarm.threshold,
+    unit: alarm.unit || '',
+    enabled: alarm.isEnabled !== undefined ? alarm.isEnabled : (alarm.enabled !== false),
+    notifyEmail: alarm.emailNotifications !== undefined ? alarm.emailNotifications : (alarm.notifyEmail !== false),
+    notifyPush: false,
+    lastTriggered: alarm.lastTriggeredAt ? alarm.lastTriggeredAt.toISOString?.() || alarm.lastTriggeredAt : null,
+    triggerCount: alarm.triggerCount || 0,
+  };
+}
+
 import { nanoid } from "nanoid";
 import { registerCampbellRoutes } from "./campbell/routes";
 import { dataCollectionService } from "./campbell/dataCollectionService";
@@ -1853,7 +1872,7 @@ export async function registerRoutes(
       } else {
         userAlarms = await storage.getAllAlarms();
       }
-      res.json(userAlarms);
+      res.json(userAlarms.map(mapAlarmToClient));
     } catch (error) {
       console.error("Error fetching alarms:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1874,27 +1893,26 @@ export async function registerRoutes(
       
       const { stationId, name, parameter, condition, threshold, unit, enabled, notifyEmail, notifyPush } = parsed.data;
       
+      // Get the current user's email for notifications
+      let emailRecipients: string | null = null;
+      if (notifyEmail && req.user) {
+        emailRecipients = (req.user as any).email || null;
+      }
+      
       const alarm = await storage.createAlarm({
         stationId,
         name: name || parameter,
         parameter,
         condition,
         threshold,
+        unit: unit || '',
         severity: 'warning',
         isEnabled: enabled !== false,
         emailNotifications: notifyEmail !== false,
-        emailRecipients: notifyEmail ? undefined : undefined // Add recipient handling if needed
+        emailRecipients,
       });
       
-      res.status(201).json({
-        ...alarm,
-        parameter,
-        unit,
-        notifyEmail: notifyEmail !== false,
-        notifyPush: notifyPush === true,
-        lastTriggered: null,
-        triggerCount: 0
-      });
+      res.status(201).json(mapAlarmToClient(alarm));
     } catch (error) {
       console.error("Error creating alarm:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1915,7 +1933,7 @@ export async function registerRoutes(
       }
       
       const updated = await storage.updateAlarm(alarmId, req.body);
-      res.json(updated);
+      res.json(updated ? mapAlarmToClient(updated) : null);
     } catch (error) {
       console.error("Error updating alarm:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

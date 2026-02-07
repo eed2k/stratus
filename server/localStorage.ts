@@ -20,6 +20,8 @@ import db, {
 } from './db';
 
 import * as postgres from './db-postgres';
+import { sendAlarmEmail, isEmailConfigured } from './services/emailService';
+import type { AlarmEmailData } from './services/emailService';
 
 // Check if PostgreSQL mode is enabled
 const usePostgres = postgres.isPostgresEnabled();
@@ -181,10 +183,16 @@ export interface Alarm {
   id: number;
   stationId: number;
   name: string;
+  parameter: string;
   condition: string;
   threshold: number;
+  unit: string;
   severity: string;
   isEnabled: boolean;
+  emailNotifications: boolean;
+  emailRecipients?: string | null;
+  lastTriggeredAt?: Date | null;
+  triggerCount: number;
   createdAt: Date;
 }
 
@@ -513,6 +521,86 @@ export class DatabaseStorage {
     return [];
   }
 
+  /**
+   * Evaluate incoming weather data against configured alarm thresholds
+   * Triggers alarms and sends email notifications when conditions are met
+   */
+  private async evaluateAlarms(stationId: number, weatherData: WeatherData): Promise<void> {
+    try {
+      const alarms = await this.getAlarms(stationId);
+      if (!alarms || alarms.length === 0) return;
+
+      for (const alarm of alarms) {
+        if (!alarm.isEnabled) continue;
+
+        // Get the current value for the alarm's parameter
+        const value = (weatherData as any)[alarm.parameter] ?? weatherData.data?.[alarm.parameter];
+        if (value === null || value === undefined) continue;
+
+        const numValue = parseFloat(String(value));
+        if (isNaN(numValue)) continue;
+
+        // Check if the alarm condition is met
+        let triggered = false;
+        switch (alarm.condition) {
+          case 'above':
+            triggered = numValue > alarm.threshold;
+            break;
+          case 'below':
+            triggered = numValue < alarm.threshold;
+            break;
+          case 'equals':
+            triggered = Math.abs(numValue - alarm.threshold) < 0.01;
+            break;
+          case 'change':
+            // For "change" condition, we'd need previous value — skip for now
+            break;
+        }
+
+        if (!triggered) continue;
+
+        // Cooldown: don't re-trigger within 30 minutes
+        if (alarm.lastTriggeredAt) {
+          const lastTriggered = new Date(alarm.lastTriggeredAt);
+          const minutesSince = (Date.now() - lastTriggered.getTime()) / 60000;
+          if (minutesSince < 30) continue;
+        }
+
+        // Trigger the alarm event
+        try {
+          const message = `${alarm.name || alarm.parameter}: ${numValue}${alarm.unit || ''} is ${alarm.condition} threshold ${alarm.threshold}${alarm.unit || ''}`;
+          await this.triggerAlarm(alarm.id, numValue, message);
+          storageLog.warn(`Alarm triggered: ${message}`);
+
+          // Send email notification if configured
+          if (alarm.emailNotifications && alarm.emailRecipients && isEmailConfigured()) {
+            const station = await this.getStation(stationId);
+            const emailData: AlarmEmailData = {
+              stationName: station?.name || `Station ${stationId}`,
+              stationId,
+              alarmName: alarm.name || alarm.parameter,
+              severity: (alarm.severity as any) || 'warning',
+              condition: alarm.condition,
+              threshold: alarm.threshold,
+              currentValue: numValue,
+              unit: alarm.unit || '',
+              triggeredAt: new Date(),
+              dashboardUrl: process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL}/dashboard?stationId=${stationId}` : undefined,
+            };
+            const recipients = alarm.emailRecipients.split(',').map((e: string) => e.trim()).filter(Boolean);
+            await sendAlarmEmail(recipients, emailData);
+            storageLog.info(`Alarm email sent to ${recipients.join(', ')}`);
+          }
+        } catch (triggerErr) {
+          storageLog.error(`Failed to trigger alarm ${alarm.id}`, triggerErr);
+        }
+      }
+    } catch (err) {
+      // Don't let alarm evaluation crash data ingest
+      storageLog.error('Alarm evaluation failed', err);
+    }
+  }
+
   async insertWeatherData(data: InsertWeatherData): Promise<WeatherData> {
     const tableName = data.tableName || 'Table1';
     
@@ -565,6 +653,11 @@ export class DatabaseStorage {
       solarRadiation: data.data.solarRadiation ?? data.data.SlrW ?? data.data.Solar ?? data.data.Solar_Rad_Avg ?? null,
       batteryVoltage: data.data.batteryVoltage ?? data.data.BattV ?? data.data.BattV_Min ?? null,
     };
+
+    // Evaluate alarms against the new data (async, don't block return)
+    this.evaluateAlarms(data.stationId, result).catch(() => {});
+
+    return result;
   }
 
   async createWeatherData(data: InsertWeatherData): Promise<WeatherData> {
@@ -597,6 +690,22 @@ export class DatabaseStorage {
         
         const inserted = await postgres.insertWeatherData(pgRecords);
         storageLog.info(`Batch inserted ${inserted} records to PostgreSQL`);
+        
+        // Evaluate alarms on the latest record per station
+        if (inserted > 0) {
+          const latestByStation = new Map<number, InsertWeatherData>();
+          for (const r of records) {
+            const existing = latestByStation.get(r.stationId);
+            if (!existing || r.timestamp > existing.timestamp) {
+              latestByStation.set(r.stationId, r);
+            }
+          }
+          for (const [stationId, record] of latestByStation) {
+            const wd = await this.getLatestWeatherData(stationId);
+            if (wd) this.evaluateAlarms(stationId, wd).catch(() => {});
+          }
+        }
+        
         return inserted;
       } else {
         // Use SQLite batch insert
@@ -850,13 +959,15 @@ export class DatabaseStorage {
     if (usePostgres) {
       const id = await postgres.pgCreateAlarm({
         station_id: alarm.stationId,
-        parameter: alarm.name || alarm.parameter,
+        name: alarm.name || alarm.parameter,
+        parameter: alarm.parameter || 'temperature',
         condition: alarm.condition || 'above',
         threshold: alarm.threshold,
+        unit: alarm.unit || '',
         severity: alarm.severity || 'warning',
         enabled: alarm.isEnabled !== false,
         email_notifications: alarm.emailNotifications || false,
-        email_recipients: alarm.emailRecipients
+        email_recipients: alarm.emailRecipients || null
       });
       const created = await postgres.pgGetAlarmById(id);
       if (!created) throw new Error('Failed to create alarm');
@@ -864,13 +975,13 @@ export class DatabaseStorage {
     }
     const id = dbCreateAlarm({
       station_id: alarm.stationId,
-      parameter: alarm.name || alarm.parameter,
+      parameter: alarm.parameter || 'temperature',
       condition: alarm.condition || 'above',
       threshold: alarm.threshold,
       severity: alarm.severity || 'warning',
       enabled: alarm.isEnabled !== false,
       email_notifications: alarm.emailNotifications || false,
-      email_recipients: alarm.emailRecipients
+      email_recipients: alarm.emailRecipients || null
     });
     
     const created = dbGetAlarmById(id);
@@ -881,23 +992,25 @@ export class DatabaseStorage {
   async updateAlarm(id: number, data: any): Promise<Alarm | undefined> {
     if (usePostgres) {
       await postgres.pgUpdateAlarm(id, {
-        parameter: data.name || data.parameter,
+        name: data.name,
+        parameter: data.parameter,
         condition: data.condition,
-        threshold: data.threshold,
+        threshold: data.threshold !== undefined ? parseFloat(data.threshold) : undefined,
+        unit: data.unit,
         severity: data.severity,
-        enabled: data.isEnabled,
-        email_notifications: data.emailNotifications,
+        enabled: data.enabled ?? data.isEnabled,
+        email_notifications: data.notifyEmail ?? data.emailNotifications,
         email_recipients: data.emailRecipients
       });
       return this.getAlarm(id);
     }
     dbUpdateAlarm(id, {
-      parameter: data.name || data.parameter,
+      parameter: data.parameter,
       condition: data.condition,
-      threshold: data.threshold,
+      threshold: data.threshold !== undefined ? parseFloat(data.threshold) : undefined,
       severity: data.severity,
-      enabled: data.isEnabled,
-      email_notifications: data.emailNotifications,
+      enabled: data.enabled ?? data.isEnabled,
+      email_notifications: data.notifyEmail ?? data.emailNotifications,
       email_recipients: data.emailRecipients
     });
     return this.getAlarm(id);
@@ -987,14 +1100,21 @@ export class DatabaseStorage {
   }
 
   private mapDbAlarm(alarm: DbAlarm | postgres.PgAlarm): Alarm {
+    const pgAlarm = alarm as postgres.PgAlarm;
     return {
       id: alarm.id!,
       stationId: alarm.station_id,
-      name: alarm.parameter,
+      name: pgAlarm.name || alarm.parameter || '',
+      parameter: alarm.parameter || '',
       condition: alarm.condition as string,
-      threshold: alarm.threshold,
+      threshold: parseFloat(String(alarm.threshold)) || 0,
+      unit: pgAlarm.unit || '',
       severity: (alarm.severity || 'warning') as string,
       isEnabled: alarm.enabled !== false,
+      emailNotifications: alarm.email_notifications || false,
+      emailRecipients: alarm.email_recipients || null,
+      lastTriggeredAt: alarm.last_triggered_at ? new Date(alarm.last_triggered_at) : null,
+      triggerCount: alarm.trigger_count || 0,
       createdAt: new Date(alarm.created_at || Date.now())
     };
   }

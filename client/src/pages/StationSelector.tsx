@@ -79,8 +79,8 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                   timestamp: latestReading.timestamp
                 } : undefined,
                 recordCount: data.length,
-                // Use collectedAt (when data was synced) instead of timestamp (datalogger clock)
-                lastSyncTime: latestReading?.collectedAt || latestReading?.timestamp || station.lastSyncTime
+                // Use the data timestamp (datalogger clock) so "Last sync" matches the dashboard display
+                lastSyncTime: latestReading?.timestamp || latestReading?.collectedAt || station.lastSyncTime
               };
             }
           } catch (e) {
@@ -103,13 +103,14 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
   const formatLastSync = (timestamp: string | null) => {
     if (!timestamp) return "Never";
     const date = new Date(timestamp);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffMinutes < 1) return "Just now";
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
-    return `${Math.floor(diffMinutes / 1440)}d ago`;
+    return date.toLocaleString('en-ZA', {
+      timeZone: 'Africa/Johannesburg',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
   };
 
   if (isLoading) {
