@@ -259,7 +259,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   });
 
   // Fetch historical data for charts and wind roses (based on configured time range)
-  const { data: historicalData = [], refetch: refetchHistorical } = useQuery<WeatherData[]>({
+  const { data: historicalData = [], isLoading: historicalLoading, refetch: refetchHistorical } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange],
     queryFn: async () => {
       if (!activeStationId) return [];
@@ -272,8 +272,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       return response.json();
     },
     enabled: !!activeStationId,
-    refetchInterval: dashboardConfig.updatePeriod * 1000,
-    staleTime: 0, // Always refetch when timeframe changes - don't use cached data
+    refetchInterval: Math.max(dashboardConfig.updatePeriod, 60) * 1000, // Min 60s for historical
+    staleTime: 30 * 1000, // Consider data fresh for 30 seconds to prevent rapid re-fetches
     placeholderData: keepPreviousData, // Show previous data while new range loads
   });
 
@@ -556,7 +556,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Manual refresh handler
   const handleRefresh = useCallback(() => {
     refetch();
-  }, [refetch]);
+    refetchHistorical();
+  }, [refetch, refetchHistorical]);
 
   const selectedStation = stations.find(s => s.id === activeStationId);
 
@@ -852,7 +853,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         {/* Current Conditions Header */}
         <CurrentConditions
           stationName={selectedStation?.name || "Weather Station"}
-          lastUpdate={currentData.timestamp ? new Date(currentData.timestamp).toLocaleString() : "No data"}
+          lastUpdate={currentData.timestamp ? new Date(currentData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false }) : "No data"}
           temperature={currentData.temperature || 0}
           humidity={currentData.humidity || 0}
           pressure={currentData.pressure || 0}
@@ -1556,7 +1557,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               </div>
               {dataTimeRange && (
                 <Badge variant="outline" className="text-xs ml-2">
+                  {historicalLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
                   {dataTimeRange.recordCount} records
+                </Badge>
+              )}
+              {historicalLoading && !dataTimeRange && (
+                <Badge variant="outline" className="text-xs ml-2">
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  Loading...
                 </Badge>
               )}
             </div>

@@ -134,14 +134,41 @@ export function CurrentConditions({
     }
   }, [lastUpdate, syncInterval, currentTime]);
   
-  // Format current time in local timezone
+  // Format current time in station's timezone using IANA timezone
+  const getIANATimezone = () => {
+    if (latitude !== undefined && longitude !== undefined) {
+      // South Africa / Southern Africa
+      if (latitude >= -35 && latitude <= -22 && longitude >= 16 && longitude <= 33) return 'Africa/Johannesburg';
+      // East Africa
+      if (latitude >= -12 && latitude <= 5 && longitude >= 29 && longitude <= 42) return 'Africa/Nairobi';
+      // West Africa
+      if (latitude >= -5 && latitude <= 13 && longitude >= -5 && longitude <= 15) return 'Africa/Lagos';
+      // Central/Southern Africa
+      if (latitude >= -22 && latitude <= -8 && longitude >= 12 && longitude <= 36) return 'Africa/Maputo';
+    }
+    // Default to SAST
+    return 'Africa/Johannesburg';
+  };
+
   const formatLocalTime = () => {
-    const utcTime = currentTime.getTime();
-    const localTime = new Date(utcTime + timezoneInfo.offset * 3600000);
-    const hours = String(localTime.getUTCHours()).padStart(2, '0');
-    const minutes = String(localTime.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(localTime.getUTCSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds} ${timezoneInfo.timezone}`;
+    const tz = getIANATimezone();
+    try {
+      return currentTime.toLocaleTimeString('en-ZA', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }) + ' ' + timezoneInfo.timezone;
+    } catch {
+      // Fallback if timezone not supported
+      return currentTime.toLocaleTimeString('en-ZA', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+    }
   };
   // Determine status label based on connection type and data staleness
   const getStatusInfo = () => {

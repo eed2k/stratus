@@ -100,29 +100,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
     isAdmin || canAccessStation(station.id)
   );
 
-  const getConnectionBadge = (type: string) => {
-    const labels: Record<string, string> = {
-      pakbus: "PakBus",
-      http_post: "HTTP POST",
-      http: "HTTP",
-      dropbox: "Dropbox",
-      tcp_ip: "TCP/IP",
-      lora: "LoRa",
-      gsm: "GSM",
-      "4g": "4G/LTE",
-      mqtt: "MQTT",
-    };
-    return (
-      <Badge 
-        variant="outline" 
-        className="bg-white text-black border border-black"
-        style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
-      >
-        {labels[type] || type}
-      </Badge>
-    );
-  };
-
   const formatLastSync = (timestamp: string | null) => {
     if (!timestamp) return "Never";
     const date = new Date(timestamp);
@@ -259,7 +236,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                     </Badge>
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {getConnectionBadge(station.connectionType)}
                     {station.isActive ? (
                       <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
                         <CheckCircle2 className="h-3 w-3 mr-1" />

@@ -726,26 +726,19 @@ export async function getWeatherData(
   
   const whereClause = conditions.join(' AND ');
   
-  // Get total count
-  const countResult = await query(
-    `SELECT COUNT(*) as count FROM weather_data WHERE ${whereClause}`,
-    params
-  );
-  const total = parseInt(countResult.rows[0].count);
+  // Apply a default limit cap to prevent huge payloads (max 10000 records)
+  const effectiveLimit = options.limit || 10000;
   
-  // Get records
+  // Get records with limit
   let queryText = `
     SELECT id, station_id, table_name, record_number, timestamp, data, collected_at
     FROM weather_data
     WHERE ${whereClause}
     ORDER BY timestamp DESC
+    LIMIT $${paramIndex}
   `;
-  
-  if (options.limit) {
-    queryText += ` LIMIT $${paramIndex}`;
-    params.push(options.limit);
-    paramIndex++;
-  }
+  params.push(effectiveLimit);
+  paramIndex++;
   
   if (options.offset) {
     queryText += ` OFFSET $${paramIndex}`;
@@ -764,7 +757,7 @@ export async function getWeatherData(
       data: row.data,
       collectedAt: row.collected_at?.toISOString(),
     })),
-    total,
+    total: result.rows.length,
   };
 }
 

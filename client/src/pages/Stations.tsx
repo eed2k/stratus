@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Search, Loader2, Cloud, ArrowRight, Upload, Wifi, Signal, Smartphone, Camera, Radio, Globe } from "lucide-react";
+import { MapPin, Plus, Search, Loader2, ArrowRight, Camera } from "lucide-react";
 import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -315,28 +315,6 @@ export default function Stations() {
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
-  const getConnectionBadge = (type: string) => {
-    const labels: Record<string, string> = {
-      pakbus: "PakBus",
-      http_post: "HTTP POST",
-      dropbox: "Dropbox",
-      tcp_ip: "TCP/IP",
-      lora: "LoRa",
-      gsm: "GSM",
-      "4g": "4G",
-      mqtt: "MQTT",
-    };
-    return (
-      <Badge 
-        variant="outline" 
-        className="bg-white text-black border border-black"
-        style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
-      >
-        {labels[type] || type}
-      </Badge>
-    );
-  };
-
   const formatLastSync = (timestamp: string | null | undefined) => {
     if (!timestamp) return "Never";
     const date = new Date(timestamp);
@@ -376,54 +354,14 @@ export default function Stations() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="dropbox">
-                        <div className="flex items-center gap-2">
-                          <Cloud className="h-4 w-4" />
-                          Dropbox Sync
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="http_post">
-                        <div className="flex items-center gap-2">
-                          <Upload className="h-4 w-4" />
-                          HTTP POST (Station Push)
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="tcp_ip">
-                        <div className="flex items-center gap-2">
-                          <Wifi className="h-4 w-4" />
-                          TCP/IP (Ethernet/WiFi)
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="lora">
-                        <div className="flex items-center gap-2">
-                          <Signal className="h-4 w-4" />
-                          LoRa Radio
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="gsm">
-                        <div className="flex items-center gap-2">
-                          <Smartphone className="h-4 w-4" />
-                          GSM/GPRS
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="4g">
-                        <div className="flex items-center gap-2">
-                          <Smartphone className="h-4 w-4" />
-                          4G/LTE Cellular
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="mqtt">
-                        <div className="flex items-center gap-2">
-                          <Radio className="h-4 w-4" />
-                          MQTT Protocol
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="rikacloud">
-                        <div className="flex items-center gap-2">
-                          <Globe className="h-4 w-4" />
-                          RikaCloud HTTP API
-                        </div>
-                      </SelectItem>
+                      <SelectItem value="dropbox">Dropbox Sync</SelectItem>
+                      <SelectItem value="http_post">HTTP POST (Station Push)</SelectItem>
+                      <SelectItem value="tcp_ip">TCP/IP (Ethernet/WiFi)</SelectItem>
+                      <SelectItem value="lora">LoRa Radio</SelectItem>
+                      <SelectItem value="gsm">GSM/GPRS</SelectItem>
+                      <SelectItem value="4g">4G/LTE Cellular</SelectItem>
+                      <SelectItem value="mqtt">MQTT Protocol</SelectItem>
+                      <SelectItem value="rikacloud">RikaCloud HTTP API</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -778,7 +716,6 @@ export default function Stations() {
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        {getConnectionBadge(station.connectionType || 'dropbox')}
                         {station.isActive ? (
                           <Badge variant="outline" className="bg-blue-600 text-white text-xs">
                             Active
