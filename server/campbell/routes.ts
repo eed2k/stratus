@@ -355,6 +355,9 @@ export function registerCampbellRoutes(app: Express): void {
   });
 
   // ========== Alarm Management ==========
+  // NOTE: Top-level alarm CRUD (/api/alarms, /api/alarms/:id) is handled
+  // in server/routes.ts with optionalAuth. Only station-scoped alarm
+  // endpoints are defined here to avoid route shadowing.
 
   /**
    * Get alarms for a station
@@ -371,7 +374,7 @@ export function registerCampbellRoutes(app: Express): void {
   });
 
   /**
-   * Create an alarm
+   * Create an alarm for a specific station
    */
   app.post("/api/stations/:stationId/alarms", isAuthenticated, async (req, res) => {
     try {
@@ -387,44 +390,6 @@ export function registerCampbellRoutes(app: Express): void {
     } catch (error: any) {
       console.error("Error creating alarm:", error);
       res.status(500).json({ message: "Failed to create alarm" });
-    }
-  });
-
-  /**
-   * Update an alarm
-   */
-  app.patch("/api/alarms/:alarmId", isAuthenticated, async (req, res) => {
-    try {
-      const alarmId = parseInt(req.params.alarmId);
-      const alarm = await storage.updateAlarm(alarmId, req.body);
-      
-      if (!alarm) {
-        return res.status(404).json({ message: "Alarm not found" });
-      }
-
-      res.json(alarm);
-    } catch (error: any) {
-      console.error("Error updating alarm:", error);
-      res.status(500).json({ message: "Failed to update alarm" });
-    }
-  });
-
-  /**
-   * Delete an alarm
-   */
-  app.delete("/api/alarms/:alarmId", isAuthenticated, async (req, res) => {
-    try {
-      const alarmId = parseInt(req.params.alarmId);
-      const deleted = await storage.deleteAlarm(alarmId);
-      
-      if (!deleted) {
-        return res.status(404).json({ message: "Alarm not found" });
-      }
-
-      res.status(204).send();
-    } catch (error: any) {
-      console.error("Error deleting alarm:", error);
-      res.status(500).json({ message: "Failed to delete alarm" });
     }
   });
 

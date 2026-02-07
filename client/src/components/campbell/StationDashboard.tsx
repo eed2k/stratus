@@ -136,7 +136,7 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
     
     if (diffSecs < 60) return `${diffSecs} seconds ago`;
     if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)} minutes ago`;
-    return date.toLocaleString();
+    return date.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false });
   };
 
   return (
@@ -466,7 +466,7 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
                 {formatTimestamp(latestData.timestamp)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {new Date(latestData.timestamp).toLocaleString()}
+                {new Date(latestData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}
               </p>
             </CardContent>
           </Card>

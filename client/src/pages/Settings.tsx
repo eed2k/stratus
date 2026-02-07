@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { User, Bell, Globe, Shield, Save, Server, Loader2, Mail, CheckCircle, Cloud, Plus, Trash2, RefreshCw, FolderSync, Lock, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Save, Loader2, CheckCircle, Plus, Trash2, RefreshCw, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { getAllUsers, updateUser } from "@/hooks/useAuth";
 import { verifyPassword } from "@/lib/passwordUtils";
 
@@ -698,10 +698,7 @@ export default function Settings() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card data-testid="card-profile-settings">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <User className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Profile</CardTitle>
-            </div>
+            <CardTitle className="text-lg">Profile</CardTitle>
             <CardDescription>Update your personal information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -749,10 +746,7 @@ export default function Settings() {
 
         <Card data-testid="card-notifications-settings">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Notifications</CardTitle>
-            </div>
+            <CardTitle className="text-lg">Notifications</CardTitle>
             <CardDescription>Configure how you receive alerts</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -815,10 +809,7 @@ export default function Settings() {
         {/* Email Configuration Card */}
         <Card data-testid="card-email-settings">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Email Alerts</CardTitle>
-            </div>
+            <CardTitle className="text-lg">Email Alerts</CardTitle>
             <CardDescription>Configure email notifications for alarms</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -868,10 +859,7 @@ export default function Settings() {
 
         <Card data-testid="card-server-settings">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Server className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Server & Sharing</CardTitle>
-            </div>
+            <CardTitle className="text-lg">Server & Sharing</CardTitle>
             <CardDescription>Configure server address for sharing dashboards</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -898,10 +886,7 @@ export default function Settings() {
 
         <Card data-testid="card-units-settings">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Units & Locale</CardTitle>
-            </div>
+            <CardTitle className="text-lg">Units & Locale</CardTitle>
             <CardDescription>Set measurement units and timezone</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -942,10 +927,7 @@ export default function Settings() {
         <Card className="lg:col-span-2" data-testid="card-dropbox-settings">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Cloud className="h-5 w-5 text-muted-foreground" />
-                <CardTitle className="text-lg">Dropbox Sync</CardTitle>
-              </div>
+              <CardTitle className="text-lg">Dropbox Sync</CardTitle>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -1102,7 +1084,6 @@ export default function Settings() {
                         <div key={config.id} className="flex items-center justify-between p-3 rounded-md border bg-muted/30">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <FolderSync className="h-4 w-4 text-muted-foreground" />
                               <span className="font-medium">{config.name}</span>
                               {config.enabled ? (
                                 <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">Active</span>
@@ -1204,10 +1185,7 @@ export default function Settings() {
 
         <Card className="lg:col-span-2" data-testid="card-security-settings">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Security</CardTitle>
-            </div>
+            <CardTitle className="text-lg">Security</CardTitle>
             <CardDescription>Manage your account security</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1217,7 +1195,6 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">Change your account password</p>
               </div>
               <Button variant="outline" data-testid="button-change-password" onClick={() => setShowPasswordDialog(true)}>
-                <Lock className="mr-2 h-4 w-4" />
                 Change Password
               </Button>
             </div>

@@ -47,12 +47,12 @@ export function WindPowerCard({
             </div>
 
             <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Avg Speed (10m)</p>
+              <p className="text-xs text-muted-foreground">Avg Speed (Recent)</p>
               <p className="text-lg font-normal">{safeFixed(avgSpeed, 1)} km/h</p>
             </div>
 
             <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Avg Power (10m)</p>
+              <p className="text-xs text-muted-foreground">Avg Power (Recent)</p>
               <p className="text-lg font-normal">{safeFixed(avgPower, 1)} W/m²</p>
             </div>
           </div>

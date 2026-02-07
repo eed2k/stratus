@@ -1472,8 +1472,10 @@ export async function pgUpdateAlarm(id: number, updates: Partial<{
 export async function pgDeleteAlarm(id: number): Promise<void> {
   const pool = getPool();
   if (!pool) throw new Error('PostgreSQL pool not initialized');
+  // Delete related alarm_events first (FK constraint may lack CASCADE)
+  await pool.query('DELETE FROM alarm_events WHERE alarm_id = $1', [id]);
   await pool.query('DELETE FROM alarms WHERE id = $1', [id]);
-  pgLog.info(`Deleted alarm ${id}`);
+  pgLog.info(`Deleted alarm ${id} and its events`);
 }
 
 export async function pgTriggerAlarm(alarmId: number, triggeredValue: number, message?: string): Promise<number> {

@@ -747,13 +747,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const halfLen = Math.floor(historicalData.length / 2);
     const olderData = historicalData.slice(0, halfLen);
     
-    const avgOldTemp = olderData.reduce((sum, d) => sum + (d.temperature || 0), 0) / halfLen;
-    const avgOldHumidity = olderData.reduce((sum, d) => sum + (d.humidity || 0), 0) / halfLen;
-    const avgOldPressure = olderData.reduce((sum, d) => sum + (d.pressure || 0), 0) / halfLen;
+    const avgOldTemp = olderData.reduce((sum, d) => sum + (d.temperature ?? 0), 0) / halfLen;
+    const avgOldHumidity = olderData.reduce((sum, d) => sum + (d.humidity ?? 0), 0) / halfLen;
+    const avgOldPressure = olderData.reduce((sum, d) => sum + (d.pressure ?? 0), 0) / halfLen;
     
-    const currentTemp = currentData.temperature || 0;
-    const currentHum = currentData.humidity || 0;
-    const currentPress = currentData.pressure || 0;
+    const currentTemp = currentData.temperature ?? 0;
+    const currentHum = currentData.humidity ?? 0;
+    const currentPress = currentData.pressure ?? 0;
     
     return {
       temperature: avgOldTemp ? ((currentTemp - avgOldTemp) / avgOldTemp) * 100 : null,
@@ -764,7 +764,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Calculate accumulated rainfall from historical data
   const accumulatedRainfall = useMemo(() => {
-    return historicalData.reduce((sum, d) => sum + (d.rainfall || 0), 0);
+    return historicalData.reduce((sum, d) => sum + (d.rainfall ?? 0), 0);
   }, [historicalData]);
 
   // Extract battery voltage from historical data for proper charting
@@ -780,9 +780,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Calculate max wind speed from actual observations, not from wind rose bin counts
   const maxWindSpeed = useMemo(() => {
     const speeds = historicalData
-      .map(d => Math.max(d.windSpeed || 0, d.windGust || 0))
+      .map(d => Math.max(d.windSpeed ?? 0, d.windGust ?? 0))
       .filter(s => s > 0);
-    return Math.max(currentData.windGust || 0, currentData.windSpeed || 0, ...speeds);
+    return Math.max(currentData.windGust ?? 0, currentData.windSpeed ?? 0, ...speeds);
   }, [historicalData, currentData.windGust, currentData.windSpeed]);
 
   return (
@@ -817,7 +817,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <Badge 
               variant={dataTimeRange.hoursAvailable < dashboardConfig.chartTimeRange ? "secondary" : "outline"} 
               className="text-xs"
-              title={`Data from ${dataTimeRange.earliest.toLocaleString()} to ${dataTimeRange.latest.toLocaleString()}`}
+              title={`Data from ${dataTimeRange.earliest.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })} to ${dataTimeRange.latest.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}`}
             >
               {dataTimeRange.hoursAvailable < dashboardConfig.chartTimeRange 
                 ? `${safeFixed(dataTimeRange.hoursAvailable, 1)}h of ${dashboardConfig.chartTimeRange}h data`
@@ -854,15 +854,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         <CurrentConditions
           stationName={selectedStation?.name || "Weather Station"}
           lastUpdate={currentData.timestamp ? new Date(currentData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false }) : "No data"}
-          temperature={currentData.temperature || 0}
-          humidity={currentData.humidity || 0}
-          pressure={currentData.pressure || 0}
-          windSpeed={currentData.windSpeed || 0}
-          windGust={currentData.windGust || 0}
-          windDirection={currentData.windDirection || 0}
-          solarRadiation={currentData.solarRadiation || 0}
-          rainfall={currentData.rainfall || 0}
-          dewPoint={currentData.dewPoint || 0}
+          temperature={currentData.temperature ?? 0}
+          humidity={currentData.humidity ?? 0}
+          pressure={currentData.pressure ?? 0}
+          windSpeed={currentData.windSpeed ?? 0}
+          windGust={currentData.windGust ?? 0}
+          windDirection={currentData.windDirection ?? 0}
+          solarRadiation={currentData.solarRadiation ?? 0}
+          rainfall={currentData.rainfall ?? 0}
+          dewPoint={currentData.dewPoint ?? 0}
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType ?? undefined}
           syncInterval={3600000} // 1 hour Dropbox sync interval
@@ -905,7 +905,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                   </div>
                   <div className="space-y-1 col-span-2">
                     <p className="text-xs text-muted-foreground">Station Type</p>
-                    <p className="text-sm font-normal">{selectedStation?.dataloggerModel || "Campbell Scientific"}</p>
+                    <p className="text-sm font-normal">{selectedStation?.dataloggerModel || selectedStation?.stationType || "Weather Station"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1017,7 +1017,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               temperature={currentData.temperature || 20}
               trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
               sparklineDataStation={chartData.slice(-24).map(d => d.pressure)}
-              sparklineDataSeaLevel={chartData.slice(-24).map(d => d.pressure + 10)}
+              sparklineDataSeaLevel={chartData.slice(-24).map(d => calculateSeaLevelPressure(d.pressure, selectedStation?.altitude || 0, d.temperature ?? 20))}
             />
             <DataBlockChart
               title="Barometric Pressure History"

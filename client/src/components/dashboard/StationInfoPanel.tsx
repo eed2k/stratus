@@ -245,7 +245,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
           <div class="station-info">
             <p><strong>Station:</strong> ${station.name}</p>
             <p><strong>Location:</strong> ${station.location || 'N/A'}</p>
-            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Generated:</strong> ${new Date().toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}</p>
           </div>
           <table>
             <thead>

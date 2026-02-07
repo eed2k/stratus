@@ -54,7 +54,7 @@ const App = () => {
 
           <footer className="text-center text-sm text-gray-500 border-t pt-8">
             <p>Credit: Lukas Esterhuizen</p>
-            <p className="mt-2">Stratus © 2025-2026. Open source weather station monitoring platform.</p>
+            <p className="mt-2">Stratus © 2025-2026. All rights reserved.</p>
           </footer>
         </div>
       </main>

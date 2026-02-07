@@ -205,7 +205,7 @@ export function WindRoseScatter({
               >
                 <title>
                   {safeFixed(point.speed, 1)} km/h @ {safeFixed(point.direction, 0)}°
-                  {point.timestamp && `\n${point.timestamp.toLocaleTimeString()}`}
+                  {point.timestamp && `\n${point.timestamp.toLocaleTimeString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}`}
                 </title>
               </circle>
             );

@@ -392,12 +392,12 @@ export class DropboxSyncService extends EventEmitter {
       
       // If stationId is provided and > 0, use it
       if (this.config!.stationId > 0) {
-        station = stations.find(s => s.id === this.config!.stationId);
+        station = stations.find((s: any) => s.id === this.config!.stationId);
       }
       
       // If no station found by ID, try to find by matching name
       if (!station) {
-        station = stations.find(s => 
+        station = stations.find((s: any) => 
           s.name.toLowerCase() === stationName.toLowerCase() ||
           s.name.toLowerCase().includes(folderName.toLowerCase().replace(/_/g, ' ').split(' ')[0])
         );
@@ -535,7 +535,7 @@ export class DropboxSyncService extends EventEmitter {
           } else {
             // Normal sync: only import records from the last 48 hours to avoid processing huge historical files
             const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
-            recordsToImport = parsed.records.filter(r => r.timestamp > cutoffTime);
+            recordsToImport = parsed.records.filter((r: any) => r.timestamp > cutoffTime);
             console.log(`[DropboxSync] Importing ${recordsToImport.length} records from last 48 hours`);
           }
 
@@ -604,6 +604,16 @@ export class DropboxSyncService extends EventEmitter {
 
       this.lastSyncTime = new Date();
       this.emit('syncComplete', { filesProcessed, recordsImported: totalRecordsImported });
+      
+      // Persist last sync time to station record in DB so the client can display it
+      try {
+        await storage.updateStation(this.config!.stationId, {
+          lastConnected: this.lastSyncTime,
+        } as any);
+        console.log(`[DropboxSync] Updated station ${this.config!.stationId} last_connected to ${this.lastSyncTime.toISOString()}`);
+      } catch (persistErr: any) {
+        console.warn('[DropboxSync] Could not persist last_connected:', persistErr.message);
+      }
       
       // Get station info for timezone-aware logging
       const stationInfo = await storage.getStation(this.config!.stationId);
@@ -702,8 +712,8 @@ export class DropboxSyncService extends EventEmitter {
             // Find or create station
             const stations = await storage.getStations();
             let station: any = dbConfig.stationId 
-              ? stations.find(s => s.id === dbConfig.stationId)
-              : stations.find(s => 
+              ? stations.find((s: any) => s.id === dbConfig.stationId)
+              : stations.find((s: any) => 
                   s.name.toLowerCase() === stationName.toLowerCase() ||
                   s.name.toLowerCase().includes(dbConfig.name.toLowerCase().split('_')[0])
                 );
@@ -736,7 +746,7 @@ export class DropboxSyncService extends EventEmitter {
               // Normal sync: filter to last 48 hours
               const cutoffTime = new Date();
               cutoffTime.setHours(cutoffTime.getHours() - 48);
-              recordsToImport = parsed.records.filter(r => r.timestamp >= cutoffTime);
+              recordsToImport = parsed.records.filter((r: any) => r.timestamp >= cutoffTime);
               console.log(`[DropboxSync] Importing ${recordsToImport.length} records from last 48 hours`);
             }
 
@@ -776,6 +786,15 @@ export class DropboxSyncService extends EventEmitter {
             console.log(`[DropboxSync] Imported ${configRecordsImported} records from ${file.name}`);
             recordsImported += configRecordsImported;
             filesProcessed++;
+
+            // Persist last sync time to station record
+            if (station && configRecordsImported > 0) {
+              try {
+                await storage.updateStation(station.id, { lastConnected: new Date() } as any);
+              } catch (e: any) {
+                console.warn(`[DropboxSync] Could not update last_connected for station ${station.id}:`, e.message);
+              }
+            }
 
             // Mark file as synced
             this.syncedFiles.set(fileKey, {

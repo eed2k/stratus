@@ -1895,8 +1895,8 @@ export async function registerRoutes(
       
       // Get the current user's email for notifications
       let emailRecipients: string | null = null;
-      if (notifyEmail && req.user) {
-        emailRecipients = (req.user as any).email || null;
+      if (notifyEmail && (req as any).user) {
+        emailRecipients = (req as any).user.email || null;
       }
       
       const alarm = await storage.createAlarm({

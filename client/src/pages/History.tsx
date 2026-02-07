@@ -257,7 +257,7 @@ export default function History() {
                       {weatherData.map((row, i) => (
                         <TableRow key={i} data-testid={`row-history-${i}`}>
                           <TableCell className="font-mono text-sm">
-                            {new Date(row.timestamp).toLocaleString()}
+                            {new Date(row.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}
                           </TableCell>
                           <TableCell className="text-right font-mono">{safeFixed(row.temperature, 1, "-")}</TableCell>
                           <TableCell className="text-right font-mono">{row.humidity || "-"}</TableCell>

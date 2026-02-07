@@ -452,7 +452,7 @@ export default function Organizations() {
                                 <div>
                                   <p className="font-medium">{invite.email}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    {invite.acceptedAt ? "Accepted" : `Expires ${new Date(invite.expiresAt).toLocaleDateString()}`}
+                                    {invite.acceptedAt ? "Accepted" : `Expires ${new Date(invite.expiresAt).toLocaleDateString('en-ZA', { timeZone: 'Africa/Johannesburg' })}`}
                                   </p>
                                 </div>
                               </div>

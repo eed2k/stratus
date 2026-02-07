@@ -155,7 +155,8 @@ export default function Stations() {
             );
             if (dataRes.ok) {
               const data = await dataRes.json();
-              const latestReading = data.length > 0 ? data[data.length - 1] : null;
+              // Data comes sorted by timestamp DESC, so first element is the latest
+              const latestReading = data.length > 0 ? data[0] : null;
               return {
                 ...station,
                 lastReading: latestReading ? {
@@ -165,8 +166,9 @@ export default function Stations() {
                   timestamp: latestReading.timestamp
                 } : undefined,
                 recordCount: data.length,
-                // Use the data timestamp (datalogger clock) so "Last sync" matches the dashboard display
-                lastSyncTime: latestReading?.timestamp || latestReading?.collectedAt || null
+                // Prefer station.lastConnected (actual Dropbox sync time persisted by server)
+                // then fall back to data import time (collectedAt), then datalogger timestamp
+                lastSyncTime: station.lastConnected || latestReading?.collectedAt || latestReading?.timestamp || null
               } as StationWithReading;
             }
           } catch (e) {
@@ -321,6 +323,7 @@ export default function Stations() {
       timeZone: 'Africa/Johannesburg',
       day: '2-digit',
       month: 'short',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,

@@ -15,7 +15,7 @@ DEVELOPER INFORMATION
 Developer: Lukas Esterhuizen
 Email: esterhuizen2k@proton.me
 Application: Stratus Weather Station
-Version: 1.0.0
+Version: 1.1.0
 
 ================================================================================
 TERMS AND CONDITIONS
@@ -204,6 +204,6 @@ For security vulnerabilities, please email with subject line:
 
 ================================================================================
 
-Version: 1.0
-Last Updated: January 2026
-Document ID: EULA-STRATUS-2026-01
+Version: 1.1
+Last Updated: February 2026
+Document ID: EULA-STRATUS-2026-02

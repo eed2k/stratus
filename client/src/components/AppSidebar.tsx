@@ -139,13 +139,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
         )}
         <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">
-          <p>Credit: Lukas Esterhuizen 2025-2026</p>
-          <a 
-            href="mailto:esterhuizen2k@proton.me" 
-            className="hover:underline"
-          >
-            esterhuizen2k@proton.me
-          </a>
+          <p>Stratus v1.1.0 © Lukas Esterhuizen</p>
         </div>
       </SidebarFooter>
     </Sidebar>

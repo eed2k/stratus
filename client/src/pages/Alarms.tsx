@@ -119,11 +119,17 @@ export default function Alarms() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/alarms/${id}`);
+      const res = await apiRequest("DELETE", `/api/alarms/${id}`);
+      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/alarms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/alarm-events"] });
       toast({ title: "Alarm deleted", description: "The alarm has been removed." });
+    },
+    onError: (error: Error) => {
+      console.error("Delete alarm error:", error);
+      toast({ title: "Error", description: error.message || "Failed to delete alarm.", variant: "destructive" });
     },
   });
 
@@ -372,7 +378,7 @@ export default function Alarms() {
                   {alarm.notifyEmail && <span>Email</span>}
                   {alarm.notifyPush && <span>Push</span>}
                   {alarm.lastTriggered && (
-                    <span>Last: {new Date(alarm.lastTriggered).toLocaleDateString()}</span>
+                    <span>Last: {new Date(alarm.lastTriggered).toLocaleDateString('en-ZA', { timeZone: 'Africa/Johannesburg' })}</span>
                   )}
                 </div>
 
@@ -387,11 +393,16 @@ export default function Alarms() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
-                    onClick={() => deleteMutation.mutate(alarm.id)}
+                    variant="destructive"
+                    disabled={deleteMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm(`Delete alarm "${alarm.name}"? This cannot be undone.`)) {
+                        deleteMutation.mutate(alarm.id);
+                      }
+                    }}
                     data-testid={`button-delete-alarm-${alarm.id}`}
                   >
-                    Delete
+                    {deleteMutation.isPending ? "Deleting..." : "Delete"}
                   </Button>
                 </div>
               </CardContent>
@@ -422,7 +433,7 @@ export default function Alarms() {
                         {event.message || `Triggered at ${event.triggeredValue}`}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(event.createdAt).toLocaleString()}
+                        {new Date(event.createdAt).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}
                       </p>
                     </div>
                     <Badge variant={event.acknowledged ? "secondary" : "destructive"}>

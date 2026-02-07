@@ -6,23 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   Search,
   MapPin,
   Wind,
-  CloudRain,
-  Thermometer,
-  Gauge,
-  Droplets,
-  Cloud,
   Loader2,
   RefreshCw,
   Navigation,
@@ -67,21 +55,18 @@ interface ForecastData {
 // Weather Layers for Windy Map
 // ============================================================
 const WINDY_LAYERS = [
-  { id: "wind", label: "Wind", icon: Wind },
-  { id: "rain", label: "Rain & Thunder", icon: CloudRain },
-  { id: "temp", label: "Temperature", icon: Thermometer },
-  { id: "pressure", label: "Pressure", icon: Gauge },
-  { id: "clouds", label: "Clouds", icon: Cloud },
-  { id: "rh", label: "Humidity", icon: Droplets },
-  { id: "gust", label: "Wind Gusts", icon: Wind },
-  { id: "cape", label: "CAPE Index", icon: Cloud },
+  { id: "wind", label: "Wind" },
+  { id: "rain", label: "Rain & Thunder" },
+  { id: "temp", label: "Temperature" },
+  { id: "pressure", label: "Pressure" },
+  { id: "clouds", label: "Clouds" },
+  { id: "rh", label: "Humidity" },
+  { id: "gust", label: "Wind Gusts" },
+  { id: "cape", label: "CAPE Index" },
 ] as const;
 
 const FORECAST_MODELS = [
   { id: "gfs", label: "GFS (Global)" },
-  { id: "iconEu", label: "ICON EU (Europe)" },
-  { id: "arome", label: "AROME (France)" },
-  { id: "namConus", label: "NAM CONUS (USA)" },
 ] as const;
 
 // ============================================================
@@ -226,7 +211,12 @@ export default function Weather() {
   useEffect(() => {
     if (windyApiRef.current) {
       try {
-        windyApiRef.current.store.set("overlay", activeLayer);
+        const { store, map } = windyApiRef.current;
+        store.set("overlay", activeLayer);
+        // Force map re-render so overlay tiles refresh
+        if (map) {
+          setTimeout(() => map.invalidateSize(), 100);
+        }
       } catch {
         // Layer may not be available in testing tier
       }
@@ -381,7 +371,6 @@ export default function Weather() {
           </CardHeader>
           <CardContent className="space-y-2">
             {WINDY_LAYERS.map((layer) => {
-              const Icon = layer.icon;
               return (
                 <Button
                   key={layer.id}
@@ -390,7 +379,6 @@ export default function Weather() {
                   size="sm"
                   onClick={() => setActiveLayer(layer.id)}
                 >
-                  <Icon className="h-4 w-4 mr-2" />
                   {layer.label}
                 </Button>
               );
@@ -470,17 +458,7 @@ export default function Weather() {
             </TabsList>
 
             <div className="flex items-center gap-2">
-              <Label className="text-sm">Model:</Label>
-              <Select value={forecastModel} onValueChange={setForecastModel}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FORECAST_MODELS.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm text-muted-foreground">Model: GFS (Global)</Label>
               <Button variant="outline" size="icon" onClick={() => refetchForecast()}>
                 <RefreshCw className={`h-4 w-4 ${forecastLoading ? "animate-spin" : ""}`} />
               </Button>

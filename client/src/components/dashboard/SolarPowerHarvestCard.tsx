@@ -111,20 +111,20 @@ export function SolarPowerHarvestCard({
   const monthlyChartData = useMemo(() => {
     if (!hasData) return [];
     
-    // Seasonal variation factors (Northern hemisphere, adjust for location)
+    // Seasonal variation factors (Southern hemisphere - SA stations)
     const seasonalFactors = [
-      { month: 'Jan', factor: 0.5 },
-      { month: 'Feb', factor: 0.6 },
-      { month: 'Mar', factor: 0.75 },
-      { month: 'Apr', factor: 0.85 },
-      { month: 'May', factor: 0.95 },
-      { month: 'Jun', factor: 1.0 },
-      { month: 'Jul', factor: 1.0 },
-      { month: 'Aug', factor: 0.95 },
-      { month: 'Sep', factor: 0.85 },
-      { month: 'Oct', factor: 0.7 },
-      { month: 'Nov', factor: 0.55 },
-      { month: 'Dec', factor: 0.45 },
+      { month: 'Jan', factor: 1.0 },
+      { month: 'Feb', factor: 0.95 },
+      { month: 'Mar', factor: 0.85 },
+      { month: 'Apr', factor: 0.7 },
+      { month: 'May', factor: 0.55 },
+      { month: 'Jun', factor: 0.45 },
+      { month: 'Jul', factor: 0.5 },
+      { month: 'Aug', factor: 0.6 },
+      { month: 'Sep', factor: 0.75 },
+      { month: 'Oct', factor: 0.85 },
+      { month: 'Nov', factor: 0.95 },
+      { month: 'Dec', factor: 1.0 },
     ];
     
     const baseMonthlyEnergy = estimates.monthlyEnergy;

@@ -450,6 +450,8 @@ export class DatabaseStorage {
     if ((station as any).stationAdminPhone !== undefined) updateData.station_admin_phone = (station as any).stationAdminPhone;
     // Station image
     if (station.stationImage !== undefined) updateData.station_image = station.stationImage;
+    // Sync timestamp
+    if ((station as any).lastConnected !== undefined) updateData.last_connected = (station as any).lastConnected;
     
     if (usePostgres) {
       // Map snake_case DB fields back to camelCase for postgres.updateStation
@@ -572,8 +574,8 @@ export class DatabaseStorage {
           await this.triggerAlarm(alarm.id, numValue, message);
           storageLog.warn(`Alarm triggered: ${message}`);
 
-          // Send email notification if configured
-          if (alarm.emailNotifications && alarm.emailRecipients && isEmailConfigured()) {
+          // Send email notification to alarm recipients + all admin users
+          if (isEmailConfigured()) {
             const station = await this.getStation(stationId);
             const emailData: AlarmEmailData = {
               stationName: station?.name || `Station ${stationId}`,
@@ -587,9 +589,29 @@ export class DatabaseStorage {
               triggeredAt: new Date(),
               dashboardUrl: process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL}/dashboard?stationId=${stationId}` : undefined,
             };
-            const recipients = alarm.emailRecipients.split(',').map((e: string) => e.trim()).filter(Boolean);
-            await sendAlarmEmail(recipients, emailData);
-            storageLog.info(`Alarm email sent to ${recipients.join(', ')}`);
+
+            // Collect alarm-specific recipients
+            const alarmRecipients = alarm.emailRecipients
+              ? alarm.emailRecipients.split(',').map((e: string) => e.trim()).filter(Boolean)
+              : [];
+
+            // Also include all admin users
+            try {
+              const allUsers = await this.getAllUsers();
+              const adminEmails = allUsers
+                .filter((u: any) => u.role === 'admin' && u.email)
+                .map((u: any) => u.email);
+              alarmRecipients.push(...adminEmails);
+            } catch (adminErr) {
+              storageLog.warn('Could not fetch admin users for alarm notification', adminErr);
+            }
+
+            // Deduplicate and send
+            const recipients = [...new Set(alarmRecipients.map((e: string) => e.toLowerCase()))];
+            if (recipients.length > 0) {
+              await sendAlarmEmail(recipients, emailData);
+              storageLog.info(`Alarm email sent to ${recipients.join(', ')}`);
+            }
           }
         } catch (triggerErr) {
           storageLog.error(`Failed to trigger alarm ${alarm.id}`, triggerErr);
@@ -635,7 +657,7 @@ export class DatabaseStorage {
     
     // Return the inserted data as WeatherData object
     // Don't query back - just construct it from input to avoid table name issues
-    return {
+    const weatherResult: WeatherData = {
       id: Date.now(), // Temporary ID
       stationId: data.stationId,
       tableName: tableName,
@@ -655,9 +677,9 @@ export class DatabaseStorage {
     };
 
     // Evaluate alarms against the new data (async, don't block return)
-    this.evaluateAlarms(data.stationId, result).catch(() => {});
+    this.evaluateAlarms(data.stationId, weatherResult).catch(() => {});
 
-    return result;
+    return weatherResult;
   }
 
   async createWeatherData(data: InsertWeatherData): Promise<WeatherData> {

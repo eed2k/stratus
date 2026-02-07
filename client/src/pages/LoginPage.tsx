@@ -184,7 +184,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         {/* Footer */}
         <div className="text-center space-y-1">
           <p className="text-xs text-gray-600">
-            Stratus Weather Station Server v1.0.0
+            Stratus Weather Station Server v1.1.0
           </p>
           <p className="text-xs text-gray-500">
             Developer: <span className="font-medium text-gray-700">Lukas Esterhuizen</span>

@@ -69,7 +69,8 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
             );
             if (dataRes.ok) {
               const data = await dataRes.json();
-              const latestReading = data.length > 0 ? data[data.length - 1] : null;
+              // Data comes sorted by timestamp DESC, so first element is the latest
+              const latestReading = data.length > 0 ? data[0] : null;
               return {
                 ...station,
                 lastReading: latestReading ? {
@@ -79,8 +80,8 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                   timestamp: latestReading.timestamp
                 } : undefined,
                 recordCount: data.length,
-                // Use the data timestamp (datalogger clock) so "Last sync" matches the dashboard display
-                lastSyncTime: latestReading?.timestamp || latestReading?.collectedAt || station.lastSyncTime
+                // Prefer station.lastConnected (actual sync time), then collectedAt, then datalogger timestamp
+                lastSyncTime: (station as any).lastConnected || latestReading?.collectedAt || latestReading?.timestamp || station.lastSyncTime
               };
             }
           } catch (e) {
@@ -107,6 +108,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
       timeZone: 'Africa/Johannesburg',
       day: '2-digit',
       month: 'short',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,

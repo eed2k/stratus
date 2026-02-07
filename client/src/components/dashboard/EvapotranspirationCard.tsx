@@ -122,7 +122,7 @@ export function EvapotranspirationCard({
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
               <p className="text-xs text-gray-500">Year</p>
-              <p className="text-sm font-normal text-black">{safeFixed(yearlyETo ?? dailyETo * 180, 0)} mm</p>
+              <p className="text-sm font-normal text-black">{safeFixed(yearlyETo ?? dailyETo * 365, 0)} mm</p>
             </div>
           </div>
 

@@ -462,7 +462,7 @@ function SharedDashboardContent() {
         <div className="text-center text-sm text-muted-foreground pt-4 border-t">
           <p className="flex items-center justify-center gap-2">
             <Share2 className="h-4 w-4" />
-            Shared Dashboard • Last updated: {lastRefresh.toLocaleTimeString()}
+            Shared Dashboard • Last updated: {lastRefresh.toLocaleTimeString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}
           </p>
         </div>
       </main>
