@@ -48,12 +48,15 @@ app.use(helmet({
         "'unsafe-eval'",
         "https://unpkg.com",      // Leaflet JS CDN
         "https://cdnjs.cloudflare.com", // Leaflet JS fallback CDN
+        "https://api.windy.com",  // Windy Map Forecast API
+        "https://*.windy.com",    // Windy assets
       ],
       styleSrc: [
         "'self'", 
         "'unsafe-inline'",
         "https://unpkg.com",      // Leaflet CSS CDN
         "https://cdnjs.cloudflare.com", // Leaflet CSS fallback CDN
+        "https://api.windy.com",  // Windy CSS
       ],
       imgSrc: [
         "'self'", 
@@ -61,6 +64,7 @@ app.use(helmet({
         "blob:", 
         "https:",
         "https://*.tile.openstreetmap.org", // OpenStreetMap tiles
+        "https://*.windy.com",    // Windy map tiles
       ],
       connectSrc: [
         "'self'", 
@@ -70,6 +74,10 @@ app.use(helmet({
         "https://unpkg.com",      // Leaflet CDN
         "https://cdnjs.cloudflare.com", // Leaflet fallback CDN
         "https://cdn.jsdelivr.net", // Leaflet fallback CDN
+        "https://api.windy.com",  // Windy API
+        "https://*.windy.com",    // Windy tiles & assets
+        "https://ims.windy.com",  // Windy tile server
+        "https://node.windy.com", // Windy node server
       ],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],

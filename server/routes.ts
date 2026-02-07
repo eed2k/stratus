@@ -204,6 +204,7 @@ import fileWatcherRoutes from "./services/fileWatcherRoutes";
 import { fileWatcherService } from "./services/fileWatcherService";
 import dropboxSyncRoutes from "./services/dropboxSyncRoutes";
 import { dropboxSyncService } from "./services/dropboxSyncService";
+import weatherRoutes from "./weatherApi";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -256,6 +257,9 @@ export async function registerRoutes(
 
   // Register Dropbox sync routes
   app.use('/api/dropbox-sync', dropboxSyncRoutes);
+
+  // Register Weather API routes (Windy + AfriGIS Lightning)
+  app.use('/api/weather', weatherRoutes);
 
   // Initialize file watcher service
   await fileWatcherService.initialize();

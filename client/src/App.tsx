@@ -22,6 +22,8 @@ import SharedDashboard from "@/pages/SharedDashboard";
 import UserManagement from "@/pages/UserManagement";
 import AccountSettings from "@/pages/AccountSettings";
 import Documentation from "@/pages/Documentation";
+import Weather from "@/pages/Weather";
+import SerialMonitor from "@/pages/SerialMonitor";
 import { LoginPage } from "@/pages/LoginPage";
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
@@ -156,6 +158,12 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 />
               </Route>
               
+              {/* Weather - accessible to all users */}
+              <Route path="/weather" component={Weather} />
+
+              {/* Serial Monitor - desktop only (shows notice in browser) */}
+              <Route path="/serial-monitor" component={SerialMonitor} />
+
               {/* Admin routes */}
               <Route path="/campbell">
                 <AdminRoute isAdmin={isAdmin}><CampbellDashboard /></AdminRoute>

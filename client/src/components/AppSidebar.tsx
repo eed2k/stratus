@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut } from "lucide-react";
+import { LogOut, Cable } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
@@ -29,6 +29,7 @@ interface AppSidebarProps {
 // Admin navigation items - full access
 const adminNavItems = [
   { title: "Stations", url: "/" },
+  { title: "Weather", url: "/weather" },
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
   { title: "Organisations", url: "/organizations" },
@@ -42,6 +43,7 @@ const adminNavItems = [
 // User navigation items - limited access
 const userNavItems = [
   { title: "Stations", url: "/" },
+  { title: "Weather", url: "/weather" },
   { title: "Account Settings", url: "/account" },
   { title: "Documentation", url: "/docs" },
 ];
@@ -49,7 +51,23 @@ const userNavItems = [
 export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations }: AppSidebarProps) {
   const [location] = useLocation();
   const isAdmin = user?.role === 'admin';
-  const navItems = isAdmin ? adminNavItems : userNavItems;
+  const isDesktop = !!(window as any).stratusDesktop?.isDesktop;
+  
+  // Build nav items dynamically — add Serial Monitor only in desktop mode
+  const navItems = (() => {
+    const base = isAdmin ? [...adminNavItems] : [...userNavItems];
+    if (isDesktop) {
+      // Insert Serial Monitor before Documentation (or at end for users)
+      const docsIdx = base.findIndex(item => item.title === 'Documentation');
+      const serialItem = { title: 'Serial Monitor', url: '/serial-monitor' };
+      if (docsIdx >= 0) {
+        base.splice(docsIdx, 0, serialItem);
+      } else {
+        base.push(serialItem);
+      }
+    }
+    return base;
+  })();
 
   return (
     <Sidebar className="bg-sidebar-background border-r border-sidebar-border">
