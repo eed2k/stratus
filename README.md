@@ -28,7 +28,7 @@ Real-Time Monitoring Dashboard
 - Solar Position Tracking - Sun elevation, azimuth, nautical dawn/dusk calculations
 - Air Density Calculations - Real-time air density from temperature, pressure, humidity
 - Reference Evapotranspiration - FAO Penman-Monteith ETo calculations
-- Barometric Pressure - Dual display showing station level and sea level QNH
+- Barometric Pressure - Dual display showing station level and sea level QNH (hPa)
 - Battery Monitoring - Logger battery voltage with status indicators
 - Fire Danger Index - Real-time fire risk assessment
 - Connection Health - Monitor connection status and data freshness
@@ -114,13 +114,26 @@ Calculated Metrics
 
 The dashboard calculates and displays derived meteorological values:
 
-- Dew Point - From temperature and humidity
-- Sea Level Pressure (QNH) - Adjusted from station pressure and altitude
-- Air Density - From temperature, pressure, and humidity
-- Reference Evapotranspiration (ETo) - FAO Penman-Monteith method
-- Wind Power Density - Energy available in wind (W/m squared)
-- Fire Danger Index - Based on temperature, humidity, and wind speed
+- Dew Point - Calculated via Magnus formula from temperature and humidity when not reported by the station
+- Sea Level Pressure (QNH) - Adjusted from station pressure and altitude using the hypsometric equation
+- Air Density - From temperature, pressure, and humidity (used throughout wind energy calculations)
+- Reference Evapotranspiration (ETo) - FAO Penman-Monteith method (FAO-56 standard)
+- Wind Power Density - Energy available in wind (W/m²) using station-specific air density
+- Cumulative Wind Energy Potential - Daily kWh/m² with proper time-interval integration
+- Fire Danger Index - McArthur FFDI/GFDI based on temperature, humidity, and wind speed
 - Heat Index / Wind Chill - Apparent temperature calculations
+- Trend Analysis - Absolute difference comparison of current values versus historical average
+
+---
+
+Weather Map
+
+Interactive weather forecast map powered by Windy:
+
+- Temperature and Wind overlay layers
+- GFS (Global Forecast System) model
+- Location search with geocoding
+- 7-day forecast with hourly charts for temperature, wind, precipitation, and pressure
 
 ---
 

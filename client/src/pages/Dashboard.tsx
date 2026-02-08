@@ -392,9 +392,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Process wind scatter data from historical data
   const windScatterData = useMemo(() => processWindScatterData(sortedHistoricalData), [sortedHistoricalData]);
 
-  // Process wind energy data from historical data
-  const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, calculatedAirDensity), [sortedHistoricalData, calculatedAirDensity]);
-
   // Process wind data for different time periods (60min, 24h, 48h, 7d, 31d)
   const windDataByPeriod = useMemo(() => {
     const now = Date.now();
@@ -693,6 +690,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       currentData.humidity || 50
     );
   }, [currentData.temperature, currentData.pressure, currentData.humidity]);
+
+  // Process wind energy data from historical data (must be after calculatedAirDensity)
+  const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, calculatedAirDensity), [sortedHistoricalData, calculatedAirDensity]);
 
   // Calculate dew point from temperature and humidity using Magnus formula
   // when the station doesn't report it directly

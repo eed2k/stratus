@@ -56,7 +56,7 @@ Stratus is a professional desktop and server application for weather station man
 **Atmospheric:**
 - Temperature (°C/°F)
 - Relative Humidity (%)
-- Barometric Pressure (hPa/mbar)
+- Barometric Pressure (hPa)
 - Dew Point (°C/°F)
 - Air Density (kg/m³)
 
@@ -91,6 +91,22 @@ Stratus is a professional desktop and server application for weather station man
 - Battery voltage and charge status
 - Solar panel voltage
 - Logger internal temperature
+
+---
+
+## Solar Position Tracking
+
+Real-time solar position calculated from station coordinates:
+
+## Dew Point Calculation
+
+When the station does not report dew point directly, Stratus calculates it automatically using the **Magnus formula**:
+
+- Inputs: Temperature (°C) and Relative Humidity (%)
+- Constants: a = 17.625, b = 243.04°C
+- Formula: Td = b × [ln(RH/100) + aT/(b+T)] / [a − ln(RH/100) − aT/(b+T)]
+
+This provides accurate dew point values (±0.4°C) for temperatures between −45°C and +60°C.
 
 ---
 
@@ -218,8 +234,24 @@ Real-time wind direction and speed display with animated compass rose and direct
 ### Wind Power Analysis
 
 Wind energy potential calculations for renewable energy assessment:
-- Wind Power Density (W/m²)
-- Available wind energy based on air density and wind speed cubed
+- Wind Power Density (W/m²) using station-specific air density
+- Gust Power Density (W/m²) from peak wind gusts
+- Cumulative Daily Energy Potential (kWh/m²) with proper time-interval integration
+- Air density calculated from live temperature, pressure, and humidity (not hardcoded)
+
+---
+
+## Weather Map
+
+Interactive weather forecast map powered by the Windy API:
+
+- **Temperature Overlay** - Colour-coded surface temperature map
+- **Wind Overlay** - Animated wind flow visualisation with speed colours
+- **GFS Model** - Global Forecast System (NOAA) weather model
+- **Location Search** - Search any location by name with geocoding
+- **7-Day Forecast** - Hourly charts for temperature, wind, dew point, precipitation, and pressure
+
+Access via the **Weather** page in the sidebar.
 
 ---
 
@@ -289,7 +321,7 @@ Interactive OpenStreetMap integration showing:
 |-----------|---------|
 | Temperature | Celsius, Fahrenheit |
 | Wind Speed | km/h, m/s, mph, knots |
-| Pressure | hPa, mbar, inHg, mmHg |
+| Pressure | hPa, inHg, mmHg |
 | Precipitation | mm, inches |
 | Solar Radiation | W/m², MJ/m²/day |
 
