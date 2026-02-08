@@ -576,56 +576,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     isOnline: s.isActive || false,
   }));
 
-  // Show message if user has no stations assigned
-  if (!isAdmin && stations.length === 0 && !stationsLoading) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="text-center space-y-4">
-          <Radio className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-          <h2 className="text-base font-normal text-muted-foreground">No Stations Assigned</h2>
-          <p className="text-sm text-muted-foreground max-w-md">
-            You don't have any weather stations assigned to your account yet.
-            Please contact your administrator to get access to station dashboards.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (stationsLoading) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (stations.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 p-6">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 px-8">
-            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
-            <h2 className="text-base font-normal mb-2">No Weather Stations</h2>
-            <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
-              {isAdmin 
-                ? "Add a weather station to start monitoring weather data on your dashboard."
-                : "No stations have been assigned to your account yet."}
-            </p>
-            {isAdmin && (
-              <Link href="/stations">
-                <Button data-testid="button-add-station-dashboard">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Station
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Check if viewing demo station (hide admin panels for demo)
   const isDemoStation = selectedStation?.connectionType === 'demo';
 
@@ -809,6 +759,58 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       .filter(s => s > 0);
     return Math.max(currentData.windGust ?? 0, currentData.windSpeed ?? 0, ...speeds);
   }, [historicalData, currentData.windGust, currentData.windSpeed]);
+
+  // === Early returns (MUST be after all hooks to avoid React Error #310) ===
+
+  // Show message if user has no stations assigned
+  if (!isAdmin && stations.length === 0 && !stationsLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="text-center space-y-4">
+          <Radio className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+          <h2 className="text-base font-normal text-muted-foreground">No Stations Assigned</h2>
+          <p className="text-sm text-muted-foreground max-w-md">
+            You don't have any weather stations assigned to your account yet.
+            Please contact your administrator to get access to station dashboards.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (stationsLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (stations.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 px-8">
+            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
+            <h2 className="text-base font-normal mb-2">No Weather Stations</h2>
+            <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
+              {isAdmin 
+                ? "Add a weather station to start monitoring weather data on your dashboard."
+                : "No stations have been assigned to your account yet."}
+            </p>
+            {isAdmin && (
+              <Link href="/stations">
+                <Button data-testid="button-add-station-dashboard">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Station
+                </Button>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">

@@ -63,10 +63,6 @@ const WINDY_LAYERS = [
   { id: "wind", label: "Wind" },
 ] as const;
 
-const FORECAST_MODELS = [
-  { id: "gfs", label: "GFS (Global)" },
-] as const;
-
 // ============================================================
 // Main Weather Component
 // ============================================================
@@ -77,7 +73,7 @@ export default function Weather() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<GeoResult | null>(null);
   const [activeLayer, setActiveLayer] = useState("wind");
-  const [forecastModel, setForecastModel] = useState("gfs");
+  const [forecastModel, _setForecastModel] = useState("gfs");
 
   // Windy map state
   const windyContainerRef = useRef<HTMLDivElement>(null);
