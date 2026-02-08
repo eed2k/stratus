@@ -174,7 +174,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
     humidity: d.humidity ?? 0,
     pressure: d.pressure ?? 0,
     windSpeed: d.windSpeed ?? 0,
-    solar: d.solarRadiation ?? 0,
+    solar: Math.max(d.solarRadiation ?? 0, 0),
     rain: d.rainfall ?? 0,
     soilTemperature: d.soilTemperature ?? null,
     soilMoisture: d.soilMoisture ?? null,
@@ -185,20 +185,30 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
  * Process historical data into wind energy format
  * Calculates wind power density using P = 0.5 * ρ * v³
  */
-const processWindEnergyData = (historicalData: WeatherData[]) => {
+const processWindEnergyData = (historicalData: WeatherData[], density: number = 1.225) => {
   let cumulativeEnergy = 0;
-  const airDensity = 1.225; // kg/m³ at sea level
   
-  return historicalData.map(d => {
+  return historicalData.map((d, i) => {
     const windSpeed = d.windSpeed ?? 0;
     const windGust = d.windGust ?? windSpeed; // Fall back to windSpeed if no gust data
     const speedMs = windSpeed / 3.6; // Convert km/h to m/s
     const gustMs = windGust / 3.6; // Convert gust km/h to m/s
-    const windPower = 0.5 * airDensity * Math.pow(speedMs, 3); // W/m²
-    const gustPower = 0.5 * airDensity * Math.pow(gustMs, 3); // W/m² for gusts
+    const windPower = 0.5 * density * Math.pow(speedMs, 3); // W/m²
+    const gustPower = 0.5 * density * Math.pow(gustMs, 3); // W/m² for gusts
     
-    // Cumulative energy - assuming 1 hour intervals for simplicity
-    cumulativeEnergy += windPower / 1000; // kWh/m²
+    // Calculate actual interval in hours from data timestamps
+    let intervalHours = 1; // default fallback
+    if (i > 0 && d.timestamp && historicalData[i - 1].timestamp) {
+      const dtMs = new Date(d.timestamp).getTime() - new Date(historicalData[i - 1].timestamp).getTime();
+      intervalHours = Math.max(dtMs / 3_600_000, 0); // convert ms to hours, clamp ≥0
+    } else if (historicalData.length > 1) {
+      // Estimate from total span for the first point
+      const first = new Date(historicalData[0].timestamp).getTime();
+      const last = new Date(historicalData[historicalData.length - 1].timestamp).getTime();
+      intervalHours = (last - first) / 3_600_000 / Math.max(historicalData.length - 1, 1);
+    }
+    
+    cumulativeEnergy += (windPower * intervalHours) / 1000; // kWh/m²
     
     return {
       timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
@@ -383,7 +393,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const windScatterData = useMemo(() => processWindScatterData(sortedHistoricalData), [sortedHistoricalData]);
 
   // Process wind energy data from historical data
-  const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData), [sortedHistoricalData]);
+  const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, calculatedAirDensity), [sortedHistoricalData, calculatedAirDensity]);
 
   // Process wind data for different time periods (60min, 24h, 48h, 7d, 31d)
   const windDataByPeriod = useMemo(() => {
@@ -684,6 +694,21 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     );
   }, [currentData.temperature, currentData.pressure, currentData.humidity]);
 
+  // Calculate dew point from temperature and humidity using Magnus formula
+  // when the station doesn't report it directly
+  const calculatedDewPoint = useMemo(() => {
+    const t = currentData.temperature;
+    const rh = currentData.humidity;
+    if (t == null || rh == null || rh <= 0) return null;
+    const a = 17.625;
+    const b = 243.04;
+    const alpha = Math.log(rh / 100) + (a * t) / (b + t);
+    return (b * alpha) / (a - alpha);
+  }, [currentData.temperature, currentData.humidity]);
+
+  // Use station-reported dew point, or calculated fallback
+  const effectiveDewPoint = currentData.dewPoint ?? calculatedDewPoint ?? 0;
+
   // Calculate sea level pressure
   const seaLevelPressure = useMemo(() => {
     const altitude = selectedStation?.altitude || 0;
@@ -756,9 +781,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const currentPress = currentData.pressure ?? 0;
     
     return {
-      temperature: avgOldTemp ? ((currentTemp - avgOldTemp) / avgOldTemp) * 100 : null,
-      humidity: avgOldHumidity ? ((currentHum - avgOldHumidity) / avgOldHumidity) * 100 : null,
-      pressure: avgOldPressure ? ((currentPress - avgOldPressure) / avgOldPressure) * 100 : null,
+      temperature: avgOldTemp !== 0 ? currentTemp - avgOldTemp : null,
+      humidity: avgOldHumidity !== 0 ? currentHum - avgOldHumidity : null,
+      pressure: avgOldPressure !== 0 ? currentPress - avgOldPressure : null,
     };
   }, [historicalData, currentData]);
 
@@ -769,11 +794,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Extract battery voltage from historical data for proper charting
   const batteryChartData = useMemo(() => {
-    return historicalData.map(d => ({
+    return sortedHistoricalData.map(d => ({
       timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
       batteryVoltage: d.batteryVoltage ?? 0,
     }));
-  }, [historicalData]);
+  }, [sortedHistoricalData]);
 
   const sparkline = chartData.slice(-12).map(d => d.temperature);
   
@@ -853,7 +878,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         {/* Current Conditions Header */}
         <CurrentConditions
           stationName={selectedStation?.name || "Weather Station"}
-          lastUpdate={currentData.timestamp ? new Date(currentData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false }) : "No data"}
+          lastUpdate={((currentData as any).collectedAt || currentData.timestamp) ? new Date((currentData as any).collectedAt || currentData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false }) : "No data"}
           temperature={currentData.temperature ?? 0}
           humidity={currentData.humidity ?? 0}
           pressure={currentData.pressure ?? 0}
@@ -862,7 +887,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           windDirection={currentData.windDirection ?? 0}
           solarRadiation={currentData.solarRadiation ?? 0}
           rainfall={currentData.rainfall ?? 0}
-          dewPoint={currentData.dewPoint ?? 0}
+          dewPoint={effectiveDewPoint}
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType ?? undefined}
           syncInterval={3600000} // 1 hour Dropbox sync interval
@@ -933,10 +958,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               sparklineData={chartData.slice(-12).map(d => d.humidity)}
               chartColor="#3b82f6"
             />
-            {hasValidData(currentData.dewPoint) && (
+            {(hasValidData(currentData.dewPoint) || calculatedDewPoint !== null) && (
               <MetricCard
                 title="Dew Point"
-                value={formatValue(currentData.dewPoint || 0, 1)}
+                value={formatValue(effectiveDewPoint, 1)}
                 unit="°C"
                 chartColor="#06b6d4"
               />
@@ -944,7 +969,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="Pressure"
               value={formatValue(currentData.pressure || 0, 1)}
-              unit="mbar"
+              unit="hPa"
               trend={trends.pressure !== null ? { value: parseFloat(safeFixed(trends.pressure, 1, "0")), label: "vs avg" } : undefined}
               sparklineData={chartData.slice(-12).map(d => d.pressure)}
               chartColor="#8b5cf6"
@@ -1023,7 +1048,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Barometric Pressure History"
               data={chartData}
               series={[
-                { dataKey: "pressure", name: "Station Pressure", color: "#8b5cf6", unit: "mbar" },
+                { dataKey: "pressure", name: "Station Pressure", color: "#8b5cf6", unit: "hPa" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -1096,8 +1121,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               humidity={currentData.humidity ?? undefined}
             />
             <EvapotranspirationCard
-              currentETo={(currentData.eto ?? etoStats.daily ?? 0) / 24}
-              dailyETo={currentData.eto ?? etoStats.daily ?? 0}
+              currentETo={(currentData.eto ?? calculatedETo ?? etoStats.daily ?? 0) / 24}
+              dailyETo={currentData.eto ?? calculatedETo ?? etoStats.daily ?? 0}
               weeklyETo={etoStats.weekly ?? 0}
               monthlyETo={etoStats.monthly ?? 0}
             />
@@ -1464,7 +1489,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             <MetricCard
               title="Daily Energy Potential"
-              value={safeFixed(windEnergyData.reduce((sum, d) => sum + d.cumulativeEnergy, 0), 2)}
+              value={safeFixed(windEnergyData.length > 0 ? windEnergyData[windEnergyData.length - 1].cumulativeEnergy : 0, 2)}
               unit="kWh/m²"
               sparklineData={windEnergyData.slice(-12).map(d => d.cumulativeEnergy)}
               chartColor="#8b5cf6"
@@ -1601,7 +1626,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Barometric Pressure"
                 data={chartData}
                 series={[
-                  { dataKey: "pressure", name: "Pressure (mbar)", color: "#8b5cf6" },
+                  { dataKey: "pressure", name: "Pressure (hPa)", color: "#8b5cf6" },
                 ]}
               />
             </TabsContent>

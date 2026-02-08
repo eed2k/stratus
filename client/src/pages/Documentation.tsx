@@ -55,18 +55,6 @@ export default function Documentation() {
               commercial End User Licence Agreement (EULA). The software is
               licensed, not sold.
             </p>
-            <p>
-              You may install and use the software on your own systems for weather
-              station data collection, monitoring, and analysis. Redistribution,
-              reverse engineering, and creation of derivative works are
-              prohibited. Full terms are included in the{" "}
-              <span className="font-medium text-foreground">LICENSE.txt</span>{" "}
-              file shipped with every release.
-            </p>
-            <p className="text-xs">
-              All third-party libraries used retain their original open-source
-              licences. See acknowledgements below.
-            </p>
           </CardContent>
         </Card>
 

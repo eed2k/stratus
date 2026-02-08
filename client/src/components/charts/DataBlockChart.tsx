@@ -310,7 +310,7 @@ export function DataBlockChart({
                 ) : (
                   <TrendingDown className="h-3 w-3" />
                 )}
-                <span>{trend.value >= 0 ? '+' : ''}{formatValue(trend.value, 1)}%</span>
+                <span>{trend.value >= 0 ? '+' : ''}{formatValue(trend.value, 1)} {trend.label || ''}</span>
               </div>
             )}
           </div>

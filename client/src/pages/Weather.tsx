@@ -59,14 +59,8 @@ interface ForecastData {
 // Weather Layers for Windy Map
 // ============================================================
 const WINDY_LAYERS = [
-  { id: "wind", label: "Wind" },
-  { id: "rain", label: "Rain & Thunder" },
   { id: "temp", label: "Temperature" },
-  { id: "pressure", label: "Pressure" },
-  { id: "clouds", label: "Clouds" },
-  { id: "rh", label: "Humidity" },
-  { id: "gust", label: "Wind Gusts" },
-  { id: "cape", label: "CAPE Index" },
+  { id: "wind", label: "Wind" },
 ] as const;
 
 const FORECAST_MODELS = [
