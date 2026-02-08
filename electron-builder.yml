@@ -35,15 +35,15 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: assets/icons/icon-256.png
+  icon: assets/icons/icon.ico
   artifactName: "Stratus-Setup-${version}.${ext}"
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  installerIcon: assets/icons/icon-256.png
-  uninstallerIcon: assets/icons/icon-256.png
-  installerHeaderIcon: assets/icons/icon-256.png
+  installerIcon: assets/icons/icon.ico
+  uninstallerIcon: assets/icons/icon.ico
+  installerHeaderIcon: assets/icons/icon.ico
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Stratus Weather
