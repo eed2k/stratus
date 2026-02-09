@@ -7,6 +7,7 @@ import { createServer } from "http";
 import { initDatabase } from "./db";
 import * as postgres from "./db-postgres";
 import { auditLog, AUDIT_ACTIONS } from "./services/auditLogService";
+import { initStalenessMonitor, stopStalenessMonitor } from "./services/stalenessMonitorService";
 
 // Check if PostgreSQL mode is enabled
 const usePostgres = postgres.isPostgresEnabled();
@@ -246,6 +247,11 @@ app.use((req, res, next) => {
       details: { port, nodeEnv: process.env.NODE_ENV || 'development' },
       status: 'success'
     });
+    
+    // Start staleness monitor after server is ready
+    initStalenessMonitor().catch(err => {
+      console.error('[StalenessMonitor] Failed to initialize:', err);
+    });
   });
   
   // Keep process alive
@@ -259,6 +265,7 @@ app.use((req, res, next) => {
 
   // Log graceful shutdown
   process.on('SIGTERM', () => {
+    stopStalenessMonitor();
     auditLog.log(AUDIT_ACTIONS.SYSTEM_SHUTDOWN, 'system', {
       details: { reason: 'SIGTERM received' },
       status: 'success'
@@ -267,6 +274,7 @@ app.use((req, res, next) => {
   });
 
   process.on('SIGINT', () => {
+    stopStalenessMonitor();
     auditLog.log(AUDIT_ACTIONS.SYSTEM_SHUTDOWN, 'system', {
       details: { reason: 'SIGINT received' },
       status: 'success'

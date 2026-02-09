@@ -5,6 +5,27 @@
 
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+
+/**
+ * Get a writable data directory (same logic as db.ts)
+ * Falls back to platform-appropriate app data location
+ */
+function getDataDir(): string {
+  if (process.env.STRATUS_DATA_DIR) {
+    return process.env.STRATUS_DATA_DIR;
+  }
+  const platform = process.platform;
+  let appDataPath: string;
+  if (platform === 'win32') {
+    appDataPath = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  } else if (platform === 'darwin') {
+    appDataPath = path.join(os.homedir(), 'Library', 'Application Support');
+  } else {
+    appDataPath = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  }
+  return path.join(appDataPath, 'Stratus Weather Server');
+}
 
 export interface AuditLogEntry {
   timestamp: string;
@@ -78,7 +99,7 @@ class AuditLogService {
   private maxInMemoryLogs: number = 1000;
 
   constructor() {
-    this.logDir = path.join(process.cwd(), 'logs', 'audit');
+    this.logDir = path.join(getDataDir(), 'logs', 'audit');
     this.currentLogFile = this.getLogFileName();
     this.ensureLogDirectory();
   }

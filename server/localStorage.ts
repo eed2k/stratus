@@ -1336,6 +1336,25 @@ export class DatabaseStorage {
   }
 
   async getDropboxConfig(id: number): Promise<any | null> {
+    if (usePostgres) {
+      const row = await postgres.getDropboxConfigById(id);
+      if (!row) return null;
+      return {
+        id: row.id,
+        name: row.name,
+        folderPath: row.folderPath,
+        filePattern: row.filePattern,
+        stationId: row.stationId,
+        syncInterval: row.syncInterval,
+        enabled: !!row.enabled,
+        lastSyncAt: row.lastSyncAt ? new Date(row.lastSyncAt) : null,
+        lastSyncStatus: row.lastSyncStatus,
+        lastSyncRecords: row.lastSyncRecords ?? 0,
+        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
+        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+      };
+    }
+
     const row = db.getDropboxConfigById(id);
     if (!row) return null;
     return {
@@ -1355,6 +1374,18 @@ export class DatabaseStorage {
   }
 
   async createDropboxConfig(data: { name: string; folderPath: string; filePattern?: string; stationId?: number; syncInterval?: number; enabled?: boolean }): Promise<any> {
+    if (usePostgres) {
+      const id = await postgres.createDropboxConfig(
+        data.name,
+        data.folderPath,
+        data.filePattern || null,
+        data.stationId || null,
+        data.syncInterval || 3600000,
+        data.enabled !== false
+      );
+      return this.getDropboxConfig(id);
+    }
+
     const id = db.createDropboxConfig(
       data.name, 
       data.folderPath, 
@@ -1367,6 +1398,18 @@ export class DatabaseStorage {
   }
 
   async updateDropboxConfig(id: number, data: Partial<{ name: string; folderPath: string; filePattern: string; stationId: number; syncInterval: number; enabled: boolean }>): Promise<any> {
+    if (usePostgres) {
+      await postgres.updateDropboxConfig(id, {
+        name: data.name,
+        folder_path: data.folderPath,
+        file_pattern: data.filePattern,
+        station_id: data.stationId,
+        sync_interval: data.syncInterval,
+        enabled: data.enabled,
+      });
+      return this.getDropboxConfig(id);
+    }
+
     db.updateDropboxConfig(id, {
       name: data.name,
       folder_path: data.folderPath,
@@ -1379,10 +1422,18 @@ export class DatabaseStorage {
   }
 
   async updateDropboxSyncStatus(id: number, status: string, recordsImported: number): Promise<void> {
+    if (usePostgres) {
+      await postgres.updateDropboxConfigSyncStatus(id, status, recordsImported);
+      return;
+    }
     db.updateDropboxSyncStatus(id, status, recordsImported);
   }
 
   async deleteDropboxConfig(id: number): Promise<boolean> {
+    if (usePostgres) {
+      await postgres.deleteDropboxConfig(id);
+      return true;
+    }
     db.deleteDropboxConfig(id);
     return true;
   }

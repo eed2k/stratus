@@ -10,6 +10,7 @@ files:
   - electron.js
   - electron/**/*
   - dist/**/*
+  - client/dist/**/*
   - shared/**/*
   - assets/icons/**/*
   - package.json
@@ -23,12 +24,6 @@ files:
   - "!demo_data/**"
   - "!docs/**"
   - "!logs/**"
-
-extraResources:
-  - from: ".env"
-    to: ".env"
-    filter:
-      - "**/*"
 
 win:
   target:

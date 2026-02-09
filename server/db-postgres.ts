@@ -924,6 +924,91 @@ export async function updateDropboxConfigSyncStatus(
   `, [id, status, recordCount]);
 }
 
+/**
+ * Get a single Dropbox config by ID
+ */
+export async function getDropboxConfigById(id: number): Promise<DropboxConfig | null> {
+  const result = await query(`SELECT * FROM dropbox_configs WHERE id = $1`, [id]);
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    name: row.name,
+    folderPath: row.folder_path,
+    filePattern: row.file_pattern,
+    stationId: row.station_id,
+    syncInterval: row.sync_interval,
+    enabled: row.enabled,
+    lastSyncAt: row.last_sync_at?.toISOString(),
+    lastSyncStatus: row.last_sync_status,
+    lastSyncRecords: row.last_sync_records,
+    createdAt: row.created_at?.toISOString(),
+    updatedAt: row.updated_at?.toISOString(),
+  };
+}
+
+/**
+ * Create a new Dropbox config
+ */
+export async function createDropboxConfig(
+  name: string,
+  folderPath: string,
+  filePattern: string | null,
+  stationId: number | null,
+  syncInterval: number,
+  enabled: boolean
+): Promise<number> {
+  const result = await query(`
+    INSERT INTO dropbox_configs (name, folder_path, file_pattern, station_id, sync_interval, enabled)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id
+  `, [name, folderPath, filePattern, stationId, syncInterval, enabled]);
+  return result.rows[0].id;
+}
+
+/**
+ * Update an existing Dropbox config
+ */
+export async function updateDropboxConfig(
+  id: number,
+  data: {
+    name?: string;
+    folder_path?: string;
+    file_pattern?: string | null;
+    station_id?: number | null;
+    sync_interval?: number;
+    enabled?: boolean;
+  }
+): Promise<void> {
+  const fields: string[] = [];
+  const values: any[] = [];
+  let idx = 1;
+
+  if (data.name !== undefined) { fields.push(`name = $${idx++}`); values.push(data.name); }
+  if (data.folder_path !== undefined) { fields.push(`folder_path = $${idx++}`); values.push(data.folder_path); }
+  if (data.file_pattern !== undefined) { fields.push(`file_pattern = $${idx++}`); values.push(data.file_pattern); }
+  if (data.station_id !== undefined) { fields.push(`station_id = $${idx++}`); values.push(data.station_id); }
+  if (data.sync_interval !== undefined) { fields.push(`sync_interval = $${idx++}`); values.push(data.sync_interval); }
+  if (data.enabled !== undefined) { fields.push(`enabled = $${idx++}`); values.push(data.enabled); }
+  
+  if (fields.length === 0) return;
+  
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(id);
+
+  await query(
+    `UPDATE dropbox_configs SET ${fields.join(', ')} WHERE id = $${idx}`,
+    values
+  );
+}
+
+/**
+ * Delete a Dropbox config
+ */
+export async function deleteDropboxConfig(id: number): Promise<void> {
+  await query(`DELETE FROM dropbox_configs WHERE id = $1`, [id]);
+}
+
 // ============================================================================
 // Password Reset Token Operations
 // ============================================================================
@@ -1567,6 +1652,10 @@ export default {
   createUser,
   updateUserLastLogin,
   getAllDropboxConfigs,
+  getDropboxConfigById,
+  createDropboxConfig,
+  updateDropboxConfig,
+  deleteDropboxConfig,
   updateDropboxConfigSyncStatus,
   // Password reset
   createPasswordResetToken,

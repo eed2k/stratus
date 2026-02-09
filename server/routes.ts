@@ -224,6 +224,7 @@ import { fileWatcherService } from "./services/fileWatcherService";
 import dropboxSyncRoutes from "./services/dropboxSyncRoutes";
 import { dropboxSyncService } from "./services/dropboxSyncService";
 import weatherRoutes from "./weatherApi";
+import { triggerStalenessCheck, sendTestStalenessAlert } from "./services/stalenessMonitorService";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -279,6 +280,32 @@ export async function registerRoutes(
 
   // Register Weather API routes (Windy + AfriGIS Lightning)
   app.use('/api/weather', weatherRoutes);
+
+  // ── Staleness Monitor API routes ──────────────────────────────────────
+  // GET /api/staleness/status - Check current staleness status of all stations
+  app.get('/api/staleness/status', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const result = await triggerStalenessCheck();
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // POST /api/staleness/test-email - Send a test staleness alert email
+  app.post('/api/staleness/test-email', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { email } = req.body || {};
+      const sent = await sendTestStalenessAlert(email);
+      if (sent) {
+        res.json({ success: true, message: 'Test staleness alert email sent successfully' });
+      } else {
+        res.status(500).json({ success: false, message: 'Failed to send test email. Check MailerSend configuration.' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
 
   // Initialize file watcher service
   await fileWatcherService.initialize();

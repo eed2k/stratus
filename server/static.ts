@@ -13,6 +13,16 @@ export function serveStatic(app: Express) {
     path.resolve(__dirname, "..", "client", "dist"),        // Alternative layout
   ];
   
+  // Electron packaged app: check relative to app root (asar)
+  if (process.env.STRATUS_DESKTOP === 'true') {
+    // In Electron asar: __dirname = .../app.asar/dist/server
+    // So app root = __dirname/../../ => .../app.asar/
+    // Client dist = .../app.asar/client/dist
+    const electronAppRoot = path.resolve(__dirname, "..", "..");
+    possiblePaths.unshift(path.resolve(electronAppRoot, "client", "dist"));
+    console.log(`[Desktop] Electron app root: ${electronAppRoot}`);
+  }
+  
   let distPath: string | null = null;
   for (const p of possiblePaths) {
     console.log(`Checking for client dist at: ${p}`);

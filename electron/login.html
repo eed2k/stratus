@@ -3,175 +3,483 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stratus — Login</title>
+  <title>Stratus — Sign In</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
-      color: #e2e8f0;
+      background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+      color: #111827;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .login-container {
+    .login-wrapper {
       width: 100%;
-      max-width: 400px;
-      padding: 2rem;
+      max-width: 28rem;
+      padding: 1rem;
     }
-    .logo {
+
+    /* ---- Logo & Branding ---- */
+    .branding {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
-    .logo-circle {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: #1e3a5f;
+    .branding-inner {
       display: inline-flex;
       align-items: center;
+      gap: 0.75rem;
+    }
+    .logo-circle {
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 50%;
+      background: #1e3a5f;
+      display: flex;
+      align-items: center;
       justify-content: center;
-      border: 2px solid rgba(255,255,255,0.1);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      margin-bottom: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
     }
     .logo-dot {
-      width: 20px;
-      height: 20px;
+      width: 1rem;
+      height: 1rem;
       border-radius: 50%;
       background: white;
     }
-    h1 { font-size: 1.75rem; font-weight: 700; }
-    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem; }
+    .brand-text h1 {
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1;
+      text-align: left;
+    }
+    .brand-text p {
+      font-size: 0.875rem;
+      color: #4b5563;
+      margin-top: 2px;
+      text-align: left;
+    }
+
+    /* ---- Card ---- */
     .card {
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.1);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      backdrop-filter: blur(10px);
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,.06), 0 4px 6px -4px rgba(0,0,0,.05);
+      overflow: hidden;
     }
-    .input-group { margin-bottom: 1rem; }
-    .input-group label {
-      display: block;
-      font-size: 0.8125rem;
-      color: #94a3b8;
-      margin-bottom: 0.375rem;
+    .card-header {
+      padding: 1.5rem 1.5rem 0.75rem;
+      text-align: center;
     }
-    .input-group input {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      background: rgba(15, 23, 42, 0.5);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      border-radius: 6px;
-      color: #e2e8f0;
-      font-size: 1rem;
-      outline: none;
-      transition: border-color 0.2s;
+    .card-header h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #111827;
     }
-    .input-group input:focus { border-color: #3b82f6; }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
+    .card-header p {
+      font-size: 0.875rem;
+      color: #4b5563;
+      margin-top: 0.25rem;
+    }
+    .card-body {
+      padding: 0 1.5rem 1.5rem;
+    }
+
+    /* ---- Tabs ---- */
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: #f3f4f6;
+      border-radius: 0.5rem;
+      padding: 0.25rem;
+      margin-bottom: 1rem;
+      height: 3rem;
+    }
+    .tab-btn {
+      border: none;
+      background: transparent;
+      border-radius: 0.375rem;
       font-size: 0.875rem;
       font-weight: 500;
-      border: none;
       cursor: pointer;
-      transition: all 0.2s;
-      width: 100%;
-      background: #3b82f6;
-      color: white;
+      color: #4b5563;
+      transition: all 0.15s;
     }
-    .btn:hover { background: #2563eb; }
-    .btn:disabled { background: #475569; cursor: not-allowed; }
-    .error {
-      color: #ef4444;
-      font-size: 0.8125rem;
+    .tab-btn.active-admin {
+      background: #2563eb;
+      color: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,.1);
+    }
+    .tab-btn.active-user {
+      background: #059669;
+      color: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,.1);
+    }
+
+    /* ---- Info Banner ---- */
+    .info-banner {
+      padding: 0.75rem;
+      border-radius: 0.5rem;
       text-align: center;
       margin-bottom: 1rem;
-      padding: 0.5rem;
-      background: rgba(239, 68, 68, 0.1);
-      border-radius: 6px;
     }
-    .error.hidden { display: none; }
-    .version {
+    .info-banner.admin {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+    }
+    .info-banner.admin .info-title { color: #1e40af; font-size: 0.875rem; font-weight: 500; }
+    .info-banner.admin .info-desc { color: #2563eb; font-size: 0.75rem; margin-top: 0.125rem; }
+    .info-banner.user {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+    }
+    .info-banner.user .info-title { color: #065f46; font-size: 0.875rem; font-weight: 500; }
+    .info-banner.user .info-desc { color: #059669; font-size: 0.75rem; margin-top: 0.125rem; }
+
+    /* ---- Form ---- */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0.375rem;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      color: #111827;
+      font-size: 0.9375rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-group input::placeholder {
+      color: #9ca3af;
+    }
+    .form-group input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+
+    /* ---- Error ---- */
+    .error-alert {
+      padding: 0.625rem 0.875rem;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 0.375rem;
+      color: #991b1b;
+      font-size: 0.8125rem;
+      margin-bottom: 1rem;
+    }
+    .error-alert.hidden { display: none; }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 0.625rem 1rem;
+      border: none;
+      border-radius: 0.375rem;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      color: #fff;
+    }
+    .btn-admin { background: #2563eb; }
+    .btn-admin:hover { background: #1d4ed8; }
+    .btn-user { background: #059669; }
+    .btn-user:hover { background: #047857; }
+    .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    /* ---- Info & Footer ---- */
+    .info-text {
       text-align: center;
-      color: #475569;
-      font-size: 0.75rem;
+      font-size: 0.875rem;
+      color: #6b7280;
       margin-top: 1.5rem;
+      line-height: 1.6;
     }
-    .shake {
-      animation: shake 0.5s;
+    .info-text strong { color: #374151; }
+    .footer {
+      text-align: center;
+      margin-top: 1rem;
     }
+    .footer p {
+      font-size: 0.75rem;
+      color: #4b5563;
+    }
+    .footer .dev {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-top: 0.125rem;
+    }
+    .footer .dev span { color: #374151; font-weight: 500; }
+
+    /* ---- Loading overlay ---- */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .loading-overlay.hidden { display: none; }
+    .spinner {
+      width: 2rem;
+      height: 2rem;
+      border: 3px solid #e2e8f0;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-overlay h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 0.25rem;
+    }
+    .loading-overlay p {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    /* ---- Shake animation ---- */
+    .shake { animation: shake 0.4s; }
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
-      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-      20%, 40%, 60%, 80% { transform: translateX(5px); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
     }
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <div class="logo">
-      <div class="logo-circle">
-        <div class="logo-dot"></div>
+  <!-- Loading overlay (shown after login while waiting for app) -->
+  <div class="loading-overlay hidden" id="loadingOverlay">
+    <div class="logo-circle" style="margin-bottom:1rem;">
+      <div class="logo-dot"></div>
+    </div>
+    <h2>Starting Stratus...</h2>
+    <p id="loadingStatus">Connecting to server</p>
+    <div class="spinner" style="margin-top:1rem;"></div>
+  </div>
+
+  <div class="login-wrapper" id="loginWrapper">
+    <!-- Logo & Branding -->
+    <div class="branding">
+      <div class="branding-inner">
+        <div class="logo-circle">
+          <div class="logo-dot"></div>
+        </div>
+        <div class="brand-text">
+          <h1>Stratus</h1>
+          <p>Weather Station Manager</p>
+        </div>
       </div>
-      <h1>STRATUS</h1>
-      <p class="subtitle">Weather Station Manager — Desktop</p>
     </div>
 
+    <!-- Login Card -->
     <div class="card" id="loginCard">
-      <div class="error hidden" id="errorMsg">Incorrect password. Please try again.</div>
-      <div class="input-group">
-        <label>Application Password</label>
-        <input type="password" id="password" placeholder="Enter password" autofocus
-               onkeydown="if(event.key==='Enter')login()">
+      <div class="card-header">
+        <h2>Welcome Back</h2>
+        <p>Sign in to access your weather dashboard</p>
       </div>
-      <button class="btn" onclick="login()" id="loginBtn">Unlock Stratus</button>
+      <div class="card-body">
+        <!-- Login Type Tabs -->
+        <div class="tabs">
+          <button class="tab-btn active-admin" id="tabAdmin" onclick="switchTab('admin')">Admin Login</button>
+          <button class="tab-btn" id="tabUser" onclick="switchTab('user')">User Login</button>
+        </div>
+
+        <!-- Info Banner -->
+        <div class="info-banner admin" id="infoBanner">
+          <div class="info-title" id="infoTitle">Administrator Access</div>
+          <div class="info-desc" id="infoDesc">Full access to all stations, settings, and user management</div>
+        </div>
+
+        <!-- Error -->
+        <div class="error-alert hidden" id="errorMsg">Login failed</div>
+
+        <!-- Form -->
+        <form onsubmit="event.preventDefault(); doLogin();">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="you@example.com" autocomplete="email" autofocus>
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
+          </div>
+          <button class="btn btn-admin" type="submit" id="loginBtn">Sign In as Admin</button>
+        </form>
+      </div>
     </div>
 
-    <div class="version">Stratus v1.1.0 — Desktop Edition<br>© 2025-2026 Lukas Esterhuizen</div>
+    <!-- Info Text -->
+    <div class="info-text">
+      <p><strong>Admins:</strong> Full access to all settings, stations, and user management.</p>
+      <p><strong>Users:</strong> Can view data from assigned stations only.</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>Stratus Weather Station Manager v1.1.0</p>
+      <p class="dev">Developer: <span>Lukas Esterhuizen</span></p>
+    </div>
   </div>
 
   <script>
+    let currentTab = 'admin';
     let attempts = 0;
 
-    async function login() {
-      const password = document.getElementById('password').value;
-      if (!password) return;
-
+    function switchTab(tab) {
+      currentTab = tab;
+      const tabAdmin = document.getElementById('tabAdmin');
+      const tabUser = document.getElementById('tabUser');
+      const infoBanner = document.getElementById('infoBanner');
+      const infoTitle = document.getElementById('infoTitle');
+      const infoDesc = document.getElementById('infoDesc');
       const loginBtn = document.getElementById('loginBtn');
-      loginBtn.disabled = true;
-      loginBtn.textContent = 'Verifying...';
 
-      const valid = await window.stratusDesktop.auth.verifyPassword(password);
-      
-      if (valid) {
-        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;"><div style="width:64px;height:64px;border-radius:50%;background:#1e3a5f;display:inline-flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.1);margin-bottom:1rem;"><div style="width:20px;height:20px;border-radius:50%;background:white;"></div></div><h2 style="margin-bottom:0.5rem;">Starting Stratus...</h2><p style="color:#94a3b8;font-size:0.875rem;">Loading weather station manager</p></div>';
-        setTimeout(() => {
-          window.location.href = 'http://localhost:5000';
-        }, 1500);
+      tabAdmin.className = 'tab-btn' + (tab === 'admin' ? ' active-admin' : '');
+      tabUser.className = 'tab-btn' + (tab === 'user' ? ' active-user' : '');
+
+      if (tab === 'admin') {
+        infoBanner.className = 'info-banner admin';
+        infoTitle.textContent = 'Administrator Access';
+        infoDesc.textContent = 'Full access to all stations, settings, and user management';
+        loginBtn.className = 'btn btn-admin';
+        loginBtn.textContent = 'Sign In as Admin';
       } else {
-        attempts++;
-        const errorEl = document.getElementById('errorMsg');
-        errorEl.classList.remove('hidden');
-        errorEl.textContent = attempts >= 3
-          ? `Incorrect password (${attempts} attempts). Please try again.`
-          : 'Incorrect password. Please try again.';
-        
-        const card = document.getElementById('loginCard');
-        card.classList.add('shake');
-        setTimeout(() => card.classList.remove('shake'), 500);
-        
-        document.getElementById('password').value = '';
-        document.getElementById('password').focus();
-        loginBtn.disabled = false;
-        loginBtn.textContent = 'Unlock Stratus';
+        infoBanner.className = 'info-banner user';
+        infoTitle.textContent = 'User Access';
+        infoDesc.textContent = 'View data from your assigned weather stations';
+        loginBtn.className = 'btn btn-user';
+        loginBtn.textContent = 'Sign In as User';
       }
+    }
+
+    // Poll the server health endpoint until it responds
+    function waitForServer(maxAttempts) {
+      maxAttempts = maxAttempts || 60;
+      var statusEl = document.getElementById('loadingStatus');
+      var attempt = 0;
+
+      return new Promise(function(resolve, reject) {
+        function check() {
+          attempt++;
+          if (statusEl) statusEl.textContent = 'Connecting to server' + '.'.repeat((attempt % 3) + 1);
+
+          fetch('http://localhost:5000/api/health', { method: 'GET' })
+            .then(function(res) {
+              if (res.ok) {
+                if (statusEl) statusEl.textContent = 'Server ready — loading app...';
+                resolve();
+              } else if (attempt < maxAttempts) {
+                setTimeout(check, 500);
+              } else {
+                reject(new Error('Server not ready'));
+              }
+            })
+            .catch(function() {
+              if (attempt < maxAttempts) {
+                setTimeout(check, 500);
+              } else {
+                reject(new Error('Server not ready'));
+              }
+            });
+        }
+        check();
+      });
+    }
+
+    async function doLogin() {
+      var email = document.getElementById('email').value.trim();
+      var password = document.getElementById('password').value;
+
+      if (!email) {
+        showError('Email is required');
+        return;
+      }
+      if (!password) {
+        showError('Password is required');
+        return;
+      }
+
+      var loginBtn = document.getElementById('loginBtn');
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Signing in...';
+      hideError();
+
+      try {
+        // Wait for server to be up before attempting login
+        await waitForServer(10);
+
+        // Authenticate against the server's auth API
+        var res = await fetch('http://localhost:5000/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, password: password }),
+          credentials: 'include',
+        });
+
+        var data = await res.json();
+
+        if (res.ok && data.success) {
+          // Store user session in localStorage (same keys as the React app)
+          if (data.user) {
+            localStorage.setItem('stratus_user_email', data.user.email);
+            localStorage.setItem('stratus_user', JSON.stringify(data.user));
+          }
+
+          // Show loading overlay
+          document.getElementById('loginWrapper').style.display = 'none';
+          document.getElementById('loadingOverlay').classList.remove('hidden');
+
+          // Wait for server to be fully ready, then navigate
+          await waitForServer(60);
+          window.location.href = 'http://localhost:5000';
+        } else {
+          attempts++;
+          showError(data.message || 'Invalid email or password. Please try again.');
+          loginBtn.disabled = false;
+          loginBtn.textContent = currentTab === 'admin' ? 'Sign In as Admin' : 'Sign In as User';
+        }
+      } catch (err) {
+        attempts++;
+        showError('Could not connect to server. Please wait a moment and try again.');
+        loginBtn.disabled = false;
+        loginBtn.textContent = currentTab === 'admin' ? 'Sign In as Admin' : 'Sign In as User';
+      }
+    }
+
+    function showError(msg) {
+      var el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      document.getElementById('loginCard').classList.add('shake');
+      setTimeout(function() {
+        document.getElementById('loginCard').classList.remove('shake');
+      }, 400);
+      document.getElementById('password').value = '';
+      document.getElementById('password').focus();
+    }
+
+    function hideError() {
+      document.getElementById('errorMsg').classList.add('hidden');
     }
   </script>
 </body>

@@ -47,11 +47,11 @@ contextBridge.exposeInMainWorld('stratusDesktop', {
     },
   },
 
-  // Auth
-  auth: {
-    isPasswordSet: () => ipcRenderer.invoke('auth:check-password-set'),
-    verifyPassword: (password) => ipcRenderer.invoke('auth:verify-password', password),
-    setPassword: (password) => ipcRenderer.invoke('auth:set-password', password),
+  // License
+  license: {
+    isValid: () => ipcRenderer.invoke('license:is-valid'),
+    activate: (key) => ipcRenderer.invoke('license:activate', key),
+    getInfo: () => ipcRenderer.invoke('license:info'),
   },
 
   // EULA

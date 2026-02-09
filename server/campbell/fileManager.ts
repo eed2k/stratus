@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { PakBusProtocol, MESSAGE_TYPES } from './pakbusProtocol';
 
 // File attributes from Campbell dataloggers
@@ -94,12 +95,31 @@ export class FileManager extends EventEmitter {
   constructor(pakbus: PakBusProtocol, backupDir?: string) {
     super();
     this.pakbus = pakbus;
-    this.backupDir = backupDir || path.join(process.cwd(), 'backups');
+    this.backupDir = backupDir || this.getDefaultBackupDir();
     
     // Ensure backup directory exists
     if (!fs.existsSync(this.backupDir)) {
       fs.mkdirSync(this.backupDir, { recursive: true });
     }
+  }
+
+  /**
+   * Get a writable default backup directory (same logic as db.ts)
+   */
+  private getDefaultBackupDir(): string {
+    if (process.env.STRATUS_DATA_DIR) {
+      return path.join(process.env.STRATUS_DATA_DIR, 'backups');
+    }
+    const platform = process.platform;
+    let appDataPath: string;
+    if (platform === 'win32') {
+      appDataPath = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    } else if (platform === 'darwin') {
+      appDataPath = path.join(os.homedir(), 'Library', 'Application Support');
+    } else {
+      appDataPath = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+    }
+    return path.join(appDataPath, 'Stratus Weather Server', 'backups');
   }
 
   /**
