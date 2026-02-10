@@ -17,6 +17,7 @@ services:
       - DROPBOX_APP_KEY=${DROPBOX_APP_KEY}
       - DROPBOX_APP_SECRET=${DROPBOX_APP_SECRET}
       - DROPBOX_REFRESH_TOKEN=${DROPBOX_REFRESH_TOKEN}
+      - DROPBOX_FOLDER_PATH=${DROPBOX_FOLDER_PATH}
       - MAILERSEND_API_KEY=${MAILERSEND_API_KEY}
       - MAILERSEND_FROM_EMAIL=${MAILERSEND_FROM_EMAIL}
       - MAILERSEND_FROM_NAME=${MAILERSEND_FROM_NAME:-Stratus Weather}
@@ -35,13 +36,26 @@ services:
     networks:
       - stratus-network
     healthcheck:
-      disable: true
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     labels:
       - "traefik.enable=true"
+      # Main domain
       - "traefik.http.routers.stratus.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.stratus.entrypoints=websecure"
       - "traefik.http.routers.stratus.tls.certresolver=letsencrypt"
       - "traefik.http.services.stratus.loadbalancer.server.port=5000"
+      # www redirect → apex
+      - "traefik.http.routers.stratus-www.rule=Host(`www.${DOMAIN}`)"
+      - "traefik.http.routers.stratus-www.entrypoints=websecure"
+      - "traefik.http.routers.stratus-www.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.stratus-www.middlewares=www-redirect"
+      - "traefik.http.middlewares.www-redirect.redirectregex.regex=^https://www\\.(.+)"
+      - "traefik.http.middlewares.www-redirect.redirectregex.replacement=https://$${1}"
+      - "traefik.http.middlewares.www-redirect.redirectregex.permanent=true"
 
   postgres:
     image: postgres:15-alpine
@@ -66,7 +80,7 @@ services:
     container_name: stratus-traefik
     restart: unless-stopped
     command:
-      - "--log.level=DEBUG"
+      - "--log.level=INFO"
       - "--api.dashboard=false"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"

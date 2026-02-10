@@ -168,7 +168,6 @@
     <div class="step-indicator">
       <div class="step active" id="step1-dot"></div>
       <div class="step" id="step2-dot"></div>
-      <div class="step" id="step3-dot"></div>
     </div>
 
     <!-- Step 1: Welcome -->
@@ -248,49 +247,20 @@
       </div>
       <div style="display: flex; gap: 0.75rem;">
         <button class="btn btn-secondary" onclick="goToStep(1)" style="width: auto; flex: 0 0 auto; padding: 0.625rem 1rem;">← Back</button>
-        <button class="btn btn-primary" id="eulaNextBtn" onclick="acceptAndContinue()" disabled>Accept &amp; Continue →</button>
+        <button class="btn btn-primary" id="eulaNextBtn" onclick="acceptAndContinue()" disabled>Accept &amp; Finish</button>
       </div>
     </div>
 
-    <!-- Step 3: Password -->
-    <div id="step3" class="hidden">
-      <div class="card">
-        <h2>Set Application Password</h2>
-        <p style="color: #94a3b8; font-size: 0.8125rem; margin-bottom: 1rem;">
-          Protect the Stratus desktop application with a password. This password will be required 
-          each time you launch the application. You can skip this step and set a password later.
-        </p>
-        <div class="password-section">
-          <div class="input-group">
-            <label>Password</label>
-            <input type="password" id="password1" placeholder="Enter password" oninput="validatePasswords()">
-          </div>
-          <div class="input-group">
-            <label>Confirm Password</label>
-            <input type="password" id="password2" placeholder="Confirm password" oninput="validatePasswords()">
-          </div>
-          <div class="error hidden" id="passwordError"></div>
-        </div>
-      </div>
-      <div style="display: flex; gap: 0.75rem;">
-        <button class="btn btn-secondary" onclick="goToStep(2)" style="width: auto; flex: 0 0 auto; padding: 0.625rem 1rem;">← Back</button>
-        <button class="btn btn-secondary" onclick="skipPassword()" style="width: auto;">Skip</button>
-        <button class="btn btn-primary" id="finishBtn" onclick="finishSetup()" disabled>Set Password &amp; Launch →</button>
-      </div>
-    </div>
-
-    <div class="version">Stratus v1.1.0 — Desktop Edition<br>© 2025-2026 Lukas Esterhuizen</div>
+    <div class="version">Stratus v1.1.0 — Desktop Edition<br>&copy; 2025-2026 Lukas Esterhuizen</div>
   </div>
 
   <script>
     function goToStep(step) {
       document.getElementById('step1').classList.toggle('hidden', step !== 1);
       document.getElementById('step2').classList.toggle('hidden', step !== 2);
-      document.getElementById('step3').classList.toggle('hidden', step !== 3);
       
-      document.getElementById('step1-dot').className = step === 1 ? 'step active' : (step > 1 ? 'step done' : 'step');
-      document.getElementById('step2-dot').className = step === 2 ? 'step active' : (step > 2 ? 'step done' : 'step');
-      document.getElementById('step3-dot').className = step === 3 ? 'step active' : 'step';
+      document.getElementById('step1-dot').className = step === 1 ? 'step active' : 'step done';
+      document.getElementById('step2-dot').className = step === 2 ? 'step active' : 'step';
     }
 
     function validateEula() {
@@ -299,49 +269,17 @@
     }
 
     async function acceptAndContinue() {
-      await window.stratusDesktop.eula.accept();
-      goToStep(3);
-    }
-
-    function validatePasswords() {
-      const p1 = document.getElementById('password1').value;
-      const p2 = document.getElementById('password2').value;
-      const errorEl = document.getElementById('passwordError');
-      const finishBtn = document.getElementById('finishBtn');
-      
-      if (p1.length > 0 && p1.length < 4) {
-        errorEl.textContent = 'Password must be at least 4 characters';
-        errorEl.classList.remove('hidden');
-        finishBtn.disabled = true;
-        return;
+      var btn = document.getElementById('eulaNextBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      try {
+        await window.stratusDesktop.eula.accept();
+        // After EULA is accepted, navigate to the license activation page
+        window.location.href = 'license.html';
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Accept & Finish';
       }
-      
-      if (p1 && p2 && p1 !== p2) {
-        errorEl.textContent = 'Passwords do not match';
-        errorEl.classList.remove('hidden');
-        finishBtn.disabled = true;
-        return;
-      }
-      
-      errorEl.classList.add('hidden');
-      finishBtn.disabled = !(p1 && p2 && p1 === p2 && p1.length >= 4);
-    }
-
-    async function finishSetup() {
-      const password = document.getElementById('password1').value;
-      await window.stratusDesktop.auth.setPassword(password);
-      launchApp();
-    }
-
-    async function skipPassword() {
-      launchApp();
-    }
-
-    function launchApp() {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;"><div class="logo-circle" style="width:64px;height:64px;border-radius:50%;background:#1e3a5f;display:inline-flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.1);margin-bottom:1rem;"><div style="width:20px;height:20px;border-radius:50%;background:white;"></div></div><h2 style="margin-bottom:0.5rem;">Starting Stratus...</h2><p style="color:#94a3b8;font-size:0.875rem;">Loading weather station manager</p></div>';
-      setTimeout(() => {
-        window.location.href = 'http://localhost:' + (5000);
-      }, 2000);
     }
   </script>
 </body>

@@ -227,6 +227,7 @@ Dashboard: ${dashboardUrl}
 
 --
 Stratus Weather - Station Monitoring
+Developed by Lukas Esterhuizen (esterhuizen2k@proton.me)
 This is an automated alert from the staleness monitor.
 Alert cooldown: ${ALERT_COOLDOWN_MS / 3600000} hours (no repeat alerts within this period)`;
 
@@ -297,9 +298,11 @@ Alert cooldown: ${ALERT_COOLDOWN_MS / 3600000} hours (no repeat alerts within th
       </div>
     </div>
     
-    <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px;">
+    <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
       <p style="margin: 0 0 4px 0; color: #6b7280;">Stratus Weather - Station Monitoring</p>
       <p style="margin: 0;">Alert cooldown: ${ALERT_COOLDOWN_MS / 3600000} hours</p>
+      <p style="margin: 12px 0 0 0; font-size: 11px;">Developed by <strong>Lukas Esterhuizen</strong></p>
+      <p style="margin: 4px 0 0 0; font-size: 11px;">esterhuizen2k@proton.me</p>
     </div>
   </div>
 </body>
@@ -348,6 +351,7 @@ Dashboard: ${dashboardUrl}
 
 --
 Stratus Weather - Station Monitoring
+Developed by Lukas Esterhuizen (esterhuizen2k@proton.me)
 This is an automated recovery notice from the staleness monitor.`;
 
   const html = `<!DOCTYPE html>
@@ -395,8 +399,10 @@ This is an automated recovery notice from the staleness monitor.`;
       </div>
     </div>
     
-    <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px;">
-      <p style="margin: 0; color: #6b7280;">Stratus Weather - Station Monitoring</p>
+    <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
+      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather - Station Monitoring</p>
+      <p style="margin: 0; font-size: 11px;">Developed by <strong>Lukas Esterhuizen</strong></p>
+      <p style="margin: 4px 0 0 0; font-size: 11px;">esterhuizen2k@proton.me</p>
     </div>
   </div>
 </body>
@@ -495,6 +501,7 @@ Dashboard: ${dashboardUrl}
 
 --
 Stratus Weather - Station Monitoring
+Developed by Lukas Esterhuizen (esterhuizen2k@proton.me)
 Test sent at: ${new Date().toUTCString()}`;
 
   const html = `<!DOCTYPE html>
@@ -550,8 +557,10 @@ Test sent at: ${new Date().toUTCString()}`;
       </div>
     </div>
     
-    <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px;">
-      <p style="margin: 0; color: #6b7280;">Stratus Weather - Station Monitoring</p>
+    <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
+      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather - Station Monitoring</p>
+      <p style="margin: 0; font-size: 11px;">Developed by <strong>Lukas Esterhuizen</strong></p>
+      <p style="margin: 4px 0 0 0; font-size: 11px;">esterhuizen2k@proton.me</p>
     </div>
   </div>
 </body>

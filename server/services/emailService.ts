@@ -152,15 +152,15 @@ function getSeverityColor(severity: string): string {
 }
 
 /**
- * Get severity emoji for subject line
+ * Get severity label for subject line
  */
-function getSeverityEmoji(severity: string): string {
+function getSeverityLabel(severity: string): string {
   switch (severity) {
-    case 'critical': return '🚨';
-    case 'error': return '⚠️';
-    case 'warning': return '⚡';
-    case 'info': return 'ℹ️';
-    default: return '📊';
+    case 'critical': return 'CRITICAL';
+    case 'error': return 'ERROR';
+    case 'warning': return 'WARNING';
+    case 'info': return 'INFO';
+    default: return 'ALERT';
   }
 }
 
@@ -177,10 +177,10 @@ export async function sendAlarmEmail(
   }
 
   const severityColor = getSeverityColor(data.severity);
-  const severityEmoji = getSeverityEmoji(data.severity);
+  const severityLabel = getSeverityLabel(data.severity);
   const dashboardUrl = data.dashboardUrl || process.env.APP_BASE_URL || 'https://stratusweather.co.za';
 
-  const subject = `${severityEmoji} [${data.severity.toUpperCase()}] ${data.alarmName} - ${data.stationName}`;
+  const subject = `[${severityLabel}] ${data.alarmName} - ${data.stationName}`;
 
   const html = `
 <!DOCTYPE html>
@@ -191,14 +191,10 @@ export async function sendAlarmEmail(
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <!-- Header with Logo -->
+    <!-- Header -->
     <div style="background: linear-gradient(135deg, ${severityColor} 0%, ${severityColor}dd 100%); border-radius: 12px 12px 0 0; padding: 32px; text-align: center;">
-      <!-- Logo Circle -->
-      <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 16px auto; display: flex; align-items: center; justify-content: center; border: 3px solid rgba(255,255,255,0.3);">
-        <div style="width: 16px; height: 16px; background: white; border-radius: 50%;"></div>
-      </div>
       <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700; font-family: Arial, Helvetica, sans-serif;">
-        ${severityEmoji} Weather Alert
+        Weather Alert
       </h1>
       <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">
         ${data.stationName}
@@ -253,6 +249,7 @@ export async function sendAlarmEmail(
         You're receiving this because you're subscribed to alerts for ${data.stationName}.
       </p>
       <p style="margin: 12px 0 0 0; font-size: 11px;">Developed by <strong>Lukas Esterhuizen</strong></p>
+      <p style="margin: 4px 0 0 0; font-size: 11px;">esterhuizen2k@proton.me</p>
     </div>
   </div>
 </body>
@@ -293,7 +290,7 @@ export async function sendAlarmResolvedEmail(
 
   const dashboardUrl = data.dashboardUrl || process.env.PUBLIC_URL || process.env.APP_BASE_URL || 'https://stratusweather.co.za';
 
-  const subject = `✅ [RESOLVED] ${data.alarmName} - ${data.stationName}`;
+  const subject = `[RESOLVED] ${data.alarmName} - ${data.stationName}`;
 
   const html = `
 <!DOCTYPE html>
@@ -307,7 +304,7 @@ export async function sendAlarmResolvedEmail(
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 12px 12px 0 0; padding: 24px; text-align: center;">
       <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
-        ✅ Alert Resolved
+        Alert Resolved
       </h1>
       <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">
         ${data.stationName}
@@ -348,8 +345,10 @@ export async function sendAlarmResolvedEmail(
     </div>
     
     <!-- Footer -->
-    <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px;">
-      <p style="margin: 0;">Stratus Weather Server</p>
+    <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
+      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather Server</p>
+      <p style="margin: 0; font-size: 11px;">Developed by <strong>Lukas Esterhuizen</strong></p>
+      <p style="margin: 4px 0 0 0; font-size: 11px;">esterhuizen2k@proton.me</p>
     </div>
   </div>
 </body>
@@ -389,12 +388,8 @@ export async function sendUserInvitationEmail(
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <!-- Header with Logo -->
+    <!-- Header -->
     <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); border-radius: 12px 12px 0 0; padding: 32px; text-align: center;">
-      <!-- Logo Circle -->
-      <div style="width: 60px; height: 60px; background: #1e3a5f; border-radius: 50%; margin: 0 auto 16px auto; display: flex; align-items: center; justify-content: center; border: 3px solid rgba(255,255,255,0.3);">
-        <div style="width: 16px; height: 16px; background: white; border-radius: 50%;"></div>
-      </div>
       <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700; font-family: Arial, Helvetica, sans-serif;">
         Stratus Weather
       </h1>
@@ -504,12 +499,8 @@ export async function sendPasswordResetEmail(
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <!-- Header with Logo -->
+    <!-- Header -->
     <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); border-radius: 12px 12px 0 0; padding: 32px; text-align: center;">
-      <!-- Logo Circle -->
-      <div style="width: 60px; height: 60px; background: #1e3a5f; border-radius: 50%; margin: 0 auto 16px auto; display: flex; align-items: center; justify-content: center; border: 3px solid rgba(255,255,255,0.3);">
-        <div style="width: 16px; height: 16px; background: white; border-radius: 50%;"></div>
-      </div>
       <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700; font-family: Arial, Helvetica, sans-serif;">
         Stratus Weather
       </h1>
@@ -591,13 +582,13 @@ Stratus Weather Server
 export async function sendTestEmail(to: string): Promise<boolean> {
   return sendEmail({
     to,
-    subject: '✅ Stratus Weather Server - Email Test',
+    subject: 'Stratus Weather Server - Email Test',
     html: `
 <!DOCTYPE html>
 <html>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px;">
   <div style="max-width: 500px; margin: 0 auto; background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
-    <h2 style="color: #22c55e; margin: 0 0 16px 0;">✅ Email Configuration Successful!</h2>
+    <h2 style="color: #22c55e; margin: 0 0 16px 0;">Email Configuration Successful</h2>
     <p style="color: #4b5563; margin: 0;">
       Your Stratus Weather Server is now configured to send email alerts.
     </p>
@@ -605,6 +596,8 @@ export async function sendTestEmail(to: string): Promise<boolean> {
     <p style="color: #9ca3af; font-size: 12px; margin: 0;">
       Sent at: ${new Date().toLocaleString()}
     </p>
+    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0 12px 0;">
+    <p style="color: #9ca3af; font-size: 11px; margin: 0;">Developed by <strong>Lukas Esterhuizen</strong> &mdash; esterhuizen2k@proton.me</p>
   </div>
 </body>
 </html>

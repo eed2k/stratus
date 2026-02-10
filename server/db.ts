@@ -258,6 +258,68 @@ async function runMigrations(database: Database): Promise<void> {
     // Index might already exist
   }
 
+  // Add unique index to prevent duplicate weather data (matches PostgreSQL schema)
+  try {
+    database.run(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_weather_data_unique_station_table_time
+      ON weather_data(station_id, table_name, timestamp)
+    `);
+    dbLog.info('Weather data unique constraint index ready');
+  } catch (e) {
+    // Index might already exist or duplicates prevent creation
+    dbLog.warn('Could not create unique index on weather_data (duplicates may exist)', e);
+  }
+
+  // Add index on alarms(station_id) for faster alarm lookups
+  try {
+    database.run(`
+      CREATE INDEX IF NOT EXISTS idx_alarms_station_id
+      ON alarms(station_id)
+    `);
+  } catch (e) {
+    // Index might already exist
+  }
+
+  // Add index on alarm_events(alarm_id) for faster event queries
+  try {
+    database.run(`
+      CREATE INDEX IF NOT EXISTS idx_alarm_events_alarm_id
+      ON alarm_events(alarm_id)
+    `);
+  } catch (e) {
+    // Index might already exist
+  }
+
+  // Add index on shares(station_id) for faster share lookups
+  try {
+    database.run(`
+      CREATE INDEX IF NOT EXISTS idx_shares_station_id
+      ON shares(station_id)
+    `);
+  } catch (e) {
+    // Index might already exist
+  }
+
+  // Add index on users(role) for admin email lookups
+  try {
+    database.run(`
+      CREATE INDEX IF NOT EXISTS idx_users_role
+      ON users(role)
+    `);
+  } catch (e) {
+    // Index might already exist
+  }
+
+  // Add unique constraint on organization_members(organization_id, user_id)
+  try {
+    database.run(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_org_members_unique
+      ON organization_members(organization_id, user_id)
+    `);
+  } catch (e) {
+    // Index might already exist
+  }
+
   try {
     database.run(`
       CREATE TABLE IF NOT EXISTS table_definitions (

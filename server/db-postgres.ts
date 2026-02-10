@@ -382,6 +382,14 @@ async function createTables(): Promise<void> {
     )
   `);
   pgLog.info('User preferences table ready');
+
+  // ── Performance indexes ──────────────────────────────────────────
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_alarms_station_id ON alarms(station_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_alarm_events_alarm_id ON alarm_events(alarm_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_shares_station_id ON shares(station_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_org_members_unique ON organization_members(organization_id, user_id)`);
+  pgLog.info('Additional performance indexes ready');
 }
 
 /**

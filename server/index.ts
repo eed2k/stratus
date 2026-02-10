@@ -161,53 +161,59 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
-  // Create default admin user and demo user if they don't exist
-  // Skip user creation for PostgreSQL mode - users already exist from migration
-  if (!usePostgres) {
-    try {
-      const { getUserByEmail, createUser, getAllActiveUsers } = await import('./db');
-      const bcrypt = await import('bcryptjs');
-    
-    // bcryptjs exports hash as a named function
+  // Create default admin user if no users exist (works for both SQLite and PostgreSQL)
+  try {
+    const bcrypt = await import('bcryptjs');
     const hashFn = bcrypt.hash || bcrypt.default?.hash;
     if (!hashFn) {
       throw new Error("bcrypt.hash function not found");
     }
-    
-    const users = getAllActiveUsers();
-    
-    // Create admin user if no users exist
-    if (users.length === 0) {
-      const adminEmail = process.env.STRATUS_ADMIN_EMAIL || process.env.ADMIN_EMAIL;
-      const adminPassword = process.env.STRATUS_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
-      const adminName = process.env.STRATUS_ADMIN_NAME || "Admin";
-      
-      if (adminEmail && adminPassword) {
-        const passwordHash = await hashFn(adminPassword, 10);
-        
-        // Parse admin name (could be "First Last" or just "First")
-        const nameParts = adminName.split(' ');
-        const firstName = nameParts[0] || "Admin";
-        const lastName = nameParts.slice(1).join(' ') || null;
-        
-        createUser(
-          adminEmail,
-          firstName,
-          lastName,
-          passwordHash,
-          "admin",
-          []
-        );
-        log(`Default admin user created: ${adminEmail}`);
+
+    const adminEmail = process.env.STRATUS_ADMIN_EMAIL || process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.STRATUS_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+    const adminName = process.env.STRATUS_ADMIN_NAME || "Admin";
+
+    if (adminEmail && adminPassword) {
+      if (usePostgres) {
+        // PostgreSQL mode - use postgres module functions
+        const existingAdmin = await postgres.getUserByEmail(adminEmail);
+        if (!existingAdmin) {
+          const passwordHash = await hashFn(adminPassword, 10);
+          const nameParts = adminName.split(' ');
+          const firstName = nameParts[0] || "Admin";
+          const lastName = nameParts.slice(1).join(' ') || null;
+
+          await postgres.createUser({
+            email: adminEmail,
+            firstName,
+            lastName,
+            passwordHash,
+            role: 'admin',
+            assignedStations: null,
+            isActive: true
+          });
+          log(`Default admin user created: ${adminEmail}`);
+        } else {
+          log(`Admin user already exists: ${adminEmail}`);
+        }
       } else {
-        log("Warning: No admin credentials configured. Set STRATUS_ADMIN_EMAIL and STRATUS_ADMIN_PASSWORD environment variables.");
+        // SQLite mode
+        const { getUserByEmail, createUser, getAllActiveUsers } = await import('./db');
+        const users = getAllActiveUsers();
+        if (users.length === 0) {
+          const passwordHash = await hashFn(adminPassword, 10);
+          const nameParts = adminName.split(' ');
+          const firstName = nameParts[0] || "Admin";
+          const lastName = nameParts.slice(1).join(' ') || null;
+          createUser(adminEmail, firstName, lastName, passwordHash, "admin", []);
+          log(`Default admin user created: ${adminEmail}`);
+        }
       }
+    } else {
+      log("Warning: No admin credentials configured. Set STRATUS_ADMIN_EMAIL and STRATUS_ADMIN_PASSWORD environment variables.");
     }
-    } catch (err) {
-      console.error("Failed to create default users:", err);
-    }
-  } else {
-    log("PostgreSQL mode - skipping default user creation (users from migration)");
+  } catch (err) {
+    console.error("Failed to create default admin user:", err);
   }
 
   await registerRoutes(httpServer, app);

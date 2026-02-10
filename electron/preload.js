@@ -73,6 +73,9 @@ contextBridge.exposeInMainWorld('stratusDesktop', {
     return () => ipcRenderer.removeListener('show-change-password', handler);
   },
 
+  // Launch app (used by license.html after activation to avoid file:// CORS issues)
+  launchApp: () => ipcRenderer.invoke('desktop:launch-app'),
+
   // External links
   openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
 });

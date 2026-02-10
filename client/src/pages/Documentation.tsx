@@ -88,7 +88,7 @@ export default function Documentation() {
                   <span className="text-foreground font-medium">
                     Wind Rose &amp; Wind Scatter
                   </span>{" "}
-                  — Custom SVG implementation by Lukas Esterhuizen, using
+                  — Custom SVG implementation using
                   WMO-standard Beaufort-scale speed classifications for polar
                   wind plots.
                 </li>

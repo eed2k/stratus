@@ -60,7 +60,7 @@ function saveConfig(config) {
 const LICENSE_FILE = path.join(CONFIG_DIR, '.license');
 
 // Valid license keys — HMAC-signed with embedded app secret
-const LICENSE_SECRET = 'stratus-itronics-2026-license-key';
+const LICENSE_SECRET = 'stratus-weather-2026-license-key';
 
 /**
  * Generate a license key for a given tier.
@@ -382,7 +382,7 @@ function createMainWindow() {
               type: 'info',
               title: 'About Stratus',
               message: 'Stratus Weather Station Manager',
-              detail: `Version 1.1.0\nDesktop Edition\n\n© 2025-2026 Lukas Esterhuizen\nesterhuizen2k@proton.me\n\nCampbell Scientific Weather Station Management`,
+              detail: `Version 1.1.0\nDesktop Edition\n\n© 2025-2026 Lukas Esterhuizen\n\nCampbell Scientific Weather Station Management`,
               buttons: ['OK'],
             });
           },
@@ -400,34 +400,38 @@ function createMainWindow() {
 // ============================================================
 // Wait for server to be ready (health check polling)
 // ============================================================
-function waitForServer(port, maxAttempts = 30, interval = 500) {
+function waitForServer(port, maxAttempts = 60, interval = 1000) {
   const http = require('http');
   return new Promise((resolve, reject) => {
     let attempts = 0;
     const check = () => {
       attempts++;
+      if (attempts === 1 || attempts % 10 === 0) {
+        console.log(`[Desktop] waitForServer attempt ${attempts}/${maxAttempts} on port ${port}`);
+      }
       const req = http.get(`http://localhost:${port}/api/health`, (res) => {
         if (res.statusCode === 200) {
+          console.log(`[Desktop] Server ready after ${attempts} attempt(s)`);
           resolve();
         } else if (attempts < maxAttempts) {
           setTimeout(check, interval);
         } else {
-          reject(new Error(`Server not ready after ${maxAttempts} attempts`));
+          reject(new Error(`Server returned status ${res.statusCode} after ${maxAttempts} attempts`));
         }
       });
-      req.on('error', () => {
+      req.on('error', (err) => {
         if (attempts < maxAttempts) {
           setTimeout(check, interval);
         } else {
-          reject(new Error(`Server not ready after ${maxAttempts} attempts`));
+          reject(new Error(`Server connection error after ${maxAttempts} attempts: ${err.message}`));
         }
       });
-      req.setTimeout(1000, () => {
+      req.setTimeout(3000, () => {
         req.destroy();
         if (attempts < maxAttempts) {
           setTimeout(check, interval);
         } else {
-          reject(new Error(`Server not ready after ${maxAttempts} attempts`));
+          reject(new Error(`Server timeout after ${maxAttempts} attempts`));
         }
       });
     };
@@ -464,6 +468,15 @@ async function startServer() {
     process.env.DATABASE_URL = '';
     console.log('[Desktop] Using local SQLite database');
     
+    // Set default admin credentials for desktop mode if not configured
+    // This ensures there's always an admin user to log in with on first launch
+    if (!process.env.STRATUS_ADMIN_EMAIL) {
+      process.env.STRATUS_ADMIN_EMAIL = 'admin@stratus.local';
+      process.env.STRATUS_ADMIN_PASSWORD = 'admin';
+      process.env.STRATUS_ADMIN_NAME = 'Admin';
+      console.log('[Desktop] Default admin user: admin@stratus.local / admin');
+    }
+    
     // Prevent dotenv from loading a stale .env file in the packaged app
     // by setting DOTENV_CONFIG_PATH to a non-existent path
     if (app.isPackaged) {
@@ -474,8 +487,7 @@ async function startServer() {
     const serverPath = path.join(__dirname, 'dist', 'server', 'index.js');
     if (fs.existsSync(serverPath)) {
       require(serverPath);
-      console.log('[Desktop] Server started on port', process.env.PORT);
-      console.log('[Desktop] NODE_ENV:', process.env.NODE_ENV);
+      console.log('[Desktop] Server module loaded on port', process.env.PORT);
     } else {
       console.warn('[Desktop] Server bundle not found at', serverPath);
       console.warn('[Desktop] Run "npm run build" first');
@@ -554,6 +566,24 @@ function setupIpcHandlers() {
     return true;
   });
 
+  // Launch app — waits for server and navigates the window
+  // Used by license.html and setup.html to avoid file:// CORS issues with fetch
+  ipcMain.handle('desktop:launch-app', async () => {
+    const port = process.env.PORT || '5000';
+    console.log('[Desktop] launch-app IPC called, waiting for server on port', port);
+    try {
+      await waitForServer(port, 120, 1000);
+      console.log('[Desktop] Server confirmed ready, navigating to app...');
+      if (mainWindow) {
+        mainWindow.loadURL(`http://localhost:${port}`);
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('[Desktop] launch-app: server wait failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
   // Open external links
   ipcMain.handle('shell:open-external', (_event, url) => {
     shell.openExternal(url);
@@ -570,49 +600,37 @@ app.whenReady().then(async () => {
   // Setup IPC handlers
   setupIpcHandlers();
 
-  // Start the embedded web server
-  const config = loadConfig();
-  if (config.autoStartServer) {
-    await startServer();
-  }
-
-  // Create the main window
+  // Create the main window FIRST so user sees something immediately
   const win = createMainWindow();
-
-  // Show loading screen immediately while server starts
-  win.loadFile(path.join(__dirname, 'electron', 'loading.html'));
-
-  // Handle load failures — retry or show error
-  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
-    console.error(`[Desktop] Page failed to load: ${errorDescription} (code ${errorCode}) — URL: ${validatedURL}`);
-    // If the server URL failed, wait and retry
-    if (validatedURL && validatedURL.includes('localhost')) {
-      const port = process.env.PORT || '5000';
-      console.log('[Desktop] Retrying server connection...');
-      waitForServer(port, 60, 1000).then(() => {
-        win.loadURL(`http://localhost:${port}`);
-      }).catch(() => {
-        dialog.showErrorBox('Stratus', 'Failed to connect to the embedded server. Please restart the application.');
-      });
-    }
-  });
+  const port = process.env.PORT || '5000';
 
   // Determine what to show first
   const eulaAccepted = isEulaAccepted();
   const licenseValid = isLicenseValid();
 
   if (!eulaAccepted) {
-    // Show setup/EULA page
+    // Show setup/EULA page — after EULA it redirects to license.html
     win.loadFile(path.join(__dirname, 'electron', 'setup.html'));
   } else if (!licenseValid) {
     // Show license activation page
     console.log('[Desktop] No valid license — showing activation page');
     win.loadFile(path.join(__dirname, 'electron', 'license.html'));
   } else {
-    // Licensed — wait for server, then load the app
-    const port = process.env.PORT || '5000';
+    // Licensed — show loading screen
+    win.loadFile(path.join(__dirname, 'electron', 'loading.html'));
+  }
+
+  // Start the embedded web server AFTER showing the window
+  // This way the user sees a UI immediately instead of a blank screen
+  const config = loadConfig();
+  if (config.autoStartServer) {
+    await startServer();
+  }
+
+  // If already licensed, wait for server and navigate to app
+  if (eulaAccepted && licenseValid) {
     console.log('[Desktop] License valid — waiting for server...');
-    waitForServer(port, 60, 500).then(() => {
+    waitForServer(port, 120, 1000).then(() => {
       console.log('[Desktop] Server ready — loading app');
       win.loadURL(`http://localhost:${port}`);
     }).catch((err) => {
@@ -620,6 +638,19 @@ app.whenReady().then(async () => {
       dialog.showErrorBox('Stratus', 'Failed to start the embedded server. Please restart the application.');
     });
   }
+
+  // Handle load failures — retry server connection
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[Desktop] Page failed to load: ${errorDescription} (code ${errorCode}) — URL: ${validatedURL}`);
+    if (validatedURL && validatedURL.includes('localhost')) {
+      console.log('[Desktop] Retrying server connection...');
+      waitForServer(port, 30, 1000).then(() => {
+        win.loadURL(`http://localhost:${port}`);
+      }).catch(() => {
+        dialog.showErrorBox('Stratus', 'Failed to connect to the embedded server. Please restart the application.');
+      });
+    }
+  });
 });
 
 app.on('window-all-closed', () => {

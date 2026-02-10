@@ -307,6 +307,106 @@ export async function registerRoutes(
     }
   });
 
+  // ── Database Backup API routes (admin only) ────────────────────────────
+  // POST /api/backup/create - Trigger a manual backup
+  app.post('/api/backup/create', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const { execSync } = await import('child_process');
+      const backupDir = '/root/stratus/backups/daily';
+      const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `stratus_backup_manual_${date}.sql.gz`;
+      
+      // Create backup directory if needed
+      execSync(`mkdir -p ${backupDir}`);
+      
+      // Run pg_dump via docker exec
+      execSync(
+        `docker exec stratus-postgres pg_dump -U stratus -d stratus --clean --if-exists --no-owner --no-privileges | gzip > ${backupDir}/${filename}`,
+        { timeout: 60000 }
+      );
+      
+      const stats = fs.statSync(`${backupDir}/${filename}`);
+      const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+      
+      console.log(`[Backup] Manual backup created: ${filename} (${sizeMB} MB)`);
+      res.json({ success: true, filename, size: `${sizeMB} MB`, timestamp: new Date().toISOString() });
+    } catch (error: any) {
+      console.error('[Backup] Manual backup failed:', error.message);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // GET /api/backup/list - List available backups
+  app.get('/api/backup/list', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const backupBase = '/root/stratus/backups';
+      const categories = ['daily', 'weekly', 'pre-deploy'];
+      const backups: { category: string; filename: string; size: string; date: string }[] = [];
+      
+      for (const cat of categories) {
+        const dir = `${backupBase}/${cat}`;
+        if (fs.existsSync(dir)) {
+          const files = fs.readdirSync(dir).filter(f => f.endsWith('.sql.gz')).sort().reverse();
+          for (const file of files) {
+            const stats = fs.statSync(`${dir}/${file}`);
+            backups.push({
+              category: cat,
+              filename: file,
+              size: `${(stats.size / 1024 / 1024).toFixed(2)} MB`,
+              date: stats.mtime.toISOString(),
+            });
+          }
+        }
+      }
+      
+      res.json({ success: true, backups, total: backups.length });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // GET /api/backup/status - Get backup system status
+  app.get('/api/backup/status', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const backupBase = '/root/stratus/backups';
+      const categories = ['daily', 'weekly', 'pre-deploy'];
+      let latestBackup: string | null = null;
+      let latestDate: Date | null = null;
+      let totalBackups = 0;
+      let totalSize = 0;
+      
+      for (const cat of categories) {
+        const dir = `${backupBase}/${cat}`;
+        if (fs.existsSync(dir)) {
+          const files = fs.readdirSync(dir).filter(f => f.endsWith('.sql.gz'));
+          totalBackups += files.length;
+          for (const file of files) {
+            const stats = fs.statSync(`${dir}/${file}`);
+            totalSize += stats.size;
+            if (!latestDate || stats.mtime > latestDate) {
+              latestDate = stats.mtime;
+              latestBackup = `${cat}/${file}`;
+            }
+          }
+        }
+      }
+      
+      const cronInstalled = fs.existsSync('/etc/cron.d/stratus-backup') || 
+        (() => { try { const { execSync } = require('child_process'); return execSync('crontab -l 2>/dev/null').toString().includes('backup.sh'); } catch { return false; } })();
+      
+      res.json({
+        success: true,
+        cronScheduled: cronInstalled,
+        latestBackup,
+        latestDate: latestDate?.toISOString() || null,
+        totalBackups,
+        totalSize: `${(totalSize / 1024 / 1024).toFixed(2)} MB`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   // Initialize file watcher service
   await fileWatcherService.initialize();
 

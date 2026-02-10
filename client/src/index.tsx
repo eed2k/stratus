@@ -4,7 +4,7 @@ import './index.css'
 
 /**
  * Stratus Weather Station App
- * Credit: Lukas Esterhuizen
+ * © 2025-2026 Lukas Esterhuizen
  */
 
 const App = () => {
@@ -53,7 +53,7 @@ const App = () => {
           </div>
 
           <footer className="text-center text-sm text-gray-500 border-t pt-8">
-            <p>Credit: Lukas Esterhuizen</p>
+            <p>© 2025-2026 Lukas Esterhuizen</p>
             <p className="mt-2">Stratus © 2025-2026. All rights reserved.</p>
           </footer>
         </div>

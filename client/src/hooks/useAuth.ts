@@ -164,10 +164,55 @@ export function useAuth() {
     if (storedUser) {
       setUser(storedUser);
       setNeedsSetup(false);
-    } else {
-      setUser(null);
-      setNeedsSetup(true);
+      setIsLoading(false);
+      return;
     }
+
+    // Desktop mode: auto-login as the default admin user
+    // The license key system already gates access to the app,
+    // so requiring a separate login is unnecessary for desktop.
+    const isDesktop = !!(window as any).stratusDesktop?.isDesktop;
+    if (isDesktop) {
+      const autoLogin = async () => {
+        try {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@stratus.local', password: 'admin' })
+          });
+          const data = await response.json();
+          if (response.ok && data.success) {
+            const authUser: AuthUser = {
+              id: data.user.email,
+              email: data.user.email,
+              firstName: data.user.firstName,
+              lastName: data.user.lastName,
+              profileImageUrl: null,
+              role: data.user.role,
+              assignedStations: data.user.assignedStations || [],
+            };
+            setUser(authUser);
+            setNeedsSetup(false);
+            localStorage.setItem('stratus_user_email', data.user.email);
+            localStorage.setItem('stratus_user', JSON.stringify(data.user));
+          } else {
+            // Auto-login failed — show login page
+            setUser(null);
+            setNeedsSetup(true);
+          }
+        } catch {
+          setUser(null);
+          setNeedsSetup(true);
+        }
+        setIsLoading(false);
+      };
+      autoLogin();
+      return;
+    }
+
+    // Not desktop and no stored user — show login page
+    setUser(null);
+    setNeedsSetup(true);
     setIsLoading(false);
   }, []);
 

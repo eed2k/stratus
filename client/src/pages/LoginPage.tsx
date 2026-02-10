@@ -187,7 +187,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             Stratus Weather Station Server v1.1.0
           </p>
           <p className="text-xs text-gray-500">
-            Developer: <span className="font-medium text-gray-700">Lukas Esterhuizen</span>
+            &copy; 2025-2026 Lukas Esterhuizen
           </p>
         </div>
       </div>

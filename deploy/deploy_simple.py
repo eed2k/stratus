@@ -7,18 +7,27 @@ import tarfile
 import io
 import time
 
-# Configuration
-SERVER_IP = "YOUR_SERVER_IP"
-USERNAME = "root"
-PASSWORD = "REDACTED_SERVER_PASSWORD"
-APP_DIR = "/opt/stratus"
+# Configuration - reads from environment variables for security
+SERVER_IP = os.environ.get("STRATUS_DEPLOY_HOST", "YOUR_SERVER_IP")
+USERNAME = os.environ.get("STRATUS_DEPLOY_USER", "root")
+PASSWORD = os.environ.get("STRATUS_DEPLOY_PASSWORD", "")
+SSH_KEY_PATH = os.environ.get("STRATUS_DEPLOY_KEY", "")
+APP_DIR = os.environ.get("STRATUS_DEPLOY_DIR", "/opt/stratus")
+COMPOSE_FILE = os.environ.get("STRATUS_COMPOSE_FILE", "deploy/docker-compose.prod.yml")
+
+if not PASSWORD and not SSH_KEY_PATH:
+    print("[ERROR] Set STRATUS_DEPLOY_PASSWORD or STRATUS_DEPLOY_KEY environment variable")
+    sys.exit(1)
 
 def ssh_connect():
     """Connect to server via SSH"""
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     print(f"Connecting to {SERVER_IP}...")
-    client.connect(SERVER_IP, username=USERNAME, password=PASSWORD, timeout=30)
+    if SSH_KEY_PATH:
+        client.connect(SERVER_IP, username=USERNAME, key_filename=SSH_KEY_PATH, timeout=30)
+    else:
+        client.connect(SERVER_IP, username=USERNAME, password=PASSWORD, timeout=30)
     print("[OK] Connected!")
     return client
 
@@ -56,11 +65,18 @@ def upload_application(client):
     tar_buffer = io.BytesIO()
     with tarfile.open(fileobj=tar_buffer, mode='w:gz') as tar:
         for root, dirs, files in os.walk(local_path):
-            # Filter directories
-            dirs[:] = [d for d in dirs if d not in ['node_modules', 'dist', '.git', 'logs', '__pycache__', '.vscode']]
+            # Filter directories - exclude build artifacts, large folders, dev-only content
+            dirs[:] = [d for d in dirs if d not in [
+                'node_modules', 'dist', '.git', 'logs', '__pycache__', '.vscode',
+                'release', 'tmp_dist', 'win-unpacked', '.cache', '.parcel-cache',
+                'demo_data', 'coverage',
+            ]]
 
             for file in files:
-                if file.endswith('.log') or file in ['.env', '.env.local', 'ssh_setup.py', 'deploy_full.py', 'stratus-deploy.tar.gz']:
+                # Skip logs, env files, large binaries, deploy scripts with credentials
+                if file.endswith(('.log', '.exe', '.blockmap', '.nsi')):
+                    continue
+                if file in ['.env', '.env.local', 'ssh_setup.py', 'deploy_full.py', 'stratus-deploy.tar.gz']:
                     continue
 
                 file_path = os.path.join(root, file)
@@ -91,22 +107,36 @@ def build_and_start(client):
     print("="*50)
 
     print("\n  Building Docker images (this may take 5-10 minutes)...")
-    exit_code, output, errors = run_command(client, f"cd {APP_DIR} && docker compose build stratus 2>&1", timeout=900)
+    try:
+        exit_code, output, errors = run_command(client, f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} build stratus 2>&1", timeout=900)
+        if exit_code != 0:
+            print(f"  [WARN] Build had issues")
+            print(errors[-500:] if errors else output[-500:])
+        else:
+            print("  [OK] Build complete")
+    except Exception as e:
+        print(f"  [WARN] SSH session dropped during build ({e}), reconnecting...")
+        client.close()
+        client = ssh_connect()
 
-    if exit_code != 0:
-        print(f"  [WARN] Build had issues")
-        print(errors[-500:] if errors else output[-500:])
-    else:
-        print("  [OK] Build complete")
+    # Ensure session is active for container start
+    try:
+        client.exec_command("echo ok", timeout=5)
+    except Exception:
+        print("  Reconnecting SSH for container restart...")
+        client.close()
+        client = ssh_connect()
 
     print("\n  Starting containers...")
-    run_command(client, f"cd {APP_DIR} && docker compose up -d", timeout=120)
+    run_command(client, f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} up -d", timeout=120)
 
     print("\n  Waiting for services to start...")
     time.sleep(10)
 
     print("\n  Container status:")
-    run_command(client, f"cd {APP_DIR} && docker compose ps")
+    run_command(client, f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} ps")
+
+    return client
 
 def main():
     print("\n" + "="*50)
@@ -118,13 +148,14 @@ def main():
 
     try:
         upload_application(client)
-        build_and_start(client)
+        client = build_and_start(client)
 
         print("\n" + "="*50)
         print("  DEPLOYMENT COMPLETE!")
         print("="*50)
         print(f"\n  Your Stratus instance has been updated.")
-        print(f"\n  To check logs: ssh root@{SERVER_IP} 'cd /opt/stratus && docker compose logs -f'")
+        print(f"\n  Your app should be live at https://stratusweather.co.za")
+        print(f"\n  To check logs: ssh root@{SERVER_IP} 'cd /opt/stratus && docker compose -f {COMPOSE_FILE} logs -f'")
 
     except Exception as e:
         print(f"\n[ERROR] Deployment failed: {e}")
