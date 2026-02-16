@@ -1,10 +1,68 @@
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
-import { createShare, getShareByToken, getSharesByStation, updateShare, deleteShare, Share } from "../db";
+import { createShare as sqliteCreateShare, getShareByToken as sqliteGetShareByToken, getSharesByStation as sqliteGetSharesByStation, updateShare as sqliteUpdateShare, deleteShare as sqliteDeleteShare, Share } from "../db";
+import * as postgres from "../db-postgres";
 import { isAuthenticated } from "../localAuth";
 
 const router = Router();
+const usePostgres = postgres.isPostgresEnabled();
+
+// Abstraction layer: use PostgreSQL or SQLite
+async function dbCreateShare(share: Share): Promise<string> {
+  if (usePostgres) {
+    return postgres.pgCreateShare({
+      station_id: share.station_id,
+      share_token: share.share_token,
+      name: share.name || 'Shared Dashboard',
+      email: share.email,
+      access_level: share.access_level || 'viewer',
+      password: share.password,
+      expires_at: share.expires_at,
+      is_active: share.is_active === 1 || share.is_active === true as any,
+      access_count: share.access_count || 0,
+      created_by: share.created_by || 'admin',
+    });
+  }
+  return sqliteCreateShare(share);
+}
+
+async function dbGetShareByToken(token: string): Promise<Share | null> {
+  if (usePostgres) {
+    const row = await postgres.pgGetShareByToken(token);
+    if (!row) return null;
+    return {
+      ...row,
+      is_active: row.is_active ? 1 : 0,
+    };
+  }
+  return sqliteGetShareByToken(token);
+}
+
+async function dbGetSharesByStation(stationId: number): Promise<Share[]> {
+  if (usePostgres) {
+    const rows = await postgres.pgGetSharesByStation(stationId);
+    return rows.map(row => ({
+      ...row,
+      is_active: row.is_active ? 1 : 0,
+    }));
+  }
+  return sqliteGetSharesByStation(stationId);
+}
+
+async function dbUpdateShare(token: string, updates: Partial<Share>): Promise<void> {
+  if (usePostgres) {
+    return postgres.pgUpdateShare(token, updates);
+  }
+  sqliteUpdateShare(token, updates);
+}
+
+async function dbDeleteShare(token: string): Promise<void> {
+  if (usePostgres) {
+    return postgres.pgDeleteShare(token);
+  }
+  sqliteDeleteShare(token);
+}
 
 // Number of salt rounds for bcrypt
 const SALT_ROUNDS = 10;
@@ -48,7 +106,7 @@ router.post('/stations/:stationId/shares', isAuthenticated, async (req: Request,
       created_by: 'admin', // In real app, get from session
     };
     
-    createShare(share);
+    await dbCreateShare(share);
     
     // Return share info with the full URL
     res.json({
@@ -75,12 +133,12 @@ router.post('/stations/:stationId/shares', isAuthenticated, async (req: Request,
 });
 
 // Get all shares for a station (requires authentication)
-router.get('/stations/:stationId/shares', isAuthenticated, (req: Request, res: Response) => {
+router.get('/stations/:stationId/shares', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { stationId } = req.params;
     const stationIdNum = parseInt(stationId);
     
-    const dbShares = getSharesByStation(stationIdNum);
+    const dbShares = await dbGetSharesByStation(stationIdNum);
     const stationShares = dbShares.map(s => ({
       id: s.share_token,
       stationId: s.station_id,
@@ -112,7 +170,7 @@ router.post('/shares/:shareToken/validate', async (req: Request, res: Response) 
     const { shareToken } = req.params;
     const { password } = req.body;
     
-    const share = getShareByToken(shareToken);
+    const share = await dbGetShareByToken(shareToken);
     
     if (!share) {
       return res.status(404).json({ success: false, error: 'Share link not found' });
@@ -138,7 +196,7 @@ router.post('/shares/:shareToken/validate', async (req: Request, res: Response) 
     }
     
     // Update access stats
-    updateShare(shareToken, {
+    await dbUpdateShare(shareToken, {
       last_accessed_at: new Date().toISOString(),
       access_count: (share.access_count || 0) + 1
     });
@@ -158,10 +216,10 @@ router.post('/shares/:shareToken/validate', async (req: Request, res: Response) 
 });
 
 // Get share info (public endpoint, minimal info)
-router.get('/shares/:shareToken', (req: Request, res: Response) => {
+router.get('/shares/:shareToken', async (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
-    const share = getShareByToken(shareToken);
+    const share = await dbGetShareByToken(shareToken);
     
     if (!share) {
       return res.status(404).json({ success: false, error: 'Share link not found' });
@@ -194,7 +252,7 @@ router.get('/shares/:shareToken', (req: Request, res: Response) => {
 router.patch('/shares/:shareToken', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
-    const share = getShareByToken(shareToken);
+    const share = await dbGetShareByToken(shareToken);
     
     if (!share) {
       return res.status(404).json({ success: false, error: 'Share not found' });
@@ -213,9 +271,9 @@ router.patch('/shares/:shareToken', isAuthenticated, async (req: Request, res: R
     if (expiresAt !== undefined) updates.expires_at = expiresAt || undefined;
     if (isActive !== undefined) updates.is_active = isActive ? 1 : 0;
     
-    updateShare(shareToken, updates);
+    await dbUpdateShare(shareToken, updates);
     
-    const updatedShare = getShareByToken(shareToken);
+    const updatedShare = await dbGetShareByToken(shareToken);
     res.json({ 
       success: true, 
       share: {
@@ -236,16 +294,16 @@ router.patch('/shares/:shareToken', isAuthenticated, async (req: Request, res: R
 });
 
 // Delete a share (requires authentication)
-router.delete('/shares/:shareToken', isAuthenticated, (req: Request, res: Response) => {
+router.delete('/shares/:shareToken', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
     
-    const share = getShareByToken(shareToken);
+    const share = await dbGetShareByToken(shareToken);
     if (!share) {
       return res.status(404).json({ success: false, error: 'Share not found' });
     }
     
-    deleteShare(shareToken);
+    await dbDeleteShare(shareToken);
     res.json({ success: true, message: 'Share deleted successfully' });
   } catch (error) {
     console.error('Error deleting share:', error);

@@ -21,9 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { WeatherChart } from "@/components/charts/WeatherChart";
-import { Download, Calendar, Filter, Radio, Plus, Loader2 } from "lucide-react";
+import { Download, Calendar, Radio, Plus, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import type { WeatherStation, WeatherData } from "@shared/schema";
 
@@ -31,7 +29,6 @@ export default function History() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedStation, setSelectedStation] = useState<string>("");
-  const [viewMode, setViewMode] = useState("chart");
 
   const { data: stations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
@@ -65,7 +62,14 @@ export default function History() {
   const handleExportCSV = () => {
     if (weatherData.length === 0) return;
     
-    const headers = ["Timestamp", "Temperature", "Humidity", "Pressure", "Wind Speed", "Wind Direction", "Rainfall"];
+    const headers = [
+      "Timestamp", "Temperature", "Humidity", "Pressure", "Wind Speed", "Wind Direction",
+      "Wind Gust", "Rainfall", "Solar Radiation", "UV Index", "Dew Point", "ETo",
+      "Battery Voltage", "Panel Temp", "Soil Temp", "Soil Moisture",
+      "PM10", "PM2.5", "Air Density",
+      "Water Level", "Temp Switch", "Level Switch", "Temp Switch Outlet", "Level Switch Status",
+      "Lightning", "Charger Voltage",
+    ];
     const rows = weatherData.map(d => [
       new Date(d.timestamp).toISOString(),
       d.temperature?.toString() || "",
@@ -73,7 +77,26 @@ export default function History() {
       d.pressure?.toString() || "",
       d.windSpeed?.toString() || "",
       d.windDirection?.toString() || "",
+      d.windGust?.toString() || "",
       d.rainfall?.toString() || "",
+      d.solarRadiation?.toString() || "",
+      d.uvIndex?.toString() || "",
+      d.dewPoint?.toString() || "",
+      d.eto?.toString() || "",
+      d.batteryVoltage?.toString() || "",
+      d.panelTemperature?.toString() || "",
+      d.soilTemperature?.toString() || "",
+      d.soilMoisture?.toString() || "",
+      d.pm10?.toString() || "",
+      d.pm25?.toString() || "",
+      d.airDensity?.toString() || "",
+      d.waterLevel?.toString() || "",
+      d.temperatureSwitch?.toString() || "",
+      d.levelSwitch?.toString() || "",
+      d.temperatureSwitchOutlet?.toString() || "",
+      d.levelSwitchStatus?.toString() || "",
+      d.lightning?.toString() || "",
+      d.chargerVoltage?.toString() || "",
     ]);
     
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -116,14 +139,6 @@ export default function History() {
     );
   }
 
-  const chartData = weatherData.map((d) => ({
-    timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
-    temperature: d.temperature || 0,
-    humidity: d.humidity || 0,
-    pressure: d.pressure || 0,
-    windSpeed: d.windSpeed || 0,
-  }));
-
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -141,8 +156,7 @@ export default function History() {
 
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="h-5 w-5" />
+          <CardTitle className="text-lg">
             Filters
           </CardTitle>
         </CardHeader>
@@ -202,78 +216,68 @@ export default function History() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : weatherData.length === 0 ? (
+      ) : weatherData.length === 0 ? null : (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground">No historical data available for this station yet.</p>
-            <p className="text-sm text-muted-foreground mt-2">Data will appear here once your station starts collecting measurements.</p>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              {weatherData.length} Records — {stations.find(s => String(s.id) === activeStationId)?.name || "Station"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-[600px] overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card z-10">
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Timestamp</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Temp (°C)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Humidity (%)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Pressure (hPa)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Wind (km/h)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Gust (km/h)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Dir (°)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Rain (mm)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Solar (W/m²)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">UV</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Dew Pt (°C)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">ETo (mm)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">PM10 (µg/m³)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">PM2.5 (µg/m³)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Soil T (°C)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Soil M (%)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Battery (V)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Panel T (°C)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {weatherData.map((row, i) => (
+                    <TableRow key={i} data-testid={`row-history-${i}`}>
+                      <TableCell className="font-mono text-sm whitespace-nowrap">
+                        {new Date(row.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.temperature, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.humidity, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.pressure, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.windSpeed, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.windGust, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{row.windDirection != null ? Math.round(row.windDirection) : "-"}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.rainfall, 2, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.solarRadiation, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.uvIndex, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.dewPoint, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.eto, 2, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.pm10, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.pm25, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.soilTemperature, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.soilMoisture, 1, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.batteryVoltage, 2, "-")}</TableCell>
+                      <TableCell className="text-right font-mono">{safeFixed(row.panelTemperature, 1, "-")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        <Tabs value={viewMode} onValueChange={setViewMode}>
-          <TabsList>
-            <TabsTrigger value="chart" data-testid="tab-chart-view">Chart View</TabsTrigger>
-            <TabsTrigger value="table" data-testid="tab-table-view">Table View</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="chart" className="mt-4 space-y-4">
-            <WeatherChart
-              title="Temperature History"
-              data={chartData}
-              series={[
-                { dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" },
-              ]}
-              timeRanges={["1d", "7d", "30d", "90d"]}
-              defaultRange="7d"
-            />
-            <WeatherChart
-              title="Wind Speed History"
-              data={chartData}
-              series={[
-                { dataKey: "windSpeed", name: "Wind Speed (km/h)", color: "#14b8a6" },
-              ]}
-              timeRanges={["1d", "7d", "30d", "90d"]}
-              defaultRange="7d"
-            />
-          </TabsContent>
-
-          <TabsContent value="table" className="mt-4">
-            <Card>
-              <CardContent className="p-0">
-                <div className="max-h-[500px] overflow-auto">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-card">
-                      <TableRow>
-                        <TableHead>Timestamp</TableHead>
-                        <TableHead className="text-right">Temp (°C)</TableHead>
-                        <TableHead className="text-right">Humidity (%)</TableHead>
-                        <TableHead className="text-right">Pressure (hPa)</TableHead>
-                        <TableHead className="text-right">Wind (km/h)</TableHead>
-                        <TableHead className="text-right">Direction (°)</TableHead>
-                        <TableHead className="text-right">Rain (mm)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {weatherData.map((row, i) => (
-                        <TableRow key={i} data-testid={`row-history-${i}`}>
-                          <TableCell className="font-mono text-sm">
-                            {new Date(row.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}
-                          </TableCell>
-                          <TableCell className="text-right font-mono">{safeFixed(row.temperature, 1, "-")}</TableCell>
-                          <TableCell className="text-right font-mono">{row.humidity || "-"}</TableCell>
-                          <TableCell className="text-right font-mono">{safeFixed(row.pressure, 1, "-")}</TableCell>
-                          <TableCell className="text-right font-mono">{safeFixed(row.windSpeed, 1, "-")}</TableCell>
-                          <TableCell className="text-right font-mono">{row.windDirection || "-"}</TableCell>
-                          <TableCell className="text-right font-mono">{safeFixed(row.rainfall, 2, "-")}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
       )}
     </div>
   );

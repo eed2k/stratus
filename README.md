@@ -126,17 +126,6 @@ The dashboard calculates and displays derived meteorological values:
 
 ---
 
-Weather Map
-
-Interactive weather forecast map powered by Windy:
-
-- Temperature and Wind overlay layers
-- GFS (Global Forecast System) model
-- Location search with geocoding
-- 7-day forecast with hourly charts for temperature, wind, precipitation, and pressure
-
----
-
 Shared Dashboards
 
 - Public Sharing - Generate shareable links for stations

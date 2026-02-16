@@ -566,6 +566,90 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         precision: 1
       }
     ]
+  },
+  {
+    id: 'water',
+    name: 'Water & Sensors',
+    icon: 'droplets',
+    parameters: [
+      {
+        id: 'waterLevel',
+        name: 'Water Level',
+        category: 'water',
+        unit: 'm',
+        description: 'Water level measurement',
+        dataField: 'waterLevel',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 2
+      },
+      {
+        id: 'temperatureSwitch',
+        name: 'Temperature Switch',
+        category: 'water',
+        unit: '°C',
+        description: 'Temperature switch sensor reading',
+        dataField: 'temperatureSwitch',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 2
+      },
+      {
+        id: 'levelSwitch',
+        name: 'Level Switch',
+        category: 'water',
+        unit: '',
+        description: 'Level switch on/off status',
+        dataField: 'levelSwitch',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'temperatureSwitchOutlet',
+        name: 'Temp Switch Outlet',
+        category: 'water',
+        unit: '°C',
+        description: 'Temperature switch outlet reading',
+        dataField: 'temperatureSwitchOutlet',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 1
+      },
+      {
+        id: 'levelSwitchStatus',
+        name: 'Level Switch Status',
+        category: 'water',
+        unit: '',
+        description: 'Level switch status flag',
+        dataField: 'levelSwitchStatus',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'lightning',
+        name: 'Lightning',
+        category: 'water',
+        unit: 'strikes',
+        description: 'Lightning strike count',
+        dataField: 'lightning',
+        chartType: 'bar',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'chargerVoltage',
+        name: 'Charger Voltage',
+        category: 'water',
+        unit: 'V',
+        description: 'Solar charger voltage',
+        dataField: 'chargerVoltage',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 2
+      }
+    ]
   }
 ];
 

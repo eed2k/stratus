@@ -1,5 +1,0 @@
-$env:PATH = "c:\Users\eed2k\Downloads\Itronics Projects\stratus\node_modules\7zip-bin\win\x64;$env:PATH"
-Set-Location "c:\Users\eed2k\Downloads\Itronics Projects\stratus"
-npx electron-builder --win --config electron-builder.yml 2>&1 | Tee-Object -FilePath "c:\Users\eed2k\Downloads\Itronics Projects\stratus\build.log"
-echo "EXIT CODE: $LASTEXITCODE"
-Read-Host "Press Enter to close"

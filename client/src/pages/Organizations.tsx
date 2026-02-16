@@ -25,6 +25,9 @@ export default function Organizations() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
+  const [addMemberUserId, setAddMemberUserId] = useState("");
+  const [addMemberRole, setAddMemberRole] = useState("member");
   
   // Organization settings form
   const [editOrgName, setEditOrgName] = useState("");
@@ -91,6 +94,12 @@ export default function Organizations() {
     },
   });
 
+  // Fetch all system users for "Add Member" dialog
+  const { data: allUsers = [] } = useQuery<any[]>({
+    queryKey: ["/api/users"],
+    enabled: addMemberDialogOpen,
+  });
+
   const inviteMutation = useMutation({
     mutationFn: async (data: { email: string; role: string }) => {
       return apiRequest("POST", `/api/organizations/${selectedOrg?.id}/invitations`, data);
@@ -104,6 +113,22 @@ export default function Organizations() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create invitation.", variant: "destructive" });
+    },
+  });
+
+  const addMemberMutation = useMutation({
+    mutationFn: async (data: { userId: string; role: string }) => {
+      return apiRequest("POST", `/api/organizations/${selectedOrg?.id}/members`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organizations", selectedOrg?.id, "members"] });
+      setAddMemberDialogOpen(false);
+      setAddMemberUserId("");
+      setAddMemberRole("member");
+      toast({ title: "Member added", description: "The user has been added to the organisation." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add member. They may already be a member.", variant: "destructive" });
     },
   });
 
@@ -250,8 +275,7 @@ export default function Organizations() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-1">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 Your Organisations
               </CardTitle>
               <CardDescription>Select an organisation to manage</CardDescription>
@@ -313,7 +337,7 @@ export default function Organizations() {
                     <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                       <DialogTrigger asChild>
                         <Button size="sm" data-testid="button-invite-member">
-                          <UserPlus className="h-4 w-4 mr-2" />
+                          <Mail className="h-4 w-4 mr-2" />
                           Invite
                         </Button>
                       </DialogTrigger>
@@ -361,6 +385,10 @@ export default function Organizations() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+                    <Button size="sm" variant="outline" onClick={() => setAddMemberDialogOpen(true)} data-testid="button-add-member">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add Member
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -569,6 +597,59 @@ export default function Organizations() {
             >
               {updateOrgMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Existing Member Dialog */}
+      <Dialog open={addMemberDialogOpen} onOpenChange={setAddMemberDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Member</DialogTitle>
+            <DialogDescription>Add an existing user to {selectedOrg?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="add-member-user">Select User</Label>
+              <Select value={addMemberUserId} onValueChange={setAddMemberUserId}>
+                <SelectTrigger data-testid="select-add-member-user">
+                  <SelectValue placeholder="Select a user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allUsers
+                    .filter((u: any) => !members?.some(m => m.userId === u.id))
+                    .map((u: any) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.firstName} {u.lastName} ({u.email})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-member-role">Role</Label>
+              <Select value={addMemberRole} onValueChange={setAddMemberRole}>
+                <SelectTrigger data-testid="select-add-member-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin - Full access to manage organisation</SelectItem>
+                  <SelectItem value="member">Member - Can manage assigned stations</SelectItem>
+                  <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddMemberDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => addMemberMutation.mutate({ userId: addMemberUserId, role: addMemberRole })}
+              disabled={!addMemberUserId || addMemberMutation.isPending}
+              data-testid="button-submit-add-member"
+            >
+              {addMemberMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Add Member
             </Button>
           </DialogFooter>
         </DialogContent>

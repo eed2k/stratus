@@ -278,22 +278,21 @@ class ProtocolManagerClass extends EventEmitter {
 
   private async handleIncomingData(stationId: number, data: NormalizedWeatherData): Promise<void> {
     try {
+      // Build data object dynamically — include all non-null fields
+      const weatherFields: Record<string, any> = {};
+      for (const [key, value] of Object.entries(data)) {
+        // Skip metadata fields, only include weather measurements
+        if (key === 'stationId' || key === 'timestamp') continue;
+        if (value !== null && value !== undefined) {
+          weatherFields[key] = value;
+        }
+      }
+
       await storage.insertWeatherData({
         stationId,
         timestamp: data.timestamp,
         tableName: 'weather',
-        data: {
-          temperature: data.temperature,
-          humidity: data.humidity,
-          pressure: data.pressure,
-          windSpeed: data.windSpeed,
-          windDirection: data.windDirection,
-          windGust: data.windGust,
-          rainfall: data.rainfall,
-          solarRadiation: data.solarRadiation,
-          dewPoint: data.dewPoint,
-          batteryVoltage: data.batteryVoltage,
-        }
+        data: weatherFields
       });
 
       this.emit('dataReceived', stationId, data);

@@ -33,19 +33,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Info,
-  Settings,
   FileText,
   Download,
   Plus,
-  Save,
-  Wrench,
-  Calendar,
-  MapPin,
-  Cpu,
-  Edit,
-  Trash2,
-  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -271,7 +261,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
   return (
     <section className="space-y-4 mt-8">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Station Administration
           <Badge variant="secondary" className="ml-2">Admin Only</Badge>
         </h2>
@@ -279,12 +269,10 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
           {!isEditing ? (
             <>
               <Button variant="outline" size="sm" onClick={startEditing}>
-                <Edit className="h-4 w-4 mr-2" />
                 Edit Info
               </Button>
               {onDelete && (
                 <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
                   Delete Station
                 </Button>
               )}
@@ -304,10 +292,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                     Saving...
                   </span>
                 ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                  </>
+                  <>Save Changes</>
                 )}
               </Button>
             </>
@@ -319,8 +304,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
+            <DialogTitle className="text-red-600">
               Delete Station
             </DialogTitle>
             <DialogDescription>
@@ -351,19 +335,15 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
       <Tabs defaultValue="info" className="w-full">
         <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
           <TabsTrigger value="info" className="flex-1 min-w-[100px]">
-            <Info className="h-4 w-4 mr-2" />
             Station Info
           </TabsTrigger>
           <TabsTrigger value="hardware" className="flex-1 min-w-[100px]">
-            <Cpu className="h-4 w-4 mr-2" />
             Hardware
           </TabsTrigger>
           <TabsTrigger value="calibration" className="flex-1 min-w-[100px]">
-            <Settings className="h-4 w-4 mr-2" />
             Calibration
           </TabsTrigger>
           <TabsTrigger value="maintenance" className="flex-1 min-w-[100px]">
-            <Wrench className="h-4 w-4 mr-2" />
             Maintenance
           </TabsTrigger>
         </TabsList>
@@ -372,8 +352,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
         <TabsContent value="info" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
+              <CardTitle className="text-base" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 Location & Site Details
               </CardTitle>
             </CardHeader>
@@ -383,22 +362,22 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                   <Label>Station Name</Label>
                   {isEditing ? (
                     <Input
-                      defaultValue={station.name}
+                      value={editedData.name ?? station.name ?? ""}
                       onChange={(e) => setEditedData({ ...editedData, name: e.target.value })}
                     />
                   ) : (
-                    <p className="text-sm font-medium">{station.name}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{station.name}</p>
                   )}
                 </div>
                 <div className="space-y-2">
                   <Label>Location</Label>
                   {isEditing ? (
                     <Input
-                      defaultValue={station.location}
+                      value={editedData.location ?? station.location ?? ""}
                       onChange={(e) => setEditedData({ ...editedData, location: e.target.value })}
                     />
                   ) : (
-                    <p className="text-sm font-medium">{station.location || "Not specified"}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{station.location || "Not specified"}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -406,11 +385,11 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                   {isEditing ? (
                     <Input
                       type="number"
-                      defaultValue={station.altitude}
-                      onChange={(e) => setEditedData({ ...editedData, altitude: parseFloat(e.target.value) })}
+                      value={editedData.altitude ?? station.altitude ?? ""}
+                      onChange={(e) => setEditedData({ ...editedData, altitude: parseFloat(e.target.value) || undefined })}
                     />
                   ) : (
-                    <p className="text-sm font-medium">{station.altitude ? `${station.altitude} m` : "Not specified"}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{station.altitude ? `${station.altitude} m` : "Not specified"}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -419,11 +398,11 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                     <Input
                       type="number"
                       step="0.000001"
-                      defaultValue={station.latitude}
-                      onChange={(e) => setEditedData({ ...editedData, latitude: parseFloat(e.target.value) })}
+                      value={editedData.latitude ?? station.latitude ?? ""}
+                      onChange={(e) => setEditedData({ ...editedData, latitude: parseFloat(e.target.value) || undefined })}
                     />
                   ) : (
-                    <p className="text-sm font-medium">{safeFixed(station.latitude, 6, "Not specified")}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(station.latitude, 6, "Not specified")}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -432,11 +411,11 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                     <Input
                       type="number"
                       step="0.000001"
-                      defaultValue={station.longitude}
-                      onChange={(e) => setEditedData({ ...editedData, longitude: parseFloat(e.target.value) })}
+                      value={editedData.longitude ?? station.longitude ?? ""}
+                      onChange={(e) => setEditedData({ ...editedData, longitude: parseFloat(e.target.value) || undefined })}
                     />
                   ) : (
-                    <p className="text-sm font-medium">{safeFixed(station.longitude, 6, "Not specified")}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(station.longitude, 6, "Not specified")}</p>
                   )}
                 </div>
               </div>
@@ -445,7 +424,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                 <Label>Site Description</Label>
                 {isEditing ? (
                   <Textarea
-                    defaultValue={station.siteDescription}
+                    value={editedData.siteDescription ?? station.siteDescription ?? ""}
                     rows={3}
                     onChange={(e) => setEditedData({ ...editedData, siteDescription: e.target.value })}
                   />
@@ -457,7 +436,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                 <Label>Notes</Label>
                 {isEditing ? (
                   <Textarea
-                    defaultValue={station.notes}
+                    value={editedData.notes ?? station.notes ?? ""}
                     rows={3}
                     onChange={(e) => setEditedData({ ...editedData, notes: e.target.value })}
                   />
@@ -473,93 +452,57 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
         <TabsContent value="hardware" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Cpu className="h-4 w-4" />
-                Datalogger & Communication
+              <CardTitle className="text-base" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                Hardware Overview
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Datalogger Model</Label>
                   {isEditing ? (
                     <Input
-                      defaultValue={station.dataloggerModel}
+                      value={editedData.dataloggerModel ?? station.dataloggerModel ?? ""}
                       onChange={(e) => setEditedData({ ...editedData, dataloggerModel: e.target.value })}
                     />
                   ) : (
-                    <p className="text-sm font-medium">{station.dataloggerModel || "Not specified"}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{station.dataloggerModel || "Not specified"}</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Serial Number</Label>
+                  <Label>Sensors</Label>
                   {isEditing ? (
                     <Input
-                      defaultValue={station.dataloggerSerialNumber}
-                      onChange={(e) => setEditedData({ ...editedData, dataloggerSerialNumber: e.target.value })}
-                    />
-                  ) : (
-                    <p className="text-sm font-medium font-mono">{station.dataloggerSerialNumber || "Not specified"}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Program Name</Label>
-                  {isEditing ? (
-                    <Input
-                      defaultValue={station.programName}
+                      value={editedData.programName ?? station.programName ?? ""}
                       onChange={(e) => setEditedData({ ...editedData, programName: e.target.value })}
+                      placeholder="Sensors"
                     />
                   ) : (
-                    <p className="text-sm font-medium font-mono">{station.programName || "Not specified"}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{station.programName || "Not specified"}</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>PakBus Address</Label>
+                  <Label>Telemetry</Label>
                   {isEditing ? (
                     <Input
-                      type="number"
-                      defaultValue={station.pakbusAddress}
-                      onChange={(e) => setEditedData({ ...editedData, pakbusAddress: parseInt(e.target.value) })}
-                    />
-                  ) : (
-                    <p className="text-sm font-medium">{station.pakbusAddress || "1"}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Security Code</Label>
-                  {isEditing ? (
-                    <Input
-                      type="number"
-                      defaultValue={station.securityCode}
-                      onChange={(e) => setEditedData({ ...editedData, securityCode: parseInt(e.target.value) })}
-                    />
-                  ) : (
-                    <p className="text-sm font-medium">{station.securityCode || "0"}</p>
-                  )}
-                </div>
-              </div>
-              <Separator />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Modem Model</Label>
-                  {isEditing ? (
-                    <Input
-                      defaultValue={station.modemModel}
+                      value={editedData.modemModel ?? station.modemModel ?? ""}
                       onChange={(e) => setEditedData({ ...editedData, modemModel: e.target.value })}
+                      placeholder="Telemetry type"
                     />
                   ) : (
-                    <p className="text-sm font-medium">{station.modemModel || "Not specified"}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{station.modemModel || "Not specified"}</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Modem Serial Number</Label>
+                  <Label>Power Source</Label>
                   {isEditing ? (
                     <Input
-                      defaultValue={station.modemSerialNumber}
+                      value={editedData.modemSerialNumber ?? station.modemSerialNumber ?? ""}
                       onChange={(e) => setEditedData({ ...editedData, modemSerialNumber: e.target.value })}
+                      placeholder="Power source"
                     />
                   ) : (
-                    <p className="text-sm font-medium font-mono">{station.modemSerialNumber || "Not specified"}</p>
+                    <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{station.modemSerialNumber || "Not specified"}</p>
                   )}
                 </div>
               </div>
@@ -573,8 +516,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
+                  <CardTitle className="text-base" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     Calibration Schedule & Logs
                   </CardTitle>
                   <CardDescription className="mt-1">
@@ -623,14 +565,14 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                         <div className="space-y-2">
                           <Label>Sensor</Label>
                           <Input
-                            placeholder="e.g., Temperature (HMP60)"
+                            placeholder="Sensor name"
                             onChange={(e) => setNewCalibration({ ...newCalibration, sensor: e.target.value })}
                           />
                         </div>
                         <div className="space-y-2">
                           <Label>Action Performed</Label>
                           <Input
-                            placeholder="e.g., Two-point calibration"
+                            placeholder="Calibration method"
                             onChange={(e) => setNewCalibration({ ...newCalibration, action: e.target.value })}
                           />
                         </div>
@@ -638,14 +580,14 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                           <div className="space-y-2">
                             <Label>Pre-Calibration Value</Label>
                             <Input
-                              placeholder="e.g., 0.2°C offset"
+                              placeholder="Pre-calibration value"
                               onChange={(e) => setNewCalibration({ ...newCalibration, preValue: e.target.value })}
                             />
                           </div>
                           <div className="space-y-2">
                             <Label>Post-Calibration Value</Label>
                             <Input
-                              placeholder="e.g., 0.0°C offset"
+                              placeholder="Post-calibration value"
                               onChange={(e) => setNewCalibration({ ...newCalibration, postValue: e.target.value })}
                             />
                           </div>
@@ -705,8 +647,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Wrench className="h-4 w-4" />
+                <CardTitle className="text-base" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Maintenance History
                 </CardTitle>
                 <div className="flex gap-2">

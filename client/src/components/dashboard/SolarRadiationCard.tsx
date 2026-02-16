@@ -34,23 +34,23 @@ export function SolarRadiationCard({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Today</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(peakRadiation, 1)} W/m²</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(dailyEnergy, 1)} MJ/m²</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Today</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgRadiation, 1)} W/m²</p>
             </div>
 
             {panelTemperature !== undefined && (
-              <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Temp</p>
                 <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(panelTemperature, 1)} °C</p>
               </div>

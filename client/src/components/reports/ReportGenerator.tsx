@@ -20,10 +20,18 @@ interface ReportConfig {
   reportType: "daily" | "weekly" | "monthly" | "custom";
   includeTemperature: boolean;
   includeHumidity: boolean;
+  includeDewPoint: boolean;
   includePressure: boolean;
   includeWind: boolean;
   includeRainfall: boolean;
   includeSolar: boolean;
+  includeUV: boolean;
+  includeBattery: boolean;
+  includeETo: boolean;
+  includeSoilTemp: boolean;
+  includeSoilMoisture: boolean;
+  includePM10: boolean;
+  includePM25: boolean;
   includeStatistics: boolean;
 }
 
@@ -45,10 +53,18 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
     reportType: "weekly",
     includeTemperature: true,
     includeHumidity: true,
+    includeDewPoint: false,
     includePressure: true,
     includeWind: true,
     includeRainfall: true,
     includeSolar: true,
+    includeUV: false,
+    includeBattery: false,
+    includeETo: false,
+    includeSoilTemp: false,
+    includeSoilMoisture: false,
+    includePM10: false,
+    includePM25: false,
     includeStatistics: true,
   });
 
@@ -108,7 +124,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       doc.line(20, y, pageWidth - 20, y);
       y += 10;
 
-      const sections: Array<{
+      const allSections: Array<{
         title: string;
         enabled: boolean;
         getValue: (d: WeatherData) => number | null;
@@ -116,15 +132,29 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       }> = [
         { title: "Temperature", enabled: config.includeTemperature, getValue: (d) => d.temperature, unit: "°C" },
         { title: "Humidity", enabled: config.includeHumidity, getValue: (d) => d.humidity, unit: "%" },
+        { title: "Dew Point", enabled: config.includeDewPoint, getValue: (d) => d.dewPoint, unit: "°C" },
         { title: "Pressure", enabled: config.includePressure, getValue: (d) => d.pressure, unit: "hPa" },
         { title: "Wind Speed", enabled: config.includeWind, getValue: (d) => d.windSpeed, unit: "km/h" },
+        { title: "Wind Gust", enabled: config.includeWind, getValue: (d) => d.windGust, unit: "km/h" },
         { title: "Rainfall", enabled: config.includeRainfall, getValue: (d) => d.rainfall, unit: "mm" },
         { title: "Solar Radiation", enabled: config.includeSolar, getValue: (d) => d.solarRadiation, unit: "W/m²" },
+        { title: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex, unit: "" },
+        { title: "Battery Voltage", enabled: config.includeBattery, getValue: (d) => d.batteryVoltage, unit: "V" },
+        { title: "Evapotranspiration (ETo)", enabled: config.includeETo, getValue: (d) => (d as any).evapotranspiration ?? (d.data as any)?.evapotranspiration, unit: "mm/day" },
+        { title: "Soil Temperature", enabled: config.includeSoilTemp, getValue: (d) => d.soilTemperature, unit: "°C" },
+        { title: "Soil Moisture", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture, unit: "%" },
+        { title: "PM10", enabled: config.includePM10, getValue: (d) => d.pm10, unit: "µg/m³" },
+        { title: "PM2.5", enabled: config.includePM25, getValue: (d) => d.pm25, unit: "µg/m³" },
       ];
 
-      for (const section of sections) {
-        if (!section.enabled) continue;
+      // Filter: only include sections that are enabled AND have actual data
+      const sections = allSections.filter(section => {
+        if (!section.enabled) return false;
+        const values = weatherData.map(section.getValue).filter((v): v is number => v !== null && v !== undefined);
+        return values.length > 0;
+      });
 
+      for (const section of sections) {
         if (y > 250) {
           doc.addPage();
           y = 20;
@@ -196,26 +226,47 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
   };
 
   const generateCSVReport = () => {
-    const headers = ["Timestamp"];
-    if (config.includeTemperature) headers.push("Temperature (°C)");
-    if (config.includeHumidity) headers.push("Humidity (%)");
-    if (config.includePressure) headers.push("Pressure (hPa)");
-    if (config.includeWind) headers.push("Wind Speed (km/h)", "Wind Direction (°)", "Wind Gust (km/h)");
-    if (config.includeRainfall) headers.push("Rainfall (mm)");
-    if (config.includeSolar) headers.push("Solar Radiation (W/m²)");
+    // Define all possible columns
+    const allColumns: Array<{
+      key: string;
+      header: string;
+      enabled: boolean;
+      getValue: (d: WeatherData) => number | null | undefined;
+    }> = [
+      { key: "temperature", header: "Temperature (°C)", enabled: config.includeTemperature, getValue: (d) => d.temperature },
+      { key: "humidity", header: "Humidity (%)", enabled: config.includeHumidity, getValue: (d) => d.humidity },
+      { key: "dewPoint", header: "Dew Point (°C)", enabled: config.includeDewPoint, getValue: (d) => d.dewPoint },
+      { key: "pressure", header: "Pressure (hPa)", enabled: config.includePressure, getValue: (d) => d.pressure },
+      { key: "windSpeed", header: "Wind Speed (km/h)", enabled: config.includeWind, getValue: (d) => d.windSpeed },
+      { key: "windDirection", header: "Wind Direction (°)", enabled: config.includeWind, getValue: (d) => d.windDirection },
+      { key: "windGust", header: "Wind Gust (km/h)", enabled: config.includeWind, getValue: (d) => d.windGust },
+      { key: "rainfall", header: "Rainfall (mm)", enabled: config.includeRainfall, getValue: (d) => d.rainfall },
+      { key: "solarRadiation", header: "Solar Radiation (W/m²)", enabled: config.includeSolar, getValue: (d) => d.solarRadiation },
+      { key: "uvIndex", header: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex },
+      { key: "batteryVoltage", header: "Battery Voltage (V)", enabled: config.includeBattery, getValue: (d) => d.batteryVoltage },
+      { key: "eto", header: "ETo (mm/day)", enabled: config.includeETo, getValue: (d) => (d as any).evapotranspiration ?? (d.data as any)?.evapotranspiration },
+      { key: "soilTemperature", header: "Soil Temp (°C)", enabled: config.includeSoilTemp, getValue: (d) => d.soilTemperature },
+      { key: "soilMoisture", header: "Soil Moisture (%)", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture },
+      { key: "pm10", header: "PM10 (µg/m³)", enabled: config.includePM10, getValue: (d) => d.pm10 },
+      { key: "pm25", header: "PM2.5 (µg/m³)", enabled: config.includePM25, getValue: (d) => d.pm25 },
+    ];
+
+    // Filter: only include columns that are enabled AND have actual data
+    const columns = allColumns.filter(col => {
+      if (!col.enabled) return false;
+      return weatherData.some(d => {
+        const v = col.getValue(d);
+        return v !== null && v !== undefined;
+      });
+    });
+
+    const headers = ["Timestamp", ...columns.map(c => c.header)];
 
     const rows = weatherData.map((d) => {
       const row: string[] = [String(d.timestamp)];
-      if (config.includeTemperature) row.push(d.temperature?.toString() || "");
-      if (config.includeHumidity) row.push(d.humidity?.toString() || "");
-      if (config.includePressure) row.push(d.pressure?.toString() || "");
-      if (config.includeWind) {
-        row.push(d.windSpeed?.toString() || "");
-        row.push(d.windDirection?.toString() || "");
-        row.push(d.windGust?.toString() || "");
+      for (const col of columns) {
+        row.push(col.getValue(d)?.toString() || "");
       }
-      if (config.includeRainfall) row.push(d.rainfall?.toString() || "");
-      if (config.includeSolar) row.push(d.solarRadiation?.toString() || "");
       return row.join(",");
     });
 
@@ -230,7 +281,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
 
     toast({
       title: "CSV Exported",
-      description: `Downloaded ${weatherData.length} records`,
+      description: `Downloaded ${weatherData.length} records, ${columns.length} parameters`,
     });
   };
 
@@ -327,10 +378,18 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
             {[
               { key: "includeTemperature", label: "Temperature" },
               { key: "includeHumidity", label: "Humidity" },
+              { key: "includeDewPoint", label: "Dew Point" },
               { key: "includePressure", label: "Pressure" },
               { key: "includeWind", label: "Wind" },
               { key: "includeRainfall", label: "Rainfall" },
               { key: "includeSolar", label: "Solar Radiation" },
+              { key: "includeUV", label: "UV Index" },
+              { key: "includeBattery", label: "Battery Voltage" },
+              { key: "includeETo", label: "Evapotranspiration (ETo)" },
+              { key: "includeSoilTemp", label: "Soil Temperature" },
+              { key: "includeSoilMoisture", label: "Soil Moisture" },
+              { key: "includePM10", label: "PM10 (Air Quality)" },
+              { key: "includePM25", label: "PM2.5 (Air Quality)" },
               { key: "includeStatistics", label: "Statistics (PDF)" },
             ].map((item) => (
               <div key={item.key} className="flex items-center gap-2">

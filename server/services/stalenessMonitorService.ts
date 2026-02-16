@@ -37,6 +37,13 @@ let usePostgres = false;
  * Initialize the staleness monitor
  */
 export async function initStalenessMonitor(): Promise<void> {
+  // Check if staleness alerts are enabled (disabled by default for now)
+  const alertsEnabled = process.env.STALENESS_ALERTS_ENABLED === 'true';
+  if (!alertsEnabled) {
+    console.log('[StalenessMonitor] Staleness alerts disabled. Set STALENESS_ALERTS_ENABLED=true to enable.');
+    return;
+  }
+
   // Determine database mode
   usePostgres = !!process.env.DATABASE_URL;
 

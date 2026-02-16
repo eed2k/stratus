@@ -19,8 +19,8 @@ RUN npm ci --legacy-peer-deps || npm ci --legacy-peer-deps
 # Copy source code
 COPY . .
 
-# Build the application with increased memory limit
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+# Build the application (1536 MB is safe with 1 GB RAM + 2 GB swap)
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
 # Production stage
@@ -55,6 +55,9 @@ USER stratus
 
 # Expose port
 EXPOSE 5000
+
+# Increase Node.js heap for processing large data files
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \

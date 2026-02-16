@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getAllUsers, addUser, updateUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
-import { UserPlus, Trash2, User, Edit, MapPin, Loader2, Mail } from "lucide-react";
+import { authFetch } from "@/lib/queryClient";
+import { UserPlus, Trash2, User, Edit, MapPin, Loader2, Mail, KeyRound } from "lucide-react";
 
 interface WeatherStation {
   id: number;
@@ -229,11 +230,10 @@ export default function UserManagement() {
   const handleResendInvitation = async (email: string, firstName: string) => {
     setResendingInvitation(email);
     try {
-      const response = await fetch(`/api/users/${encodeURIComponent(email)}/resend-invitation`, {
+      const response = await authFetch(`/api/users/${encodeURIComponent(email)}/resend-invitation`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-user-email': localStorage.getItem('stratus_user_email') || '',
         },
         body: JSON.stringify({})
       });
@@ -495,6 +495,22 @@ export default function UserManagement() {
                 </Select>
               </div>
               
+              {/* Password Reset */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-password">Reset Password</Label>
+                <div className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="edit-password"
+                    type="password"
+                    placeholder="Leave blank to keep current password"
+                    value={(editingUser as any).password || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value } as StoredUser)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Only fill this in if you want to change the user's password.</p>
+              </div>
+
               {editingUser.role === "user" && (
                 <div className="space-y-2">
                   <Label>Assigned Stations</Label>

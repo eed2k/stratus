@@ -22,6 +22,15 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-charts': ['recharts'],
+          'vendor-query': ['@tanstack/react-query'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

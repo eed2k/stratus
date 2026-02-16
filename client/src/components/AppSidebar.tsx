@@ -29,7 +29,6 @@ interface AppSidebarProps {
 // Admin navigation items - full access
 const adminNavItems = [
   { title: "Stations", url: "/" },
-  { title: "Weather", url: "/weather" },
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
   { title: "Organisations", url: "/organizations" },
@@ -43,7 +42,6 @@ const adminNavItems = [
 // User navigation items - limited access
 const userNavItems = [
   { title: "Stations", url: "/" },
-  { title: "Weather", url: "/weather" },
   { title: "Account Settings", url: "/account" },
   { title: "Documentation", url: "/docs" },
 ];
@@ -77,9 +75,9 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           <div className="w-9 h-9 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-md border border-white/10">
             <div className="w-3 h-3 rounded-full bg-white"></div>
           </div>
-          <div>
-            <h2 className="font-semibold text-sidebar-foreground">STRATUS</h2>
-            <p className="text-xs text-muted-foreground">Weather Monitoring</p>
+          <div className="flex flex-col">
+            <h2 className="font-semibold leading-tight" style={{ fontFamily: 'Arial, sans-serif', color: '#000000' }}>STRATUS</h2>
+            <span className="text-[10px] font-bold tracking-wider" style={{ fontFamily: 'Arial, sans-serif', color: '#000000' }}>WEATHER SERVER</span>
           </div>
         </div>
       </SidebarHeader>

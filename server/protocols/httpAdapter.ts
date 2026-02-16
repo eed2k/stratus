@@ -10,6 +10,8 @@ import axios, { AxiosInstance } from "axios";
 export class HTTPAdapter extends BaseProtocolAdapter {
   private httpClient: AxiosInstance;
   private serviceType: string = "generic";
+  private rikaSession: string | null = null;
+  private rikaFarmPk: number | null = null;
 
   constructor(config: ProtocolConfig) {
     super(config);
@@ -65,6 +67,27 @@ export class HTTPAdapter extends BaseProtocolAdapter {
 
   async connect(): Promise<boolean> {
     try {
+      // RikaCloud requires session-based login first
+      if (this.serviceType === "rikacloud") {
+        const loggedIn = await this.rikaCloudLogin();
+        if (!loggedIn) {
+          this.setError(new Error("RikaCloud login failed — check account/password"));
+          return false;
+        }
+        // Verify we can reach the data endpoint
+        const url = this.buildEndpointUrl();
+        const response = await this.httpClient.get(url, {
+          timeout: 10000,
+          headers: { session: this.rikaSession! },
+        });
+        if (response.status >= 200 && response.status < 300) {
+          this.setConnected(true);
+          return true;
+        }
+        this.setError(new Error(`HTTP ${response.status}: ${response.statusText}`));
+        return false;
+      }
+
       const url = this.buildEndpointUrl();
       const response = await this.httpClient.get(url, { timeout: 10000 });
       
@@ -88,6 +111,11 @@ export class HTTPAdapter extends BaseProtocolAdapter {
 
   async readData(): Promise<NormalizedWeatherData | null> {
     try {
+      // RikaCloud v2: use session header and handle re-login
+      if (this.serviceType === "rikacloud") {
+        return await this.readRikaCloudData();
+      }
+
       const url = this.buildEndpointUrl();
       const response = await this.httpClient.get(url);
       
@@ -106,7 +134,121 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     }
   }
 
+  /**
+   * Read data from RikaCloud v2 API.
+   * Uses session token in header, auto re-logins on 403/HTML response.
+   */
+  private async readRikaCloudData(): Promise<NormalizedWeatherData | null> {
+    if (!this.rikaSession) {
+      const loggedIn = await this.rikaCloudLogin();
+      if (!loggedIn) throw new Error("RikaCloud login failed");
+    }
+
+    const url = this.buildEndpointUrl();
+    let response = await this.httpClient.get(url, {
+      headers: { session: this.rikaSession! },
+      validateStatus: () => true,
+    });
+
+    // Session expired? Re-login and retry
+    const contentType = response.headers?.["content-type"] || "";
+    if (response.status === 403 || contentType.includes("text/html")) {
+      console.log("[HTTPAdapter] RikaCloud session expired, re-logging in...");
+      this.rikaSession = null;
+      const loggedIn = await this.rikaCloudLogin();
+      if (!loggedIn) throw new Error("RikaCloud re-login failed");
+      response = await this.httpClient.get(url, {
+        headers: { session: this.rikaSession! },
+      });
+    }
+
+    if (response.status !== 200) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const rawData = this.extractDataFromResponse(response.data);
+    const normalized = this.normalizeData(rawData);
+    this.emit("data", normalized);
+    return normalized;
+  }
+
+  /**
+   * Login to RikaCloud v2 API.
+   * POST {account, password} to /rika/api/v2/login/account/
+   * Returns a session token used in the 'session' header for all subsequent requests.
+   * Also discovers the farm_pk needed for data queries.
+   */
+  private async rikaCloudLogin(): Promise<boolean> {
+    const config = this.config as any;
+    const account = config.rikaEmail || config.rikaAccount;
+    const password = config.rikaPassword;
+
+    if (!account || !password) {
+      console.error("[HTTPAdapter] RikaCloud login requires account and password");
+      return false;
+    }
+
+    try {
+      // Determine base URL from endpoint or default
+      const endpoint = this.config.apiEndpoint || "";
+      const urlMatch = endpoint.match(/^(https?:\/\/[^/]+)/);
+      const baseUrl = urlMatch ? urlMatch[1] : "https://cloud.rikacloud.com";
+      const apiBase = `${baseUrl}/rika/api/v2`;
+      const loginUrl = `${apiBase}/login/account/`;
+
+      console.log(`[HTTPAdapter] Logging in to RikaCloud v2 at ${loginUrl} as ${account}...`);
+
+      const response = await axios.post(loginUrl, { account, password }, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 15000,
+      });
+
+      if (response.status === 200 && response.data?.session) {
+        this.rikaSession = response.data.session;
+        console.log(`[HTTPAdapter] RikaCloud login successful for ${account} (session: ${this.rikaSession!.substring(0, 8)}...)`);
+
+        // Discover farm_pk if not yet known
+        if (!this.rikaFarmPk) {
+          try {
+            const farmRes = await axios.get(`${apiBase}/farm/`, {
+              headers: { session: this.rikaSession! },
+              timeout: 10000,
+            });
+            if (Array.isArray(farmRes.data) && farmRes.data.length > 0) {
+              this.rikaFarmPk = farmRes.data[0].farm.pk;
+              console.log(`[HTTPAdapter] RikaCloud farm_pk: ${this.rikaFarmPk}`);
+            } else {
+              console.warn("[HTTPAdapter] No farms found on RikaCloud account");
+            }
+          } catch (err: any) {
+            console.warn(`[HTTPAdapter] Could not fetch farms: ${err.message}`);
+          }
+        }
+        return true;
+      }
+
+      console.error(`[HTTPAdapter] RikaCloud login failed — status ${response.status}`);
+      return false;
+    } catch (error: any) {
+      console.error(`[HTTPAdapter] RikaCloud login error: ${error.message}`);
+      return false;
+    }
+  }
+
   private buildEndpointUrl(): string {
+    // RikaCloud v2: use /farm/{farm_pk}/device/ endpoint (returns all sensors with live data)
+    if (this.serviceType === "rikacloud") {
+      const endpoint = this.config.apiEndpoint || "";
+      const urlMatch = endpoint.match(/^(https?:\/\/[^/]+)/);
+      const baseUrl = urlMatch ? urlMatch[1] : "https://cloud.rikacloud.com";
+      if (this.rikaFarmPk) {
+        return `${baseUrl}/rika/api/v2/farm/${this.rikaFarmPk}/device/`;
+      }
+      // Fallback: if user provided a full URL, use it as-is
+      if (endpoint) return endpoint;
+      return `${baseUrl}/rika/api/v2/farm/`;
+    }
+
     if (this.config.apiEndpoint) {
       let url = this.config.apiEndpoint;
       
@@ -188,10 +330,25 @@ export class HTTPAdapter extends BaseProtocolAdapter {
   }
 
   private parseRikaCloudResponse(data: any): Record<string, number | null> {
-    // RikaCloud API returns array of sensor readings:
-    // [{ device_id, sensor_id, time, agri_name, value, unit }, ...]
-    // Or a single device response with lastData
-    
+    // RikaCloud v2 /farm/{farm_pk}/device/ returns an array of device objects:
+    // [{ pk, name, agri_id, the_type, unit, data: { last_value, t, value, t_display }, is_online }, ...]
+    // Map device the_type codes to normalized weather fields:
+    //   2001 = temperature (°C), 2002 = humidity (%RH), 2006 = wind speed (m/s),
+    //   2007 = wind direction (°), 2008 = rainfall (mm), 2014 = solar radiation (W/m²),
+    //   3003 = barometric pressure (hPa), 2081 = PM10 (μg/m³)
+    //   3331 = longitude, 3332 = latitude (GPS — skip)
+
+    const typeMap: Record<number, string> = {
+      2001: "temperature",
+      2002: "humidity",
+      2006: "windSpeed",
+      2007: "windDirection",
+      2008: "rainfall",
+      2014: "solarRadiation",
+      3003: "pressure",
+      2081: "pm10",
+    };
+
     const result: Record<string, number | null> = {
       temperature: null,
       humidity: null,
@@ -201,49 +358,35 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       rainfall: null,
       solarRadiation: null,
     };
-    
-    // Handle array of sensor readings from getDeviceData API
-    if (Array.isArray(data)) {
-      for (const sensor of data) {
-        const name = (sensor.agri_name || '').toLowerCase();
-        const value = typeof sensor.value === 'number' ? sensor.value : parseFloat(sensor.value);
-        
-        if (isNaN(value)) continue;
-        
-        // Map sensor names to normalized fields
-        if (name.includes('temp') || name.includes('温度')) {
-          result.temperature = value;
-        } else if (name.includes('humid') || name.includes('湿度')) {
-          result.humidity = value;
-        } else if (name.includes('press') || name.includes('气压') || name.includes('baro')) {
-          result.pressure = value;
-        } else if (name.includes('wind') && (name.includes('speed') || name.includes('速'))) {
-          result.windSpeed = value;
-        } else if (name.includes('wind') && (name.includes('dir') || name.includes('向'))) {
-          result.windDirection = value;
-        } else if (name.includes('rain') || name.includes('precip') || name.includes('降')) {
-          result.rainfall = value;
-        } else if (name.includes('solar') || name.includes('radiation') || name.includes('辐射')) {
-          result.solarRadiation = value;
-        }
-      }
+
+    // Handle device array response
+    const devices: any[] = Array.isArray(data) ? data : [];
+
+    if (devices.length === 0) {
+      console.log("[HTTPAdapter] RikaCloud: no devices returned");
       return result;
     }
-    
-    // Handle object response with lastData or direct sensor data
-    const record = data?.lastData || data?.data || data;
-    
-    if (record) {
-      // Try direct field mapping
-      result.temperature = record.temperature ?? record.temp ?? null;
-      result.humidity = record.humidity ?? record.rh ?? null;
-      result.pressure = record.pressure ?? record.baro ?? null;
-      result.windSpeed = record.windSpeed ?? record.wind_speed ?? null;
-      result.windDirection = record.windDirection ?? record.wind_dir ?? null;
-      result.rainfall = record.rainfall ?? record.rain ?? null;
-      result.solarRadiation = record.radiation ?? record.solar ?? null;
+
+    for (const device of devices) {
+      const typeCode = device.the_type;
+      const fieldName = typeMap[typeCode];
+      if (!fieldName) continue; // Skip GPS and unknown types
+
+      const rawVal = device.data?.value ?? device.data?.last_value;
+      if (rawVal === undefined || rawVal === null) continue;
+
+      const value = typeof rawVal === "number" ? rawVal : parseFloat(rawVal);
+      if (isNaN(value)) continue;
+
+      result[fieldName] = value;
+
+      const displayName = device.name || `type_${typeCode}`;
+      console.log(`[HTTPAdapter] RikaCloud device "${displayName}": ${value} ${device.unit || ""}`);
     }
-    
+
+    const populated = Object.entries(result).filter(([, v]) => v !== null).length;
+    console.log(`[HTTPAdapter] RikaCloud: populated ${populated}/${Object.keys(result).length} weather fields from ${devices.length} devices`);
+
     return result;
   }
 

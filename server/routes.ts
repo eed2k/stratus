@@ -180,13 +180,14 @@ const insertAlarmSchema = z.object({
   stationId: z.number(),
   name: z.string().min(1, "Alarm name is required"),
   parameter: z.string().min(1, "Parameter is required"),
-  condition: z.enum(['above', 'below', 'equals', 'not_equals', 'change'], {
-    errorMap: () => ({ message: "Condition must be one of: above, below, equals, not_equals, change" })
+  condition: z.enum(['above', 'below', 'equals', 'not_equals', 'change', 'stale', 'no_charge'], {
+    errorMap: () => ({ message: "Condition must be one of: above, below, equals, not_equals, change, stale, no_charge" })
   }),
   threshold: z.number({
     required_error: "Threshold is required",
     invalid_type_error: "Threshold must be a number"
   }),
+  staleMinutes: z.number().int().min(5).max(10080).optional(), // 5 min to 7 days
   unit: z.string().optional().default(''),
   enabled: z.boolean().optional().default(true),
   notifyEmail: z.boolean().optional().default(true),
@@ -202,6 +203,7 @@ function mapAlarmToClient(alarm: any) {
     parameter: alarm.parameter || '',
     condition: alarm.condition,
     threshold: alarm.threshold,
+    staleMinutes: alarm.staleMinutes ?? alarm.stale_minutes ?? null,
     unit: alarm.unit || '',
     enabled: alarm.isEnabled !== undefined ? alarm.isEnabled : (alarm.enabled !== false),
     notifyEmail: alarm.emailNotifications !== undefined ? alarm.emailNotifications : (alarm.notifyEmail !== false),
@@ -222,8 +224,10 @@ import clientRoutes from "./clientRoutes";
 import fileWatcherRoutes from "./services/fileWatcherRoutes";
 import { fileWatcherService } from "./services/fileWatcherService";
 import dropboxSyncRoutes from "./services/dropboxSyncRoutes";
-import { dropboxSyncService } from "./services/dropboxSyncService";
-import weatherRoutes from "./weatherApi";
+import { dropboxSyncService, setWeatherDataBroadcaster } from "./services/dropboxSyncService";
+import * as postgres from "./db-postgres";
+import * as db from "./db";
+const usePostgres = postgres.isPostgresEnabled();
 import { triggerStalenessCheck, sendTestStalenessAlert } from "./services/stalenessMonitorService";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
@@ -238,7 +242,7 @@ const optionalAuth: RequestHandler = (req, res, next) => {
 // Store connected WebSocket clients by station ID
 const stationClients = new Map<number, Set<WebSocket>>();
 
-function broadcastWeatherData(stationId: number, data: WeatherData) {
+export function broadcastWeatherData(stationId: number, data: WeatherData) {
   const clients = stationClients.get(stationId);
   if (clients) {
     const message = JSON.stringify({ type: "weather_update", stationId, data });
@@ -249,6 +253,9 @@ function broadcastWeatherData(stationId: number, data: WeatherData) {
     });
   }
 }
+
+// Wire up WebSocket broadcaster for Dropbox sync service
+setWeatherDataBroadcaster(broadcastWeatherData);
 
 export async function registerRoutes(
   httpServer: Server,
@@ -275,11 +282,8 @@ export async function registerRoutes(
   // Register file watcher routes (Dropbox sync, etc.)
   app.use('/api/file-watcher', fileWatcherRoutes);
 
-  // Register Dropbox sync routes
-  app.use('/api/dropbox-sync', dropboxSyncRoutes);
-
-  // Register Weather API routes (Windy + AfriGIS Lightning)
-  app.use('/api/weather', weatherRoutes);
+  // Register Dropbox sync routes (admin-only)
+  app.use('/api/dropbox-sync', isAuthenticated, isAdmin, dropboxSyncRoutes);
 
   // ── Staleness Monitor API routes ──────────────────────────────────────
   // GET /api/staleness/status - Check current staleness status of all stations
@@ -410,19 +414,37 @@ export async function registerRoutes(
   // Initialize file watcher service
   await fileWatcherService.initialize();
 
-  // Initialize Dropbox sync with configuration from environment
+  // Initialize Dropbox sync with configuration from environment or DB
   // This auto-syncs .dat files from Dropbox folder every hour
-  const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
-  const DROPBOX_FOLDER_PATH = process.env.DROPBOX_FOLDER_PATH || '';
+  let DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
+  let DROPBOX_FOLDER_PATH = process.env.DROPBOX_FOLDER_PATH || '';
   // Station ID is optional - if not provided, will auto-create based on folder name
   const DROPBOX_STATION_ID_STR = process.env.DROPBOX_STATION_ID;
-  const DROPBOX_STATION_ID = DROPBOX_STATION_ID_STR ? parseInt(DROPBOX_STATION_ID_STR, 10) : 0; // 0 means auto-detect/create
+  let DROPBOX_STATION_ID = DROPBOX_STATION_ID_STR ? parseInt(DROPBOX_STATION_ID_STR, 10) : 0; // 0 means auto-detect/create
   const DROPBOX_SYNC_INTERVAL = parseInt(process.env.DROPBOX_SYNC_INTERVAL || '3600000', 10); // Default 1 hour
   
   // OAuth 2.0 refresh token support for 24/7 deployment
-  const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
-  const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
-  const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET || '';
+  let DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
+  let DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
+  let DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET || '';
+
+  // Restore Dropbox credentials from database if not set via environment
+  if (!DROPBOX_REFRESH_TOKEN || !DROPBOX_APP_KEY) {
+    try {
+      const dbCreds = usePostgres
+        ? await postgres.getSetting('dropbox_credentials')
+        : db.getSetting('dropbox_credentials');
+      if (dbCreds) {
+        const parsed = JSON.parse(dbCreds);
+        if (!DROPBOX_APP_KEY && parsed.appKey) { DROPBOX_APP_KEY = parsed.appKey; process.env.DROPBOX_APP_KEY = parsed.appKey; }
+        if (!DROPBOX_APP_SECRET && parsed.appSecret) { DROPBOX_APP_SECRET = parsed.appSecret; process.env.DROPBOX_APP_SECRET = parsed.appSecret; }
+        if (!DROPBOX_REFRESH_TOKEN && parsed.refreshToken) { DROPBOX_REFRESH_TOKEN = parsed.refreshToken; process.env.DROPBOX_REFRESH_TOKEN = parsed.refreshToken; }
+        console.log('[Routes] Dropbox credentials restored from database');
+      }
+    } catch (err: any) {
+      console.warn('[Routes] Could not restore Dropbox credentials from DB:', err.message);
+    }
+  }
   
   if (DROPBOX_ACCESS_TOKEN || DROPBOX_REFRESH_TOKEN) {
     dropboxSyncService.configure({
@@ -544,7 +566,7 @@ export async function registerRoutes(
         'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
         'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
         'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
-        'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus',
+        'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus', 'rikacloud': 'http',
       };
       
       await protocolManager.registerStation(stationId, {
@@ -575,8 +597,7 @@ export async function registerRoutes(
       for (const station of stations) {
         // Delete demo stations
         if (station.name?.toLowerCase().includes('demo') || 
-            station.connectionType === 'demo' ||
-            station.name?.toLowerCase().includes('elsa')) {
+            station.connectionType === 'demo') {
           await storage.deleteStation(station.id);
           deleted.push(station.id);
           continue;
@@ -985,19 +1006,39 @@ export async function registerRoutes(
             
             if (DROPBOX_ACCESS_TOKEN || DROPBOX_REFRESH_TOKEN) {
               const folderPath = connectionConfig.folderPath || '';
+              const filePattern = connectionConfig.filePattern || '';
               const syncInterval = parseInt(connectionConfig.syncInterval) || 3600;
               
-              dropboxSyncService.configure({
-                accessToken: DROPBOX_ACCESS_TOKEN,
-                folderPath: folderPath,
-                stationId: station.id,
-                syncInterval: syncInterval * 1000, // Convert seconds to milliseconds
-                enabled: true,
-                refreshToken: DROPBOX_REFRESH_TOKEN || undefined,
-                appKey: DROPBOX_APP_KEY || undefined,
-                appSecret: DROPBOX_APP_SECRET || undefined,
-              });
-              console.log(`[Routes] Dropbox sync configured for station ${station.id}: folder=${folderPath}, interval=${syncInterval}s`);
+              // Do NOT call dropboxSyncService.configure() here — it overwrites the main
+              // singleton config (Hopefield), breaking existing sync. Instead, only create a
+              // dropbox_configs DB entry so syncDbConfigs() picks up this new station.
+              console.log(`[Routes] Creating DB-only Dropbox config for station ${station.id} (not overwriting main sync config)`);
+
+              // Auto-create dropbox_configs entry so syncDbConfigs() picks up this station
+              try {
+                await storage.createDropboxConfig({
+                  name: station.name || `Station ${station.id} Sync`,
+                  folderPath: folderPath,
+                  filePattern: filePattern || undefined,
+                  stationId: station.id,
+                  syncInterval: syncInterval * 1000,
+                  enabled: true,
+                });
+                console.log(`[Routes] Dropbox config created for station ${station.id}: folder=${folderPath}, pattern=${filePattern || '*'}, interval=${syncInterval}s`);
+                
+                // Reinitialize sync service to pick up new config & trigger immediate sync
+                await dropboxSyncService.reinitialize();
+                setTimeout(async () => {
+                  try {
+                    console.log(`[Routes] Auto-triggering sync for new Dropbox station ${station.id}...`);
+                    await dropboxSyncService.syncNow();
+                  } catch (err: any) {
+                    console.error(`[Routes] Auto-sync after station creation failed:`, err.message);
+                  }
+                }, 1000);
+              } catch (dbErr: any) {
+                console.warn(`[Routes] Could not create dropbox_configs entry: ${dbErr.message}`);
+              }
             } else {
               console.warn(`[Routes] Station ${station.id} configured for Dropbox but no access token in environment`);
             }
@@ -1070,29 +1111,42 @@ export async function registerRoutes(
             }
             
             // Handle Dropbox sync configuration updates
+            // Use DB-only approach (like the POST/create route) to avoid overwriting
+            // the main singleton sync config (e.g. Hopefield)
             if (station.connectionType === 'dropbox') {
-              const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
-              const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
-              const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
-              const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET || '';
+              const folderPath = connectionConfig.folderPath || '';
+              const filePattern = connectionConfig.filePattern || '';
+              const syncInterval = parseInt(connectionConfig.syncInterval) || 3600;
               
-              if (DROPBOX_ACCESS_TOKEN || DROPBOX_REFRESH_TOKEN) {
-                const folderPath = connectionConfig.folderPath || '';
-                const syncInterval = parseInt(connectionConfig.syncInterval) || 3600;
+              try {
+                // Update or create the dropbox_configs DB entry
+                const existingConfigs = await storage.getDropboxConfigs();
+                const existing = existingConfigs.find((c: any) => c.stationId === station.id);
                 
-                // Stop existing sync and reconfigure
-                dropboxSyncService.stopSync();
-                dropboxSyncService.configure({
-                  accessToken: DROPBOX_ACCESS_TOKEN,
-                  folderPath: folderPath,
-                  stationId: station.id,
-                  syncInterval: syncInterval * 1000,
-                  enabled: true,
-                  refreshToken: DROPBOX_REFRESH_TOKEN || undefined,
-                  appKey: DROPBOX_APP_KEY || undefined,
-                  appSecret: DROPBOX_APP_SECRET || undefined,
-                });
-                console.log(`[Routes] Dropbox sync reconfigured for station ${station.id}: folder=${folderPath}, interval=${syncInterval}s`);
+                if (existing) {
+                  await storage.updateDropboxConfig(existing.id, {
+                    folderPath,
+                    filePattern,
+                    syncInterval: syncInterval * 1000,
+                    enabled: true,
+                  });
+                  console.log(`[Routes] Dropbox config updated for station ${station.id}: folder=${folderPath}, pattern=${filePattern || '*'}, interval=${syncInterval}s`);
+                } else {
+                  await storage.createDropboxConfig({
+                    name: station.name || `Station ${station.id}`,
+                    folderPath,
+                    filePattern,
+                    stationId: station.id,
+                    syncInterval: syncInterval * 1000,
+                    enabled: true,
+                  });
+                  console.log(`[Routes] Dropbox config created for station ${station.id}: folder=${folderPath}, pattern=${filePattern || '*'}, interval=${syncInterval}s`);
+                }
+                
+                // Reinitialize sync service to pick up DB changes
+                await dropboxSyncService.reinitialize();
+              } catch (dbErr: any) {
+                console.warn(`[Routes] Could not update dropbox_configs entry: ${dbErr.message}`);
               }
             }
             
@@ -1143,6 +1197,13 @@ export async function registerRoutes(
       const deleted = await storage.deleteStation(stationId);
       if (!deleted) {
         return res.status(404).json({ message: "Station not found" });
+      }
+      
+      // Reinitialize sync service so it drops references to deleted station/configs
+      try {
+        await dropboxSyncService.reinitialize();
+      } catch (syncErr) {
+        console.warn(`Failed to reinitialize sync service after deleting station ${stationId}:`, syncErr);
       }
       
       // Log station deletion
@@ -2018,7 +2079,7 @@ export async function registerRoutes(
         });
       }
       
-      const { stationId, name, parameter, condition, threshold, unit, enabled, notifyEmail, notifyPush } = parsed.data;
+      const { stationId, name, parameter, condition, threshold, staleMinutes, unit, enabled, notifyEmail, notifyPush } = parsed.data;
       
       // Get the current user's email for notifications
       let emailRecipients: string | null = null;
@@ -2032,6 +2093,7 @@ export async function registerRoutes(
         parameter,
         condition,
         threshold,
+        staleMinutes: condition === 'stale' ? (staleMinutes || 120) : undefined,
         unit: unit || '',
         severity: 'warning',
         isEnabled: enabled !== false,
@@ -2119,6 +2181,35 @@ export async function registerRoutes(
       console.error("Error acknowledging alarm event:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       res.status(500).json({ message: "Failed to acknowledge alarm event", details: errorMessage });
+    }
+  });
+
+  // Delete a single alarm event
+  app.delete("/api/alarm-events/:id", optionalAuth, async (req, res) => {
+    try {
+      const { value: eventId, error } = parseIntSafe(req.params.id, 'id');
+      if (error || eventId === null) {
+        return res.status(400).json({ message: error });
+      }
+      await storage.deleteAlarmEvent(eventId);
+      res.json({ success: true, message: "Alarm event deleted" });
+    } catch (error) {
+      console.error("Error deleting alarm event:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to delete alarm event", details: errorMessage });
+    }
+  });
+
+  // Cleanup alarm events older than 30 days
+  app.post("/api/alarm-events/cleanup", optionalAuth, async (req, res) => {
+    try {
+      const days = req.body.days || 30;
+      const count = await storage.cleanupOldAlarmEvents(days);
+      res.json({ success: true, deleted: count, message: `Cleaned up ${count} events older than ${days} days` });
+    } catch (error) {
+      console.error("Error cleaning up alarm events:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to cleanup alarm events", details: errorMessage });
     }
   });
 

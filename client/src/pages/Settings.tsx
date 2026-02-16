@@ -23,7 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, CheckCircle, Plus, Trash2, RefreshCw, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Save, Loader2, CheckCircle, Plus, Trash2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { getAllUsers, updateUser } from "@/hooks/useAuth";
 import { verifyPassword } from "@/lib/passwordUtils";
 
@@ -92,6 +93,11 @@ export default function Settings() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   
+  // File preview state
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [newConfigStationId, setNewConfigStationId] = useState<string>('');
+
   // Delete account state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -125,6 +131,36 @@ export default function Settings() {
       return res.json();
     },
     enabled: !!dropboxCredentials?.configured,
+  });
+
+  // Fetch stations for the station selector dropdown
+  const { data: stations } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ['/api/stations'],
+    queryFn: async () => {
+      const res = await authFetch('/api/stations');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Fetch file preview when a file is selected
+  const { data: filePreview, isLoading: isLoadingPreview } = useQuery<{
+    path: string;
+    size: number;
+    modified: string;
+    headerLines: string[];
+    lastRecords: string[];
+    totalLines: number;
+    newestTimestamp: string | null;
+    oldestTimestamp: string | null;
+  }>({
+    queryKey: ['/api/dropbox-sync/preview', previewPath],
+    queryFn: async () => {
+      const res = await authFetch(`/api/dropbox-sync/preview?path=${encodeURIComponent(previewPath!)}&tail=15`);
+      if (!res.ok) throw new Error('Failed to preview file');
+      return res.json();
+    },
+    enabled: !!previewPath,
   });
 
   // Fetch user profile from server
@@ -202,27 +238,32 @@ export default function Settings() {
         body: JSON.stringify({
           name: newConfigName,
           folderPath: newConfigFolder.startsWith('/') ? newConfigFolder : `/${newConfigFolder}`,
-          filePattern: newConfigPattern || undefined,
+          filePattern: newConfigPattern ? (newConfigPattern.includes('*') || newConfigPattern.includes('?') || newConfigPattern.includes('.') ? newConfigPattern : newConfigPattern + '*') : undefined,
           syncInterval: parseInt(newConfigInterval),
+          stationId: newConfigStationId && newConfigStationId !== 'none' ? parseInt(newConfigStationId) : undefined,
           enabled: true,
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to add configuration');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || 'Failed to add configuration');
+      }
 
       toast({
         title: "Success",
-        description: `Added sync configuration for ${newConfigName}`,
+        description: `Added sync configuration for ${newConfigName}. First sync will start automatically and import all historical data.`,
       });
 
       setNewConfigName('');
       setNewConfigFolder('');
       setNewConfigPattern('');
+      setNewConfigStationId('');
       refetchDropboxConfigs();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to add configuration",
+        description: error.message || "Failed to add configuration",
         variant: "destructive",
       });
     } finally {
@@ -744,69 +785,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-notifications-settings">
-          <CardHeader>
-            <CardTitle className="text-lg">Notifications</CardTitle>
-            <CardDescription>Configure how you receive alerts</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Email Notifications</p>
-                <p className="text-sm text-muted-foreground">Receive alerts via email</p>
-              </div>
-              <Switch
-                checked={emailNotifications}
-                onCheckedChange={setEmailNotifications}
-                data-testid="switch-email-notifications"
-              />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Push Notifications</p>
-                <p className="text-sm text-muted-foreground">Receive browser notifications</p>
-              </div>
-              <Switch
-                checked={pushNotifications}
-                onCheckedChange={setPushNotifications}
-                data-testid="switch-push-notifications"
-              />
-            </div>
-            <Separator />
-            <div className="space-y-4">
-              <p className="font-medium">Alert Thresholds</p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="tempHigh">High Temp Alert (°C)</Label>
-                  <Input 
-                    id="tempHigh" 
-                    type="number" 
-                    value={tempHighAlert}
-                    onChange={(e) => setTempHighAlert(Number(e.target.value))}
-                    data-testid="input-temp-high" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="windHigh">High Wind Alert (km/h)</Label>
-                  <Input 
-                    id="windHigh" 
-                    type="number" 
-                    value={windHighAlert}
-                    onChange={(e) => setWindHighAlert(Number(e.target.value))}
-                    data-testid="input-wind-high" 
-                  />
-                </div>
-              </div>
-            </div>
-            <Button onClick={() => handleSavePreferences('notifications')} disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Notifications
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Email Configuration Card */}
         <Card data-testid="card-email-settings">
           <CardHeader>
             <CardTitle className="text-lg">Email Alerts</CardTitle>
@@ -867,7 +845,7 @@ export default function Settings() {
               <Label htmlFor="serverAddress">Server Address</Label>
               <Input
                 id="serverAddress"
-                placeholder="e.g., 192.168.1.100:5000 or your-domain.com"
+                placeholder="Server address or domain"
                 value={serverAddress}
                 onChange={(e) => setServerAddress(e.target.value)}
                 data-testid="input-server-address"
@@ -1049,29 +1027,183 @@ export default function Settings() {
               </div>
             ) : (
               <>
-                {/* Available files browser */}
+                {/* Available files browser — grouped by folder with preview */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>Available Data Files in Dropbox</Label>
+                    <Label>Dropbox Data Files</Label>
                     <Button variant="ghost" size="sm" onClick={() => refetchDropboxFiles()} disabled={isLoadingFiles}>
                       {isLoadingFiles ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     </Button>
                   </div>
-                  <div className="max-h-40 overflow-y-auto rounded-md border p-2 text-sm">
+                  <p className="text-xs text-muted-foreground">Click a file to preview its contents and check if it has recent data.</p>
+                  <div className="max-h-64 overflow-y-auto rounded-md border p-2 text-sm">
                     {dropboxFiles && dropboxFiles.length > 0 ? (
-                      <ul className="space-y-1">
-                        {dropboxFiles.map((file) => (
-                          <li key={file.path} className="flex items-center justify-between hover:bg-muted/50 p-1 rounded">
-                            <span className="font-mono text-xs truncate">{file.path}</span>
-                            <span className="text-xs text-muted-foreground ml-2">{(file.size / 1024).toFixed(0)} KB</span>
-                          </li>
-                        ))}
-                      </ul>
+                      (() => {
+                        // Group files by parent folder
+                        const grouped: Record<string, typeof dropboxFiles> = {};
+                        dropboxFiles.forEach(file => {
+                          const parts = file.path.split('/');
+                          const folder = parts.slice(0, -1).join('/') || '/';
+                          if (!grouped[folder]) grouped[folder] = [];
+                          grouped[folder].push(file);
+                        });
+                        return (
+                          <div className="space-y-1">
+                            {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([folder, files]) => (
+                              <div key={folder}>
+                                <button
+                                  className="flex items-center gap-1 w-full text-left py-1 px-1 hover:bg-muted/50 rounded text-xs font-medium"
+                                  onClick={() => {
+                                    const next = new Set(expandedFolders);
+                                    next.has(folder) ? next.delete(folder) : next.add(folder);
+                                    setExpandedFolders(next);
+                                  }}
+                                >
+                                  {expandedFolders.has(folder) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                  <FolderOpen className="h-3 w-3 text-amber-500" />
+                                  <span>{folder}</span>
+
+                                </button>
+                                {expandedFolders.has(folder) && (
+                                  <div className="ml-5 space-y-0.5">
+                                    {files.map(file => {
+                                      const isActive = previewPath === file.path;
+                                      const modDate = file.modified ? new Date(file.modified) : null;
+                                      const ageHours = modDate ? (Date.now() - modDate.getTime()) / (1000 * 60 * 60) : null;
+                                      let freshness: 'fresh' | 'recent' | 'stale' = 'stale';
+                                      if (ageHours !== null) {
+                                        if (ageHours < 2) freshness = 'fresh';
+                                        else if (ageHours < 24) freshness = 'recent';
+                                      }
+                                      return (
+                                        <button
+                                          key={file.path}
+                                          className={`flex items-center gap-2 w-full text-left py-1.5 px-2 rounded text-xs hover:bg-muted/70 ${isActive ? 'bg-primary/10 border border-primary/30' : ''}`}
+                                          onClick={() => setPreviewPath(isActive ? null : file.path)}
+                                        >
+                                          <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                          <span className="truncate flex-1 font-mono">{file.name}</span>
+                                          <span className="text-muted-foreground whitespace-nowrap">{(file.size / 1024).toFixed(0)} KB</span>
+                                          {modDate && (
+                                            <span className={`inline-flex items-center gap-0.5 whitespace-nowrap ${
+                                              freshness === 'fresh' ? 'text-green-600 dark:text-green-400' :
+                                              freshness === 'recent' ? 'text-amber-600 dark:text-amber-400' :
+                                              'text-red-500 dark:text-red-400'
+                                            }`}>
+                                              <Clock className="h-2.5 w-2.5" />
+                                              {ageHours! < 1 ? `${Math.round(ageHours! * 60)}m` :
+                                               ageHours! < 24 ? `${Math.round(ageHours!)}h` :
+                                               `${Math.round(ageHours! / 24)}d`} ago
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()
                     ) : (
                       <p className="text-muted-foreground text-center py-2">No .dat files found</p>
                     )}
                   </div>
                 </div>
+
+                {/* File Preview Panel */}
+                {previewPath && (
+                  <div className="rounded-md border bg-muted/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Preview: <code className="bg-muted px-1 rounded text-xs">{previewPath.split('/').pop()}</code>
+                      </Label>
+                      <Button variant="ghost" size="sm" onClick={() => setPreviewPath(null)} className="text-xs">Close</Button>
+                    </div>
+                    {isLoadingPreview ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        <span className="text-sm text-muted-foreground">Downloading file preview...</span>
+                      </div>
+                    ) : filePreview ? (
+                      <div className="space-y-3">
+                        {/* Summary badges */}
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {filePreview.totalLines - 4} data records
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {(filePreview.size / 1024).toFixed(0)} KB
+                          </Badge>
+                          {filePreview.oldestTimestamp && (
+                            <Badge variant="secondary" className="text-xs">
+                              From: {filePreview.oldestTimestamp}
+                            </Badge>
+                          )}
+                          {filePreview.newestTimestamp && (
+                            <Badge className={`text-xs ${
+                              (() => {
+                                const ts = new Date(filePreview.newestTimestamp.replace(' ', 'T'));
+                                const ageH = (Date.now() - ts.getTime()) / 3600000;
+                                return ageH < 2 ? 'bg-green-600' : ageH < 24 ? 'bg-amber-600' : 'bg-red-600';
+                              })()
+                            }`}>
+                              Latest: {filePreview.newestTimestamp}
+                            </Badge>
+                          )}
+                          {filePreview.modified && (
+                            <Badge variant="outline" className="text-xs">
+                              File modified: {new Date(filePreview.modified).toLocaleString('en-ZA')}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Freshness verdict */}
+                        {filePreview.newestTimestamp && (() => {
+                          const ts = new Date(filePreview.newestTimestamp.replace(' ', 'T'));
+                          const ageH = (Date.now() - ts.getTime()) / 3600000;
+                          if (ageH < 2) return (
+                            <div className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 p-2 rounded">
+                              ✓ <strong>Active</strong> — This file has recent data ({Math.round(ageH < 1 ? ageH * 60 : ageH)}{ageH < 1 ? ' minutes' : ' hours'} ago). Safe to add as a station.
+                            </div>
+                          );
+                          if (ageH < 48) return (
+                            <div className="text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 p-2 rounded">
+                              ⚠ <strong>Recently updated</strong> — Last record is {Math.round(ageH)} hours old. The station may have intermittent uploads.
+                            </div>
+                          );
+                          return (
+                            <div className="text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-2 rounded">
+                              ✕ <strong>Stale</strong> — Last record is {Math.round(ageH / 24)} days old. This station may no longer be uploading.
+                            </div>
+                          );
+                        })()}
+
+                        {/* TOA5 header info */}
+                        {filePreview.headerLines.length > 0 && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">File Headers (TOA5 format)</Label>
+                            <div className="max-h-24 overflow-x-auto overflow-y-auto rounded bg-muted p-2 font-mono text-[10px] leading-tight whitespace-pre">
+                              {filePreview.headerLines.join('\n')}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Last records */}
+                        {filePreview.lastRecords.length > 0 && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Most Recent Records (last {filePreview.lastRecords.length})</Label>
+                            <div className="max-h-40 overflow-x-auto overflow-y-auto rounded bg-muted p-2 font-mono text-[10px] leading-tight whitespace-pre">
+                              {filePreview.lastRecords.join('\n')}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
 
                 <Separator />
 
@@ -1106,7 +1238,7 @@ export default function Settings() {
                                   timeZoneName: 'short'
                                 })} 
                                 {config.lastSyncStatus && ` (${config.lastSyncStatus})`}
-                                {config.lastSyncRecords !== undefined && ` - ${config.lastSyncRecords} records`}
+
                               </p>
                             )}
                           </div>
@@ -1134,11 +1266,12 @@ export default function Settings() {
                   <Label>Add New Sync Configuration</Label>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="newConfigName" className="text-xs">Name (e.g., station name)</Label>
+                      <Label htmlFor="newConfigName" className="text-xs">Name</Label>
                       <Input
                         id="newConfigName"
                         value={newConfigName}
                         onChange={(e) => setNewConfigName(e.target.value)}
+                        placeholder="Configuration name"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1147,7 +1280,28 @@ export default function Settings() {
                         id="newConfigFolder"
                         value={newConfigFolder}
                         onChange={(e) => setNewConfigFolder(e.target.value)}
+                        placeholder="/HOPEFIELD_CR300"
                       />
+                      <p className="text-[10px] text-muted-foreground">
+                        The Dropbox folder containing .dat files (check the file browser above)
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newConfigStation" className="text-xs">Link to Station</Label>
+                      <Select value={newConfigStationId} onValueChange={setNewConfigStationId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a station..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No station (create later)</SelectItem>
+                          {stations?.map((s) => (
+                            <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground">
+                        Which station should receive the imported data
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newConfigPattern" className="text-xs">File Pattern (optional)</Label>
@@ -1155,6 +1309,7 @@ export default function Settings() {
                         id="newConfigPattern"
                         value={newConfigPattern}
                         onChange={(e) => setNewConfigPattern(e.target.value)}
+                        placeholder="*.dat"
                       />
                     </div>
                     <div className="space-y-2">

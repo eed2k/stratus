@@ -18,6 +18,8 @@ export interface StoredUser {
   passwordHash?: string; // Hashed password (from server)
   role: 'admin' | 'user';
   assignedStations?: number[];
+  isActive?: boolean;
+  lastLoginAt?: string | null;
   createdAt: string;
   createdBy?: string;
 }

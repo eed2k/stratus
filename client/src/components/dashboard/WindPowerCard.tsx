@@ -24,36 +24,36 @@ export function WindPowerCard({
   sparklineData: _sparklineData,
 }: WindPowerCardProps) {
   return (
-    <Card data-testid="card-wind-power">
+    <Card className="border border-gray-300 bg-white" data-testid="card-wind-power">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-normal text-muted-foreground">Wind Power</CardTitle>
+        <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Wind Power</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-normal">{safeFixed(currentPower, 1)}</span>
-            <span className="text-sm text-muted-foreground">W/m²</span>
+            <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(currentPower, 1)}</span>
+            <span className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>W/m²</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Gust Power</p>
-              <p className="text-lg font-normal">{safeFixed(gustPower, 1)} W/m²</p>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust Power</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(gustPower, 1)} W/m²</p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Air Density</p>
-              <p className="text-lg font-normal">{safeFixed(airDensity, 3)} kg/m³</p>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Air Density</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(airDensity, 3)} kg/m³</p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Avg Speed (Recent)</p>
-              <p className="text-lg font-normal">{safeFixed(avgSpeed, 1)} km/h</p>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Speed (Recent)</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgSpeed, 1)} km/h</p>
             </div>
 
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Avg Power (Recent)</p>
-              <p className="text-lg font-normal">{safeFixed(avgPower, 1)} W/m²</p>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Power (Recent)</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgPower, 1)} W/m²</p>
             </div>
           </div>
         </div>

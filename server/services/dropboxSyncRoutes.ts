@@ -128,6 +128,18 @@ router.post('/configs', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Name and folder path are required' });
     }
     
+    // Prevent duplicate configs for the same station
+    if (stationId) {
+      const existingConfigs = await storage.getDropboxConfigs();
+      const duplicate = existingConfigs.find(c => c.stationId === stationId);
+      if (duplicate) {
+        return res.status(409).json({ 
+          error: `A sync configuration already exists for this station ("${duplicate.name}"). Edit the existing one instead.`,
+          existingConfig: duplicate
+        });
+      }
+    }
+    
     const config = await storage.createDropboxConfig({
       name,
       folderPath,
@@ -139,6 +151,17 @@ router.post('/configs', async (req: Request, res: Response) => {
     
     // Reinitialize sync service to pick up new config
     await dropboxSyncService.reinitialize();
+    
+    // Auto-trigger an immediate sync so new config gets data right away
+    // Run in background so the API responds quickly
+    setTimeout(async () => {
+      try {
+        console.log(`[DropboxSync] Auto-triggering sync for new config "${name}"...`);
+        await dropboxSyncService.syncNow();
+      } catch (err: any) {
+        console.error(`[DropboxSync] Auto-sync after config creation failed:`, err.message);
+      }
+    }, 1000);
     
     res.json({ success: true, config });
   } catch (err: any) {
@@ -223,6 +246,25 @@ router.get('/discover', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/dropbox-sync/preview
+ * Preview a specific .dat file — returns headers, last records, timestamps
+ */
+router.get('/preview', async (req: Request, res: Response) => {
+  try {
+    const filePath = req.query.path as string;
+    if (!filePath) {
+      return res.status(400).json({ error: 'Missing ?path= parameter' });
+    }
+    const tailLines = parseInt(req.query.tail as string) || 10;
+    const preview = await dropboxSyncService.previewFile(filePath, tailLines);
+    res.json(preview);
+  } catch (err: any) {
+    console.error('[DropboxSync] Error previewing file:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /api/dropbox-sync/credentials
  * Check if Dropbox credentials are configured
  */
@@ -259,6 +301,22 @@ router.post('/credentials', async (req: Request, res: Response) => {
     process.env.DROPBOX_APP_KEY = appKey;
     process.env.DROPBOX_APP_SECRET = appSecret;
     process.env.DROPBOX_REFRESH_TOKEN = refreshToken;
+    
+    // Persist credentials to database so they survive restarts
+    try {
+      const { setSetting } = await import('../db-postgres');
+      const { setSetting: setSqlite } = await import('../db');
+      const { isPostgresEnabled } = await import('../db-postgres');
+      const credPayload = JSON.stringify({ appKey, appSecret, refreshToken });
+      if (isPostgresEnabled()) {
+        await setSetting('dropbox_credentials', credPayload);
+      } else {
+        setSqlite('dropbox_credentials', credPayload);
+      }
+      console.log('[DropboxSync] Credentials persisted to database');
+    } catch (persistErr: any) {
+      console.warn('[DropboxSync] Could not persist credentials to DB:', persistErr.message);
+    }
     
     // Configure the dropbox service with the new credentials
     dropboxSyncService.configure({

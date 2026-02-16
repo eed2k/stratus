@@ -16,7 +16,9 @@ import db, {
   deleteAlarm as dbDeleteAlarm,
   triggerAlarm as dbTriggerAlarm,
   getAlarmEvents as dbGetAlarmEvents,
-  acknowledgeAlarmEvent as dbAcknowledgeAlarmEvent
+  acknowledgeAlarmEvent as dbAcknowledgeAlarmEvent,
+  deleteAlarmEvent as dbDeleteAlarmEventSqlite,
+  cleanupOldAlarmEvents as dbCleanupOldAlarmEventsSqlite
 } from './db';
 
 import * as postgres from './db-postgres';
@@ -72,6 +74,7 @@ export interface WeatherStation {
   dataloggerModel?: string;
   dataloggerSerialNumber?: string;
   programName?: string;
+  dataloggerProgramName?: string;
   modemModel?: string;
   modemSerialNumber?: string;
   // Description fields
@@ -105,6 +108,25 @@ export interface WeatherData {
   solarRadiation?: number | null;
   dewPoint?: number | null;
   batteryVoltage?: number | null;
+  // Air quality
+  pm10?: number | null;
+  pm25?: number | null;
+  // Additional environment
+  soilTemperature?: number | null;
+  soilMoisture?: number | null;
+  uvIndex?: number | null;
+  panelTemperature?: number | null;
+  // Water & sensors
+  waterLevel?: number | null;
+  temperatureSwitch?: number | null;
+  levelSwitch?: number | null;
+  temperatureSwitchOutlet?: number | null;
+  levelSwitchStatus?: number | null;
+  // Power & weather
+  lightning?: number | null;
+  chargerVoltage?: number | null;
+  // Allow additional fields
+  [key: string]: any;
 }
 
 export interface InsertWeatherData {
@@ -193,6 +215,7 @@ export interface Alarm {
   emailRecipients?: string | null;
   lastTriggeredAt?: Date | null;
   triggerCount: number;
+  staleMinutes?: number | null;
   createdAt: Date;
 }
 
@@ -202,6 +225,7 @@ export interface Organization {
   slug?: string;
   description?: string;
   ownerId: string;
+  logoUrl?: string | null;
   createdAt: Date;
 }
 
@@ -210,6 +234,9 @@ export interface Organization {
  * Provides a consistent interface for data access
  */
 export class DatabaseStorage {
+  // Track which alarms are currently in triggered state (one-shot: only email on normal→triggered transition)
+  private activeAlarms = new Set<number>();
+
   // User operations - simplified for desktop
   async getUser(id: string): Promise<User | undefined> {
     // Use PostgreSQL if available
@@ -452,6 +479,8 @@ export class DatabaseStorage {
     if (station.stationImage !== undefined) updateData.station_image = station.stationImage;
     // Sync timestamp
     if ((station as any).lastConnected !== undefined) updateData.last_connected = (station as any).lastConnected;
+    // Active status
+    if ((station as any).isActive !== undefined) updateData.is_active = (station as any).isActive;
     
     if (usePostgres) {
       // Map snake_case DB fields back to camelCase for postgres.updateStation
@@ -479,14 +508,26 @@ export class DatabaseStorage {
 
   // Weather Data operations
   async getLatestWeatherData(stationId: number, tableName?: string): Promise<WeatherData | undefined> {
-    // Try provided table name first, then fallback to common names
-    const tableNames = tableName ? [tableName] : ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily'];
-    
-    for (const tbl of tableNames) {
+    // If a specific table name is provided, use it directly
+    if (tableName) {
       if (usePostgres) {
-        const record = await postgres.getLatestWeatherData(stationId, tbl);
+        const record = await postgres.getLatestWeatherData(stationId, tableName);
         if (record) return this.mapPgWeatherData(record);
       } else {
+        const record = db.getLatestWeatherData(stationId, tableName);
+        if (record) return this.mapDbWeatherData(record);
+      }
+      return undefined;
+    }
+
+    // No table name — get latest record regardless of table (fast single query)
+    if (usePostgres) {
+      const record = await postgres.getLatestWeatherData(stationId);
+      if (record) return this.mapPgWeatherData(record);
+    } else {
+      // For SQLite, try common table names as fallback
+      const tableNames = ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily', 'weather', 'TableHour', 'TableSolarCharger10m', 'Test'];
+      for (const tbl of tableNames) {
         const record = db.getLatestWeatherData(stationId, tbl);
         if (record) return this.mapDbWeatherData(record);
       }
@@ -495,29 +536,30 @@ export class DatabaseStorage {
   }
 
   async getWeatherDataRange(stationId: number, startTime: Date, endTime: Date, tableName?: string): Promise<WeatherData[]> {
-    // Try provided table name first, then fallback to common names
-    const tableNames = tableName ? [tableName] : ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily'];
-    
+    if (usePostgres) {
+      // PostgreSQL: single query, tableName is optional (omit to get all tables)
+      const result = await postgres.getWeatherData(stationId, {
+        tableName: tableName || undefined,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString()
+      });
+      if (result.records && result.records.length > 0) {
+        return result.records.map((r: any) => this.mapPgWeatherData(r));
+      }
+      return [];
+    }
+
+    // SQLite: try provided table name, then fallback to common names
+    const tableNames = tableName ? [tableName] : ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily', 'weather', 'TableHour', 'TableSolarCharger10m', 'Test'];
     for (const tbl of tableNames) {
-      if (usePostgres) {
-        const result = await postgres.getWeatherData(stationId, {
-          tableName: tbl,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString()
-        });
-        if (result.records && result.records.length > 0) {
-          return result.records.map((r: any) => this.mapPgWeatherData(r));
-        }
-      } else {
-        const records = db.getWeatherData(
-          stationId, 
-          tbl, 
-          startTime.toISOString(), 
-          endTime.toISOString()
-        );
-        if (records.length > 0) {
-          return records.map(r => this.mapDbWeatherData(r));
-        }
+      const records = db.getWeatherData(
+        stationId, 
+        tbl, 
+        startTime.toISOString(), 
+        endTime.toISOString()
+      );
+      if (records.length > 0) {
+        return records.map(r => this.mapDbWeatherData(r));
       }
     }
     return [];
@@ -525,7 +567,8 @@ export class DatabaseStorage {
 
   /**
    * Evaluate incoming weather data against configured alarm thresholds
-   * Triggers alarms and sends email notifications when conditions are met
+   * Uses one-shot logic: only sends email on transition from normal→triggered.
+   * When condition clears, alarm resets silently (no "back to normal" email).
    */
   private async evaluateAlarms(stationId: number, weatherData: WeatherData): Promise<void> {
     try {
@@ -557,20 +600,67 @@ export class DatabaseStorage {
           case 'change':
             // For "change" condition, we'd need previous value — skip for now
             break;
+          case 'stale': {
+            // Check if data hasn't updated within the configured staleMinutes window
+            const staleMinutes = alarm.staleMinutes || 60;
+            const latestData = await this.getLatestWeatherData(stationId);
+            if (latestData?.timestamp) {
+              const lastUpdate = new Date(latestData.timestamp);
+              const minutesSinceUpdate = (Date.now() - lastUpdate.getTime()) / 60000;
+              triggered = minutesSinceUpdate > staleMinutes;
+            }
+            break;
+          }
+          case 'no_charge': {
+            // Check if battery voltage has NOT increased by the threshold amount over the past 24h
+            const minIncrease = alarm.threshold || 1;
+            try {
+              const endTime = new Date();
+              const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+              const records = await this.getWeatherDataRange(stationId, startTime, endTime);
+              const voltages = records
+                .map(r => r.batteryVoltage)
+                .filter((v): v is number => v != null && v > 0);
+              if (voltages.length >= 2) {
+                const maxV = Math.max(...voltages);
+                const minV = Math.min(...voltages);
+                const voltageIncrease = maxV - minV;
+                triggered = voltageIncrease < minIncrease;
+              }
+            } catch (err) {
+              storageLog.warn(`Error checking battery charging for station ${stationId}`, err);
+            }
+            break;
+          }
         }
 
-        if (!triggered) continue;
-
-        // Cooldown: don't re-trigger within 30 minutes
-        if (alarm.lastTriggeredAt) {
-          const lastTriggered = new Date(alarm.lastTriggeredAt);
-          const minutesSince = (Date.now() - lastTriggered.getTime()) / 60000;
-          if (minutesSince < 30) continue;
+        // ONE-SHOT LOGIC:
+        // - If condition is NOT met → clear active state silently (no recovery email)
+        // - If condition IS met AND alarm already active → skip (already alerted)
+        // - If condition IS met AND alarm NOT active → trigger + send email
+        if (!triggered) {
+          // Condition cleared — reset alarm state silently
+          this.activeAlarms.delete(alarm.id);
+          continue;
         }
+
+        // Alarm condition is met — check if already in active state
+        if (this.activeAlarms.has(alarm.id)) {
+          // Already alerted for this breach event, skip
+          continue;
+        }
+
+        // Mark alarm as active BEFORE async work (prevents race conditions)
+        this.activeAlarms.add(alarm.id);
 
         // Trigger the alarm event
         try {
-          const message = `${alarm.name || alarm.parameter}: ${numValue}${alarm.unit || ''} is ${alarm.condition} threshold ${alarm.threshold}${alarm.unit || ''}`;
+          let message: string;
+          if (alarm.condition === 'no_charge') {
+            message = `${alarm.name || 'Battery Charging Alert'}: Battery voltage has not increased by ${alarm.threshold}V in the last 24 hours (current: ${numValue}V). Solar panel may not be charging.`;
+          } else {
+            message = `${alarm.name || alarm.parameter}: ${numValue}${alarm.unit || ''} is ${alarm.condition} threshold ${alarm.threshold}${alarm.unit || ''}`;
+          }
           await this.triggerAlarm(alarm.id, numValue, message);
           storageLog.warn(`Alarm triggered: ${message}`);
 
@@ -614,6 +704,8 @@ export class DatabaseStorage {
             }
           }
         } catch (triggerErr) {
+          // If triggering/emailing failed, remove from active set so it can retry next cycle
+          this.activeAlarms.delete(alarm.id);
           storageLog.error(`Failed to trigger alarm ${alarm.id}`, triggerErr);
         }
       }
@@ -673,7 +765,23 @@ export class DatabaseStorage {
       windGust: data.data.windGust ?? data.data.WS_ms_Max ?? data.data.Wind_Spd_Max ?? null,
       rainfall: data.data.rainfall ?? data.data.Rain_mm_Tot ?? data.data.Rain ?? null,
       solarRadiation: data.data.solarRadiation ?? data.data.SlrW ?? data.data.Solar ?? data.data.Solar_Rad_Avg ?? null,
-      batteryVoltage: data.data.batteryVoltage ?? data.data.BattV ?? data.data.BattV_Min ?? null,
+      batteryVoltage: data.data.batteryVoltage ?? data.data.BattV ?? data.data.BattV_Min ?? data.data.Batt_volt_Min ?? null,
+      waterLevel: data.data.waterLevel ?? data.data.Water_Level_Avg ?? data.data.WaterLevel ?? null,
+      temperatureSwitch: data.data.temperatureSwitch ?? data.data.Temp_Switch_Avg ?? null,
+      levelSwitch: data.data.levelSwitch ?? data.data.Level_Switch ?? null,
+      temperatureSwitchOutlet: data.data.temperatureSwitchOutlet ?? data.data.Temp_Switch_Outlet ?? null,
+      levelSwitchStatus: data.data.levelSwitchStatus ?? data.data.Level_Switch_Status ?? null,
+      // Power & weather
+      lightning: data.data.lightning ?? data.data.Lightning_Tot ?? data.data.Lightning_Count ?? null,
+      chargerVoltage: data.data.chargerVoltage ?? data.data.DC_Chg_Volts ?? data.data.ChgV_Avg ?? null,
+      // Extra mapped fields for alarm evaluation
+      dewPoint: data.data.dewPoint ?? data.data.DewPoint_Avg ?? data.data.DewPt ?? null,
+      pm10: data.data.pm10 ?? data.data.PM10_Avg ?? data.data.PM10 ?? null,
+      pm25: data.data.pm25 ?? data.data.PM2_5_Avg ?? data.data.PM2_5 ?? null,
+      soilTemperature: data.data.soilTemperature ?? data.data.SoilTemp_Avg ?? data.data.SoilTC ?? null,
+      soilMoisture: data.data.soilMoisture ?? data.data.SoilMoist_Avg ?? data.data.VWC ?? null,
+      uvIndex: data.data.uvIndex ?? data.data.UV_Index_Avg ?? data.data.UV_Index ?? null,
+      panelTemperature: data.data.panelTemperature ?? data.data.PTemp_Avg ?? data.data.PTemp ?? null,
     };
 
     // Evaluate alarms against the new data (async, don't block return)
@@ -989,7 +1097,8 @@ export class DatabaseStorage {
         severity: alarm.severity || 'warning',
         enabled: alarm.isEnabled !== false,
         email_notifications: alarm.emailNotifications || false,
-        email_recipients: alarm.emailRecipients || null
+        email_recipients: alarm.emailRecipients || null,
+        stale_minutes: alarm.staleMinutes || null
       });
       const created = await postgres.pgGetAlarmById(id);
       if (!created) throw new Error('Failed to create alarm');
@@ -1121,6 +1230,21 @@ export class DatabaseStorage {
     return { id: eventId, acknowledgedBy, notes, acknowledgedAt: new Date() };
   }
 
+  async deleteAlarmEvent(eventId: number): Promise<void> {
+    if (usePostgres) {
+      await postgres.pgDeleteAlarmEvent(eventId);
+    } else {
+      dbDeleteAlarmEventSqlite(eventId);
+    }
+  }
+
+  async cleanupOldAlarmEvents(daysToKeep: number = 30): Promise<number> {
+    if (usePostgres) {
+      return postgres.pgCleanupOldAlarmEvents(daysToKeep);
+    }
+    return dbCleanupOldAlarmEventsSqlite(daysToKeep);
+  }
+
   private mapDbAlarm(alarm: DbAlarm | postgres.PgAlarm): Alarm {
     const pgAlarm = alarm as postgres.PgAlarm;
     return {
@@ -1137,6 +1261,7 @@ export class DatabaseStorage {
       emailRecipients: alarm.email_recipients || null,
       lastTriggeredAt: alarm.last_triggered_at ? new Date(alarm.last_triggered_at) : null,
       triggerCount: alarm.trigger_count || 0,
+      staleMinutes: (alarm as any).stale_minutes ?? null,
       createdAt: new Date(alarm.created_at || Date.now())
     };
   }
@@ -1174,6 +1299,18 @@ export class DatabaseStorage {
 
   // Organization operations - now with real database persistence
   async getOrganizations(): Promise<Organization[]> {
+    if (usePostgres) {
+      const orgs = await postgres.pgGetAllOrganizations();
+      return orgs.map((org: any) => ({
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        description: org.description,
+        ownerId: org.owner_id,
+        logoUrl: org.logo_url || null,
+        createdAt: new Date(org.created_at)
+      }));
+    }
     const orgs = db.getAllOrganizations();
     return orgs.map(org => ({
       id: org.id,
@@ -1186,11 +1323,40 @@ export class DatabaseStorage {
   }
 
   async getUserOrganizations(userId: string): Promise<Organization[]> {
+    if (usePostgres) {
+      const orgs = await postgres.pgGetUserOrganizations(userId);
+      if (orgs.length === 0) {
+        // Fall back to all orgs if user has no memberships yet
+        return this.getOrganizations();
+      }
+      return orgs.map((org: any) => ({
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        description: org.description,
+        ownerId: org.owner_id,
+        logoUrl: org.logo_url || null,
+        createdAt: new Date(org.created_at)
+      }));
+    }
     // For desktop, return all organizations (single user)
     return this.getOrganizations();
   }
 
   async getOrganization(id: number): Promise<Organization | undefined> {
+    if (usePostgres) {
+      const org = await postgres.pgGetOrganizationById(id);
+      if (!org) return undefined;
+      return {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        description: org.description,
+        ownerId: org.owner_id,
+        logoUrl: org.logo_url || null,
+        createdAt: new Date(org.created_at)
+      };
+    }
     const org = db.getOrganizationById(id);
     if (!org) return undefined;
     return {
@@ -1204,6 +1370,26 @@ export class DatabaseStorage {
   }
 
   async createOrganization(orgData: any): Promise<Organization> {
+    if (usePostgres) {
+      const slug = (orgData.slug || orgData.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const id = await postgres.pgCreateOrganization(
+        orgData.name,
+        slug,
+        orgData.description || null,
+        orgData.ownerId || 'local-user',
+        orgData.logoUrl || null
+      );
+      const org = await postgres.pgGetOrganizationById(id);
+      return {
+        id: org!.id,
+        name: org!.name,
+        slug: org!.slug,
+        description: org!.description,
+        ownerId: org!.owner_id,
+        logoUrl: org!.logo_url || null,
+        createdAt: new Date(org!.created_at)
+      };
+    }
     const id = db.createOrganization(orgData.name, orgData.description, 'local-user');
     const org = db.getOrganizationById(id);
     return {
@@ -1217,16 +1403,40 @@ export class DatabaseStorage {
   }
 
   async updateOrganization(id: number, data: any): Promise<Organization | undefined> {
+    if (usePostgres) {
+      await postgres.pgUpdateOrganization(id, data);
+      return this.getOrganization(id);
+    }
     db.updateOrganization(id, data);
     return this.getOrganization(id);
   }
 
   async deleteOrganization(id: number): Promise<boolean> {
+    if (usePostgres) {
+      await postgres.pgDeleteOrganization(id);
+      return true;
+    }
     db.deleteOrganization(id);
     return true;
   }
 
   async getOrganizationMembers(orgId: number): Promise<any[]> {
+    if (usePostgres) {
+      const members = await postgres.pgGetOrganizationMembers(orgId);
+      return members.map((m: any) => ({
+        id: m.id,
+        organizationId: m.organization_id,
+        userId: m.user_id,
+        role: m.role,
+        createdAt: new Date(m.created_at),
+        user: {
+          id: m.user_id,
+          email: m.email || m.user_id,
+          firstName: m.first_name || '',
+          lastName: m.last_name || ''
+        }
+      }));
+    }
     const members = db.getOrganizationMembers(orgId);
     return members.map(m => ({
       id: m.id,
@@ -1244,21 +1454,36 @@ export class DatabaseStorage {
   }
 
   async addOrganizationMember(data: any): Promise<any> {
+    if (usePostgres) {
+      const id = await postgres.pgAddOrganizationMember(data.organizationId, data.userId, data.role);
+      return { id, ...data, createdAt: new Date() };
+    }
     const id = db.addOrganizationMember(data.organizationId, data.userId, data.role);
     return { id, ...data, createdAt: new Date() };
   }
 
   async updateMemberRole(orgId: number, userId: string, role: string): Promise<any> {
+    if (usePostgres) {
+      await postgres.pgUpdateMemberRole(orgId, userId, role);
+      return { organizationId: orgId, userId, role };
+    }
     db.updateMemberRole(orgId, userId, role);
     return { organizationId: orgId, userId, role };
   }
 
   async removeOrganizationMember(orgId: number, userId: string): Promise<boolean> {
+    if (usePostgres) {
+      await postgres.pgRemoveOrganizationMember(orgId, userId);
+      return true;
+    }
     db.removeOrganizationMember(orgId, userId);
     return true;
   }
 
   async isOrganizationAdmin(orgId: number, userId: string): Promise<boolean> {
+    if (usePostgres) {
+      return postgres.pgIsOrganizationAdmin(orgId, userId);
+    }
     return true; // Desktop is single-user, always admin
   }
 
@@ -1267,6 +1492,19 @@ export class DatabaseStorage {
   }
 
   async getOrganizationInvitations(orgId: number): Promise<any[]> {
+    if (usePostgres) {
+      const invitations = await postgres.pgGetOrganizationInvitations(orgId);
+      return invitations.map((inv: any) => ({
+        id: inv.id,
+        organizationId: inv.organization_id,
+        email: inv.email,
+        role: inv.role,
+        token: inv.token,
+        expiresAt: inv.expires_at ? new Date(inv.expires_at) : undefined,
+        acceptedAt: inv.accepted_at ? new Date(inv.accepted_at) : undefined,
+        createdAt: new Date(inv.created_at)
+      }));
+    }
     const invitations = db.getOrganizationInvitations(orgId);
     return invitations.map(inv => ({
       id: inv.id,
@@ -1280,6 +1518,15 @@ export class DatabaseStorage {
   }
 
   async createInvitation(data: any): Promise<any> {
+    if (usePostgres) {
+      const token = await postgres.pgCreateOrganizationInvitation(data.organizationId, data.email, data.role);
+      return {
+        id: Date.now(),
+        token,
+        ...data,
+        createdAt: new Date()
+      };
+    }
     const token = db.createOrganizationInvitation(data.organizationId, data.email, data.role);
     return { 
       id: Date.now(), 
@@ -1478,7 +1725,7 @@ export class DatabaseStorage {
       // Equipment fields
       dataloggerModel: station.datalogger_model || undefined,
       dataloggerSerialNumber: station.datalogger_serial_number || undefined,
-      programName: station.program_name || undefined,
+      dataloggerProgramName: station.program_name || undefined,
       modemModel: station.modem_model || undefined,
       modemSerialNumber: station.modem_serial_number || undefined,
       // Description fields
@@ -1536,7 +1783,7 @@ export class DatabaseStorage {
       // Equipment fields
       dataloggerModel: station.dataloggerModel || undefined,
       dataloggerSerialNumber: station.dataloggerSerialNumber || undefined,
-      programName: station.programName || undefined,
+      dataloggerProgramName: station.programName || undefined,
       modemModel: station.modemModel || undefined,
       modemSerialNumber: station.modemSerialNumber || undefined,
       // Description fields
@@ -1568,17 +1815,34 @@ export class DatabaseStorage {
       recordNumber: record.record_number,
       timestamp: new Date(record.timestamp),
       collectedAt: new Date(record.collected_at),
-      // Map data fields - support common Campbell Scientific and Hopefield field names
-      temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? null,
-      humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? null,
-      pressure: data.pressure ?? data.BP_mbar ?? data.Pressure ?? data.Pressure_Avg ?? null,
-      windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? null,
-      windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? null,
-      windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? null,
-      rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? null,
-      solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? null,
-      dewPoint: data.dewPoint ?? null,
-      batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? null
+      // Map data fields - support all Campbell Scientific field name variants
+      temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? data.AirTemp_Avg ?? data.AirTC ?? data.Temp_C ?? data.Temperature ?? null,
+      humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? data.RelHumidity_Avg ?? data.RelHumidity ?? data.Humidity ?? null,
+      pressure: data.pressure ?? data.BP_mbar ?? data.Pressure ?? data.Pressure_Avg ?? data.BaroPressure_Avg ?? data.BP_Avg ?? data.BaroPres ?? data.BP_mbar_Avg ?? null,
+      windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? data.WindSpeed_Avg ?? data.WS_ms ?? data.WS_Avg ?? data.WS_ms_S_WVT ?? null,
+      windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? null,
+      windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? data.WindSpeed_Max ?? data.WS_Max ?? data.Wind_Gust ?? null,
+      rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? null,
+      solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? data.SolarRad_Avg ?? data.SlrW_Avg ?? data.SR_Avg ?? null,
+      dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? null,
+      batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? data.Batt_volt_Min ?? data.BattV_Avg ?? data.Batt_V ?? null,
+      // Air quality
+      pm10: data.pm10 ?? data.PM10_Avg ?? data.PM10 ?? null,
+      pm25: data.pm25 ?? data.pm2_5 ?? data.PM2_5_Avg ?? data.PM2_5 ?? null,
+      // Additional environment
+      soilTemperature: data.soilTemperature ?? data.SoilTemp_Avg ?? data.SoilTC ?? data.Soil_Temp ?? null,
+      soilMoisture: data.soilMoisture ?? data.SoilMoist_Avg ?? data.VWC ?? data.VWC_Avg ?? data.Soil_VWC ?? null,
+      uvIndex: data.uvIndex ?? data.UV_Index_Avg ?? data.UV_Index ?? null,
+      panelTemperature: data.panelTemperature ?? data.PTemp_Avg ?? data.PTemp ?? data.PTemp_C ?? data.PTemp_C_Avg ?? null,
+      // Water & sensors
+      waterLevel: data.waterLevel ?? data.Water_Level_Avg ?? data.WaterLevel ?? data.Water_Level ?? null,
+      temperatureSwitch: data.temperatureSwitch ?? data.Temp_Switch_Avg ?? data.TempSwitch ?? data.Temp_Switch ?? null,
+      levelSwitch: data.levelSwitch ?? data.Level_Switch ?? data.LevelSwitch ?? data.Level_Switch_Avg ?? null,
+      temperatureSwitchOutlet: data.temperatureSwitchOutlet ?? data.Temp_Switch_Outlet ?? data.TempSwitchOutlet ?? null,
+      levelSwitchStatus: data.levelSwitchStatus ?? data.Level_Switch_Status ?? data.LevelSwitchStatus ?? null,
+      // Power & weather
+      lightning: data.lightning ?? data.Lightning_Tot ?? data.Lightning_Count ?? data.Lightning ?? null,
+      chargerVoltage: data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null,
     };
   }
 
@@ -1599,17 +1863,34 @@ export class DatabaseStorage {
       recordNumber: record.recordNumber ?? record.record_number,
       timestamp: new Date(record.timestamp),
       collectedAt: new Date(record.collectedAt ?? record.collected_at ?? new Date()),
-      // Map data fields - support common Campbell Scientific and Hopefield field names
-      temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? null,
-      humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? null,
-      pressure: data.pressure ?? data.BP_mbar ?? data.Pressure ?? data.Pressure_Avg ?? null,
-      windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? null,
-      windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? null,
-      windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? null,
-      rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? null,
-      solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? null,
-      dewPoint: data.dewPoint ?? null,
-      batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? null
+      // Map data fields - support all Campbell Scientific field name variants
+      temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? data.AirTemp_Avg ?? data.AirTC ?? data.Temp_C ?? data.Temperature ?? null,
+      humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? data.RelHumidity_Avg ?? data.RelHumidity ?? data.Humidity ?? null,
+      pressure: data.pressure ?? data.BP_mbar ?? data.Pressure ?? data.Pressure_Avg ?? data.BaroPressure_Avg ?? data.BP_Avg ?? data.BaroPres ?? data.BP_mbar_Avg ?? null,
+      windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? data.WindSpeed_Avg ?? data.WS_ms ?? data.WS_Avg ?? data.WS_ms_S_WVT ?? null,
+      windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? null,
+      windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? data.WindSpeed_Max ?? data.WS_Max ?? data.Wind_Gust ?? null,
+      rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? null,
+      solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? data.SolarRad_Avg ?? data.SlrW_Avg ?? data.SR_Avg ?? null,
+      dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? null,
+      batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? data.Batt_volt_Min ?? data.BattV_Avg ?? data.Batt_V ?? null,
+      // Air quality
+      pm10: data.pm10 ?? data.PM10_Avg ?? data.PM10 ?? null,
+      pm25: data.pm25 ?? data.pm2_5 ?? data.PM2_5_Avg ?? data.PM2_5 ?? null,
+      // Additional environment
+      soilTemperature: data.soilTemperature ?? data.SoilTemp_Avg ?? data.SoilTC ?? data.Soil_Temp ?? null,
+      soilMoisture: data.soilMoisture ?? data.SoilMoist_Avg ?? data.VWC ?? data.VWC_Avg ?? data.Soil_VWC ?? null,
+      uvIndex: data.uvIndex ?? data.UV_Index_Avg ?? data.UV_Index ?? null,
+      panelTemperature: data.panelTemperature ?? data.PTemp_Avg ?? data.PTemp ?? data.PTemp_C ?? data.PTemp_C_Avg ?? null,
+      // Water & sensors
+      waterLevel: data.waterLevel ?? data.Water_Level_Avg ?? data.WaterLevel ?? data.Water_Level ?? null,
+      temperatureSwitch: data.temperatureSwitch ?? data.Temp_Switch_Avg ?? data.TempSwitch ?? data.Temp_Switch ?? null,
+      levelSwitch: data.levelSwitch ?? data.Level_Switch ?? data.LevelSwitch ?? data.Level_Switch_Avg ?? null,
+      temperatureSwitchOutlet: data.temperatureSwitchOutlet ?? data.Temp_Switch_Outlet ?? data.TempSwitchOutlet ?? null,
+      levelSwitchStatus: data.levelSwitchStatus ?? data.Level_Switch_Status ?? data.LevelSwitchStatus ?? null,
+      // Power & weather
+      lightning: data.lightning ?? data.Lightning_Tot ?? data.Lightning_Count ?? data.Lightning ?? null,
+      chargerVoltage: data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null,
     };
   }
 

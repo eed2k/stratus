@@ -20,13 +20,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Plus, Search, Loader2, ArrowRight, Camera } from "lucide-react";
+import { Plus, Search, Loader2, Camera, Cloud, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { WeatherStation } from "@shared/schema";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StationImageDisplay, StationImageUpload } from "@/components/StationImageUpload";
+// Skeleton removed — using table layout
+import { StationImageUpload } from "@/components/StationImageUpload";
 
 interface StationWithReading extends WeatherStation {
   lastReading?: {
@@ -35,11 +45,10 @@ interface StationWithReading extends WeatherStation {
     windSpeed: number | null;
     timestamp: string;
   };
-  recordCount?: number;
   lastSyncTime?: string | null;
 }
 
-type StationType = "campbell";
+type StationType = "campbell" | "rika";
 type ConnectionType = "dropbox" | "lora" | "gsm" | "ip" | "mqtt" | "4g" | "tcp_ip" | "http_post" | "rikacloud";
 
 interface StationFormData {
@@ -59,6 +68,7 @@ interface StationFormData {
   pollInterval: string;
   // Dropbox sync configuration
   dropboxFolderPath: string;
+  dropboxFilePattern: string;
   dropboxSyncInterval: string;
   // Campbell Scientific / LoggerNet specific
   pakbusAddress: string;
@@ -77,6 +87,9 @@ interface StationFormData {
   lastCalibrationDate: string;
   nextCalibrationDate: string;
   siteDescription: string;
+  // RikaCloud credentials
+  rikaEmail: string;
+  rikaPassword: string;
 }
 
 const initialFormData: StationFormData = {
@@ -96,6 +109,7 @@ const initialFormData: StationFormData = {
   pollInterval: "60",
   // Dropbox sync defaults
   dropboxFolderPath: "",
+  dropboxFilePattern: "",
   dropboxSyncInterval: "3600",
   // Campbell Scientific / LoggerNet defaults
   pakbusAddress: "1",
@@ -114,6 +128,9 @@ const initialFormData: StationFormData = {
   lastCalibrationDate: "",
   nextCalibrationDate: "",
   siteDescription: "",
+  // RikaCloud credentials
+  rikaEmail: "",
+  rikaPassword: "",
 };
 
 export default function Stations() {
@@ -121,6 +138,7 @@ export default function Stations() {
   const [activeTab, setActiveTab] = useState<"stations" | "setup">("stations");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [selectedStation, setSelectedStation] = useState<StationWithReading | null>(null);
+  const [deleteStation, setDeleteStation] = useState<StationWithReading | null>(null);
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
   const { toast } = useToast();
 
@@ -144,31 +162,27 @@ export default function Stations() {
       if (!res.ok) throw new Error("Failed to fetch stations");
       const stationList = await res.json();
       
-      // Fetch latest reading for each station
+      // Fetch latest reading for each station (single record, not 24h range)
       const stationsWithData = await Promise.all(
         stationList.map(async (station: WeatherStation) => {
           try {
-            const endTime = new Date();
-            const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
             const dataRes = await authFetch(
-              `/api/stations/${station.id}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+              `/api/stations/${station.id}/data/latest`
             );
             if (dataRes.ok) {
-              const data = await dataRes.json();
-              // Data comes sorted by timestamp DESC, so first element is the latest
-              const latestReading = data.length > 0 ? data[0] : null;
+              const latestReading = await dataRes.json();
+              const hasData = latestReading && latestReading.timestamp;
               return {
                 ...station,
-                lastReading: latestReading ? {
+                lastReading: hasData ? {
                   temperature: latestReading.temperature,
                   humidity: latestReading.humidity,
                   windSpeed: latestReading.windSpeed,
                   timestamp: latestReading.timestamp
                 } : undefined,
-                recordCount: data.length,
-                // Prefer station.lastConnected (actual Dropbox sync time persisted by server)
+                // Prefer station.lastConnectionTime (actual Dropbox sync time persisted by server)
                 // then fall back to data import time (collectedAt), then datalogger timestamp
-                lastSyncTime: station.lastConnected || latestReading?.collectedAt || latestReading?.timestamp || null
+                lastSyncTime: (station as any).lastConnected || station.lastConnectionTime || latestReading?.collectedAt || latestReading?.timestamp || null
               } as StationWithReading;
             }
           } catch (e) {
@@ -180,12 +194,14 @@ export default function Stations() {
       
       return stationsWithData;
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchOnWindowFocus: true, // Refresh when tab regains focus
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: StationFormData) => {
-      const stationType = data.type === "campbell" ? "campbell_scientific" : data.type;
+      // Set station type based on connection type (Rika uses its own type)
+      const stationType = data.connectionType === "rikacloud" ? "rika" : (data.type === "campbell" ? "campbell_scientific" : data.type);
       const payload: any = {
         name: data.name,
         location: data.location || null,
@@ -224,6 +240,7 @@ export default function Stations() {
         payload.connectionConfig = JSON.stringify({
           type: "dropbox",
           folderPath: data.dropboxFolderPath,
+          filePattern: data.dropboxFilePattern ? (data.dropboxFilePattern.includes('*') || data.dropboxFilePattern.includes('?') || data.dropboxFilePattern.includes('.') ? data.dropboxFilePattern : data.dropboxFilePattern + '*') : undefined,
           syncInterval: parseInt(data.dropboxSyncInterval) || 3600,
         });
       } else if (data.connectionType === "http_post") {
@@ -269,12 +286,14 @@ export default function Stations() {
           useTls: payload.port === 8883,
         });
       } else if (data.connectionType === "rikacloud") {
-        // RikaCloud HTTP API - e.g., https://cloud-en.rikacloud.com/service/user/api/getDeviceData/{device_id}
+        // RikaCloud HTTP API (READ-ONLY) - e.g., https://cloud-en.rikacloud.com/service/user/api/getDeviceData/{device_id}
         payload.protocol = "http";
         payload.connectionConfig = JSON.stringify({
           type: "rikacloud",
           apiEndpoint: data.apiEndpoint,
           apiKey: data.apiKey,
+          rikaEmail: data.rikaEmail,
+          rikaPassword: data.rikaPassword,
           pollInterval: parseInt(data.pollInterval) || 60,
         });
       }
@@ -294,6 +313,25 @@ export default function Stations() {
         return;
       }
       toast({ title: "Error", description: "Failed to add station.", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (stationId: number) => {
+      return await apiRequest("DELETE", `/api/stations/${stationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
+      setDeleteStation(null);
+      toast({ title: "Station deleted", description: "The station and all its data have been removed." });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorised", description: "Please log in again.", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: "Failed to delete station.", variant: "destructive" });
     },
   });
 
@@ -330,24 +368,21 @@ export default function Stations() {
     });
   };
 
-  // Station Setup Form Component (extracted for tabs)
-  const StationSetupForm = () => (
+  // Station Setup Form - inlined to avoid re-mount on every parent render
+  const stationSetupContent = (
     <div className="space-y-6">
       <Card className="border-sky-200 bg-sky-50/50 dark:border-sky-800 dark:bg-sky-950/20">
         <CardHeader>
           <CardTitle>Add New Weather Station</CardTitle>
           <CardDescription>
-            Configure a new Campbell Scientific weather station connection
+            Configure a new weather station connection
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <Card className="border-sky-200 bg-white dark:bg-sky-950/10">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Campbell Scientific Configuration</CardTitle>
-                <CardDescription>
-                  Supports CR300, CR215, CR1000 dataloggers via Dropbox sync, HTTP POST, TCP/IP, LoRa, or GSM
-                </CardDescription>
+                <CardTitle className="text-base">Station Configuration</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -357,14 +392,8 @@ export default function Stations() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="dropbox">Dropbox Sync</SelectItem>
-                      <SelectItem value="http_post">HTTP POST (Station Push)</SelectItem>
-                      <SelectItem value="tcp_ip">TCP/IP (Ethernet/WiFi)</SelectItem>
-                      <SelectItem value="lora">LoRa Radio</SelectItem>
-                      <SelectItem value="gsm">GSM/GPRS</SelectItem>
-                      <SelectItem value="4g">4G/LTE Cellular</SelectItem>
-                      <SelectItem value="mqtt">MQTT Protocol</SelectItem>
-                      <SelectItem value="rikacloud">RikaCloud HTTP API</SelectItem>
+                      <SelectItem value="dropbox">Dropbox Sync (Campbell Scientific)</SelectItem>
+                      <SelectItem value="rikacloud">RikaCloud HTTP API (Rika Weather Stations)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -395,12 +424,23 @@ export default function Stations() {
                     <div className="space-y-2">
                       <Label>Dropbox Folder Path</Label>
                       <Input
-                        placeholder="/HOPEFIELD_CR300"
+                        placeholder="Dropbox folder path"
                         value={formData.dropboxFolderPath}
                         onChange={(e) => updateForm({ dropboxFolderPath: e.target.value })}
                       />
                       <p className="text-xs text-muted-foreground">
-                        The folder path in Dropbox where TOA5 data files are stored (e.g., /STATION_NAME)
+                        The folder path in Dropbox where data files are stored
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>File Pattern (optional)</Label>
+                      <Input
+                        placeholder="Filename pattern"
+                        value={formData.dropboxFilePattern}
+                        onChange={(e) => updateForm({ dropboxFilePattern: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Leave blank to import all .dat files in the folder. Enter a station prefix (e.g. <code>Inteltronics_SAWS_TestBed_5263</code>) to match all tables, or use wildcards like <code>*Table5m*</code> for specific tables.
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -509,27 +549,42 @@ export default function Stations() {
 
                 {formData.connectionType === "rikacloud" && (
                   <div className="space-y-4">
+                    <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300">
+                      <strong>Read-only integration:</strong> Stratus only fetches (reads) data from RikaCloud. It will never write, modify, or delete any data on your RikaCloud account. Your station continues sending data to RikaCloud as normal.
+                    </div>
                     <div className="space-y-2">
-                      <Label>RikaCloud API Endpoint</Label>
+                      <Label>RikaCloud Account</Label>
                       <Input
-                        placeholder="https://cloud-en.rikacloud.com/service/user/api/getDeviceData/r20230704"
+                        placeholder="Account username"
+                        value={formData.rikaEmail}
+                        onChange={(e) => updateForm({ rikaEmail: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Your RikaCloud account username
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>RikaCloud Password</Label>
+                      <Input
+                        type="password"
+                        placeholder="Your RikaCloud password"
+                        value={formData.rikaPassword}
+                        onChange={(e) => updateForm({ rikaPassword: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Device Data URL (optional)</Label>
+                      <Input
+                        placeholder="https://cloud.rikacloud.com"
                         value={formData.apiEndpoint}
                         onChange={(e) => updateForm({ apiEndpoint: e.target.value })}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Full URL to your RikaCloud device data endpoint. Get this from POSTMAN or your RikaCloud dashboard.
+                        Leave blank to use the default (<code className="text-xs">cloud.rikacloud.com</code>). Stratus will auto-discover your farm and sensor data.
                       </p>
                     </div>
                     <div className="space-y-2">
-                      <Label>API Key / Token (optional)</Label>
-                      <Input
-                        placeholder="Your RikaCloud API token if required"
-                        value={formData.apiKey}
-                        onChange={(e) => updateForm({ apiKey: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Poll Interval (seconds)</Label>
+                      <Label>Poll Interval</Label>
                       <Select value={formData.pollInterval} onValueChange={(v) => updateForm({ pollInterval: v })}>
                         <SelectTrigger>
                           <SelectValue />
@@ -554,7 +609,7 @@ export default function Stations() {
                 <Label htmlFor="name">Station Name *</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., Hopefield Weather Station"
+                  placeholder="Station name"
                   value={formData.name}
                   onChange={(e) => updateForm({ name: e.target.value })}
                   required
@@ -566,7 +621,7 @@ export default function Stations() {
                 <Label htmlFor="location">Location Description</Label>
                 <Input
                   id="location"
-                  placeholder="e.g., Western Cape, South Africa"
+                  placeholder="Location description"
                   value={formData.location}
                   onChange={(e) => updateForm({ location: e.target.value })}
                   data-testid="input-location"
@@ -580,7 +635,7 @@ export default function Stations() {
                     id="latitude"
                     type="number"
                     step="any"
-                    placeholder="-33.4825"
+                    placeholder="Latitude"
                     value={formData.latitude}
                     onChange={(e) => updateForm({ latitude: e.target.value })}
                     data-testid="input-latitude"
@@ -592,7 +647,7 @@ export default function Stations() {
                     id="longitude"
                     type="number"
                     step="any"
-                    placeholder="18.4375"
+                    placeholder="Longitude"
                     value={formData.longitude}
                     onChange={(e) => updateForm({ longitude: e.target.value })}
                     data-testid="input-longitude"
@@ -623,7 +678,7 @@ export default function Stations() {
               data-testid="button-save-station"
             >
               {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add Campbell Scientific Station
+              Add Station
             </Button>
           </form>
         </CardContent>
@@ -663,19 +718,7 @@ export default function Stations() {
           </div>
 
           {isLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map(i => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader>
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-24 w-full" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <div className="py-8 text-center text-muted-foreground">Loading stations...</div>
           ) : filteredStations.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
@@ -684,7 +727,7 @@ export default function Stations() {
                 <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
                   {search 
                     ? "No stations match your search." 
-                    : "Add your first Campbell Scientific weather station to get started."}
+                    : "Add your first weather station to get started."}
                 </p>
                 {!search && (
                   <Button onClick={() => setActiveTab("setup")} data-testid="button-add-first-station">
@@ -695,91 +738,102 @@ export default function Stations() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredStations.map((station) => (
-                <Card 
-                  key={station.id} 
-                  className="group hover:shadow-lg hover:border-primary/50 transition-all" 
-                  data-testid={`card-station-${station.id}`}
-                >
-                  {/* Station Image */}
-                  <StationImageDisplay image={station.stationImage} stationName={station.name} />
-                  
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <CardTitle className="text-lg sm:text-xl" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                          <span className="truncate">{station.name}</span>
-                        </CardTitle>
-                        {station.location && (
-                          <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
-                            <MapPin className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{station.location}</span>
-                          </CardDescription>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-3 font-medium">Station Name</th>
+                    <th className="text-left p-3 font-medium hidden sm:table-cell">Location</th>
+                    <th className="text-left p-3 font-medium hidden md:table-cell">Last Sync</th>
+                    <th className="text-center p-3 font-medium">Status</th>
+                    <th className="text-right p-3 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredStations.map((station) => (
+                    <tr key={station.id} className="hover:bg-muted/30 transition-colors" data-testid={`row-station-${station.id}`}>
+                      <td className="p-3 font-medium">{station.name}</td>
+                      <td className="p-3 text-muted-foreground hidden sm:table-cell">
+                        {station.location || '—'}
+                      </td>
+                      <td className="p-3 text-muted-foreground hidden md:table-cell">
+                        {formatLastSync(station.lastSyncTime)}
+                      </td>
+                      <td className="p-3 text-center">
                         {station.isActive ? (
-                          <Badge variant="outline" className="bg-blue-600 text-white text-xs">
-                            Active
-                          </Badge>
+                          <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 text-xs">Active</Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-500 text-xs">
-                            Inactive
-                          </Badge>
+                          <Badge variant="outline" className="border-gray-300 text-gray-600 bg-transparent text-xs">Inactive</Badge>
                         )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-4">
-                    {/* Stats Footer - Last Sync and Record Count */}
-                    <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t">
-                      <div className="flex items-center gap-1">
-                        <span>Last sync: {formatLastSync(station.lastSyncTime)}</span>
-                      </div>
-                      {station.recordCount !== undefined && (
-                        <div className="flex items-center gap-1">
-                          <span>{station.recordCount.toLocaleString()} records</span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.location.href = `/dashboard/${station.id}`}
+                            data-testid={`button-view-${station.id}`}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setSelectedStation(station);
+                              setImageDialogOpen(true);
+                            }}
+                            title="Upload station image"
+                          >
+                            <Camera className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => setDeleteStation(station)}
+                            title="Delete station"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <Button 
-                        className="flex-1 group-hover:bg-primary transition-colors" 
-                        variant="outline"
-                        onClick={() => window.location.href = `/dashboard/${station.id}`}
-                        data-testid={`button-view-${station.id}`}
-                      >
-                        View Dashboard
-                        <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedStation(station);
-                          setImageDialogOpen(true);
-                        }}
-                        title="Upload station image"
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </TabsContent>
 
         {/* Add New Station Tab */}
         <TabsContent value="setup" className="mt-4">
-          <StationSetupForm />
+          {stationSetupContent}
         </TabsContent>
       </Tabs>
+
+      {/* Delete Station Confirmation */}
+      <AlertDialog open={!!deleteStation} onOpenChange={(open) => !open && setDeleteStation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Delete Station</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteStation?.name}</strong>? This will permanently remove the station and all its weather data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => deleteStation && deleteMutation.mutate(deleteStation.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Station Image Upload Dialog */}
       <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>

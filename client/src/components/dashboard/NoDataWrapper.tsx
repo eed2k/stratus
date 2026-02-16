@@ -48,8 +48,7 @@ export function NoDataWrapper({
     return (
       <Card className="border border-gray-300 bg-white">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-normal text-black flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            {icon}
+          <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             {title}
           </CardTitle>
         </CardHeader>

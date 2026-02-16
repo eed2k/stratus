@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MapPin, Maximize2, Minimize2, Navigation, ExternalLink, Search, Loader2, X, AlertTriangle, RefreshCw } from "lucide-react";
+import { MapPin, Navigation, ExternalLink, Search, Loader2, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { safeFixed } from "@/lib/utils";
 
 // ============================================================================
@@ -243,7 +243,6 @@ export function StationMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
@@ -392,8 +391,8 @@ export function StationMap({
           zoomAnimation: true,
         });
 
-        // Add OpenStreetMap tiles with error handling
-        const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        // Tile layers — Street (OSM) and Satellite (Esri)
+        const streetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
           minZoom: 1,
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
@@ -401,8 +400,22 @@ export function StationMap({
           crossOrigin: 'anonymous',
           errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         });
+
+        const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 18,
+          minZoom: 1,
+          attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+          crossOrigin: 'anonymous',
+        });
         
-        tileLayer.addTo(map);
+        streetLayer.addTo(map);
+
+        // Add layer control toggle
+        const baseMaps = {
+          "Street": streetLayer,
+          "Satellite": satelliteLayer,
+        };
+        L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
 
         // Custom marker
         const stationIcon = L.divIcon({
@@ -488,14 +501,19 @@ export function StationMap({
     };
   }, [lat, lng, defaultZoom, stationName, altitude, retryCount]);
 
-  // Handle expand/collapse - just invalidate size
+  // ResizeObserver to catch any container size changes (responsive layout, etc.)
+  // Note: deps do NOT include isExpanded to avoid disconnect/reconnect gap during resize
   useEffect(() => {
-    if (mapInstanceRef.current) {
-      setTimeout(() => {
-        mapInstanceRef.current?.invalidateSize();
-      }, 150);
-    }
-  }, [isExpanded]);
+    const el = mapRef.current;
+    if (!el || !mapInstanceRef.current) return;
+    const observer = new ResizeObserver(() => {
+      const m = mapInstanceRef.current;
+      if (!m) return;
+      m.invalidateSize({ animate: false });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isLoading]);
 
   const openInMaps = () => {
     window.open(
@@ -535,7 +553,7 @@ export function StationMap({
   }
 
   return (
-    <Card className={`transition-all duration-300 ${isExpanded ? "col-span-full" : ""}`}>
+    <Card className="transition-shadow duration-300">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-normal">
@@ -550,14 +568,6 @@ export function StationMap({
             </Button>
             <Button variant="ghost" size="icon" onClick={openInMaps} title="Open in OpenStreetMap">
               <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsExpanded(!isExpanded)}
-              title={isExpanded ? "Collapse" : "Expand"}
-            >
-              {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </Button>
           </div>
         </div>
@@ -658,10 +668,8 @@ export function StationMap({
             {/* Map container - always rendered so ref is available */}
             <div
               ref={mapRef}
-              className={`w-full rounded-lg border transition-all duration-300 ${
-                isExpanded ? "h-[500px]" : "h-64"
-              }`}
-              style={{ minHeight: isExpanded ? "500px" : "256px" }}
+              className="w-full rounded-lg border h-64"
+              style={{ minHeight: "256px" }}
             />
           </div>
         )}

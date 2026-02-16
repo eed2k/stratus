@@ -24,7 +24,6 @@ import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
 import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
 import { EvapotranspirationCard } from "@/components/dashboard/EvapotranspirationCard";
 import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
-import { WindDirectionChart } from "@/components/dashboard/WindDirectionChart";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { FireDangerChart } from "@/components/charts/FireDangerChart";
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
@@ -41,12 +40,14 @@ import {
   Loader2,
   RefreshCw,
   ArrowLeft,
+  AlertTriangle,
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
 import { 
   calculateSolarPosition, 
   calculateAirDensity, 
   calculateSeaLevelPressure,
+  calculateStationPressure,
   calculateETo,
   getDayOfYear,
   kmhToMs,
@@ -167,18 +168,42 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
     }
   };
   
-  return sampledData.map(d => ({
-    timestamp: formatTimestamp(new Date(d.timestamp)),
-    fullTimestamp: new Date(d.timestamp).toISOString(),
-    temperature: d.temperature ?? 0,
-    humidity: d.humidity ?? 0,
-    pressure: d.pressure ?? 0,
-    windSpeed: d.windSpeed ?? 0,
-    solar: Math.max(d.solarRadiation ?? 0, 0),
-    rain: d.rainfall ?? 0,
-    soilTemperature: d.soilTemperature ?? null,
-    soilMoisture: d.soilMoisture ?? null,
-  }));
+  return sampledData.map((d, i, arr) => {
+    // Convert cumulative rainfall to incremental (difference from previous reading)
+    const rawRain = d.rainfall ?? 0;
+    let incrementalRain = rawRain;
+    if (i > 0) {
+      const prevRain = arr[i - 1].rainfall ?? 0;
+      const diff = rawRain - prevRain;
+      // Only show positive increments (negative means counter reset)
+      incrementalRain = diff > 0 && diff < 50 ? diff : 0;
+    } else {
+      incrementalRain = 0; // First reading has no baseline
+    }
+    
+    return {
+      timestamp: formatTimestamp(new Date(d.timestamp)),
+      fullTimestamp: new Date(d.timestamp).toISOString(),
+      temperature: d.temperature ?? 0,
+      humidity: d.humidity ?? 0,
+      pressure: d.pressure ?? 0,
+      windSpeed: d.windSpeed ?? 0,
+      solar: Math.max(d.solarRadiation ?? 0, 0),
+      rain: incrementalRain,
+      soilTemperature: d.soilTemperature ?? null,
+      soilMoisture: d.soilMoisture ?? null,
+      pm10: d.pm10 ?? null,
+      pm25: d.pm25 ?? null,
+      batteryVoltage: d.batteryVoltage ?? null,
+      waterLevel: d.waterLevel ?? null,
+      temperatureSwitch: d.temperatureSwitch ?? null,
+      levelSwitch: d.levelSwitch ?? null,
+      temperatureSwitchOutlet: d.temperatureSwitchOutlet ?? null,
+      levelSwitchStatus: d.levelSwitchStatus ?? null,
+      lightning: d.lightning ?? null,
+      chargerVoltage: d.chargerVoltage ?? null,
+    };
+  });
 };
 
 /**
@@ -348,6 +373,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         soilTemperature: false,
         soilMoisture: false,
         batteryVoltage: false,
+        waterLevel: false,
+        temperatureSwitch: false,
+        levelSwitch: false,
+        temperatureSwitchOutlet: false,
+        levelSwitchStatus: false,
+        lightning: false,
+        chargerVoltage: false,
       };
     }
     
@@ -372,6 +404,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       soilTemperature: hasData('soilTemperature'),
       soilMoisture: hasData('soilMoisture'),
       batteryVoltage: hasData('batteryVoltage'),
+      waterLevel: hasData('waterLevel'),
+      temperatureSwitch: hasData('temperatureSwitch'),
+      levelSwitch: hasData('levelSwitch'),
+      temperatureSwitchOutlet: hasData('temperatureSwitchOutlet'),
+      levelSwitchStatus: hasData('levelSwitchStatus'),
+      lightning: hasData('lightning'),
+      chargerVoltage: hasData('chargerVoltage'),
     };
   }, [historicalData]);
 
@@ -578,6 +617,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Check if viewing demo station (hide admin panels for demo)
   const isDemoStation = selectedStation?.connectionType === 'demo';
+  // RIKA stations report SLP as pressure — need to handle differently
+  const isRikaStation = selectedStation?.connectionType === 'rikacloud';
 
   // Use actual data, with sensible defaults for missing fields
   const currentData = latestData
@@ -610,6 +651,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         leafWetness: null,
         evapotranspiration: null,
         panelVoltage: null,
+        waterLevel: null,
+        temperatureSwitch: null,
+        levelSwitch: null,
+        temperatureSwitchOutlet: null,
+        levelSwitchStatus: null,
+        lightning: null,
+        chargerVoltage: null,
       };
 
   // Calculate solar position based on station coordinates
@@ -617,29 +665,34 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const lat = selectedStation?.latitude ?? null;
     const lon = selectedStation?.longitude ?? null;
     if (lat === null || lon === null) {
-      // No coordinates set - return default values
+      // No coordinates set - return null values so UI shows "--" instead of fake data
       return {
         elevation: 0,
         azimuth: 0,
-        sunrise: new Date(new Date().setHours(6, 45, 0)),
-        sunset: new Date(new Date().setHours(18, 30, 0)),
-        nauticalDawn: new Date(new Date().setHours(5, 15, 0)),
-        nauticalDusk: new Date(new Date().setHours(19, 45, 0)),
-        solarNoon: new Date(new Date().setHours(12, 37, 0)),
-        dayLength: 705,
+        sunrise: undefined,
+        sunset: undefined,
+        nauticalDawn: undefined,
+        nauticalDusk: undefined,
+        solarNoon: undefined,
+        dayLength: undefined,
       };
     }
     return calculateSolarPosition(lat, lon);
   }, [selectedStation?.latitude, selectedStation?.longitude]);
 
-  // Calculate air density from current conditions
+  // Calculate air density from current conditions (needs actual station pressure, not SLP)
   const calculatedAirDensity = useMemo(() => {
+    const rawPressure = currentData.pressure || 1013.25;
+    // For RIKA, pressure is SLP — convert to station pressure for density calc
+    const stationPressure = isRikaStation
+      ? calculateStationPressure(rawPressure, selectedStation?.altitude || 0, currentData.temperature || 20)
+      : rawPressure;
     return calculateAirDensity(
       currentData.temperature || 20,
-      currentData.pressure || 1013.25,
+      stationPressure,
       currentData.humidity || 50
     );
-  }, [currentData.temperature, currentData.pressure, currentData.humidity]);
+  }, [currentData.temperature, currentData.pressure, currentData.humidity, isRikaStation, selectedStation?.altitude]);
 
   // Process wind energy data from historical data (must be after calculatedAirDensity)
   const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, calculatedAirDensity), [sortedHistoricalData, calculatedAirDensity]);
@@ -660,14 +713,33 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const effectiveDewPoint = currentData.dewPoint ?? calculatedDewPoint ?? 0;
 
   // Calculate sea level pressure
+  // RIKA stations report SLP (sea-level corrected pressure) as type_code 3003,
+  // so we use it directly as SLP and reverse-calculate station pressure
   const seaLevelPressure = useMemo(() => {
     const altitude = selectedStation?.altitude || 0;
+    if (isRikaStation) {
+      // RIKA pressure IS already SLP — use it directly
+      return currentData.pressure || 1013.25;
+    }
     return calculateSeaLevelPressure(
       currentData.pressure || 1013.25,
       altitude,
       currentData.temperature || 20
     );
-  }, [currentData.pressure, currentData.temperature, selectedStation?.altitude]);
+  }, [currentData.pressure, currentData.temperature, selectedStation?.altitude, isRikaStation]);
+
+  // For RIKA stations, derive station pressure from SLP
+  const effectiveStationPressure = useMemo(() => {
+    if (isRikaStation) {
+      const altitude = selectedStation?.altitude || 0;
+      return calculateStationPressure(
+        currentData.pressure || 1013.25,
+        altitude,
+        currentData.temperature || 20
+      );
+    }
+    return currentData.pressure || 1013.25;
+  }, [currentData.pressure, currentData.temperature, selectedStation?.altitude, isRikaStation]);
 
   // Calculate reference evapotranspiration
   const calculatedETo = useMemo(() => {
@@ -737,10 +809,45 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [historicalData, currentData]);
 
-  // Calculate accumulated rainfall from historical data
-  const accumulatedRainfall = useMemo(() => {
-    return historicalData.reduce((sum, d) => sum + (d.rainfall ?? 0), 0);
-  }, [historicalData]);
+  // Calculate accumulated rainfall from historical data (always uses 24h window)
+  // Uses statsData (7-day) to ensure coverage even if chart time range is short
+  // This is historical-data-dependent, not VPS-uptime-dependent
+  const { accumulatedRainfall, isRainfallStale, effectiveRainfall } = useMemo(() => {
+    // Use statsData (7-day) if available, ensuring we always have data even after VPS restarts
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    
+    // Filter to last 24 hours from the data's own timestamps (not system uptime)
+    const now = Date.now();
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+    const last24hData = dataSource.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    
+    const rainfallReadings = last24hData
+      .map(d => d.rainfall)
+      .filter((v): v is number => v !== null && v !== undefined);
+    
+    if (rainfallReadings.length < 2) {
+      const currentRain = currentData.rainfall ?? 0;
+      if (rainfallReadings.length === 1 && currentRain > 0 && Math.abs(currentRain - rainfallReadings[0]) < 0.1) {
+        return { accumulatedRainfall: 0, isRainfallStale: true, effectiveRainfall: 0 };
+      }
+      return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: currentRain };
+    }
+    
+    const minVal = Math.min(...rainfallReadings);
+    const maxVal = Math.max(...rainfallReadings);
+    const range = maxVal - minVal;
+    
+    // If all rainfall values within 24h are essentially the same (< 0.1mm variation),
+    // the station is likely sending cumulative rainfall that hasn't changed — treat as no rain
+    const isStale = range < 0.1;
+    const rainfallChange = isStale ? 0 : range;
+    
+    return {
+      accumulatedRainfall: rainfallChange,
+      isRainfallStale: isStale,
+      effectiveRainfall: isStale ? 0 : rainfallChange,
+    };
+  }, [sortedStatsData, sortedHistoricalData, currentData.rainfall]);
 
   // Extract battery voltage from historical data for proper charting
   const batteryChartData = useMemo(() => {
@@ -748,6 +855,21 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
       batteryVoltage: d.batteryVoltage ?? 0,
     }));
+  }, [sortedHistoricalData]);
+
+  // Battery charging daily check — detect if battery charged in the last 24h
+  const batteryChargingStatus = useMemo(() => {
+    const batteryReadings = sortedHistoricalData
+      .filter(d => d.batteryVoltage != null && d.batteryVoltage > 0);
+    if (batteryReadings.length < 2) return { hasData: false, didCharge: true, maxVoltage: 0, minVoltage: 0 };
+    
+    const voltages = batteryReadings.map(d => d.batteryVoltage!);
+    const maxV = Math.max(...voltages);
+    const minV = Math.min(...voltages);
+    // Battery charges when voltage rises above 13.0V (solar panel active)
+    // A voltage swing of at least 0.3V also indicates charging activity
+    const didCharge = maxV > 13.0 || (maxV - minV) > 0.3;
+    return { hasData: true, didCharge, maxVoltage: maxV, minVoltage: minV };
   }, [sortedHistoricalData]);
 
   const sparkline = chartData.slice(-12).map(d => d.temperature);
@@ -902,7 +1024,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <h2 className="text-base font-normal text-foreground">Station Location</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <StationMapWithErrorBoundary
-              key={`map-${selectedStation?.id || 'default'}`}
+              key={`map-${selectedStation?.id || 'default'}-${selectedStation?.latitude ?? 'nolat'}-${selectedStation?.longitude ?? 'nolng'}`}
               latitude={selectedStation?.latitude ?? undefined}
               longitude={selectedStation?.longitude ?? undefined}
               stationName={selectedStation?.name || "Weather Station"}
@@ -940,10 +1062,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           </div>
         </section>
 
-        {/* Primary Metrics - Always Visible */}
+        {/* Primary Metrics - Only show cards with data */}
+        {(hasValidData(currentData.temperature) || hasValidData(currentData.humidity) || hasValidData(currentData.pressure) || hasValidData(currentData.windSpeed) || hasValidData(currentData.rainfall)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            {hasValidData(currentData.temperature) && (
             <MetricCard
               title="Temperature"
               value={formatValue(currentData.temperature || 0, 1)}
@@ -952,6 +1076,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               sparklineData={sparkline}
               chartColor="#ef4444"
             />
+            )}
+            {hasValidData(currentData.humidity) && (
             <MetricCard
               title="Humidity"
               value={formatValue(currentData.humidity || 0, 1)}
@@ -960,6 +1086,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               sparklineData={chartData.slice(-12).map(d => d.humidity)}
               chartColor="#3b82f6"
             />
+            )}
             {(hasValidData(currentData.dewPoint) || calculatedDewPoint !== null) && (
               <MetricCard
                 title="Dew Point"
@@ -968,6 +1095,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#06b6d4"
               />
             )}
+            {hasValidData(currentData.pressure) && (
             <MetricCard
               title="Pressure"
               value={formatValue(currentData.pressure || 0, 1)}
@@ -976,6 +1104,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               sparklineData={chartData.slice(-12).map(d => d.pressure)}
               chartColor="#8b5cf6"
             />
+            )}
+            {hasValidData(currentData.windSpeed) && (
             <MetricCard
               title="Wind Speed"
               value={formatValue(currentData.windSpeed || 0, 1)}
@@ -986,16 +1116,20 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               sparklineData={chartData.slice(-12).map(d => d.windSpeed)}
               chartColor="#14b8a6"
             />
+            )}
+            {hasValidData(currentData.rainfall) && (
             <MetricCard
               title="Rainfall (24h)"
-              value={formatValue(currentData.rainfall || 0, 2)}
+              value={formatValue(effectiveRainfall, 2)}
               unit="mm"
               subMetrics={[
                 { label: "Period Total", value: `${formatValue(accumulatedRainfall, 1)} mm` },
+                ...(isRainfallStale ? [{ label: "Status", value: "No change detected" }] : []),
               ]}
               sparklineData={chartData.slice(-12).map(d => d.rain)}
               chartColor="#0ea5e9"
             />
+            )}
           </div>
           
           {/* Primary Metrics Dedicated Charts - Grid Layout */}
@@ -1038,13 +1172,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           {availableFields.pressure && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BarometricPressureCard
-              stationPressure={currentData.pressure || 1013.25}
+              stationPressure={effectiveStationPressure}
               seaLevelPressure={seaLevelPressure}
               altitude={selectedStation?.altitude || 0}
               temperature={currentData.temperature || 20}
               trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
-              sparklineDataStation={chartData.slice(-24).map(d => d.pressure)}
-              sparklineDataSeaLevel={chartData.slice(-24).map(d => calculateSeaLevelPressure(d.pressure, selectedStation?.altitude || 0, d.temperature ?? 20))}
+              sparklineDataStation={chartData.slice(-24).map(d => isRikaStation ? calculateStationPressure(d.pressure, selectedStation?.altitude || 0, d.temperature ?? 20) : d.pressure)}
+              sparklineDataSeaLevel={chartData.slice(-24).map(d => isRikaStation ? d.pressure : calculateSeaLevelPressure(d.pressure, selectedStation?.altitude || 0, d.temperature ?? 20))}
             />
             <DataBlockChart
               title="Barometric Pressure History"
@@ -1062,11 +1196,25 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           </div>
           )}
         </section>
+        )}
 
         {/* Logger Battery Section - Only show if battery data exists */}
         {hasValidData(currentData.batteryVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
+          {/* Battery Not Charging Warning */}
+          {batteryChargingStatus.hasData && !batteryChargingStatus.didCharge && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-500" />
+              <div>
+                <p className="text-sm font-medium">Battery Not Charging</p>
+                <p className="text-xs text-amber-600">
+                  No charging activity detected in the last 24 hours. Voltage range: {batteryChargingStatus.minVoltage.toFixed(2)}V – {batteryChargingStatus.maxVoltage.toFixed(2)}V. 
+                  Check solar panel, wiring, or charge controller.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <BatteryVoltageCard
               voltage={currentData.batteryVoltage || 0}
@@ -1097,6 +1245,110 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             )}
           </div>
+        </section>
+        )}
+
+        {/* Water & Sensors Section - Only show if any water/sensor data exists */}
+        {(availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.chargerVoltage) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {hasValidData(currentData.waterLevel) && (
+              <MetricCard
+                title="Water Level"
+                value={formatValue(currentData.waterLevel || 0, 2)}
+                unit="m"
+                sparklineData={chartData.slice(-24).map(d => d.waterLevel)}
+                chartColor="#3b82f6"
+              />
+            )}
+            {hasValidData(currentData.temperatureSwitch) && (
+              <MetricCard
+                title="Temp Switch"
+                value={formatValue(currentData.temperatureSwitch || 0, 2)}
+                unit="°C"
+                sparklineData={chartData.slice(-24).map(d => d.temperatureSwitch)}
+                chartColor="#ef4444"
+              />
+            )}
+            {hasValidData(currentData.levelSwitch) && (
+              <MetricCard
+                title="Level Switch"
+                value={formatValue(currentData.levelSwitch || 0, 0)}
+                unit=""
+                chartColor="#22c55e"
+              />
+            )}
+            {hasValidData(currentData.temperatureSwitchOutlet) && (
+              <MetricCard
+                title="Temp Switch Outlet"
+                value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)}
+                unit="°C"
+                sparklineData={chartData.slice(-24).map(d => d.temperatureSwitchOutlet)}
+                chartColor="#f97316"
+              />
+            )}
+            {hasValidData(currentData.levelSwitchStatus) && (
+              <MetricCard
+                title="Level Switch Status"
+                value={formatValue(currentData.levelSwitchStatus || 0, 0)}
+                unit=""
+                chartColor="#8b5cf6"
+              />
+            )}
+            {hasValidData(currentData.lightning) && (
+              <MetricCard
+                title="Lightning"
+                value={formatValue(currentData.lightning || 0, 0)}
+                unit="strikes"
+                sparklineData={chartData.slice(-24).map(d => d.lightning)}
+                chartColor="#eab308"
+              />
+            )}
+            {hasValidData(currentData.chargerVoltage) && (
+              <MetricCard
+                title="Charger Voltage"
+                value={formatValue(currentData.chargerVoltage || 0, 2)}
+                unit="V"
+                sparklineData={chartData.slice(-24).map(d => d.chargerVoltage)}
+                chartColor="#10b981"
+              />
+            )}
+          </div>
+          {/* Water Level Chart */}
+          {availableFields.waterLevel && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <DataBlockChart
+              title="Water Level History"
+              data={chartData}
+              series={[
+                { dataKey: "waterLevel", name: "Water Level", color: "#3b82f6", unit: "m" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Water Level"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.waterLevel || 0}
+            />
+            {availableFields.temperatureSwitch && (
+            <DataBlockChart
+              title="Temperature Switch History"
+              data={chartData}
+              series={[
+                { dataKey: "temperatureSwitch", name: "Temp Switch", color: "#ef4444", unit: "°C" },
+                ...(availableFields.temperatureSwitchOutlet ? [{ dataKey: "temperatureSwitchOutlet", name: "Temp Switch Outlet", color: "#f97316", unit: "°C" }] : []),
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Temperature"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.temperatureSwitch || 0}
+            />
+            )}
+          </div>
+          )}
         </section>
         )}
 
@@ -1144,6 +1396,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               unit="°"
               chartColor="#fb923c"
             />
+            {hasValidData(currentData.solarRadiation) && (
             <MetricCard
               title="Solar Radiation"
               value={formatValue(currentData.solarRadiation || 0, 0)}
@@ -1151,6 +1404,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               sparklineData={chartData.slice(-12).map(d => d.solar)}
               chartColor="#f59e0b"
             />
+            )}
             {hasValidData(currentData.uvIndex) && (
               <MetricCard
                 title="UV Index"
@@ -1237,11 +1491,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentRadiation={hasValidData(currentData.solarRadiation) ? currentData.solarRadiation : null}
               panelEfficiency={0.20}
               systemLosses={0.15}
-            />
-            <WindDirectionChart
-              currentDirection={hasValidData(currentData.windDirection) ? currentData.windDirection : null}
-              currentSpeed={hasValidData(currentData.windSpeed) ? currentData.windSpeed : null}
-              period="Today"
             />
           </div>
         </section>
@@ -1340,6 +1589,42 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.soilMoisture || 0}
+            />
+            )}
+          </div>
+          )}
+
+          {/* Air Quality Charts - Only show if PM data available */}
+          {(hasValidData(currentData.pm10) || hasValidData(currentData.pm25)) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {hasValidData(currentData.pm10) && (
+            <DataBlockChart
+              title="PM10 History"
+              data={chartData.filter(d => d.pm10 !== null && d.pm10 !== undefined).map(d => ({ ...d, pm10Val: d.pm10 }))}
+              series={[
+                { dataKey: "pm10Val", name: "PM10", color: "#ef4444", unit: "µg/m³" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="PM10 (µg/m³)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.pm10 || 0}
+            />
+            )}
+            {hasValidData(currentData.pm25) && (
+            <DataBlockChart
+              title="PM2.5 History"
+              data={chartData.filter(d => d.pm25 !== null && d.pm25 !== undefined).map(d => ({ ...d, pm25Val: d.pm25 }))}
+              series={[
+                { dataKey: "pm25Val", name: "PM2.5", color: "#dc2626", unit: "µg/m³" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="PM2.5 (µg/m³)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.pm25 || 0}
             />
             )}
           </div>
@@ -1556,6 +1841,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Charts Section */}
+        {chartData.length > 0 && (
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-base font-normal text-foreground">Historical Data</h2>
@@ -1652,11 +1938,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             </TabsContent>
           </Tabs>
         </section>
+        )}
 
         {/* Solar & ET Cards */}
+        {(hasValidData(currentData.solarRadiation) || hasValidData(currentData.temperature)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar & Evapotranspiration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {hasValidData(currentData.solarRadiation) && (
             <SolarRadiationCard
               currentRadiation={currentData.solarRadiation || 0}
               peakRadiation={solarStats.peak ?? 0}
@@ -1664,6 +1953,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               avgRadiation={solarStats.avg ?? 0}
               panelTemperature={currentData.panelTemperature ?? undefined}
             />
+            )}
             <EToCard
               dailyETo={currentData.eto ?? etoStats.daily ?? 0}
               weeklyETo={etoStats.weekly ?? 0}
@@ -1694,6 +1984,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
           </div>
         </section>
+        )}
 
         {/* Station Administration - Admin Only (hidden in PDF export) */}
         {isAdmin && selectedStation && !isDemoStation && (
@@ -1727,8 +2018,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                   body: JSON.stringify(data),
                 });
                 if (!response.ok) throw new Error('Failed to save');
-                // Refresh station data
+                // Refresh station data — invalidate both list and station-specific queries
+                // so the map and all panels pick up the new coordinates immediately
                 await queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
+                await queryClient.invalidateQueries({ queryKey: [`/api/stations/${selectedStation.id}`] });
+                // Force refetch to ensure selectedStation has updated lat/lng for the map
+                await queryClient.refetchQueries({ queryKey: ["/api/stations"] });
                 toast({
                   title: "Saved Successfully",
                   description: "Station information has been updated.",

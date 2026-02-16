@@ -161,7 +161,7 @@ export abstract class BaseProtocolAdapter extends EventEmitter implements IProto
   }
 
   protected normalizeData(raw: Record<string, number | null>): NormalizedWeatherData {
-    return {
+    const result: NormalizedWeatherData = {
       stationId: this.config.stationId,
       timestamp: new Date(),
       temperature: raw.temperature ?? null,
@@ -175,6 +175,15 @@ export abstract class BaseProtocolAdapter extends EventEmitter implements IProto
       dewPoint: raw.dewPoint ?? null,
       batteryVoltage: raw.batteryVoltage ?? null,
     };
+
+    // Pass through any extra fields (pm10, pm25, soilTemperature, uvIndex, etc.)
+    for (const [key, value] of Object.entries(raw)) {
+      if (!(key in result) && value !== null && value !== undefined) {
+        result[key] = value;
+      }
+    }
+
+    return result;
   }
 }
 

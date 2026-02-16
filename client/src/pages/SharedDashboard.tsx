@@ -41,6 +41,8 @@ const processChartData = (historicalData: WeatherData[]) => {
     windSpeed: d.windSpeed ?? 0,
     solar: d.solarRadiation ?? 0,
     rain: d.rainfall ?? 0,
+    pm10: d.pm10 ?? null,
+    pm25: d.pm25 ?? null,
   }));
 };
 

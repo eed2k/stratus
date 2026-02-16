@@ -2,20 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useMemo } from "react";
 import { safeFixed } from "@/lib/utils";
-import {
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-  Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
 
 interface WindDirectionChartProps {
   /** Current wind direction in degrees (0-360) */
@@ -32,37 +18,158 @@ interface WindDirectionChartProps {
   period?: string;
 }
 
-// Direction labels for 16-point compass
-const DIRECTION_LABELS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+// 16-point compass for degree conversion
+const DIRECTION_LABELS_16 = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 
-// Direction labels for 8-point compass (simpler view)
+// 8-point compass directions for the wind rose (WMO standard)
 const DIRECTION_LABELS_8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
-/**
- * Convert degrees to compass direction
- */
+// Angles for 8-point compass (clockwise from North)
+const DIRECTION_ANGLES_8 = [0, 45, 90, 135, 180, 225, 270, 315];
+
 const degreesToDirection = (degrees: number): string => {
   const index = Math.round(degrees / 22.5) % 16;
-  return DIRECTION_LABELS[index];
+  return DIRECTION_LABELS_16[index];
 };
 
-/**
- * Get 8-point direction index from degrees
- */
 const degreesToIndex8 = (degrees: number): number => {
   return Math.round(degrees / 45) % 8;
 };
 
 /**
- * Get color based on frequency percentage
+ * WMO-compliant Wind Rose — polar bar chart (SVG)
+ * Each bar extends outward from center proportional to frequency %
+ * 8 cardinal/intercardinal directions, N at top
  */
-const getFrequencyColor = (percentage: number): string => {
-  if (percentage >= 25) return '#ef4444'; // Red - Very frequent
-  if (percentage >= 15) return '#f97316'; // Orange - Frequent
-  if (percentage >= 10) return '#eab308'; // Yellow - Moderate
-  if (percentage >= 5) return '#22c55e';  // Green - Some
-  return '#3b82f6'; // Blue - Rare
-};
+function WMOWindRose({ data, maxPercent }: { data: { direction: string; percentage: number }[]; maxPercent: number }) {
+  const size = 260;
+  const cx = size / 2;
+  const cy = size / 2;
+  const outerR = 105;
+  const innerR = 18;
+  const labelR = outerR + 16;
+
+  // Scale: maxRadius maps to the rounded-up max percentage
+  const scaleMax = Math.max(10, Math.ceil(maxPercent / 10) * 10);
+
+  // Concentric reference rings
+  const rings: { r: number; pct: number }[] = [];
+  const ringCount = Math.min(4, scaleMax / 10);
+  for (let i = 1; i <= ringCount; i++) {
+    const r = innerR + ((outerR - innerR) * i) / ringCount;
+    const pct = (scaleMax * i) / ringCount;
+    rings.push({ r, pct });
+  }
+
+  // Bar half-width in degrees
+  const barHalfAngle = 18;
+
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="100%" style={{ maxHeight: 260 }}>
+      {/* Background circle */}
+      <circle cx={cx} cy={cy} r={outerR} fill="#f9fafb" stroke="#e5e7eb" strokeWidth={1} />
+
+      {/* Concentric rings with labels */}
+      {rings.map((ring, i) => (
+        <g key={i}>
+          <circle cx={cx} cy={cy} r={ring.r} fill="none" stroke="#e5e7eb" strokeWidth={0.5} strokeDasharray="3 3" />
+          <text x={cx + 4} y={cy - ring.r + 12} fontSize={8} fill="#9ca3af" fontFamily="Arial, sans-serif">
+            {ring.pct}%
+          </text>
+        </g>
+      ))}
+
+      {/* Center circle */}
+      <circle cx={cx} cy={cy} r={innerR} fill="white" stroke="#d1d5db" strokeWidth={0.5} />
+
+      {/* Radial guide lines */}
+      {DIRECTION_ANGLES_8.map((angle, i) => {
+        const rad = ((angle - 90) * Math.PI) / 180;
+        const x2 = cx + outerR * Math.cos(rad);
+        const y2 = cy + outerR * Math.sin(rad);
+        return (
+          <line key={i} x1={cx} y1={cy} x2={x2} y2={y2} stroke="#e5e7eb" strokeWidth={0.5} />
+        );
+      })}
+
+      {/* Frequency bars — polar wedge/sector for each direction */}
+      {data.map((d, i) => {
+        if (d.percentage <= 0) return null;
+        const angleDeg = DIRECTION_ANGLES_8[i];
+        const barR = innerR + ((outerR - innerR) * d.percentage) / scaleMax;
+
+        // Build a wedge path (arc sector from innerR to barR)
+        const a1 = ((angleDeg - barHalfAngle - 90) * Math.PI) / 180;
+        const a2 = ((angleDeg + barHalfAngle - 90) * Math.PI) / 180;
+
+        const x1o = cx + barR * Math.cos(a1);
+        const y1o = cy + barR * Math.sin(a1);
+        const x2o = cx + barR * Math.cos(a2);
+        const y2o = cy + barR * Math.sin(a2);
+        const x1i = cx + innerR * Math.cos(a1);
+        const y1i = cy + innerR * Math.sin(a1);
+        const x2i = cx + innerR * Math.cos(a2);
+        const y2i = cy + innerR * Math.sin(a2);
+
+        const largeArc = barHalfAngle * 2 > 180 ? 1 : 0;
+
+        const path = [
+          `M ${x1i} ${y1i}`,
+          `L ${x1o} ${y1o}`,
+          `A ${barR} ${barR} 0 ${largeArc} 1 ${x2o} ${y2o}`,
+          `L ${x2i} ${y2i}`,
+          `A ${innerR} ${innerR} 0 ${largeArc} 0 ${x1i} ${y1i}`,
+          'Z',
+        ].join(' ');
+
+        // Color: blue gradient by intensity
+        const intensity = Math.min(d.percentage / scaleMax, 1);
+        const opacity = 0.3 + intensity * 0.6;
+
+        return (
+          <path
+            key={d.direction}
+            d={path}
+            fill="#3b82f6"
+            fillOpacity={opacity}
+            stroke="#2563eb"
+            strokeWidth={0.8}
+          >
+            <title>{d.direction}: {d.percentage.toFixed(1)}%</title>
+          </path>
+        );
+      })}
+
+      {/* Direction labels */}
+      {DIRECTION_LABELS_8.map((label, i) => {
+        const angleDeg = DIRECTION_ANGLES_8[i];
+        const rad = ((angleDeg - 90) * Math.PI) / 180;
+        const x = cx + labelR * Math.cos(rad);
+        const y = cy + labelR * Math.sin(rad);
+        return (
+          <text
+            key={label}
+            x={x}
+            y={y}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={11}
+            fontWeight={label === 'N' ? 700 : 500}
+            fill={label === 'N' ? '#1e3a5f' : '#374151'}
+            fontFamily="Arial, sans-serif"
+          >
+            {label}
+          </text>
+        );
+      })}
+
+      {/* Center label */}
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="#6b7280" fontFamily="Arial, sans-serif">
+        CALM
+      </text>
+    </svg>
+  );
+}
 
 export function WindDirectionChart({
   currentDirection,
@@ -70,7 +177,6 @@ export function WindDirectionChart({
   historicalData = [],
   period = "Today",
 }: WindDirectionChartProps) {
-  // Check if we have valid data
   const hasData = currentDirection !== null && currentDirection !== undefined;
 
   // Calculate direction frequency distribution
@@ -81,37 +187,39 @@ export function WindDirectionChart({
         dominantDirection: 'N/A',
         dominantPercentage: 0,
         totalObservations: 0,
+        calmPercentage: 0,
       };
     }
 
-    // Initialize counts for 8 directions
     const counts: number[] = new Array(8).fill(0);
     let totalCount = 0;
+    let calmCount = 0;
 
-    // Count from historical data if available
     if (historicalData.length > 0) {
       historicalData.forEach(d => {
         if (d.windDirection !== null && d.windDirection !== undefined) {
-          const index = degreesToIndex8(d.windDirection);
-          counts[index]++;
+          // WMO: calm = wind speed < 0.5 m/s (≈ 1.8 km/h)
+          if (d.windSpeed !== undefined && d.windSpeed !== null && d.windSpeed < 1.8) {
+            calmCount++;
+          } else {
+            const index = degreesToIndex8(d.windDirection);
+            counts[index]++;
+          }
           totalCount++;
         }
       });
     } else if (hasData) {
-      // Use current direction as single data point
       const index = degreesToIndex8(currentDirection!);
       counts[index] = 1;
       totalCount = 1;
     }
 
-    // Calculate percentages
     const distribution = DIRECTION_LABELS_8.map((dir, idx) => ({
       direction: dir,
       frequency: counts[idx],
       percentage: totalCount > 0 ? (counts[idx] / totalCount) * 100 : 0,
     }));
 
-    // Find dominant direction
     const maxIndex = counts.indexOf(Math.max(...counts));
     const dominantDirection = DIRECTION_LABELS_8[maxIndex];
     const dominantPercentage = totalCount > 0 ? (counts[maxIndex] / totalCount) * 100 : 0;
@@ -121,17 +229,11 @@ export function WindDirectionChart({
       dominantDirection,
       dominantPercentage,
       totalObservations: totalCount,
+      calmPercentage: totalCount > 0 ? (calmCount / totalCount) * 100 : 0,
     };
   }, [currentDirection, hasData, historicalData]);
 
-  // Radar chart data
-  const radarData = useMemo(() => {
-    return directionStats.distribution.map(d => ({
-      direction: d.direction,
-      frequency: d.percentage,
-      fullMark: 100,
-    }));
-  }, [directionStats.distribution]);
+  const maxPercent = Math.max(...directionStats.distribution.map(d => d.percentage), 5);
 
   // No data state
   if (!hasData && historicalData.length === 0) {
@@ -158,7 +260,7 @@ export function WindDirectionChart({
     <Card className="border border-gray-300 bg-white">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          Wind Direction Distribution
+          Wind Rose
           <Badge variant="outline" className="ml-auto text-xs">
             {period}
           </Badge>
@@ -178,109 +280,58 @@ export function WindDirectionChart({
             </div>
             {currentSpeed !== null && currentSpeed !== undefined && (
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{safeFixed(currentSpeed, 1)} km/h</p>
-                <p className="text-xs text-muted-foreground">Current Speed</p>
+                <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>{safeFixed(currentSpeed, 1)} km/h</p>
+                <p className="text-xs text-muted-foreground" style={{ fontFamily: 'Arial, sans-serif' }}>Current Speed</p>
               </div>
             )}
           </div>
 
-          {/* Dominant Direction Info */}
+          {/* Stats Bar */}
           <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-gray-50">
             <div className="flex-1">
-              <p className="text-xs font-medium text-gray-600">Dominant Direction</p>
-              <p className="text-lg font-semibold text-gray-900">
+              <p className="text-xs font-medium text-gray-600" style={{ fontFamily: 'Arial, sans-serif' }}>Dominant</p>
+              <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
                 {directionStats.dominantDirection}
               </p>
             </div>
-            <div className="flex-1 text-right">
-              <p className="text-xs font-medium text-gray-600">Frequency</p>
-              <p className="text-lg font-semibold text-gray-900">
+            <div className="flex-1 text-center">
+              <p className="text-xs font-medium text-gray-600" style={{ fontFamily: 'Arial, sans-serif' }}>Frequency</p>
+              <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
                 {safeFixed(directionStats.dominantPercentage, 1)}%
               </p>
             </div>
             <div className="flex-1 text-right">
-              <p className="text-xs font-medium text-gray-600">Observations</p>
-              <p className="text-lg font-semibold text-gray-900">
+              <p className="text-xs font-medium text-gray-600" style={{ fontFamily: 'Arial, sans-serif' }}>Obs</p>
+              <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
                 {directionStats.totalObservations}
               </p>
             </div>
+            {directionStats.calmPercentage > 0 && (
+              <div className="flex-1 text-right">
+                <p className="text-xs font-medium text-gray-600" style={{ fontFamily: 'Arial, sans-serif' }}>Calm</p>
+                <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
+                  {safeFixed(directionStats.calmPercentage, 1)}%
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Radar Chart - Wind Rose Style */}
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis
-                  dataKey="direction"
-                  tick={{ fontSize: 11, fill: '#374151' }}
-                />
-                <PolarRadiusAxis
-                  angle={90}
-                  domain={[0, Math.max(30, Math.ceil(Math.max(...radarData.map(d => d.frequency)) / 10) * 10)]}
-                  tick={{ fontSize: 9, fill: '#9ca3af' }}
-                  tickFormatter={(v) => `${v}%`}
-                />
-                <Radar
-                  name="Wind Frequency"
-                  dataKey="frequency"
-                  stroke="#3b82f6"
-                  fill="#3b82f6"
-                  fillOpacity={0.5}
-                  strokeWidth={2}
-                />
-                <Tooltip
-                  formatter={(value: number) => [`${value.toFixed(1)}%`, 'Frequency']}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
+          {/* WMO Wind Rose (polar bar chart) */}
+          <div className="flex justify-center">
+            <WMOWindRose data={directionStats.distribution} maxPercent={maxPercent} />
           </div>
 
-          {/* Bar Chart - Direction Breakdown */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-600">Direction Breakdown</p>
-            <div className="h-32">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={directionStats.distribution}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis
-                    dataKey="direction"
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                    tickFormatter={(v) => `${v}%`}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [`${value.toFixed(1)}%`, 'Frequency']}
-                    labelFormatter={(label) => `Direction: ${label}`}
-                  />
-                  <Bar
-                    dataKey="percentage"
-                    fill="#3b82f6"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Direction Legend */}
-          <div className="grid grid-cols-4 gap-2 text-center">
+          {/* Direction frequency legend — compact grid */}
+          <div className="grid grid-cols-4 gap-1.5 text-center">
             {directionStats.distribution.map((d) => (
               <div
                 key={d.direction}
-                className="rounded-lg border border-gray-200 p-2"
-                style={{ backgroundColor: `${getFrequencyColor(d.percentage)}10` }}
+                className="rounded border border-gray-200 px-2 py-1"
               >
-                <p className="text-xs font-semibold" style={{ color: getFrequencyColor(d.percentage) }}>
+                <p className="text-xs font-semibold text-gray-700" style={{ fontFamily: 'Arial, sans-serif' }}>
                   {d.direction}
                 </p>
-                <p className="text-[10px] text-gray-600">
+                <p className="text-[10px] text-gray-500" style={{ fontFamily: 'Arial, sans-serif' }}>
                   {safeFixed(d.percentage, 1)}%
                 </p>
               </div>

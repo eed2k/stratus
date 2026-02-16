@@ -40,14 +40,12 @@ services:
       - DROPBOX_APP_SECRET=${DROPBOX_APP_SECRET}
       - DROPBOX_REFRESH_TOKEN=${DROPBOX_REFRESH_TOKEN}
       - DROPBOX_FOLDER_PATH=${DROPBOX_FOLDER_PATH}
+      - DROPBOX_STATION_ID=${DROPBOX_STATION_ID:-1}
       # MailerSend Email
       - MAILERSEND_API_KEY=${MAILERSEND_API_KEY}
       - MAILERSEND_FROM_EMAIL=${MAILERSEND_FROM_EMAIL:-noreply@stratusweather.co.za}
       - MAILERSEND_FROM_NAME=${MAILERSEND_FROM_NAME:-Stratus Weather}
       - MAILERSEND_ALERTS_EMAIL=${MAILERSEND_ALERTS_EMAIL:-alerts@stratusweather.co.za}
-      # Windy Map
-      - WINDY_API_KEY=${WINDY_API_KEY}
-      - WINDY_MAP_API_KEY=${WINDY_MAP_API_KEY}
       # Public URL for email links
       - APP_BASE_URL=${APP_BASE_URL:-https://stratusweather.co.za}
       # Staleness Monitor
@@ -59,6 +57,12 @@ services:
       - stratus-logs:/app/logs
     networks:
       - stratus-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/api/health"]
       interval: 30s

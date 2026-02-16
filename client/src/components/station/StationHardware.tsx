@@ -231,8 +231,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Cpu className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">
                   Datalogger
                 </CardTitle>
                 <Badge variant="outline" className="text-xs">
@@ -286,8 +285,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Wrench className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">
                   Sensors
                 </CardTitle>
                 <Dialog open={addSensorOpen} onOpenChange={setAddSensorOpen}>
@@ -329,7 +327,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                             onChange={(e) =>
                               setNewSensor({ ...newSensor, sensorType: e.target.value })
                             }
-                            placeholder="e.g., RM Young Response One Pro"
+                            placeholder="Sensor name"
                             data-testid="input-sensor-name"
                           />
                         </div>
@@ -342,7 +340,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                               onChange={(e) =>
                                 setNewSensor({ ...newSensor, manufacturer: e.target.value })
                               }
-                              placeholder="e.g., RM Young"
+                              placeholder="Manufacturer"
                               data-testid="input-manufacturer"
                             />
                           </div>
@@ -354,7 +352,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                               onChange={(e) =>
                                 setNewSensor({ ...newSensor, serialNumber: e.target.value })
                               }
-                              placeholder="e.g., SN12345"
+                              placeholder="Serial number"
                               data-testid="input-serial"
                             />
                           </div>
@@ -393,7 +391,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                                   installationHeight: e.target.value,
                                 })
                               }
-                              placeholder="e.g., 10"
+                              placeholder="Height in metres"
                               data-testid="input-height"
                             />
                           </div>
@@ -462,8 +460,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">
                   Station Personnel
                 </CardTitle>
                 <Dialog open={editPersonnelOpen} onOpenChange={setEditPersonnelOpen}>
@@ -491,7 +488,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                           onChange={(e) =>
                             setPersonnel({ ...personnel, installationTeam: e.target.value })
                           }
-                          placeholder="e.g., Weather Systems Inc."
+                          placeholder="Company name"
                           data-testid="input-installation-team"
                         />
                       </div>
@@ -503,7 +500,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                           onChange={(e) =>
                             setPersonnel({ ...personnel, stationAdmin: e.target.value })
                           }
-                          placeholder="e.g., John Smith"
+                          placeholder="Full name"
                           data-testid="input-station-admin"
                         />
                       </div>
@@ -516,7 +513,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                           onChange={(e) =>
                             setPersonnel({ ...personnel, stationAdminEmail: e.target.value })
                           }
-                          placeholder="e.g., admin@example.com"
+                          placeholder="Email address"
                           data-testid="input-admin-email"
                         />
                       </div>
@@ -529,7 +526,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                           onChange={(e) =>
                             setPersonnel({ ...personnel, stationAdminPhone: e.target.value })
                           }
-                          placeholder="e.g., +1 555-123-4567"
+                          placeholder="Phone number"
                           data-testid="input-admin-phone"
                         />
                       </div>

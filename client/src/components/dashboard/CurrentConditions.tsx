@@ -238,45 +238,45 @@ export function CurrentConditions({
       <CardContent>
         <div className="grid gap-6">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Temperature</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-temperature">{fmt(temperature, 1)}°C</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Humidity</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-humidity">{fmt(humidity, 1)}%</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Pressure</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-pressure">{fmt(pressure, 2)} hPa</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Wind</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-wind">{fmt(windSpeed, 1)} km/h</p>
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust: {fmt(windGust, 1)} km/h</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Direction</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-direction">
                 {getWindDirectionLabel(windDirection)} ({Math.round(windDirection)}°)
               </p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Solar</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-solar">{fmt(solarRadiation, 1)} W/m²</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rain (24h)</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-rain">{fmt(rainfall, 2)} mm</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Dew Point</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-dewpoint">{fmt(dewPoint, 1)}°C</p>
             </div>

@@ -87,8 +87,8 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             name: stationData.name,
             isConnected: stationData.isConnected || true,
             lastConnectionTime: stationData.lastConnectionTime || new Date().toISOString(),
-            batteryVoltage: stationData.batteryVoltage || 12.8,
-            panelTemperature: stationData.panelTemperature || 25.0,
+            batteryVoltage: stationData.batteryVoltage ?? null,
+            panelTemperature: stationData.panelTemperature ?? null,
           });
         }
       }

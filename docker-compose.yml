@@ -18,12 +18,11 @@ services:
       - DROPBOX_APP_SECRET=${DROPBOX_APP_SECRET}
       - DROPBOX_REFRESH_TOKEN=${DROPBOX_REFRESH_TOKEN}
       - DROPBOX_FOLDER_PATH=${DROPBOX_FOLDER_PATH}
+      - DROPBOX_STATION_ID=${DROPBOX_STATION_ID}
       - MAILERSEND_API_KEY=${MAILERSEND_API_KEY}
       - MAILERSEND_FROM_EMAIL=${MAILERSEND_FROM_EMAIL}
       - MAILERSEND_FROM_NAME=${MAILERSEND_FROM_NAME:-Stratus Weather}
       - MAILERSEND_ALERTS_EMAIL=${MAILERSEND_ALERTS_EMAIL}
-      - WINDY_API_KEY=${WINDY_API_KEY}
-      - WINDY_MAP_API_KEY=${WINDY_MAP_API_KEY}
       - APP_BASE_URL=${PUBLIC_URL:-https://stratusweather.co.za}
     ports:
       - "127.0.0.1:5000:5000"
@@ -36,7 +35,7 @@ services:
     networks:
       - stratus-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/api/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

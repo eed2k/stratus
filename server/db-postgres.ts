@@ -281,6 +281,7 @@ async function createTables(): Promise<void> {
       parameter TEXT NOT NULL,
       condition TEXT NOT NULL,
       threshold REAL NOT NULL,
+      stale_minutes INTEGER,
       unit VARCHAR(20) DEFAULT '',
       severity TEXT DEFAULT 'warning',
       enabled BOOLEAN DEFAULT true,
@@ -293,6 +294,11 @@ async function createTables(): Promise<void> {
     )
   `);
   pgLog.info('Alarms table ready');
+
+  // Migration: add stale_minutes column if missing (for existing databases)
+  await pool.query(`
+    ALTER TABLE alarms ADD COLUMN IF NOT EXISTS stale_minutes INTEGER
+  `).catch(() => { /* column already exists */ });
 
   // Alarm events
   await pool.query(`
@@ -318,10 +324,13 @@ async function createTables(): Promise<void> {
       slug TEXT UNIQUE,
       description TEXT,
       owner_id TEXT DEFAULT 'local-user',
+      logo_url TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  // Add logo_url column if missing (migration for existing DBs)
+  await pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS logo_url TEXT`);
   pgLog.info('Organizations table ready');
 
   // Organization members
@@ -389,6 +398,9 @@ async function createTables(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_shares_station_id ON shares(station_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_org_members_unique ON organization_members(organization_id, user_id)`);
+
+  // ── Migrations for existing databases ──────────────────────────
+  await pool.query(`ALTER TABLE alarms ADD COLUMN IF NOT EXISTS stale_minutes INTEGER`);
   pgLog.info('Additional performance indexes ready');
 }
 
@@ -642,7 +654,27 @@ export async function updateStation(id: number, updates: Partial<Station>): Prom
  * Delete a station
  */
 export async function deleteStation(id: number): Promise<void> {
-  await query('DELETE FROM stations WHERE id = $1', [id]);
+  // Use a transaction to prevent race conditions (e.g. Dropbox sync re-inserting data)
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    // Delete all referencing records before deleting the station
+    // Order matters: alarm_events references both alarms and stations
+    await client.query('DELETE FROM alarm_events WHERE station_id = $1', [id]);
+    await client.query('DELETE FROM alarms WHERE station_id = $1', [id]);
+    await client.query('DELETE FROM shares WHERE station_id = $1', [id]);
+    await client.query('DELETE FROM collection_schedules WHERE station_id = $1', [id]);
+    await client.query('DELETE FROM table_definitions WHERE station_id = $1', [id]);
+    await client.query('DELETE FROM weather_data WHERE station_id = $1', [id]);
+    await client.query('DELETE FROM dropbox_configs WHERE station_id = $1', [id]);
+    await client.query('DELETE FROM stations WHERE id = $1', [id]);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ============================================================================
@@ -772,16 +804,28 @@ export async function getWeatherData(
 }
 
 /**
- * Get latest weather data for a station
+ * Get latest weather data for a station (optionally filtered by table name)
  */
-export async function getLatestWeatherData(stationId: number, tableName: string): Promise<WeatherRecord | null> {
-  const result = await query(`
-    SELECT id, station_id, table_name, record_number, timestamp, data, collected_at
-    FROM weather_data
-    WHERE station_id = $1 AND table_name = $2
-    ORDER BY timestamp DESC
-    LIMIT 1
-  `, [stationId, tableName]);
+export async function getLatestWeatherData(stationId: number, tableName?: string): Promise<WeatherRecord | null> {
+  let result;
+  if (tableName) {
+    result = await query(`
+      SELECT id, station_id, table_name, record_number, timestamp, data, collected_at
+      FROM weather_data
+      WHERE station_id = $1 AND table_name = $2
+      ORDER BY timestamp DESC
+      LIMIT 1
+    `, [stationId, tableName]);
+  } else {
+    // No table name filter — get the absolute latest record for this station
+    result = await query(`
+      SELECT id, station_id, table_name, record_number, timestamp, data, collected_at
+      FROM weather_data
+      WHERE station_id = $1
+      ORDER BY timestamp DESC
+      LIMIT 1
+    `, [stationId]);
+  }
   
   if (result.rows.length === 0) return null;
   
@@ -1428,6 +1472,7 @@ export interface PgAlarm {
   email_recipients?: string | null;
   last_triggered_at?: string | null;
   trigger_count: number;
+  stale_minutes?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -1455,12 +1500,13 @@ export async function pgCreateAlarm(alarm: {
   enabled?: boolean;
   email_notifications?: boolean;
   email_recipients?: string | null;
+  stale_minutes?: number | null;
 }): Promise<number> {
   const pool = getPool();
   if (!pool) throw new Error('PostgreSQL pool not initialized');
   const result = await pool.query(
-    `INSERT INTO alarms (station_id, name, parameter, condition, threshold, unit, severity, enabled, email_notifications, email_recipients)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+    `INSERT INTO alarms (station_id, name, parameter, condition, threshold, unit, severity, enabled, email_notifications, email_recipients, stale_minutes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
     [
       alarm.station_id,
       alarm.name,
@@ -1471,7 +1517,8 @@ export async function pgCreateAlarm(alarm: {
       alarm.severity || 'warning',
       alarm.enabled !== false,
       alarm.email_notifications || false,
-      alarm.email_recipients || null
+      alarm.email_recipients || null,
+      alarm.stale_minutes || null
     ]
   );
   pgLog.info(`Created alarm ${result.rows[0].id} for station ${alarm.station_id}`);
@@ -1503,6 +1550,7 @@ function mapPgAlarmRow(row: any): PgAlarm {
     email_recipients: row.email_recipients,
     last_triggered_at: row.last_triggered_at?.toISOString?.() ?? (row.last_triggered_at || null),
     trigger_count: row.trigger_count || 0,
+    stale_minutes: row.stale_minutes ?? null,
     created_at: row.created_at?.toISOString?.() || new Date().toISOString(),
     updated_at: row.updated_at?.toISOString?.() || new Date().toISOString(),
   };
@@ -1550,6 +1598,7 @@ export async function pgUpdateAlarm(id: number, updates: Partial<{
   if (updates.email_recipients !== undefined) { fields.push(`email_recipients = $${paramIndex++}`); values.push(updates.email_recipients); }
   if (updates.last_triggered_at !== undefined) { fields.push(`last_triggered_at = $${paramIndex++}`); values.push(updates.last_triggered_at); }
   if (updates.trigger_count !== undefined) { fields.push(`trigger_count = $${paramIndex++}`); values.push(updates.trigger_count); }
+  if ((updates as any).stale_minutes !== undefined) { fields.push(`stale_minutes = $${paramIndex++}`); values.push((updates as any).stale_minutes); }
 
   if (fields.length === 0) return;
 
@@ -1641,6 +1690,242 @@ export async function pgAcknowledgeAlarmEvent(eventId: number, acknowledgedBy: s
   pgLog.info(`Alarm event ${eventId} acknowledged by ${acknowledgedBy}`);
 }
 
+export async function pgDeleteAlarmEvent(eventId: number): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query('DELETE FROM alarm_events WHERE id = $1', [eventId]);
+  pgLog.info(`Deleted alarm event ${eventId}`);
+}
+
+export async function pgCleanupOldAlarmEvents(daysToKeep: number = 30): Promise<number> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(
+    `DELETE FROM alarm_events WHERE created_at < NOW() - INTERVAL '1 day' * $1 RETURNING id`,
+    [daysToKeep]
+  );
+  const count = result.rowCount || 0;
+  if (count > 0) pgLog.info(`Cleaned up ${count} alarm events older than ${daysToKeep} days`);
+  return count;
+}
+
+// ── Organization CRUD ──────────────────────────────────────────────
+
+export async function pgGetAllOrganizations(): Promise<any[]> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query('SELECT * FROM organizations ORDER BY created_at DESC');
+  return result.rows;
+}
+
+export async function pgGetOrganizationById(id: number): Promise<any | null> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query('SELECT * FROM organizations WHERE id = $1', [id]);
+  return result.rows[0] || null;
+}
+
+export async function pgCreateOrganization(name: string, slug: string, description: string | null, ownerId: string, logoUrl?: string | null): Promise<number> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(
+    `INSERT INTO organizations (name, slug, description, owner_id, logo_url) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [name, slug, description, ownerId, logoUrl || null]
+  );
+  pgLog.info(`Created organization ${result.rows[0].id}: ${name}`);
+  return result.rows[0].id;
+}
+
+export async function pgUpdateOrganization(id: number, data: { name?: string; description?: string; logoUrl?: string | null }): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const fields: string[] = [];
+  const values: any[] = [];
+  let idx = 1;
+  if (data.name !== undefined) { fields.push(`name = $${idx++}`); values.push(data.name); }
+  if (data.description !== undefined) { fields.push(`description = $${idx++}`); values.push(data.description); }
+  if (data.logoUrl !== undefined) { fields.push(`logo_url = $${idx++}`); values.push(data.logoUrl); }
+  if (fields.length === 0) return;
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(id);
+  await pool.query(`UPDATE organizations SET ${fields.join(', ')} WHERE id = $${idx}`, values);
+}
+
+export async function pgDeleteOrganization(id: number): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query('DELETE FROM organizations WHERE id = $1', [id]);
+  pgLog.info(`Deleted organization ${id}`);
+}
+
+export async function pgGetOrganizationMembers(orgId: number): Promise<any[]> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(
+    `SELECT om.*, u.email, u.first_name, u.last_name 
+     FROM organization_members om 
+     LEFT JOIN users u ON om.user_id = u.email 
+     WHERE om.organization_id = $1 ORDER BY om.created_at`,
+    [orgId]
+  );
+  return result.rows;
+}
+
+export async function pgAddOrganizationMember(orgId: number, userId: string, role: string): Promise<number> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(
+    `INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, $3) 
+     ON CONFLICT (organization_id, user_id) DO UPDATE SET role = $3 RETURNING id`,
+    [orgId, userId, role]
+  );
+  return result.rows[0].id;
+}
+
+export async function pgUpdateMemberRole(orgId: number, userId: string, role: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query(
+    `UPDATE organization_members SET role = $1 WHERE organization_id = $2 AND user_id = $3`,
+    [role, orgId, userId]
+  );
+}
+
+export async function pgRemoveOrganizationMember(orgId: number, userId: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query(
+    `DELETE FROM organization_members WHERE organization_id = $1 AND user_id = $2`,
+    [orgId, userId]
+  );
+}
+
+export async function pgIsOrganizationAdmin(orgId: number, userId: string): Promise<boolean> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(
+    `SELECT role FROM organization_members WHERE organization_id = $1 AND user_id = $2`,
+    [orgId, userId]
+  );
+  return result.rows.length > 0 && result.rows[0].role === 'admin';
+}
+
+export async function pgGetOrganizationInvitations(orgId: number): Promise<any[]> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(
+    `SELECT * FROM organization_invitations WHERE organization_id = $1 ORDER BY created_at DESC`,
+    [orgId]
+  );
+  return result.rows;
+}
+
+export async function pgCreateOrganizationInvitation(orgId: number, email: string, role: string): Promise<string> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const token = require('crypto').randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  await pool.query(
+    `INSERT INTO organization_invitations (organization_id, email, role, token, expires_at) VALUES ($1, $2, $3, $4, $5)`,
+    [orgId, email, role, token, expiresAt]
+  );
+  return token;
+}
+
+export async function pgGetUserOrganizations(userId: string): Promise<any[]> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(
+    `SELECT o.* FROM organizations o 
+     JOIN organization_members om ON o.id = om.organization_id 
+     WHERE om.user_id = $1 
+     ORDER BY o.created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+// ── Share / Dashboard Sharing CRUD ──────────────────────────────────
+
+export async function pgCreateShare(share: {
+  station_id: number;
+  share_token: string;
+  name: string;
+  email?: string;
+  access_level: string;
+  password?: string;
+  expires_at?: string;
+  is_active: boolean;
+  access_count: number;
+  created_by: string;
+}): Promise<string> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query(
+    `INSERT INTO shares (station_id, share_token, name, email, access_level, password, expires_at, is_active, access_count, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [
+      share.station_id,
+      share.share_token,
+      share.name || 'Shared Dashboard',
+      share.email || null,
+      share.access_level || 'viewer',
+      share.password || null,
+      share.expires_at || null,
+      share.is_active,
+      share.access_count || 0,
+      share.created_by || 'admin',
+    ]
+  );
+  return share.share_token;
+}
+
+export async function pgGetShareByToken(token: string): Promise<any | null> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query('SELECT * FROM shares WHERE share_token = $1', [token]);
+  if (result.rows.length === 0) return null;
+  return result.rows[0];
+}
+
+export async function pgGetSharesByStation(stationId: number): Promise<any[]> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query(
+    'SELECT * FROM shares WHERE station_id = $1 ORDER BY created_at DESC',
+    [stationId]
+  );
+  return result.rows;
+}
+
+export async function pgUpdateShare(shareToken: string, updates: Record<string, any>): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let i = 1;
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined) {
+      setClauses.push(`${key} = $${i}`);
+      values.push(value);
+      i++;
+    }
+  }
+  if (setClauses.length === 0) return;
+  setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(shareToken);
+  await pool.query(
+    `UPDATE shares SET ${setClauses.join(', ')} WHERE share_token = $${i}`,
+    values
+  );
+}
+
+export async function pgDeleteShare(shareToken: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  await pool.query('DELETE FROM shares WHERE share_token = $1', [shareToken]);
+}
+
 export default {
   isPostgresEnabled,
   initPostgresDatabase,
@@ -1692,4 +1977,26 @@ export default {
   pgTriggerAlarm,
   pgGetAlarmEvents,
   pgAcknowledgeAlarmEvent,
+  pgDeleteAlarmEvent,
+  pgCleanupOldAlarmEvents,
+  // Organizations
+  pgGetAllOrganizations,
+  pgGetOrganizationById,
+  pgCreateOrganization,
+  pgUpdateOrganization,
+  pgDeleteOrganization,
+  pgGetOrganizationMembers,
+  pgAddOrganizationMember,
+  pgUpdateMemberRole,
+  pgRemoveOrganizationMember,
+  pgIsOrganizationAdmin,
+  pgGetOrganizationInvitations,
+  pgCreateOrganizationInvitation,
+  pgGetUserOrganizations,
+  // Shares
+  pgCreateShare,
+  pgGetShareByToken,
+  pgGetSharesByStation,
+  pgUpdateShare,
+  pgDeleteShare,
 };

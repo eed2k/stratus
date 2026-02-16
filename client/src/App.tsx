@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -8,27 +8,28 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
-import NotFound from "@/pages/not-found";
-import Dashboard from "@/pages/Dashboard";
-import StationSelector from "@/pages/StationSelector";
-import CampbellDashboard from "@/pages/CampbellDashboard";
-import Stations from "@/pages/Stations";
-import History from "@/pages/History";
-import Settings from "@/pages/Settings";
-import Organizations from "@/pages/Organizations";
-import Alarms from "@/pages/Alarms";
-import Reports from "@/pages/Reports";
-import SharedDashboard from "@/pages/SharedDashboard";
-import UserManagement from "@/pages/UserManagement";
-import AccountSettings from "@/pages/AccountSettings";
-import Documentation from "@/pages/Documentation";
-import Weather from "@/pages/Weather";
-import SerialMonitor from "@/pages/SerialMonitor";
-import { LoginPage } from "@/pages/LoginPage";
-import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
-import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
-import { SetupPasswordPage } from "@/pages/SetupPasswordPage";
 import { Loader2 } from "lucide-react";
+
+// Lazy-loaded pages — code-split for faster initial load
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const StationSelector = lazy(() => import("@/pages/StationSelector"));
+const CampbellDashboard = lazy(() => import("@/pages/CampbellDashboard"));
+const Stations = lazy(() => import("@/pages/Stations"));
+const History = lazy(() => import("@/pages/History"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const Organizations = lazy(() => import("@/pages/Organizations"));
+const Alarms = lazy(() => import("@/pages/Alarms"));
+const Reports = lazy(() => import("@/pages/Reports"));
+const SharedDashboard = lazy(() => import("@/pages/SharedDashboard"));
+const UserManagement = lazy(() => import("@/pages/UserManagement"));
+const AccountSettings = lazy(() => import("@/pages/AccountSettings"));
+const Documentation = lazy(() => import("@/pages/Documentation"));
+const SerialMonitor = lazy(() => import("@/pages/SerialMonitor"));
+const LoginPage = lazy(() => import("@/pages/LoginPage").then(m => ({ default: m.LoginPage })));
+const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
+const SetupPasswordPage = lazy(() => import("@/pages/SetupPasswordPage").then(m => ({ default: m.SetupPasswordPage })));
 
 function LoadingScreen() {
   return (
@@ -50,19 +51,19 @@ function Router() {
   
   // Handle public routes first (before auth check)
   if (isSharedRoute) {
-    return <SharedDashboard />;
+    return <Suspense fallback={<LoadingScreen />}><SharedDashboard /></Suspense>;
   }
   
   if (isForgotPasswordRoute) {
-    return <ForgotPasswordPage />;
+    return <Suspense fallback={<LoadingScreen />}><ForgotPasswordPage /></Suspense>;
   }
   
   if (isResetPasswordRoute) {
-    return <ResetPasswordPage />;
+    return <Suspense fallback={<LoadingScreen />}><ResetPasswordPage /></Suspense>;
   }
   
   if (isSetupPasswordRoute) {
-    return <SetupPasswordPage />;
+    return <Suspense fallback={<LoadingScreen />}><SetupPasswordPage /></Suspense>;
   }
   
   if (isLoading) {
@@ -70,7 +71,7 @@ function Router() {
   }
 
   if (needsSetup || !user) {
-    return <LoginPage onLogin={login} />;
+    return <Suspense fallback={<LoadingScreen />}><LoginPage onLogin={login} /></Suspense>;
   }
 
   // Desktop app - authenticated
@@ -125,6 +126,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
           </header>
           <main className="flex-1 overflow-auto bg-background">
+            <Suspense fallback={<LoadingScreen />}>
             <Switch>
               {/* Station Selector - landing page */}
               <Route path="/">
@@ -158,9 +160,6 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 />
               </Route>
               
-              {/* Weather - accessible to all users */}
-              <Route path="/weather" component={Weather} />
-
               {/* Serial Monitor - desktop only (shows notice in browser) */}
               <Route path="/serial-monitor" component={SerialMonitor} />
 
@@ -198,6 +197,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
               
               <Route component={NotFound} />
             </Switch>
+            </Suspense>
           </main>
         </div>
       </div>

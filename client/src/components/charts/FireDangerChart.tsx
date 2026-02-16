@@ -13,7 +13,6 @@ import {
   ReferenceLine,
   ReferenceArea,
 } from "recharts";
-import { Flame } from "lucide-react";
 import { FIRE_DANGER_RATINGS, calculateFireDanger, type FireDangerRating } from "@shared/utils/calc";
 
 interface FireDangerDataPoint {
@@ -137,8 +136,7 @@ export function FireDangerChart({
     <Card data-testid="card-fire-danger-chart">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-normal flex items-center gap-2">
-            <Flame className="h-5 w-5 text-orange-500" />
+          <CardTitle className="text-lg font-normal">
             {title}
           </CardTitle>
           {statistics && (

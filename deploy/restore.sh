@@ -14,7 +14,7 @@
 set -euo pipefail
 
 APP_DIR="/opt/stratus"
-COMPOSE_FILE="$APP_DIR/deploy/docker-compose.prod.yml"
+COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 BACKUP_DIR="$APP_DIR/backups"
 
 # Load .env to get DATABASE_URL
@@ -94,14 +94,24 @@ echo ""
 echo "[Restore] Creating safety backup of current database..."
 SAFETY_FILE="stratus_backup_pre-restore_$(date +%Y-%m-%d_%H%M%S).sql.gz"
 mkdir -p "$BACKUP_DIR/pre-deploy"
-if command -v pg_dump &> /dev/null; then
-    pg_dump "$DATABASE_URL" --clean --if-exists --no-owner --no-privileges \
-        | gzip > "$BACKUP_DIR/pre-deploy/$SAFETY_FILE"
-    echo "[Restore] Safety backup saved: $SAFETY_FILE"
-else
-    echo "[Restore] WARNING: pg_dump not found. Install: apt install postgresql-client"
-    echo "[Restore] Skipping safety backup."
+
+# Use Docker postgres:17 container (same as backup script) to avoid version mismatch
+docker pull postgres:17-alpine -q > /dev/null 2>&1
+docker run --rm \
+    --network host \
+    postgres:17-alpine \
+    pg_dump "$DATABASE_URL" \
+    --clean --if-exists \
+    --no-owner --no-privileges \
+    | gzip > "$BACKUP_DIR/pre-deploy/$SAFETY_FILE"
+
+SAFETY_SIZE=$(du -h "$BACKUP_DIR/pre-deploy/$SAFETY_FILE" | cut -f1)
+SAFETY_BYTES=$(stat -c%s "$BACKUP_DIR/pre-deploy/$SAFETY_FILE" 2>/dev/null)
+if [ "${SAFETY_BYTES:-0}" -lt 1000 ]; then
+    echo "[Restore] WARNING: Safety backup seems too small ($SAFETY_SIZE). Aborting restore."
+    exit 1
 fi
+echo "[Restore] Safety backup saved: $SAFETY_FILE ($SAFETY_SIZE)"
 
 # Confirm
 echo ""
@@ -116,15 +126,12 @@ fi
 echo "[Restore] Stopping stratus app..."
 docker compose -f "$COMPOSE_FILE" stop stratus
 
-# Restore
+# Restore using Docker postgres:17 container (matches Neon PG version)
 echo "[Restore] Restoring database from backup..."
-if command -v psql &> /dev/null; then
-    gunzip -c "$BACKUP_PATH" | psql "$DATABASE_URL" --quiet
-else
-    echo "[Restore] ERROR: psql not found. Install: apt install postgresql-client"
-    docker compose -f "$COMPOSE_FILE" start stratus
-    exit 1
-fi
+gunzip -c "$BACKUP_PATH" | docker run --rm -i \
+    --network host \
+    postgres:17-alpine \
+    psql "$DATABASE_URL" --quiet
 
 echo "[Restore] Database restored successfully!"
 
@@ -135,7 +142,10 @@ docker compose -f "$COMPOSE_FILE" start stratus
 # Verify
 sleep 5
 echo "[Restore] Verifying..."
-psql "$DATABASE_URL" -c "
+docker run --rm \
+    --network host \
+    postgres:17-alpine \
+    psql "$DATABASE_URL" -c "
     SELECT 'Users' as table_name, COUNT(*) as count FROM users
     UNION ALL
     SELECT 'Stations', COUNT(*) FROM stations

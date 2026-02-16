@@ -11,6 +11,14 @@ import { EventEmitter } from 'events';
 import { storage } from '../localStorage';
 import { parseDataFile, mapToWeatherData, ParsedRecord } from '../parsers/campbellScientific';
 
+// Callback for broadcasting weather data updates via WebSocket
+// Set by routes.ts to avoid circular dependency
+let weatherDataBroadcaster: ((stationId: number, data: any) => void) | null = null;
+
+export function setWeatherDataBroadcaster(fn: (stationId: number, data: any) => void) {
+  weatherDataBroadcaster = fn;
+}
+
 /**
  * Get timezone offset for station (default SAST = UTC+2)
  */
@@ -364,13 +372,24 @@ export class DropboxSyncService extends EventEmitter {
    * @param fullImport - If true, import all records regardless of timestamp (useful for initial setup)
    */
   async syncNow(fullImport: boolean = false): Promise<{ success: boolean; filesProcessed: number; recordsImported: number; error?: string }> {
-    if (!this.config) {
-      return { success: false, filesProcessed: 0, recordsImported: 0, error: 'Not configured' };
-    }
-
     if (this.isSyncing) {
       console.log('[DropboxSync] Sync already in progress, skipping');
       return { success: false, filesProcessed: 0, recordsImported: 0, error: 'Sync already in progress' };
+    }
+
+    // If no main config, skip main sync but still process DB configs
+    if (!this.config) {
+      console.log('[DropboxSync] No main config — skipping main sync, processing DB configs only');
+      this.isSyncing = true;
+      try {
+        const dbResults = await this.syncDbConfigs();
+        return { success: true, filesProcessed: dbResults.filesProcessed, recordsImported: dbResults.recordsImported };
+      } catch (err: any) {
+        console.error('[DropboxSync] DB config sync error:', err.message);
+        return { success: false, filesProcessed: 0, recordsImported: 0, error: err.message };
+      } finally {
+        this.isSyncing = false;
+      }
     }
 
     this.isSyncing = true;
@@ -407,8 +426,13 @@ export class DropboxSyncService extends EventEmitter {
         }
       }
       
-      // Create station if none found
+      // Create station if none found — BUT only if stationId was 0 (auto-detect mode)
+      // If stationId was explicitly set and not found, that's an error — don't auto-create
       if (!station) {
+        if (this.config!.stationId > 0) {
+          console.error(`[DropboxSync] Configured station ID ${this.config!.stationId} not found — aborting sync. Do NOT auto-create.`);
+          return { success: false, filesProcessed: 0, recordsImported: 0, error: `Station ID ${this.config!.stationId} not found` };
+        }
         console.log(`[DropboxSync] Creating new station: ${stationName}`);
         try {
           // Default coordinates for known stations
@@ -609,10 +633,24 @@ export class DropboxSyncService extends EventEmitter {
       try {
         await storage.updateStation(this.config!.stationId, {
           lastConnected: this.lastSyncTime,
+          isActive: true,
         } as any);
-        console.log(`[DropboxSync] Updated station ${this.config!.stationId} last_connected to ${this.lastSyncTime.toISOString()}`);
+        console.log(`[DropboxSync] Updated station ${this.config!.stationId} last_connected to ${this.lastSyncTime.toISOString()}, marked active`);
       } catch (persistErr: any) {
         console.warn('[DropboxSync] Could not persist last_connected:', persistErr.message);
+      }
+
+      // Broadcast latest data via WebSocket so dashboards update immediately
+      if (totalRecordsImported > 0 && weatherDataBroadcaster) {
+        try {
+          const latestData = await storage.getLatestWeatherData(this.config!.stationId);
+          if (latestData) {
+            weatherDataBroadcaster(this.config!.stationId, latestData);
+            console.log(`[DropboxSync] Broadcast latest data for station ${this.config!.stationId}`);
+          }
+        } catch (broadcastErr: any) {
+          console.warn('[DropboxSync] Could not broadcast data:', broadcastErr.message);
+        }
       }
       
       // Get station info for timezone-aware logging
@@ -623,18 +661,21 @@ export class DropboxSyncService extends EventEmitter {
       console.log(`[DropboxSync] Sync complete: ${filesProcessed} files, ${totalRecordsImported} records`);
       console.log(`[DropboxSync] Local time: ${localTime} (UTC+${timezoneOffset})`);
 
-      // Also sync any database-configured folders
-      const dbResults = await this.syncDbConfigs();
-      filesProcessed += dbResults.filesProcessed;
-      totalRecordsImported += dbResults.recordsImported;
-
       return { success: true, filesProcessed, recordsImported: totalRecordsImported };
     } catch (err: any) {
       this.lastError = err.message;
-      console.error('[DropboxSync] Sync error:', err.message);
+      console.error('[DropboxSync] Main sync error:', err.message);
       this.emit('syncError', err);
       return { success: false, filesProcessed, recordsImported: totalRecordsImported, error: err.message };
     } finally {
+      // Always sync DB configs, even if main sync failed
+      try {
+        const dbResults = await this.syncDbConfigs(totalRecordsImported);
+        filesProcessed += dbResults.filesProcessed;
+        totalRecordsImported += dbResults.recordsImported;
+      } catch (dbErr: any) {
+        console.error('[DropboxSync] DB config sync error in finally:', dbErr.message);
+      }
       this.isSyncing = false;
     }
   }
@@ -642,7 +683,7 @@ export class DropboxSyncService extends EventEmitter {
   /**
    * Sync files based on database configurations
    */
-  private async syncDbConfigs(): Promise<{ filesProcessed: number; recordsImported: number }> {
+  private async syncDbConfigs(mainSyncRecords: number = 0): Promise<{ filesProcessed: number; recordsImported: number }> {
     let filesProcessed = 0;
     let recordsImported = 0;
 
@@ -654,12 +695,29 @@ export class DropboxSyncService extends EventEmitter {
         return { filesProcessed: 0, recordsImported: 0 };
       }
 
-      console.log(`[DropboxSync] Processing ${this.dbConfigs.length} database configurations...`);
+      // Filter out DB configs that duplicate the main env-configured sync
+      const mainStationId = this.config?.stationId;
+      const filteredConfigs = this.dbConfigs.filter(c => {
+        if (mainStationId && c.stationId === mainStationId) {
+          console.log(`[DropboxSync] Skipping DB config "${c.name}" — already synced by main sync (station ${mainStationId}, ${mainSyncRecords} records)`);
+          // Still mark as success since main sync handled it — pass actual record count
+          storage.updateDropboxSyncStatus(c.id, 'success (handled by main sync)', mainSyncRecords).catch(() => {});
+          return false;
+        }
+        return true;
+      });
+
+      if (filteredConfigs.length === 0) {
+        console.log(`[DropboxSync] No additional DB configs to process (${this.dbConfigs.length} skipped as duplicates)`);
+        return { filesProcessed: 0, recordsImported: 0 };
+      }
+
+      console.log(`[DropboxSync] Processing ${filteredConfigs.length} database configurations...`);
 
       // Get all files from Dropbox
       const allFiles = await this.listAllFiles();
 
-      for (const dbConfig of this.dbConfigs) {
+      for (const dbConfig of filteredConfigs) {
         if (!dbConfig.enabled) {
           console.log(`[DropboxSync] Skipping disabled config: ${dbConfig.name}`);
           continue;
@@ -672,10 +730,27 @@ export class DropboxSyncService extends EventEmitter {
           // Check if file is in the configured folder
           const inFolder = file.path.toLowerCase().startsWith(dbConfig.folderPath.toLowerCase());
           
-          // Check file pattern if specified (e.g., "HOPEFIELD*" or "*Table1*")
+          // Check file pattern if specified
           if (dbConfig.filePattern) {
-            const pattern = dbConfig.filePattern.replace(/\*/g, '.*');
-            const regex = new RegExp(pattern, 'i');
+            let effectivePattern = dbConfig.filePattern.trim();
+            
+            // Auto-append wildcard if pattern looks like a prefix (no wildcards and no file extension)
+            if (!effectivePattern.includes('*') && !effectivePattern.includes('?')) {
+              if (!effectivePattern.includes('.')) {
+                // Looks like a prefix (e.g. "Inteltronics_SAWS_TestBed_5263") — treat as prefix match
+                effectivePattern = effectivePattern + '*';
+                console.log(`[DropboxSync] Pattern "${dbConfig.filePattern}" has no wildcard or extension — auto-expanded to "${effectivePattern}"`);
+              } else {
+                // Has a dot, looks like an exact filename (e.g. "MyFile.dat") — do exact match
+                return inFolder && file.name.toLowerCase() === effectivePattern.toLowerCase();
+              }
+            }
+            // Convert glob to regex: * → .*, ? → .
+            const pattern = effectivePattern
+              .replace(/[.+^${}()|[\]\\]/g, '\\$&')  // Escape regex chars except * and ?
+              .replace(/\*/g, '.*')
+              .replace(/\?/g, '.');
+            const regex = new RegExp(`^${pattern}$`, 'i');
             return inFolder && regex.test(file.name);
           }
           
@@ -695,10 +770,12 @@ export class DropboxSyncService extends EventEmitter {
             }
 
             console.log(`[DropboxSync] Downloading ${file.name}...`);
-            const content = await this.downloadFile(file.path);
+            let content = await this.downloadFile(file.path);
 
             // Parse the file
             const parsed = parseDataFile(content);
+            // Release raw file content from memory immediately
+            content = '';
             if (!parsed || parsed.records.length === 0) {
               console.warn(`[DropboxSync] No records found in ${file.name}`);
               continue;
@@ -719,6 +796,11 @@ export class DropboxSyncService extends EventEmitter {
                 );
 
             if (!station) {
+              // If stationId was explicitly set in config, don't auto-create
+              if (dbConfig.stationId && dbConfig.stationId > 0) {
+                console.error(`[DropboxSync] Config "${dbConfig.name}" station ID ${dbConfig.stationId} not found — skipping. Do NOT auto-create.`);
+                continue;
+              }
               console.log(`[DropboxSync] Creating new station: ${stationName}`);
               station = await storage.createStation({
                 name: stationName,
@@ -737,11 +819,15 @@ export class DropboxSyncService extends EventEmitter {
             }
 
             // Filter records based on import mode
+            // Auto-full-import for configs that have never successfully imported data
+            // Check: no lastSyncAt, OR lastSyncRecords is 0/null (previous syncs found no recent data)
+            const neverImportedData = !dbConfig.lastSyncAt || (!dbConfig.lastSyncRecords || dbConfig.lastSyncRecords === 0);
+            const isFirstImport = neverImportedData && dbConfig.lastSyncStatus !== 'success (handled by main sync)';
             let recordsToImport: ParsedRecord[];
-            if (this.isFullImport) {
-              // Full import: import all records (useful for initial setup)
+            if (this.isFullImport || isFirstImport) {
+              // Full import: import all records (first sync or manual full import)
               recordsToImport = parsed.records;
-              console.log(`[DropboxSync] Full import: importing all ${recordsToImport.length} records`);
+              console.log(`[DropboxSync] ${isFirstImport ? 'First import for "' + dbConfig.name + '" (no data yet)' : 'Full import'}: importing all ${recordsToImport.length} records`);
             } else {
               // Normal sync: filter to last 48 hours
               const cutoffTime = new Date();
@@ -790,9 +876,21 @@ export class DropboxSyncService extends EventEmitter {
             // Persist last sync time to station record
             if (station && configRecordsImported > 0) {
               try {
-                await storage.updateStation(station.id, { lastConnected: new Date() } as any);
+                await storage.updateStation(station.id, { lastConnected: new Date(), isActive: true } as any);
               } catch (e: any) {
                 console.warn(`[DropboxSync] Could not update last_connected for station ${station.id}:`, e.message);
+              }
+
+              // Broadcast latest data via WebSocket so dashboards update immediately
+              if (weatherDataBroadcaster) {
+                try {
+                  const latestData = await storage.getLatestWeatherData(station.id);
+                  if (latestData) {
+                    weatherDataBroadcaster(station.id, latestData);
+                  }
+                } catch (broadcastErr: any) {
+                  console.warn('[DropboxSync] Could not broadcast data:', broadcastErr.message);
+                }
               }
             }
 
@@ -947,6 +1045,87 @@ export class DropboxSyncService extends EventEmitter {
         message: err.message,
       };
     }
+  }
+
+  /**
+   * Preview a specific file from Dropbox — downloads and returns header + last N data lines
+   * Used to check if a .dat file has recent records before setting up sync
+   */
+  async previewFile(filePath: string, tailLines: number = 10): Promise<{
+    path: string;
+    size: number;
+    modified: string;
+    headerLines: string[];
+    lastRecords: string[];
+    totalLines: number;
+    newestTimestamp: string | null;
+    oldestTimestamp: string | null;
+  }> {
+    if (!this.config) {
+      throw new Error('Not configured');
+    }
+
+    await this.ensureValidToken();
+
+    // Download the file content
+    const response = await fetch('https://content.dropboxapi.com/2/files/download', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.config.accessToken}`,
+        'Dropbox-API-Arg': JSON.stringify({ path: filePath }),
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Dropbox download error: ${response.status} - ${errorText}`);
+    }
+
+    // Get metadata from response header
+    const apiResult = response.headers.get('dropbox-api-result');
+    let size = 0;
+    let modified = '';
+    if (apiResult) {
+      try {
+        const meta = JSON.parse(apiResult);
+        size = meta.size || 0;
+        modified = meta.server_modified || '';
+      } catch {}
+    }
+
+    const content = await response.text();
+    const allLines = content.split('\n').filter(l => l.trim().length > 0);
+    const totalLines = allLines.length;
+
+    // TOA5 format: first 4 lines are headers (environment, field names, units, processing)
+    const headerLines = allLines.slice(0, 4);
+    // Data lines follow after headers
+    const dataLines = allLines.slice(4);
+    const lastRecords = dataLines.slice(-tailLines);
+
+    // Parse timestamps from first and last data records (field 0 is typically "TIMESTAMP")
+    let oldestTimestamp: string | null = null;
+    let newestTimestamp: string | null = null;
+    if (dataLines.length > 0) {
+      // TOA5 timestamps are in the first field, quoted: "2026-02-14 12:00:00"
+      const parseTs = (line: string) => {
+        const match = line.match(/"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"/);
+        return match ? match[1] : null;
+      };
+      oldestTimestamp = parseTs(dataLines[0]);
+      newestTimestamp = parseTs(dataLines[dataLines.length - 1]);
+    }
+
+    return {
+      path: filePath,
+      size,
+      modified,
+      headerLines,
+      lastRecords,
+      totalLines,
+      newestTimestamp,
+      oldestTimestamp,
+    };
   }
 
   /**

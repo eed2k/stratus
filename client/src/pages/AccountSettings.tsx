@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, type StoredUser } from "@/hooks/useAuth";
-import { User, Lock, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 export default function AccountSettings() {
   const { user } = useAuth();
@@ -91,8 +91,7 @@ export default function AccountSettings() {
       {/* Profile Info */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+          <CardTitle>
             Profile Information
           </CardTitle>
           <CardDescription>
@@ -123,8 +122,7 @@ export default function AccountSettings() {
       {/* Change Password */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
+          <CardTitle>
             Change Password
           </CardTitle>
           <CardDescription>

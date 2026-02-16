@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch, queryClient } from "@/lib/queryClient";
-import { Camera, Trash2, Upload, ImageIcon, ZoomIn, ZoomOut, RotateCw, Check } from "lucide-react";
+import { Trash2, Upload, ImageIcon, ZoomIn, ZoomOut, RotateCw, Check } from "lucide-react";
 
 interface StationImageUploadProps {
   stationId: number;
@@ -203,6 +203,19 @@ export function StationImageUpload({
     setIsUploading(true);
     try {
       const processedImage = await processImage(originalImage, scale, rotation);
+      
+      // Validate processed image size against server limit (5MB)
+      const imageSizeBytes = processedImage.length * 0.75; // base64 to bytes estimate
+      if (imageSizeBytes > 5 * 1024 * 1024) {
+        toast({
+          title: "Image too large",
+          description: "Processed image exceeds 5MB. Try reducing the size slider.",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        return;
+      }
+      
       setPreviewUrl(processedImage);
       uploadMutation.mutate(processedImage);
     } catch (error) {
@@ -233,8 +246,7 @@ export function StationImageUpload({
   return (
     <Card className="w-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          <Camera className="h-5 w-5" />
+        <CardTitle className="text-lg" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Station Image
         </CardTitle>
       </CardHeader>

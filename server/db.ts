@@ -122,7 +122,7 @@ async function runStartupCleanup(database: Database): Promise<void> {
       const connectionType = (row[2] as string || '').toLowerCase();
       
       // Delete demo stations
-      if (name.includes('demo') || name.includes('elsa') || connectionType === 'demo') {
+      if (name.includes('demo') || connectionType === 'demo') {
         toDelete.push(id);
         dbLog.info(`Marking demo station for deletion: ${row[1]} (ID: ${id})`);
         continue;
@@ -484,6 +484,7 @@ async function runMigrations(database: Database): Promise<void> {
         parameter TEXT NOT NULL,
         condition TEXT NOT NULL,
         threshold REAL NOT NULL,
+        stale_minutes INTEGER,
         severity TEXT DEFAULT 'warning',
         enabled INTEGER DEFAULT 1,
         email_notifications INTEGER DEFAULT 0,
@@ -1757,6 +1758,24 @@ export function acknowledgeAlarmEvent(eventId: number, acknowledgedBy: string): 
   dbLog.info(`Alarm event ${eventId} acknowledged by ${acknowledgedBy}`);
 }
 
+export function deleteAlarmEvent(eventId: number): void {
+  if (!db) throw new Error('Database not initialized');
+  db.run('DELETE FROM alarm_events WHERE id = ?', [eventId]);
+  saveDatabase();
+  dbLog.info(`Deleted alarm event ${eventId}`);
+}
+
+export function cleanupOldAlarmEvents(daysToKeep: number = 30): number {
+  if (!db) throw new Error('Database not initialized');
+  const cutoff = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString();
+  db.run('DELETE FROM alarm_events WHERE created_at < ?', [cutoff]);
+  saveDatabase();
+  const countResult = db.exec('SELECT changes() as cnt');
+  const count = countResult.length > 0 && countResult[0].values.length > 0 ? (countResult[0].values[0][0] as number) : 0;
+  if (count > 0) dbLog.info(`Cleaned up ${count} alarm events older than ${daysToKeep} days`);
+  return count;
+}
+
 // ==================== Dropbox Config Functions ====================
 
 export interface DropboxConfigRow {
@@ -2039,6 +2058,8 @@ export default {
   triggerAlarm,
   getAlarmEvents,
   acknowledgeAlarmEvent,
+  deleteAlarmEvent,
+  cleanupOldAlarmEvents,
   // Dropbox config functions
   getAllDropboxConfigs,
   getDropboxConfigById,

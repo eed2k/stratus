@@ -30,8 +30,7 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
-  Settings2,
-  RefreshCw
+  Settings2
 } from "lucide-react";
 import {
   DASHBOARD_CATEGORIES,
@@ -120,8 +119,7 @@ export function DashboardConfigPanel({ config, onConfigChange }: DashboardConfig
             {/* Update Settings */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4" />
+                <CardTitle className="text-sm font-medium">
                   Update Settings
                 </CardTitle>
               </CardHeader>

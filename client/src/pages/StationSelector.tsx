@@ -7,8 +7,6 @@ import {
   MapPin, 
   AlertCircle,
   CheckCircle2,
-  Clock,
-  BarChart3,
   Settings,
   ArrowRight,
   Camera
@@ -28,6 +26,8 @@ interface Station {
   longitude: number | null;
   altitude: number | null;
   connectionType: string;
+  stationType?: string | null;
+  dataloggerModel?: string | null;
   isActive: boolean;
   lastSyncTime: string | null;
   stationImage?: string | null;
@@ -37,7 +37,6 @@ interface Station {
     windSpeed: number | null;
     timestamp: string;
   };
-  recordCount?: number;
 }
 
 interface StationSelectorProps {
@@ -58,30 +57,26 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
       if (!res.ok) throw new Error("Failed to fetch stations");
       const stationList = await res.json();
       
-      // Fetch latest reading for each station
+      // Fetch latest reading for each station (single record, not 24h range)
       const stationsWithData = await Promise.all(
         stationList.map(async (station: Station) => {
           try {
-            const endTime = new Date();
-            const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
             const dataRes = await authFetch(
-              `/api/stations/${station.id}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+              `/api/stations/${station.id}/data/latest`
             );
             if (dataRes.ok) {
-              const data = await dataRes.json();
-              // Data comes sorted by timestamp DESC, so first element is the latest
-              const latestReading = data.length > 0 ? data[0] : null;
+              const latestReading = await dataRes.json();
+              const hasData = latestReading && latestReading.timestamp;
               return {
                 ...station,
-                lastReading: latestReading ? {
+                lastReading: hasData ? {
                   temperature: latestReading.temperature,
                   humidity: latestReading.humidity,
                   windSpeed: latestReading.windSpeed,
                   timestamp: latestReading.timestamp
                 } : undefined,
-                recordCount: data.length,
                 // Prefer station.lastConnected (actual sync time), then collectedAt, then datalogger timestamp
-                lastSyncTime: (station as any).lastConnected || latestReading?.collectedAt || latestReading?.timestamp || station.lastSyncTime
+                lastSyncTime: (station as any).lastConnected || (station as any).lastConnectionTime || latestReading?.collectedAt || latestReading?.timestamp || station.lastSyncTime
               };
             }
           } catch (e) {
@@ -93,7 +88,9 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
       
       return stationsWithData;
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 15000, // Refresh every 15 seconds for live preview
+    refetchOnWindowFocus: true, // Refresh when tab regains focus
+    staleTime: 10000, // Consider data fresh for 10 seconds
   });
 
   // Filter stations based on user permissions
@@ -102,8 +99,9 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
   );
 
   const formatLastSync = (timestamp: string | null) => {
-    if (!timestamp) return "Never";
+    if (!timestamp) return null; // Return null instead of "Never"
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return null;
     return date.toLocaleString('en-ZA', {
       timeZone: 'Africa/Johannesburg',
       day: '2-digit',
@@ -113,6 +111,20 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
       minute: '2-digit',
       hour12: false,
     });
+  };
+
+  const formatTimeSince = (timestamp: string | null) => {
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return null;
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHrs = Math.floor(diffMin / 60);
+    if (diffHrs < 24) return `${diffHrs}h ${diffMin % 60}m ago`;
+    const diffDays = Math.floor(diffHrs / 24);
+    return `${diffDays}d ${diffHrs % 24}h ago`;
   };
 
   if (isLoading) {
@@ -193,7 +205,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
           {accessibleStations.map(station => (
             <Card 
               key={station.id} 
-              className="group cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 active:scale-[0.98]"
+              className="group cursor-pointer transition-all border-2 border-border shadow-md hover:shadow-xl hover:border-primary active:scale-[0.98]"
               onClick={() => onSelectStation(station.id)}
             >
               {/* Station Image */}
@@ -234,18 +246,18 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                         {station.altitude ? ` • ${station.altitude}m` : ''}
                       </CardDescription>
                     )}
-                    <Badge variant="outline" className="text-xs mt-1 bg-sky-50 text-sky-700 border-sky-200">
-                      Campbell Scientific
+                    <Badge variant="outline" className="text-xs mt-1 border-blue-300 text-blue-700 bg-blue-50">
+                      {station.dataloggerModel || (station.stationType ? station.stationType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : station.connectionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}
                     </Badge>
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     {station.isActive ? (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+                      <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 text-xs">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Active
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="bg-gray-50 text-gray-500 text-xs">
+                      <Badge variant="outline" className="border-gray-300 text-gray-600 bg-transparent text-xs">
                         Inactive
                       </Badge>
                     )}
@@ -257,14 +269,20 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                 
                 {/* Stats Footer */}
                 <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                    <span>Last sync: {formatLastSync(station.lastSyncTime)}</span>
-                  </div>
-                  {station.recordCount !== undefined && (
-                    <div className="flex items-center gap-1">
-                      <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
-                      <span>{station.recordCount.toLocaleString()} records</span>
+                  {formatLastSync(station.lastSyncTime) ? (
+                    <>
+                      <div>
+                        <Badge variant="outline" className="border-black text-black bg-transparent text-xs" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                          {formatTimeSince(station.lastSyncTime)} &middot; {formatLastSync(station.lastSyncTime)}
+                        </Badge>
+                      </div>
+
+                    </>
+                  ) : (
+                    <div className="w-full">
+                      <Button variant="outline" size="sm" className="w-full border-blue-300 text-blue-600 bg-blue-50 hover:bg-blue-100" disabled>
+                        Station Disconnected
+                      </Button>
                     </div>
                   )}
                 </div>

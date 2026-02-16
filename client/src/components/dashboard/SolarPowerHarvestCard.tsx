@@ -18,11 +18,6 @@ import {
 interface SolarPowerHarvestCardProps {
   /** Current solar radiation in W/m² */
   currentRadiation: number | null | undefined;
-  /** Historical radiation data for calculations */
-  historicalData?: Array<{
-    timestamp: string;
-    solarRadiation: number;
-  }>;
   /** Solar panel efficiency (default 18%) */
   panelEfficiency?: number;
   /** System losses (inverter, wiring, etc. - default 15%) */
@@ -168,7 +163,6 @@ export function SolarPowerHarvestCard({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Sun className="h-12 w-12 text-muted-foreground/30 mb-3" />
             <p className="text-sm font-medium text-muted-foreground">No Data</p>
             <p className="text-xs text-muted-foreground/70 mt-1">
               Solar radiation data is not available for this station
@@ -204,35 +198,35 @@ export function SolarPowerHarvestCard({
           {/* Energy Estimates Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-yellow-50 to-orange-50 p-3">
-              <p className="text-xs font-medium text-yellow-700 mb-1">Daily</p>
-              <p className="text-lg font-semibold text-yellow-900">
+              <p className="text-xs font-normal text-yellow-700 mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(estimates.dailyEnergy, 2)}
               </p>
-              <p className="text-xs text-yellow-600">kWh/m²</p>
+              <p className="text-xs text-yellow-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-orange-50 to-amber-50 p-3">
-              <p className="text-xs font-medium text-orange-700 mb-1">Weekly</p>
-              <p className="text-lg font-semibold text-orange-900">
+              <p className="text-xs font-normal text-orange-700 mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Weekly</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(estimates.weeklyEnergy, 1)}
               </p>
-              <p className="text-xs text-orange-600">kWh/m²</p>
+              <p className="text-xs text-orange-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-3">
-              <p className="text-xs font-medium text-amber-700 mb-1">Monthly</p>
-              <p className="text-lg font-semibold text-amber-900">
+              <p className="text-xs font-normal text-amber-700 mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(estimates.monthlyEnergy, 1)}
               </p>
-              <p className="text-xs text-amber-600">kWh/m²</p>
+              <p className="text-xs text-amber-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-green-50 to-emerald-50 p-3">
-              <p className="text-xs font-medium text-green-700 mb-1">Yearly</p>
-              <p className="text-lg font-semibold text-green-900">
+              <p className="text-xs font-normal text-green-700 mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(estimates.yearlyEnergy, 0)}
               </p>
-              <p className="text-xs text-green-600">kWh/m²</p>
+              <p className="text-xs text-green-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
           </div>
 
@@ -240,14 +234,14 @@ export function SolarPowerHarvestCard({
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-600">Peak Sun Hours (Daily Avg)</p>
-                <p className="text-lg font-semibold text-gray-900">
+                <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours (Daily Avg)</p>
+                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(estimates.peakSunHours, 1)} hours
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-medium text-gray-600">Current Radiation</p>
-                <p className="text-lg font-semibold text-gray-900">
+                <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
+                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(currentRadiation ?? 0, 0)} W/m²
                 </p>
               </div>
@@ -256,7 +250,7 @@ export function SolarPowerHarvestCard({
 
           {/* Daily Power Curve Chart */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-600">Daily Power Generation Curve</p>
+            <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Power Generation Curve</p>
             <div className="h-32">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyChartData}>
@@ -297,7 +291,7 @@ export function SolarPowerHarvestCard({
 
           {/* Monthly Energy Potential Chart */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-600">Monthly Energy Potential (kWh/m²)</p>
+            <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential (kWh/m²)</p>
             <div className="h-32">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyChartData}>
@@ -327,7 +321,7 @@ export function SolarPowerHarvestCard({
           </div>
 
           {/* Info Text */}
-          <p className="text-[10px] text-muted-foreground text-center">
+          <p className="text-[10px] text-gray-500 text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Estimates based on {safeFixed(panelEfficiency * 100, 0)}% panel efficiency, {safeFixed(systemLosses * 100, 0)}% system losses.
             Actual output varies with weather, shading, and panel orientation.
           </p>

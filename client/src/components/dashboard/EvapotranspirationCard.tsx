@@ -67,24 +67,24 @@ export function EvapotranspirationCard({
                 <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(dailyETo, 2)}
                 </span>
-                <span className="text-sm font-normal text-gray-500">mm/day</span>
+                <span className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>mm/day</span>
               </div>
-              <p className={`text-sm ${status.color}`}>{status.status}</p>
+              <p className={`text-sm ${status.color}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{status.status}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500">Current Rate</p>
-              <p className="text-lg font-normal text-black">{safeFixed(currentETo, 3)} mm/hr</p>
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Rate</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(currentETo, 3)} mm/hr</p>
             </div>
           </div>
 
           {/* Status description */}
           <div className="p-2 rounded-lg bg-gray-50 border border-gray-200">
-            <p className="text-xs text-gray-600">{status.description}</p>
+            <p className="text-xs text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{status.description}</p>
           </div>
 
           {/* Hourly ETo chart */}
           <div className="space-y-1">
-            <p className="text-xs text-gray-500">24-Hour Pattern</p>
+            <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>24-Hour Pattern</p>
             {chartData.length > 0 ? (
               <div className="h-12 flex items-end gap-0.5">
                 {chartData.map((val, i) => {
@@ -109,20 +109,20 @@ export function EvapotranspirationCard({
           {/* Cumulative values */}
           <div className="grid grid-cols-4 gap-2">
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs text-gray-500">24h</p>
-              <p className="text-sm font-normal text-black">{safeFixed(dailyETo, 1)} mm</p>
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>24h</p>
+              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(dailyETo, 1)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs text-gray-500">7d</p>
-              <p className="text-sm font-normal text-black">{safeFixed(weeklyETo ?? dailyETo * 7, 1)} mm</p>
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>7d</p>
+              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(weeklyETo ?? dailyETo * 7, 1)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs text-gray-500">30d</p>
-              <p className="text-sm font-normal text-black">{safeFixed(monthlyETo ?? dailyETo * 30, 0)} mm</p>
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>30d</p>
+              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(monthlyETo ?? dailyETo * 30, 0)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs text-gray-500">Year</p>
-              <p className="text-sm font-normal text-black">{safeFixed(yearlyETo ?? dailyETo * 365, 0)} mm</p>
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Year</p>
+              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(yearlyETo ?? dailyETo * 365, 0)} mm</p>
             </div>
           </div>
 

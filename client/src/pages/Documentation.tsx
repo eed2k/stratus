@@ -38,7 +38,7 @@ export default function Documentation() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Copyright</span>
-                <span className="font-medium">© 2025–2026 Lukas Esterhuizen</span>
+                <span className="font-medium">&copy; 2025-2026 Lukas Esterhuizen</span>
               </div>
             </div>
           </CardContent>
@@ -78,8 +78,8 @@ export default function Documentation() {
               </h4>
               <ul className="space-y-1.5 text-muted-foreground ml-4 list-disc">
                 <li>
-                  <span className="text-foreground font-medium">Recharts</span>{" "}
-                  — Xiao Lin (xiao-lin) and the Recharts contributors.
+                  <span className="text-foreground font-medium">Recharts</span>
+                  {" - "}Xiao Lin (xiao-lin) and the Recharts contributors.
                   Composable React charting library used for all weather data
                   charts, temperature history, pressure trends, and fire-danger
                   graphs.
@@ -87,8 +87,8 @@ export default function Documentation() {
                 <li>
                   <span className="text-foreground font-medium">
                     Wind Rose &amp; Wind Scatter
-                  </span>{" "}
-                  — Custom SVG implementation using
+                  </span>
+                  {" - "}Custom SVG implementation using
                   WMO-standard Beaufort-scale speed classifications for polar
                   wind plots.
                 </li>
@@ -103,28 +103,28 @@ export default function Documentation() {
               </h4>
               <ul className="space-y-1.5 text-muted-foreground ml-4 list-disc">
                 <li>
-                  <span className="text-foreground font-medium">shadcn/ui</span>{" "}
-                  — shadcn (Shadid Haque). Beautiful, accessible component
+                  <span className="text-foreground font-medium">shadcn/ui</span>
+                  {" - "}shadcn (Shadid Haque). Beautiful, accessible component
                   system built on Radix UI primitives.
                 </li>
                 <li>
-                  <span className="text-foreground font-medium">Radix UI</span>{" "}
-                  — Pedro Duarte, Jenna Smith, and the WorkOS team.
+                  <span className="text-foreground font-medium">Radix UI</span>
+                  {" - "}Pedro Duarte, Jenna Smith, and the WorkOS team.
                   Unstyled, accessible headless UI primitives powering dialogs,
                   selects, tabs, tooltips, and more.
                 </li>
                 <li>
                   <span className="text-foreground font-medium">
                     Tailwind CSS
-                  </span>{" "}
-                  — Adam Wathan and the Tailwind Labs team. Utility-first CSS
+                  </span>
+                  {" - "}Adam Wathan and the Tailwind Labs team. Utility-first CSS
                   framework for rapid, consistent styling.
                 </li>
                 <li>
                   <span className="text-foreground font-medium">
                     Lucide React
-                  </span>{" "}
-                  — The Lucide contributors (fork of Feather Icons by Cole Bemis).
+                  </span>
+                  {" - "}The Lucide contributors (fork of Feather Icons by Cole Bemis).
                   Icon set used throughout the interface.
                 </li>
               </ul>
@@ -132,25 +132,25 @@ export default function Documentation() {
 
             {/* Maps */}
             <div>
-              <h4 className="font-medium mb-2 flex items-center gap-2">
+              <h4 className="font-medium mb-2">
                 Mapping
               </h4>
               <ul className="space-y-1.5 text-muted-foreground ml-4 list-disc">
                 <li>
-                  <span className="text-foreground font-medium">Leaflet</span>{" "}
-                  — Volodymyr Agafonkin. Lightweight interactive map library
+                  <span className="text-foreground font-medium">Leaflet</span>
+                  {" - "}Volodymyr Agafonkin. Lightweight interactive map library
                   used for station location display.
                 </li>
                 <li>
                   <span className="text-foreground font-medium">
                     React Leaflet
-                  </span>{" "}
-                  — Paul Le Cam. React components for Leaflet maps.
+                  </span>
+                  {" - "}Paul Le Cam. React components for Leaflet maps.
                 </li>
                 <li>
-                  <span className="text-foreground font-medium">Windy API</span>{" "}
-                  — Windyty SE. Weather forecast map overlays (wind, rain,
-                  temperature, pressure, CAPE).
+                  <span className="text-foreground font-medium">OpenStreetMap</span>
+                  {" - "}OpenStreetMap Foundation and contributors. Free, editable
+                  map tile layer and Nominatim geocoding service.
                 </li>
               </ul>
             </div>
@@ -163,53 +163,79 @@ export default function Documentation() {
               </h4>
               <ul className="space-y-1.5 text-muted-foreground ml-4 list-disc">
                 <li>
-                  <span className="text-foreground font-medium">Express</span>{" "}
-                  — TJ Holowaychuk and the Express contributors. HTTP server
+                  <span className="text-foreground font-medium">Express</span>
+                  {" - "}TJ Holowaychuk and the Express contributors. HTTP server
                   framework.
                 </li>
                 <li>
                   <span className="text-foreground font-medium">
                     Drizzle ORM
-                  </span>{" "}
-                  — Oleksii Khoroshulin (Alex Blokh) and the Drizzle Team.
+                  </span>
+                  {" - "}Oleksii Khoroshulin (Alex Blokh) and the Drizzle Team.
                   Type-safe PostgreSQL ORM.
                 </li>
                 <li>
                   <span className="text-foreground font-medium">
                     TanStack Query
-                  </span>{" "}
-                  — Tanner Linsley. Powerful async data-fetching and caching
+                  </span>
+                  {" - "}Tanner Linsley. Powerful async data-fetching and caching
                   for React.
                 </li>
                 <li>
-                  <span className="text-foreground font-medium">Zod</span>{" "}
-                  — Colin McDonnell. Runtime schema validation for API
+                  <span className="text-foreground font-medium">Zod</span>
+                  {" - "}Colin McDonnell. Runtime schema validation for API
                   payloads, forms, and configuration.
+                </li>
+                <li>
+                  <span className="text-foreground font-medium">
+                    Neon Serverless Postgres
+                  </span>
+                  {" - "}Neon, Inc. Serverless PostgreSQL database with HTTP and
+                  WebSocket drivers for cloud-native storage.
+                </li>
+                <li>
+                  <span className="text-foreground font-medium">
+                    Dropbox SDK
+                  </span>
+                  {" - "}Dropbox, Inc. OAuth 2.0 API for automated weather data
+                  file synchronisation from remote loggers.
+                </li>
+                <li>
+                  <span className="text-foreground font-medium">date-fns</span>
+                  {" - "}Sasha Koss and the date-fns contributors. Modern
+                  JavaScript date utility library.
+                </li>
+                <li>
+                  <span className="text-foreground font-medium">
+                    React Router
+                  </span>
+                  {" - "}Remix Software. Declarative client-side routing for
+                  single-page navigation.
                 </li>
               </ul>
             </div>
 
             {/* Build & Desktop */}
             <div>
-              <h4 className="font-medium mb-2 flex items-center gap-2">
+              <h4 className="font-medium mb-2">
                 Build &amp; Desktop
               </h4>
               <ul className="space-y-1.5 text-muted-foreground ml-4 list-disc">
                 <li>
-                  <span className="text-foreground font-medium">Vite</span>{" "}
-                  — Evan You and the Vite team. Next-generation frontend build
+                  <span className="text-foreground font-medium">Vite</span>
+                  {" - "}Evan You and the Vite team. Next-generation frontend build
                   tool.
                 </li>
                 <li>
-                  <span className="text-foreground font-medium">Electron</span>{" "}
-                  — GitHub / OpenJS Foundation. Cross-platform desktop
+                  <span className="text-foreground font-medium">Electron</span>
+                  {" - "}GitHub / OpenJS Foundation. Cross-platform desktop
                   application shell.
                 </li>
                 <li>
                   <span className="text-foreground font-medium">
                     electron-builder
-                  </span>{" "}
-                  — Vladimir Krivosheev (develar). Packaging and distribution
+                  </span>
+                  {" - "}Vladimir Krivosheev (develar). Packaging and distribution
                   for Electron apps.
                 </li>
               </ul>
@@ -217,30 +243,30 @@ export default function Documentation() {
 
             {/* Weather / Scientific */}
             <div>
-              <h4 className="font-medium mb-2 flex items-center gap-2">
+              <h4 className="font-medium mb-2">
                 Meteorological Calculations
               </h4>
               <ul className="space-y-1.5 text-muted-foreground ml-4 list-disc">
                 <li>
                   <span className="text-foreground font-medium">
                     FAO Penman-Monteith
-                  </span>{" "}
-                  — Evapotranspiration (ETo) calculations follow the FAO-56
+                  </span>
+                  {" - "}Evapotranspiration (ETo) calculations follow the FAO-56
                   reference method (Allen, Pereira, Raes &amp; Smith, 1998).
                 </li>
                 <li>
                   <span className="text-foreground font-medium">
                     McArthur Forest Fire Danger Index
-                  </span>{" "}
-                  — Fire danger rating adapted from A.G. McArthur's empirical
+                  </span>
+                  {" - "}Fire danger rating adapted from A.G. McArthur's empirical
                   FFDI model (1967), as revised by Noble, Gill &amp; Bary
                   (1980).
                 </li>
                 <li>
                   <span className="text-foreground font-medium">
                     WMO Beaufort Scale
-                  </span>{" "}
-                  — Wind speed classifications follow World Meteorological
+                  </span>
+                  {" - "}Wind speed classifications follow World Meteorological
                   Organization standards for surface wind observation.
                 </li>
               </ul>
