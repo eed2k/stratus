@@ -1,6 +1,4 @@
 User-agent: *
-Allow: /welcome
-Allow: /landing.html
 Disallow: /api/
 
 Sitemap: https://stratusweather.co.za/sitemap.xml
