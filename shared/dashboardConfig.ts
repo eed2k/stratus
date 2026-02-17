@@ -669,6 +669,26 @@ export const UPDATE_PERIOD_OPTIONS = [
 ];
 
 // Default dashboard configuration - ALL parameters enabled for demo
+export interface SectionVisibility {
+  waterSensors: boolean;
+  windAnalysis: boolean;
+  windEnergy: boolean;
+  solarRadiation: boolean;
+  soilEnvironment: boolean;
+  fireDanger: boolean;
+  loggerBattery: boolean;
+}
+
+export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
+  waterSensors: true,
+  windAnalysis: true,
+  windEnergy: true,
+  solarRadiation: true,
+  soilEnvironment: true,
+  fireDanger: true,
+  loggerBattery: true,
+};
+
 export interface DashboardConfig {
   enabledParameters: string[];
   updatePeriod: number; // in seconds
@@ -676,6 +696,7 @@ export interface DashboardConfig {
   showTrendCharts: boolean;
   showWindRose: boolean;
   compactMode: boolean;
+  sectionVisibility: SectionVisibility;
 }
 
 // Get all parameter IDs for full demo experience
@@ -690,7 +711,8 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
   chartTimeRange: 24,
   showTrendCharts: true,
   showWindRose: true,
-  compactMode: false
+  compactMode: false,
+  sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY },
 };
 
 // Helper to get all parameters as flat array

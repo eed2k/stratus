@@ -36,10 +36,22 @@ import {
   DASHBOARD_CATEGORIES,
   UPDATE_PERIOD_OPTIONS,
   DEFAULT_DASHBOARD_CONFIG,
+  DEFAULT_SECTION_VISIBILITY,
   type DashboardConfig,
   type DashboardCategory,
-  type DashboardParameter
+  type DashboardParameter,
+  type SectionVisibility
 } from "../../../../shared/dashboardConfig";
+
+const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
+  waterSensors: 'Water & Sensors',
+  windAnalysis: 'Wind Analysis',
+  windEnergy: 'Wind Energy Assessment',
+  solarRadiation: 'Solar Radiation',
+  soilEnvironment: 'Soil & Environment',
+  fireDanger: 'Fire Danger Index',
+  loggerBattery: 'Logger & Battery',
+};
 
 const CHART_TIME_RANGE_OPTIONS = [
   { value: 6, label: '6 hours' },
@@ -192,6 +204,36 @@ export function DashboardConfigPanel({ config, onConfigChange }: DashboardConfig
                     />
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Section Visibility */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">
+                  Dashboard Sections
+                </CardTitle>
+                <CardDescription>
+                  Toggle which sections are visible on the dashboard
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(Object.keys(SECTION_LABELS) as (keyof SectionVisibility)[]).map((key) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <Label htmlFor={`section-${key}`}>{SECTION_LABELS[key]}</Label>
+                    <Switch
+                      id={`section-${key}`}
+                      checked={(localConfig.sectionVisibility ?? DEFAULT_SECTION_VISIBILITY)[key]}
+                      onCheckedChange={(v) => setLocalConfig((prev: DashboardConfig) => ({
+                        ...prev,
+                        sectionVisibility: {
+                          ...(prev.sectionVisibility ?? DEFAULT_SECTION_VISIBILITY),
+                          [key]: v
+                        }
+                      }))}
+                    />
+                  </div>
+                ))}
               </CardContent>
             </Card>
 

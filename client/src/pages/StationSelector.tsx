@@ -97,7 +97,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
   // Filter stations based on user permissions
   const accessibleStations = stations.filter(station => 
     isAdmin || canAccessStation(station.id)
-  );
+  ).sort((a, b) => a.id - b.id);
 
   const formatLastSync = (timestamp: string | null) => {
     if (!timestamp) return null; // Return null instead of "Never"
@@ -285,10 +285,10 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
 
                     </>
                   ) : (
-                    <div className="w-full">
-                      <Button variant="outline" size="sm" className="w-full border-blue-300 text-blue-600 bg-blue-50 hover:bg-blue-100" disabled>
-                        Station Disconnected
-                      </Button>
+                    <div>
+                      <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50 text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                        Awaiting Data
+                      </Badge>
                     </div>
                   )}
                 </div>

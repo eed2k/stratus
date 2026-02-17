@@ -633,12 +633,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const selectedStation = stations.find(s => s.id === activeStationId);
 
 
-  const stationOptions = stations.map(s => ({
-    id: String(s.id),
-    name: s.name,
-    location: s.location || "",
-    isOnline: s.isActive || false,
-  }));
+  const stationOptions = [...stations]
+    .sort((a, b) => a.id - b.id)
+    .map(s => ({
+      id: String(s.id),
+      name: s.name,
+      location: s.location || "",
+      isOnline: s.isActive || false,
+    }));
 
   // Check if viewing demo station (hide admin panels for demo)
   const isDemoStation = selectedStation?.connectionType === 'demo';
@@ -744,7 +746,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   }, [currentData.temperature, currentData.humidity]);
 
   // Use station-reported dew point, or calculated fallback
-  const effectiveDewPoint = currentData.dewPoint ?? calculatedDewPoint ?? 0;
+  // Only produce a value when there's actual data — never fall back to 0
+  const effectiveDewPoint = currentData.dewPoint ?? calculatedDewPoint ?? null;
 
   // Calculate sea level pressure
   // RIKA stations report SLP (sea-level corrected pressure) as type_code 3003,
@@ -1045,7 +1048,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           windDirection={currentData.windDirection ?? undefined}
           solarRadiation={currentData.solarRadiation ?? undefined}
           rainfall={currentData.rainfall ?? undefined}
-          dewPoint={effectiveDewPoint != null ? effectiveDewPoint : undefined}
+          dewPoint={effectiveDewPoint != null && effectiveDewPoint !== 0 ? effectiveDewPoint : undefined}
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType ?? undefined}
           syncInterval={3600000} // 1 hour Dropbox sync interval
@@ -1121,7 +1124,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#3b82f6"
             />
             )}
-            {(hasValidData(currentData.dewPoint) || calculatedDewPoint !== null) && (
+            {effectiveDewPoint != null && (
               <MetricCard
                 title="Dew Point"
                 value={formatValue(effectiveDewPoint, 1)}
@@ -1233,7 +1236,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Logger Battery Section - Only show if battery data exists */}
-        {hasValidData(currentData.batteryVoltage) && (
+        {dashboardConfig.sectionVisibility?.loggerBattery !== false && hasValidData(currentData.batteryVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
           {/* Battery Not Charging Warning */}
@@ -1282,8 +1285,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Water & Sensors Section - Only show if any water/sensor data exists */}
-        {(availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.chargerVoltage) && (
+        {/* Water & Sensors Section - Only show if any water/sensor data exists AND section enabled */}
+        {dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.chargerVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1386,104 +1389,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Custom Data Blocks - Wind Dir Std Dev, SDI-12, Pump & Port Status */}
-        {(availableFields.windDirStdDev || availableFields.sdi12WindVector || availableFields.pumpSelectWell || availableFields.pumpSelectBore || availableFields.portStatusC1 || availableFields.portStatusC2) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Station Controls & Wind Quality</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {hasValidData(currentData.windDirStdDev) && (
-              <MetricCard
-                title="Wind Dir Std Dev"
-                value={formatValue(currentData.windDirStdDev || 0, 1)}
-                unit="°"
-                sparklineData={chartData.slice(-24).map(d => d.windDirStdDev).filter((v): v is number => v != null)}
-                chartColor="#6366f1"
-              />
-            )}
-            {hasValidData(currentData.sdi12WindVector) && (
-              <MetricCard
-                title="Wind Vector Count"
-                value={formatValue(currentData.sdi12WindVector || 0, 0)}
-                unit="samples"
-                sparklineData={chartData.slice(-24).map(d => d.sdi12WindVector).filter((v): v is number => v != null)}
-                chartColor="#8b5cf6"
-              />
-            )}
-            {hasValidData(currentData.pumpSelectWell) && (
-              <MetricCard
-                title="Well Pump"
-                value={currentData.pumpSelectWell ? "ON" : "OFF"}
-                unit=""
-                sparklineData={chartData.slice(-24).map(d => d.pumpSelectWell).filter((v): v is number => v != null)}
-                chartColor="#0891b2"
-              />
-            )}
-            {hasValidData(currentData.pumpSelectBore) && (
-              <MetricCard
-                title="Borehole Pump"
-                value={currentData.pumpSelectBore ? "ON" : "OFF"}
-                unit=""
-                sparklineData={chartData.slice(-24).map(d => d.pumpSelectBore).filter((v): v is number => v != null)}
-                chartColor="#0d9488"
-              />
-            )}
-            {hasValidData(currentData.portStatusC1) && (
-              <MetricCard
-                title="Valve C1"
-                value={currentData.portStatusC1 ? "OPEN" : "CLOSED"}
-                unit=""
-                sparklineData={chartData.slice(-24).map(d => d.portStatusC1).filter((v): v is number => v != null)}
-                chartColor="#d946ef"
-              />
-            )}
-            {hasValidData(currentData.portStatusC2) && (
-              <MetricCard
-                title="Relay C2"
-                value={currentData.portStatusC2 ? "ON" : "OFF"}
-                unit=""
-                sparklineData={chartData.slice(-24).map(d => d.portStatusC2).filter((v): v is number => v != null)}
-                chartColor="#a855f7"
-              />
-            )}
-          </div>
-          {/* Custom Data Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {availableFields.windDirStdDev && (
-              <DataBlockChart
-                title="Wind Direction Std Dev"
-                data={chartData}
-                series={[
-                  { dataKey: "windDirStdDev", name: "Wind Dir Std Dev", color: "#6366f1", unit: "°" },
-                ]}
-                chartType="line"
-                xAxisLabel="Time"
-                yAxisLabel="Std Dev"
-                showAverage={true}
-                showMinMax={true}
-                currentValue={currentData.windDirStdDev || 0}
-              />
-            )}
-            {availableFields.sdi12WindVector && (
-              <DataBlockChart
-                title="Wind Vector Sample Count"
-                data={chartData}
-                series={[
-                  { dataKey: "sdi12WindVector", name: "Vector Count", color: "#8b5cf6", unit: "samples" },
-                ]}
-                chartType="line"
-                xAxisLabel="Time"
-                yAxisLabel="Value"
-                showAverage={true}
-                showMinMax={true}
-                currentValue={currentData.sdi12WindVector || 0}
-              />
-            )}
-          </div>
-        </section>
-        )}
-
         {/* Solar & Radiation Section - only show when station has coordinates or solar data */}
-        {(hasStationCoordinates || hasValidData(currentData.solarRadiation) || hasValidData(currentData.uvIndex) || availableFields.solarRadiation) && (
+        {dashboardConfig.sectionVisibility?.solarRadiation !== false && (hasStationCoordinates || hasValidData(currentData.solarRadiation) || hasValidData(currentData.uvIndex) || availableFields.solarRadiation) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar Position & Radiation</h2>
           
@@ -1664,7 +1571,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Soil & Environment Section - Only show if any soil/air quality data exists */}
-        {(hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture) || hasValidData(currentData.pm25) || hasValidData(currentData.pm10)) && (
+        {dashboardConfig.sectionVisibility?.soilEnvironment !== false && (hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture) || hasValidData(currentData.pm25) || hasValidData(currentData.pm10)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1783,7 +1690,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Wind Direction Compass & Charts - Only show if wind data available */}
-        {(availableFields.windSpeed || availableFields.windDirection) && (
+        {dashboardConfig.sectionVisibility?.windAnalysis !== false && (availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-6">
           <h2 className="text-base font-normal text-foreground">Wind Analysis (WMO/Beaufort Scale)</h2>
           
@@ -1817,18 +1724,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             
             {/* Wind Rose - 60 Minutes */}
+            {windDataByPeriod['60min'].count > 0 && (
             <WindRose 
               data={windDataByPeriod['60min'].rose} 
               title="Wind Rose (60 min)"
               maxWindSpeed={maxWindSpeed}
             />
+            )}
             
             {/* Wind Rose - 24h */}
+            {windDataByPeriod['24h'].count > 0 && (
             <WindRose 
               data={windDataByPeriod['24h'].rose} 
               title="Wind Rose (24h)"
               maxWindSpeed={maxWindSpeed}
             />
+            )}
           </div>
           
           {/* Additional Wind Rose - 48h when more data available */}
@@ -1872,18 +1783,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             
             {/* Wind Scatter - 60 Minutes */}
+            {windDataByPeriod['60min'].count > 0 && (
             <WindRoseScatter 
               data={windDataByPeriod['60min'].scatter} 
               title="Wind Scatter (60 min)"
               maxWindSpeed={maxWindSpeed}
             />
+            )}
             
             {/* Wind Scatter - 24h */}
+            {windDataByPeriod['24h'].count > 0 && (
             <WindRoseScatter 
               data={windDataByPeriod['24h'].scatter} 
               title="Wind Scatter (24h)"
               maxWindSpeed={maxWindSpeed}
             />
+            )}
             
             {/* Wind Scatter - 48h when more data available */}
             {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && (
@@ -1916,7 +1831,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Wind Energy Section - Only show if wind data available */}
-        {(availableFields.windSpeed || availableFields.windDirection) && (
+        {dashboardConfig.sectionVisibility?.windEnergy !== false && (availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Wind Energy</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1973,7 +1888,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Fire Danger Section - Only show when we have actual data */}
-        {(hasValidData(currentData.temperature) && hasValidData(currentData.humidity) && hasValidData(currentData.windSpeed)) && (
+        {dashboardConfig.sectionVisibility?.fireDanger !== false && (hasValidData(currentData.temperature) && hasValidData(currentData.humidity) && hasValidData(currentData.windSpeed)) && (
         <section className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FireDangerCard
