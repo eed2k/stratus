@@ -289,6 +289,16 @@ export const weatherData = pgTable(
     yearET: real("year_et"),
     insideTemperature: real("inside_temperature"),
     insideHumidity: real("inside_humidity"),
+    // Water & sensor fields
+    waterLevel: real("water_level"),
+    temperatureSwitch: real("temperature_switch"),
+    levelSwitch: real("level_switch"),
+    temperatureSwitchOutlet: real("temperature_switch_outlet"),
+    levelSwitchStatus: real("level_switch_status"),
+    // Lightning
+    lightning: real("lightning"),
+    // Charger
+    chargerVoltage: real("charger_voltage"),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [

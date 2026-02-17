@@ -88,9 +88,9 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
       
       return stationsWithData;
     },
-    refetchInterval: 15000, // Refresh every 15 seconds for live preview
+    refetchInterval: 30000, // Refresh every 30 seconds for live preview
     refetchOnWindowFocus: true, // Refresh when tab regains focus
-    staleTime: 10000, // Consider data fresh for 10 seconds
+    staleTime: 20000, // Consider data fresh for 20 seconds
   });
 
   // Filter stations based on user permissions

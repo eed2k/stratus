@@ -508,7 +508,7 @@ export class DropboxSyncService extends EventEmitter {
         if (f.name.toLowerCase().includes('_copy')) return false;
         // Only include files that start with the station prefix
         if (!f.name.toLowerCase().startsWith(stationPrefix)) {
-          console.log(`[DropboxSync] Skipping ${f.name} - doesn't match station ${stationPrefix}`);
+          // Don't log skip messages for files belonging to other stations (reduces log noise)
           return false;
         }
         return true;

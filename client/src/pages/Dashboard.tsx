@@ -307,8 +307,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       return response.json();
     },
     enabled: !!activeStationId,
-    refetchInterval: Math.max(dashboardConfig.updatePeriod, 60) * 1000, // Min 60s for historical
-    staleTime: 30 * 1000, // Consider data fresh for 30 seconds to prevent rapid re-fetches
+    refetchInterval: Math.max(dashboardConfig.updatePeriod, 120) * 1000, // Min 2min for historical charts
+    staleTime: 60 * 1000, // Consider data fresh for 60 seconds to prevent rapid re-fetches
     placeholderData: keepPreviousData, // Show previous data while new range loads
   });
 
@@ -327,8 +327,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       return response.json();
     },
     enabled: !!activeStationId,
-    refetchInterval: dashboardConfig.updatePeriod * 1000,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes - stats don't change as fast
+    refetchInterval: Math.max(dashboardConfig.updatePeriod, 300) * 1000, // Min 5min for stats refresh
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes — stats data changes slowly
   });
 
   // Sort stats data by timestamp ascending
@@ -434,12 +434,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Process wind data for different time periods (60min, 24h, 48h, 7d, 31d)
   const windDataByPeriod = useMemo(() => {
     const now = Date.now();
+    const thirtyMinAgo = now - 30 * 60 * 1000;
     const oneHourAgo = now - 60 * 60 * 1000;
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
     const fortyEightHoursAgo = now - 48 * 60 * 60 * 1000;
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
     const thirtyOneDaysAgo = now - 31 * 24 * 60 * 60 * 1000;
     
+    const last30Min = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > thirtyMinAgo);
     const last60Min = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > oneHourAgo);
     const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
     const last48h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > fortyEightHoursAgo);
@@ -449,6 +451,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const last31d = windDataSource.filter(d => new Date(d.timestamp).getTime() > thirtyOneDaysAgo);
     
     return {
+      '30min': {
+        rose: processWindRoseData(last30Min),
+        scatter: processWindScatterData(last30Min),
+        count: last30Min.length
+      },
       '60min': {
         rose: processWindRoseData(last60Min),
         scatter: processWindScatterData(last60Min),
@@ -659,6 +666,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         lightning: null,
         chargerVoltage: null,
       };
+
+  // Check if station has valid GPS coordinates
+  const hasStationCoordinates = selectedStation?.latitude != null && selectedStation?.longitude != null;
 
   // Calculate solar position based on station coordinates
   const solarPosition = useMemo(() => {
@@ -1258,7 +1268,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Water Level"
                 value={formatValue(currentData.waterLevel || 0, 2)}
                 unit="m"
-                sparklineData={chartData.slice(-24).map(d => d.waterLevel)}
+                sparklineData={chartData.slice(-24).map(d => d.waterLevel).filter((v): v is number => v != null)}
                 chartColor="#3b82f6"
               />
             )}
@@ -1267,7 +1277,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Temp Switch"
                 value={formatValue(currentData.temperatureSwitch || 0, 2)}
                 unit="°C"
-                sparklineData={chartData.slice(-24).map(d => d.temperatureSwitch)}
+                sparklineData={chartData.slice(-24).map(d => d.temperatureSwitch).filter((v): v is number => v != null)}
                 chartColor="#ef4444"
               />
             )}
@@ -1284,7 +1294,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Temp Switch Outlet"
                 value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)}
                 unit="°C"
-                sparklineData={chartData.slice(-24).map(d => d.temperatureSwitchOutlet)}
+                sparklineData={chartData.slice(-24).map(d => d.temperatureSwitchOutlet).filter((v): v is number => v != null)}
                 chartColor="#f97316"
               />
             )}
@@ -1301,7 +1311,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Lightning"
                 value={formatValue(currentData.lightning || 0, 0)}
                 unit="strikes"
-                sparklineData={chartData.slice(-24).map(d => d.lightning)}
+                sparklineData={chartData.slice(-24).map(d => d.lightning).filter((v): v is number => v != null)}
                 chartColor="#eab308"
               />
             )}
@@ -1310,7 +1320,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Charger Voltage"
                 value={formatValue(currentData.chargerVoltage || 0, 2)}
                 unit="V"
-                sparklineData={chartData.slice(-24).map(d => d.chargerVoltage)}
+                sparklineData={chartData.slice(-24).map(d => d.chargerVoltage).filter((v): v is number => v != null)}
                 chartColor="#10b981"
               />
             )}
@@ -1352,12 +1362,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Solar & Radiation Section */}
+        {/* Solar & Radiation Section - only show when station has coordinates or solar data */}
+        {(hasStationCoordinates || hasValidData(currentData.solarRadiation) || hasValidData(currentData.uvIndex) || availableFields.solarRadiation) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar Position & Radiation</h2>
           
           {/* Solar Position and Air Density Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {hasStationCoordinates && (
             <SolarPositionCard
               elevation={solarPosition.elevation}
               azimuth={solarPosition.azimuth}
@@ -1368,34 +1380,43 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               solarNoon={solarPosition.solarNoon}
               dayLength={solarPosition.dayLength}
             />
+            )}
+            {(hasValidData(currentData.temperature) && hasValidData(currentData.pressure)) && (
             <AirDensityCard
               airDensity={currentData.airDensity || calculatedAirDensity}
               temperature={currentData.temperature ?? undefined}
               pressure={currentData.pressure ?? undefined}
               humidity={currentData.humidity ?? undefined}
             />
+            )}
+            {(hasValidData(currentData.temperature) && hasValidData(currentData.humidity)) && (
             <EvapotranspirationCard
               currentETo={(currentData.eto ?? calculatedETo ?? etoStats.daily ?? 0) / 24}
               dailyETo={currentData.eto ?? calculatedETo ?? etoStats.daily ?? 0}
               weeklyETo={etoStats.weekly ?? 0}
               monthlyETo={etoStats.monthly ?? 0}
             />
+            )}
           </div>
           
           {/* Solar Metrics Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            {hasStationCoordinates && (
             <MetricCard
               title="Sun Elevation"
               value={formatValue(solarPosition.elevation, 1)}
               unit="°"
               chartColor="#f59e0b"
             />
+            )}
+            {hasStationCoordinates && (
             <MetricCard
               title="Sun Azimuth"
               value={formatValue(solarPosition.azimuth, 1)}
               unit="°"
               chartColor="#fb923c"
             />
+            )}
             {hasValidData(currentData.solarRadiation) && (
             <MetricCard
               title="Solar Radiation"
@@ -1416,18 +1437,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#dc2626"
               />
             )}
+            {(hasValidData(currentData.temperature) && hasValidData(currentData.humidity)) && (
             <MetricCard
               title="Reference ETo"
               value={formatValue(currentData.eto || calculatedETo, 2)}
               unit="mm/day"
               chartColor="#22c55e"
             />
+            )}
+            {(hasValidData(currentData.temperature) && hasValidData(currentData.pressure)) && (
             <MetricCard
               title="Air Density"
               value={formatValue(currentData.airDensity || calculatedAirDensity, 3)}
               unit="kg/m³"
               chartColor="#64748b"
             />
+            )}
           </div>
           
           {/* Solar Position Charts */}
@@ -1449,6 +1474,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             )}
             {/* Sun Elevation Chart - Calculated from station coordinates */}
+            {hasStationCoordinates && (
             <DataBlockChart
               title="Sun Elevation (24h)"
               data={(() => {
@@ -1483,9 +1509,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showMinMax={true}
               currentValue={solarPosition.elevation}
             />
+            )}
           </div>
 
-          {/* Solar Power Harvesting Potential - Renewable Energy Section */}
+          {/* Solar Power Harvesting Potential - only show when solar radiation data available */}
+          {availableFields.solarRadiation && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SolarPowerHarvestCard
               currentRadiation={hasValidData(currentData.solarRadiation) ? currentData.solarRadiation : null}
@@ -1493,7 +1521,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               systemLosses={0.15}
             />
           </div>
+          )}
         </section>
+        )}
 
         {/* Station Status Section - Battery */}
         {hasValidData(currentData.batteryVoltage) && (
@@ -1657,6 +1687,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             </NoDataWrapper>
             )}
             
+            {/* Wind Rose - 30 Minutes */}
+            {windDataByPeriod['30min'].count > 0 && (
+            <WindRose 
+              data={windDataByPeriod['30min'].rose} 
+              title="Wind Rose (30 min)"
+              maxWindSpeed={maxWindSpeed}
+            />
+            )}
+            
             {/* Wind Rose - 60 Minutes */}
             <WindRose 
               data={windDataByPeriod['60min'].rose} 
@@ -1703,6 +1742,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           
           {/* Wind Scatter Plots */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {/* Wind Scatter - 30 Minutes */}
+            {windDataByPeriod['30min'].count > 0 && (
+            <WindRoseScatter 
+              data={windDataByPeriod['30min'].scatter} 
+              title="Wind Scatter (30 min)"
+              maxWindSpeed={maxWindSpeed}
+            />
+            )}
+            
             {/* Wind Scatter - 60 Minutes */}
             <WindRoseScatter 
               data={windDataByPeriod['60min'].scatter} 

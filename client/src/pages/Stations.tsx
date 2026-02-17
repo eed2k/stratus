@@ -194,8 +194,9 @@ export default function Stations() {
       
       return stationsWithData;
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 60000, // Refresh every 60 seconds
     refetchOnWindowFocus: true, // Refresh when tab regains focus
+    staleTime: 30000, // Consider fresh for 30 seconds
   });
 
   const createMutation = useMutation({

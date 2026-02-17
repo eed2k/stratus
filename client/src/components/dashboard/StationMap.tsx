@@ -243,6 +243,7 @@ export function StationMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const activeLayerRef = useRef<'street' | 'satellite'>('street');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
@@ -417,6 +418,11 @@ export function StationMap({
         };
         L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
 
+        // Track which base layer is active for "open in maps" link
+        map.on('baselayerchange', (e: any) => {
+          activeLayerRef.current = e.name === 'Satellite' ? 'satellite' : 'street';
+        });
+
         // Custom marker
         const stationIcon = L.divIcon({
           className: "custom-station-marker",
@@ -516,10 +522,18 @@ export function StationMap({
   }, [isLoading]);
 
   const openInMaps = () => {
-    window.open(
-      `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=${zoom}`,
-      "_blank"
-    );
+    if (activeLayerRef.current === 'satellite') {
+      // Open Google Maps in satellite view
+      window.open(
+        `https://www.google.com/maps/@${lat},${lng},${zoom}z/data=!3m1!1e1`,
+        "_blank"
+      );
+    } else {
+      window.open(
+        `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=${zoom}`,
+        "_blank"
+      );
+    }
   };
 
   const centerOnStation = () => {

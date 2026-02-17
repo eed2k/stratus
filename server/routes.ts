@@ -998,7 +998,10 @@ export async function registerRoutes(
           }
           
           // Handle Dropbox sync configuration
-          if (station.connectionType === 'dropbox') {
+          const isDropboxStation = station.connectionType === 'dropbox' || 
+            (connectionConfig.importSource === 'dropbox') || 
+            (connectionConfig.type === 'import-only' && connectionConfig.importSource === 'dropbox');
+          if (isDropboxStation) {
             const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
             const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
             const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
@@ -1366,17 +1369,34 @@ export async function registerRoutes(
       if (error || stationId === null) {
         return res.status(400).json({ message: error });
       }
-      const { startTime, endTime } = req.query;
+      const { startTime, endTime, limit } = req.query;
       
       if (!startTime || !endTime) {
         return res.status(400).json({ message: "startTime and endTime are required" });
       }
 
-      const data = await storage.getWeatherDataRange(
+      let data = await storage.getWeatherDataRange(
         stationId,
         new Date(startTime as string),
         new Date(endTime as string)
       );
+
+      // Server-side downsampling: if >2000 records, thin to ~1000 evenly-spaced points
+      // This prevents huge payloads for multi-day queries with minute-resolution data
+      const maxPoints = limit ? parseInt(limit as string) : 2000;
+      if (data.length > maxPoints) {
+        const step = data.length / maxPoints;
+        const sampled: typeof data = [];
+        for (let i = 0; i < data.length; i += step) {
+          sampled.push(data[Math.floor(i)]);
+        }
+        // Always include the very last (most recent) record
+        if (sampled[sampled.length - 1] !== data[data.length - 1]) {
+          sampled.push(data[data.length - 1]);
+        }
+        data = sampled;
+      }
+
       res.json(data);
     } catch (error) {
       console.error("Error fetching weather data:", error);

@@ -1338,6 +1338,76 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* RIKA Cloud Integration Card */}
+        <Card className="lg:col-span-2" data-testid="card-rika-settings">
+          <CardHeader>
+            <CardTitle className="text-lg">RIKA Cloud Integration</CardTitle>
+            <CardDescription>
+              View RIKA weather station connections managed via RikaCloud API
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(() => {
+              const rikaStations = stations?.filter((s: any) => s.connectionType === 'rikacloud') || [];
+              if (rikaStations.length === 0) {
+                return (
+                  <div className="rounded-md bg-muted/50 p-4 text-sm">
+                    <p className="font-medium text-muted-foreground">No RIKA Stations Configured</p>
+                    <p className="text-muted-foreground mt-1">
+                      Add a RIKA station from the{' '}
+                      <a href="/stations" className="text-blue-600 hover:underline font-medium">Stations</a>{' '}
+                      page using the "RikaCloud HTTP API" connection type.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Requires a RikaCloud account at{' '}
+                      <a href="https://cloud.rikacloud.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        cloud.rikacloud.com <ExternalLink className="inline h-3 w-3" />
+                      </a>
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div className="space-y-3">
+                  {rikaStations.map((station: any) => {
+                    const config = typeof station.connectionConfig === 'string' 
+                      ? JSON.parse(station.connectionConfig || '{}') 
+                      : (station.connectionConfig || {});
+                    return (
+                      <div key={station.id} className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                            <span className="font-medium">{station.name}</span>
+                          </div>
+                          <Badge variant="outline" className="text-xs">RikaCloud v2</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <div>
+                            <span className="font-medium">Account:</span>{' '}
+                            {config.rikaEmail || config.rikaAccount || '—'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Poll Interval:</span>{' '}
+                            {config.pollInterval ? `${config.pollInterval}s` : '60s'}
+                          </div>
+                          <div className="col-span-2">
+                            <span className="font-medium">API Endpoint:</span>{' '}
+                            {config.apiEndpoint || 'https://cloud.rikacloud.com (default)'}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          RIKA credentials are configured per-station during setup. Edit the station to change credentials.
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
         <Card className="lg:col-span-2" data-testid="card-security-settings">
           <CardHeader>
             <CardTitle className="text-lg">Security</CardTitle>

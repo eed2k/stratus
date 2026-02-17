@@ -76,8 +76,8 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
             <div className="w-3 h-3 rounded-full bg-white"></div>
           </div>
           <div className="flex flex-col">
-            <h2 className="font-semibold leading-tight" style={{ fontFamily: 'Arial, sans-serif', color: '#000000' }}>STRATUS</h2>
-            <span className="text-[10px] font-bold tracking-wider" style={{ fontFamily: 'Arial, sans-serif', color: '#000000' }}>WEATHER SERVER</span>
+            <h2 className="text-[16px] font-extrabold leading-tight tracking-wide" style={{ fontFamily: 'Arial, sans-serif', color: '#000000' }}>STRATUS</h2>
+            <span className="text-[11px] font-extrabold tracking-[0.2em]" style={{ fontFamily: 'Arial, sans-serif', color: '#000000' }}>WEATHER SERVER</span>
           </div>
         </div>
       </SidebarHeader>
