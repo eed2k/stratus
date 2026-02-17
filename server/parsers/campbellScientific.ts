@@ -316,7 +316,7 @@ function parseGenericCSV(content: string): ParsedFile {
  * Map Campbell Scientific field names to standard weather data fields
  * Includes comprehensive null safety checks for all field lookups
  */
-export function mapToWeatherData(record: ParsedRecord): Record<string, number | null> {
+export function mapToWeatherData(record: ParsedRecord, units?: string[], headers?: string[]): Record<string, number | null> {
   // Early return if record or data is null/undefined
   if (!record || !record.data) {
     return {};
@@ -325,17 +325,17 @@ export function mapToWeatherData(record: ParsedRecord): Record<string, number | 
   const fieldMappings: Record<string, string[]> = {
     temperature: ["AirTC", "AirTC_Avg", "Temp_C", "Temperature", "T_Avg", "Air_Temp", "Temp_Avg", "AirTemp_Avg", "AirTemp", "Temp"],
     humidity: ["RH", "RH_Avg", "Humidity", "RelHumidity", "RH_pct", "RelHumidity_Avg"],
-    pressure: ["BP_mbar", "BP_Avg", "Pressure", "BaroPres", "Baro_mbar", "Pressure_Avg", "BaroPressure_Avg", "BP_mbar_Avg"],
-    windSpeed: ["WS_ms", "WS_Avg", "WindSpd", "Wind_Speed", "WS_kph", "Wind_Spd_S_WVT", "WindSpeed_Avg", "WS_ms_Avg", "WS_ms_S_WVT"],
-    windDirection: ["WD_Deg", "WD_Avg", "WindDir", "Wind_Dir", "Wind_Dir_D1_WVT", "WindDir_D1_WVT", "WindDir_Avg", "WD_Deg_Avg"],
-    windGust: ["WS_Max", "WindGust", "Gust_ms", "Wind_Spd_Max", "WindSpeed_Max", "WS_ms_Max", "Wind_Gust"],
+    pressure: ["BP_mbar", "BP_Avg", "Pressure", "BaroPres", "Baro_mbar", "Pressure_Avg", "BaroPressure_Avg", "BP_mbar_Avg", "BPress_Avg", "BPress"],
+    windSpeed: ["WS_ms", "WS_Avg", "WindSpd", "Wind_Speed", "WS_kph", "Wind_Spd_S_WVT", "WindSpeed_Avg", "WS_ms_Avg", "WS_ms_S_WVT", "WSpd_1_Avg", "WSpd_Avg", "WSpd_1_S_WVT"],
+    windDirection: ["WD_Deg", "WD_Avg", "WindDir", "Wind_Dir", "Wind_Dir_D1_WVT", "WindDir_D1_WVT", "WindDir_Avg", "WD_Deg_Avg", "WDir_1_Avg", "WDir_Avg", "WDir_1_D1_WVT"],
+    windGust: ["WS_Max", "WindGust", "Gust_ms", "Wind_Spd_Max", "WindSpeed_Max", "WS_ms_Max", "Wind_Gust", "WSpd_1_Max", "WSpd_Max"],
     solarRadiation: ["SlrW", "SR_Avg", "Solar_W", "Radiation", "SlrkW", "Solar_Rad_Avg", "SolarRad_Avg", "SlrW_Avg", "Solar_Rad", "SR_W"],
-    rainfall: ["Rain_mm", "Rain_Tot", "Precip", "Rain_mm_Tot", "Rain_Tot_Tot", "Rainfall", "Precip_Tot"],
-    dewPoint: ["DewPt", "DewPoint", "Dew_C", "DewPoint_Avg", "DewPt_Avg"],
+    rainfall: ["Rain_mm", "Rain_Tot", "Precip", "Rain_mm_Tot", "Rain_Tot_Tot", "Rainfall", "Precip_Tot", "Rain_1_Tot", "Rain_Tot_1"],
+    dewPoint: ["DewPt", "DewPoint", "Dew_C", "DewPoint_Avg", "DewPt_Avg", "DewPointTemp_Avg", "DewPointTemp"],
     soilTemperature: ["SoilTC", "Soil_Temp", "T_Soil", "SoilTemp_Avg", "SoilTC_Avg"],
     soilMoisture: ["VWC", "Soil_VWC", "VWC_Avg", "SoilMoist_Avg", "Soil_Moisture"],
-    batteryVoltage: ["BattV", "Batt_V", "Battery", "BattV_Avg", "BattV_Min", "Batt_volt_Min"],
-    panelTemperature: ["PTemp", "PTemp_C", "Panel_Temp", "PTemp_Avg", "PTemp_C_Avg"],
+    batteryVoltage: ["BattV", "Batt_V", "Battery", "BattV_Avg", "BattV_Min", "Batt_volt_Min", "LoggerBattery_Avg", "LoggerBattery"],
+    panelTemperature: ["PTemp", "PTemp_C", "Panel_Temp", "PTemp_Avg", "PTemp_C_Avg", "LoggerTemp_Avg", "LoggerTemp"],
     pm25: ["PM2_5_Avg", "PM2_5", "PM25", "PM25_Avg"],
     pm10: ["PM10_Avg", "PM10", "PM_10_Avg"],
     uvIndex: ["UV_Index_Avg", "UV_Index", "UVI", "UV_Avg"],
@@ -375,6 +375,30 @@ export function mapToWeatherData(record: ParsedRecord): Record<string, number | 
     // Initialize to null if not found
     if (result[standardField] === undefined) {
       result[standardField] = null;
+    }
+  }
+
+  // Convert wind speed from m/s to km/h if the source unit is m/s
+  // The dashboard expects km/h for display
+  if (units && headers) {
+    const windFields = ['windSpeed', 'windGust'];
+    for (const field of windFields) {
+      if (result[field] !== null && result[field] !== undefined) {
+        // Find which source header matched this field
+        const fieldAliases = fieldMappings[field];
+        if (fieldAliases) {
+          for (const alias of fieldAliases) {
+            const headerIdx = headers.indexOf(alias);
+            if (headerIdx >= 0 && headerIdx < units.length) {
+              const unit = units[headerIdx]?.toLowerCase();
+              if (unit === 'm/s' || unit === 'meters/second' || unit === 'ms') {
+                result[field] = result[field]! * 3.6; // m/s → km/h
+              }
+              break;
+            }
+          }
+        }
+      }
     }
   }
 

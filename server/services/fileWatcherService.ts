@@ -205,7 +205,7 @@ export class FileWatcherService extends EventEmitter {
 
       for (const record of parsed.records) {
         try {
-          const weatherData = mapToWeatherData(record);
+          const weatherData = mapToWeatherData(record, parsed.units, parsed.headers);
 
           // Only insert if we have some valid data
           if (Object.values(weatherData).some(v => v !== null)) {

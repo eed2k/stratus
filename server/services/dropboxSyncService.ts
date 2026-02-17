@@ -572,7 +572,7 @@ export class DropboxSyncService extends EventEmitter {
             
             // Prepare batch data
             const batchData = batch.map((record: ParsedRecord) => {
-              const mappedData = mapToWeatherData(record);
+              const mappedData = mapToWeatherData(record, parsed.units, parsed.headers);
               const combinedData = { ...record.data, ...mappedData };
               return {
                 stationId: this.config!.stationId,
@@ -842,7 +842,7 @@ export class DropboxSyncService extends EventEmitter {
             for (let i = 0; i < recordsToImport.length; i += BATCH_SIZE) {
               const batch = recordsToImport.slice(i, i + BATCH_SIZE);
               const batchData = batch.map(record => {
-                const mappedData = mapToWeatherData(record);
+                const mappedData = mapToWeatherData(record, parsed.units, parsed.headers);
                 return {
                   stationId: station.id,
                   tableName: parsed.tableName || 'Table1',
