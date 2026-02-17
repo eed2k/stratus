@@ -272,7 +272,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                   {formatLastSync(station.lastSyncTime) ? (
                     <>
                       <div>
-                        <Badge variant="outline" className="border-black text-black bg-transparent text-xs" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                        <Badge variant="outline" className="border-black text-black bg-transparent text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                           {formatTimeSince(station.lastSyncTime)} &middot; {formatLastSync(station.lastSyncTime)}
                         </Badge>
                       </div>
