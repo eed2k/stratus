@@ -45,8 +45,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: [
         "'self'", 
-        "'unsafe-inline'", 
-        "'unsafe-eval'",
+        "'unsafe-inline'",
         "https://unpkg.com",      // Leaflet JS CDN
         "https://cdnjs.cloudflare.com", // Leaflet JS fallback CDN
       ],
@@ -129,7 +128,21 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        // Redact sensitive fields from log output
+        const safe = { ...capturedJsonResponse };
+        const sensitiveKeys = ['password', 'passwordHash', 'apiKey', 'token', 'refreshToken', 'appSecret', 'secret'];
+        const redact = (obj: any) => {
+          if (!obj || typeof obj !== 'object') return;
+          for (const key of Object.keys(obj)) {
+            if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk.toLowerCase()))) {
+              obj[key] = '[REDACTED]';
+            } else if (typeof obj[key] === 'object') {
+              redact(obj[key]);
+            }
+          }
+        };
+        redact(safe);
+        logLine += ` :: ${JSON.stringify(safe)}`;
       }
 
       log(logLine);
@@ -216,7 +229,7 @@ app.use((req, res, next) => {
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    console.error('[ErrorHandler]', err);
   });
 
   // importantly only setup vite in development and after
@@ -262,22 +275,34 @@ app.use((req, res, next) => {
     console.error('Unhandled rejection at:', promise, 'reason:', reason);
   });
 
-  // Log graceful shutdown
-  process.on('SIGTERM', () => {
+  // Graceful shutdown handler
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`[Shutdown] ${signal} received, shutting down gracefully...`);
     stopStalenessMonitor();
-    auditLog.log(AUDIT_ACTIONS.SYSTEM_SHUTDOWN, 'system', {
-      details: { reason: 'SIGTERM received' },
+    await auditLog.log(AUDIT_ACTIONS.SYSTEM_SHUTDOWN, 'system', {
+      details: { reason: `${signal} received` },
       status: 'success'
     });
-    process.exit(0);
-  });
+    // Close HTTP server (stop accepting new connections, drain in-flight)
+    httpServer.close(() => {
+      console.log('[Shutdown] HTTP server closed');
+      // Close database connections
+      if (usePostgres) {
+        postgres.closePostgresDatabase().then(() => {
+          console.log('[Shutdown] PostgreSQL connections closed');
+          process.exit(0);
+        }).catch(() => process.exit(0));
+      } else {
+        process.exit(0);
+      }
+    });
+    // Force exit after 10s if graceful shutdown stalls
+    setTimeout(() => {
+      console.error('[Shutdown] Forced exit after timeout');
+      process.exit(1);
+    }, 10000);
+  };
 
-  process.on('SIGINT', () => {
-    stopStalenessMonitor();
-    auditLog.log(AUDIT_ACTIONS.SYSTEM_SHUTDOWN, 'system', {
-      details: { reason: 'SIGINT received' },
-      status: 'success'
-    });
-    process.exit(0);
-  });
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 })();

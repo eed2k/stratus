@@ -377,9 +377,11 @@ export async function setupAuth(app: Express): Promise<void> {
         });
       }
 
+      // Mask email to prevent enumeration (show only first 2 chars + domain)
+      const maskedEmail = email.replace(/^(.{2})(.*)(@.*)$/, (_: string, a: string, b: string, c: string) => a + '*'.repeat(b.length) + c);
       res.json({ 
         valid: true, 
-        email: email // Optionally show masked email
+        email: maskedEmail
       });
     } catch (error) {
       console.error('[Auth] Validate token error:', error);

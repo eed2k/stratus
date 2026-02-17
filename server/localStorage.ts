@@ -520,19 +520,72 @@ export class DatabaseStorage {
       return undefined;
     }
 
-    // No table name — get latest record regardless of table (fast single query)
+    // No table name — merge latest records from ALL tables for this station
+    // This ensures multi-table stations (e.g. Table5m, Table10m, TableHour) show all fields
     if (usePostgres) {
-      const record = await postgres.getLatestWeatherData(stationId);
-      if (record) return this.mapPgWeatherData(record);
+      const tableNames = await postgres.getDistinctTableNames(stationId);
+      if (tableNames.length === 0) return undefined;
+      
+      if (tableNames.length === 1) {
+        // Single table — fast path, no merge needed
+        const record = await postgres.getLatestWeatherData(stationId, tableNames[0]);
+        if (record) return this.mapPgWeatherData(record);
+        return undefined;
+      }
+      
+      // Multi-table: get latest from each table and merge non-null fields
+      let merged: WeatherData | undefined;
+      for (const tbl of tableNames) {
+        const record = await postgres.getLatestWeatherData(stationId, tbl);
+        if (!record) continue;
+        const mapped = this.mapPgWeatherData(record);
+        if (!merged) {
+          merged = mapped;
+        } else {
+          // Merge: non-null values from this table fill in nulls
+          for (const key of Object.keys(mapped) as (keyof WeatherData)[]) {
+            if (key === 'id' || key === 'stationId' || key === 'tableName' || key === 'recordNumber' || key === 'collectedAt') continue;
+            if (key === 'timestamp') {
+              // Keep the most recent timestamp
+              if (mapped.timestamp > merged.timestamp) {
+                merged.timestamp = mapped.timestamp;
+              }
+              continue;
+            }
+            if ((merged[key] === null || merged[key] === undefined) && mapped[key] !== null && mapped[key] !== undefined) {
+              (merged as any)[key] = mapped[key];
+            }
+          }
+        }
+      }
+      return merged;
     } else {
       // For SQLite, try common table names as fallback
       const tableNames = ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily', 'weather', 'TableHour', 'TableSolarCharger10m', 'Test'];
+      let merged: WeatherData | undefined;
       for (const tbl of tableNames) {
         const record = db.getLatestWeatherData(stationId, tbl);
-        if (record) return this.mapDbWeatherData(record);
+        if (!record) continue;
+        const mapped = this.mapDbWeatherData(record);
+        if (!merged) {
+          merged = mapped;
+        } else {
+          for (const key of Object.keys(mapped) as (keyof WeatherData)[]) {
+            if (key === 'id' || key === 'stationId' || key === 'tableName' || key === 'recordNumber' || key === 'collectedAt') continue;
+            if (key === 'timestamp') {
+              if (mapped.timestamp > merged.timestamp) {
+                merged.timestamp = mapped.timestamp;
+              }
+              continue;
+            }
+            if ((merged[key] === null || merged[key] === undefined) && mapped[key] !== null && mapped[key] !== undefined) {
+              (merged as any)[key] = mapped[key];
+            }
+          }
+        }
       }
+      return merged;
     }
-    return undefined;
   }
 
   async getWeatherDataRange(stationId: number, startTime: Date, endTime: Date, tableName?: string): Promise<WeatherData[]> {

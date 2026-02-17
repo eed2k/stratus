@@ -234,7 +234,12 @@ const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
 const optionalAuth: RequestHandler = (req, res, next) => {
   if (DEMO_MODE) {
-    return next();
+    // In demo mode, allow read-only access without auth
+    // Write operations (POST/PUT/PATCH/DELETE) still require authentication
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+      return next();
+    }
+    return isAuthenticated(req, res, next);
   }
   return isAuthenticated(req, res, next);
 };
@@ -636,7 +641,13 @@ export async function registerRoutes(
 
     ws.on("message", (message) => {
       try {
-        const data = JSON.parse(message.toString());
+        // Limit WebSocket message size to 4KB to prevent abuse
+        const msgStr = message.toString();
+        if (msgStr.length > 4096) {
+          ws.send(JSON.stringify({ type: "error", message: "Message too large" }));
+          return;
+        }
+        const data = JSON.parse(msgStr);
         
         if (data.type === "subscribe" && typeof data.stationId === "number") {
           const stationId = data.stationId;
@@ -1091,7 +1102,19 @@ export async function registerRoutes(
       if (error || stationId === null) {
         return res.status(400).json({ message: error });
       }
-      const station = await storage.updateStation(stationId, req.body);
+      // Whitelist allowed fields to prevent injection of unexpected properties
+      const allowedFields = ['name', 'location', 'latitude', 'longitude', 'altitude', 'isActive',
+        'connectionType', 'connectionConfig', 'ipAddress', 'port', 'protocol',
+        'pakbusAddress', 'securityCode', 'dataloggerModel', 'dataloggerSerialNumber',
+        'dataloggerProgramName', 'siteDescription', 'notes', 'modemModel', 'modemSerialNumber',
+        'lastCalibrationDate', 'nextCalibrationDate', 'stationImage', 'stationType'];
+      const sanitizedBody: Record<string, any> = {};
+      for (const key of allowedFields) {
+        if (req.body[key] !== undefined) {
+          sanitizedBody[key] = req.body[key];
+        }
+      }
+      const station = await storage.updateStation(stationId, sanitizedBody);
       if (!station) {
         return res.status(404).json({ message: "Station not found" });
       }
@@ -1530,7 +1553,8 @@ export async function registerRoutes(
         return res.status(400).json({ message: "File content is required" });
       }
 
-      const { parseDataFile, mapToWeatherData } = await import("./parsers/campbellScientific");
+      const { parseDataFile, mapToWeatherData: _mapToWeatherData } = await import("./parsers/campbellScientific");
+      const mapToWeatherData = _mapToWeatherData as (record: any, units?: string[], headers?: string[]) => Record<string, number | null>;
       const parsed = parseDataFile(content);
 
       if (parsed.errors.length > 0 && parsed.records.length === 0) {
@@ -2306,7 +2330,7 @@ export async function registerRoutes(
    * GET /api/audit-logs
    * Retrieve audit logs for admin review
    */
-  app.get("/api/audit-logs", isAuthenticated, async (req, res) => {
+  app.get("/api/audit-logs", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { action, userId, resource, startDate, endDate, status, limit } = req.query;
       
@@ -2330,7 +2354,7 @@ export async function registerRoutes(
    * GET /api/audit-logs/recent
    * Get recent audit logs from memory (faster for dashboards)
    */
-  app.get("/api/audit-logs/recent", isAuthenticated, async (req, res) => {
+  app.get("/api/audit-logs/recent", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
       const logs = auditLog.getRecentLogs(limit);
@@ -2345,7 +2369,7 @@ export async function registerRoutes(
    * GET /api/audit-logs/user/:userId
    * Get audit logs for a specific user
    */
-  app.get("/api/audit-logs/user/:userId", isAuthenticated, async (req, res) => {
+  app.get("/api/audit-logs/user/:userId", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       const days = req.query.days ? parseInt(req.query.days as string, 10) : 30;

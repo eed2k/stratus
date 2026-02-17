@@ -704,11 +704,12 @@ export async function insertWeatherData(records: WeatherRecord[]): Promise<numbe
     await client.query('BEGIN');
     
     for (const record of records) {
-      // Use ON CONFLICT DO NOTHING to efficiently skip duplicates
+      // Use ON CONFLICT DO UPDATE to allow re-syncs to fix incomplete records
       const result = await client.query(`
         INSERT INTO weather_data (station_id, table_name, record_number, timestamp, data)
         VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (station_id, table_name, timestamp) DO NOTHING
+        ON CONFLICT (station_id, table_name, timestamp) 
+        DO UPDATE SET data = EXCLUDED.data, collected_at = CURRENT_TIMESTAMP
       `, [
         record.stationId,
         record.tableName || 'Table1',
@@ -839,6 +840,17 @@ export async function getLatestWeatherData(stationId: number, tableName?: string
     data: row.data,
     collectedAt: row.collected_at?.toISOString(),
   };
+}
+
+/**
+ * Get distinct table names for a station (for multi-table merge)
+ */
+export async function getDistinctTableNames(stationId: number): Promise<string[]> {
+  const result = await query(
+    'SELECT DISTINCT table_name FROM weather_data WHERE station_id = $1',
+    [stationId]
+  );
+  return result.rows.map((r: any) => r.table_name);
 }
 
 // ============================================================================
@@ -1941,6 +1953,7 @@ export default {
   insertWeatherData,
   getWeatherData,
   getLatestWeatherData,
+  getDistinctTableNames,
   getUserByEmail,
   createUser,
   updateUserLastLogin,
