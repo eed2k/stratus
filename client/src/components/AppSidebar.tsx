@@ -70,15 +70,15 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
   return (
     <Sidebar className="bg-sidebar-background border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-3">
-            {/* Dark Blue Circle with White Dot Logo */}
-            <div className="w-9 h-9 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-md border border-white/10">
-              <div className="w-3 h-3 rounded-full bg-white"></div>
-            </div>
-            <h2 className="text-[20px] font-extrabold tracking-wide leading-tight" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</h2>
+        <div className="flex items-center gap-3">
+          {/* Dark Blue Circle with White Dot Logo */}
+          <div className="w-9 h-9 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-md border border-white/10 flex-shrink-0">
+            <div className="w-3 h-3 rounded-full bg-white"></div>
           </div>
-          <span className="text-[10px] font-bold tracking-wider ml-12" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.1.0</span>
+          <div className="flex flex-col items-center">
+            <h2 className="text-[20px] font-extrabold tracking-wide leading-tight" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</h2>
+            <span className="text-[10px] font-bold tracking-wider" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.1.0</span>
+          </div>
         </div>
       </SidebarHeader>
 
