@@ -202,6 +202,12 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       levelSwitchStatus: d.levelSwitchStatus ?? null,
       lightning: d.lightning ?? null,
       chargerVoltage: d.chargerVoltage ?? null,
+      windDirStdDev: d.windDirStdDev ?? null,
+      sdi12WindVector: d.sdi12WindVector ?? null,
+      pumpSelectWell: d.pumpSelectWell ?? null,
+      pumpSelectBore: d.pumpSelectBore ?? null,
+      portStatusC1: d.portStatusC1 ?? null,
+      portStatusC2: d.portStatusC2 ?? null,
     };
   });
 };
@@ -380,6 +386,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         levelSwitchStatus: false,
         lightning: false,
         chargerVoltage: false,
+        windDirStdDev: false,
+        sdi12WindVector: false,
+        pumpSelectWell: false,
+        pumpSelectBore: false,
+        portStatusC1: false,
+        portStatusC2: false,
       };
     }
     
@@ -411,6 +423,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       levelSwitchStatus: hasData('levelSwitchStatus'),
       lightning: hasData('lightning'),
       chargerVoltage: hasData('chargerVoltage'),
+      windDirStdDev: hasData('windDirStdDev'),
+      sdi12WindVector: hasData('sdi12WindVector'),
+      pumpSelectWell: hasData('pumpSelectWell'),
+      pumpSelectBore: hasData('pumpSelectBore'),
+      portStatusC1: hasData('portStatusC1'),
+      portStatusC2: hasData('portStatusC2'),
     };
   }, [historicalData]);
 
@@ -665,6 +683,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         levelSwitchStatus: null,
         lightning: null,
         chargerVoltage: null,
+        windDirStdDev: null,
+        sdi12WindVector: null,
+        pumpSelectWell: null,
+        pumpSelectBore: null,
+        portStatusC1: null,
+        portStatusC2: null,
       };
 
   // Check if station has valid GPS coordinates
@@ -1013,15 +1037,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         <CurrentConditions
           stationName={selectedStation?.name || "Weather Station"}
           lastUpdate={((currentData as any).collectedAt || currentData.timestamp) ? new Date((currentData as any).collectedAt || currentData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false }) : "No data"}
-          temperature={currentData.temperature ?? 0}
-          humidity={currentData.humidity ?? 0}
-          pressure={currentData.pressure ?? 0}
-          windSpeed={currentData.windSpeed ?? 0}
-          windGust={currentData.windGust ?? 0}
-          windDirection={currentData.windDirection ?? 0}
-          solarRadiation={currentData.solarRadiation ?? 0}
-          rainfall={currentData.rainfall ?? 0}
-          dewPoint={effectiveDewPoint}
+          temperature={currentData.temperature ?? undefined}
+          humidity={currentData.humidity ?? undefined}
+          pressure={currentData.pressure ?? undefined}
+          windSpeed={currentData.windSpeed ?? undefined}
+          windGust={currentData.windGust ?? undefined}
+          windDirection={currentData.windDirection ?? undefined}
+          solarRadiation={currentData.solarRadiation ?? undefined}
+          rainfall={currentData.rainfall ?? undefined}
+          dewPoint={effectiveDewPoint != null ? effectiveDewPoint : undefined}
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType ?? undefined}
           syncInterval={3600000} // 1 hour Dropbox sync interval
@@ -1359,6 +1383,102 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
           </div>
           )}
+        </section>
+        )}
+
+        {/* Custom Data Blocks - Wind Dir Std Dev, SDI-12, Pump & Port Status */}
+        {(availableFields.windDirStdDev || availableFields.sdi12WindVector || availableFields.pumpSelectWell || availableFields.pumpSelectBore || availableFields.portStatusC1 || availableFields.portStatusC2) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Station Controls & Wind Quality</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            {hasValidData(currentData.windDirStdDev) && (
+              <MetricCard
+                title="Wind Dir Std Dev"
+                value={formatValue(currentData.windDirStdDev || 0, 1)}
+                unit="°"
+                sparklineData={chartData.slice(-24).map(d => d.windDirStdDev).filter((v): v is number => v != null)}
+                chartColor="#6366f1"
+              />
+            )}
+            {hasValidData(currentData.sdi12WindVector) && (
+              <MetricCard
+                title="Wind Vector Count"
+                value={formatValue(currentData.sdi12WindVector || 0, 0)}
+                unit="samples"
+                sparklineData={chartData.slice(-24).map(d => d.sdi12WindVector).filter((v): v is number => v != null)}
+                chartColor="#8b5cf6"
+              />
+            )}
+            {hasValidData(currentData.pumpSelectWell) && (
+              <MetricCard
+                title="Well Pump"
+                value={currentData.pumpSelectWell ? "ON" : "OFF"}
+                unit=""
+                sparklineData={chartData.slice(-24).map(d => d.pumpSelectWell).filter((v): v is number => v != null)}
+                chartColor="#0891b2"
+              />
+            )}
+            {hasValidData(currentData.pumpSelectBore) && (
+              <MetricCard
+                title="Borehole Pump"
+                value={currentData.pumpSelectBore ? "ON" : "OFF"}
+                unit=""
+                sparklineData={chartData.slice(-24).map(d => d.pumpSelectBore).filter((v): v is number => v != null)}
+                chartColor="#0d9488"
+              />
+            )}
+            {hasValidData(currentData.portStatusC1) && (
+              <MetricCard
+                title="Valve C1"
+                value={currentData.portStatusC1 ? "OPEN" : "CLOSED"}
+                unit=""
+                sparklineData={chartData.slice(-24).map(d => d.portStatusC1).filter((v): v is number => v != null)}
+                chartColor="#d946ef"
+              />
+            )}
+            {hasValidData(currentData.portStatusC2) && (
+              <MetricCard
+                title="Relay C2"
+                value={currentData.portStatusC2 ? "ON" : "OFF"}
+                unit=""
+                sparklineData={chartData.slice(-24).map(d => d.portStatusC2).filter((v): v is number => v != null)}
+                chartColor="#a855f7"
+              />
+            )}
+          </div>
+          {/* Custom Data Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {availableFields.windDirStdDev && (
+              <DataBlockChart
+                title="Wind Direction Std Dev"
+                data={chartData}
+                series={[
+                  { dataKey: "windDirStdDev", name: "Wind Dir Std Dev", color: "#6366f1", unit: "°" },
+                ]}
+                chartType="line"
+                xAxisLabel="Time"
+                yAxisLabel="Std Dev"
+                showAverage={true}
+                showMinMax={true}
+                currentValue={currentData.windDirStdDev || 0}
+              />
+            )}
+            {availableFields.sdi12WindVector && (
+              <DataBlockChart
+                title="Wind Vector Sample Count"
+                data={chartData}
+                series={[
+                  { dataKey: "sdi12WindVector", name: "Vector Count", color: "#8b5cf6", unit: "samples" },
+                ]}
+                chartType="line"
+                xAxisLabel="Time"
+                yAxisLabel="Value"
+                showAverage={true}
+                showMinMax={true}
+                currentValue={currentData.sdi12WindVector || 0}
+              />
+            )}
+          </div>
         </section>
         )}
 

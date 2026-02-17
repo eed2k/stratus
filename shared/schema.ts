@@ -300,6 +300,14 @@ export const weatherData = pgTable(
     lightning: real("lightning"),
     // Charger
     chargerVoltage: real("charger_voltage"),
+    // Wind direction standard deviation & SDI-12 wind vector
+    windDirStdDev: real("wind_dir_std_dev"),
+    sdi12WindVector: real("sdi12_wind_vector"),
+    // Pump & port status fields
+    pumpSelectWell: real("pump_select_well"),
+    pumpSelectBore: real("pump_select_bore"),
+    portStatusC1: real("port_status_c1"),
+    portStatusC2: real("port_status_c2"),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [

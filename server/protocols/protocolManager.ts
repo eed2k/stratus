@@ -147,7 +147,7 @@ class ProtocolManagerClass extends EventEmitter {
       stationId,
       adapter,
       config,
-      pollInterval: this.config.defaultPollInterval,
+      pollInterval: this.getStationPollInterval(config),
       pollTimer: null,
       isSimulation,
       lastData: null,
@@ -161,6 +161,23 @@ class ProtocolManagerClass extends EventEmitter {
     }
 
     console.log(`[ProtocolManager] Registered station ${stationId} (simulation: ${isSimulation})`);
+  }
+
+  /**
+   * Determine the appropriate poll interval for a station based on its type.
+   * Rika Cloud API stations update every 30 minutes as standard.
+   * Other API-based stations use the default 1-minute interval.
+   */
+  private getStationPollInterval(config: ProtocolConfig): number {
+    const endpoint = config.apiEndpoint?.toLowerCase() || '';
+    const host = config.host?.toLowerCase() || '';
+    
+    // Rika Cloud API: 30-minute standard poll interval
+    if (endpoint.includes('rika') || host.includes('rika')) {
+      return 1800000; // 30 minutes
+    }
+    
+    return this.config.defaultPollInterval;
   }
 
   async unregisterStation(stationId: number): Promise<void> {

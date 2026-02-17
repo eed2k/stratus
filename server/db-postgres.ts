@@ -403,6 +403,13 @@ async function createTables(): Promise<void> {
   // ── Migrations for existing databases ──────────────────────────
   await pool.query(`ALTER TABLE alarms ADD COLUMN IF NOT EXISTS stale_minutes INTEGER`);
   await pool.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS ingest_id VARCHAR(10) UNIQUE`);
+  // New weather data columns for wind std dev, SDI-12, pump/port
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS wind_dir_std_dev REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS sdi12_wind_vector REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS pump_select_well REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS pump_select_bore REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS port_status_c1 REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS port_status_c2 REAL`);
   pgLog.info('Additional performance indexes ready');
 }
 

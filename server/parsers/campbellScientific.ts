@@ -346,6 +346,12 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     levelSwitch: ["Level_Switch", "LevelSwitch", "Level_Switch_Avg"],
     temperatureSwitchOutlet: ["Temp_Switch_Outlet", "TempSwitchOutlet"],
     levelSwitchStatus: ["Level_Switch_Status", "LevelSwitchStatus"],
+    windDirStdDev: ["Wind_Dir_SD1_WVT", "WindDir_SD1_WVT", "WDir_SD1_WVT"],
+    sdi12WindVector: ["SDI12_WVc", "SDI12_WV", "SDI12_Wind"],
+    pumpSelectWell: ["Pump_Select_Well", "PumpSelectWell", "Pump_Well"],
+    pumpSelectBore: ["Pump_Select_Bore", "PumpSelectBore", "Pump_Bore"],
+    portStatusC1: ["Port_Status_C1", "PortStatusC1", "Port_C1"],
+    portStatusC2: ["Port_Status_C2", "PortStatusC2", "Port_C2"],
   };
 
   const result: Record<string, number | null> = {};

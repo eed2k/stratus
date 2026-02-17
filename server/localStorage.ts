@@ -127,6 +127,14 @@ export interface WeatherData {
   // Power & weather
   lightning?: number | null;
   chargerVoltage?: number | null;
+  // Wind direction std dev & SDI-12
+  windDirStdDev?: number | null;
+  sdi12WindVector?: number | null;
+  // Pump & port status
+  pumpSelectWell?: number | null;
+  pumpSelectBore?: number | null;
+  portStatusC1?: number | null;
+  portStatusC2?: number | null;
   // Allow additional fields
   [key: string]: any;
 }
@@ -838,6 +846,14 @@ export class DatabaseStorage {
       // Power & weather
       lightning: data.data.lightning ?? data.data.Lightning_Tot ?? data.data.Lightning_Count ?? null,
       chargerVoltage: data.data.chargerVoltage ?? data.data.DC_Chg_Volts ?? data.data.ChgV_Avg ?? null,
+      // Wind direction std dev & SDI-12
+      windDirStdDev: data.data.windDirStdDev ?? data.data.Wind_Dir_SD1_WVT ?? null,
+      sdi12WindVector: data.data.sdi12WindVector ?? data.data.SDI12_WVc ?? null,
+      // Pump & port status
+      pumpSelectWell: data.data.pumpSelectWell ?? data.data.Pump_Select_Well ?? null,
+      pumpSelectBore: data.data.pumpSelectBore ?? data.data.Pump_Select_Bore ?? null,
+      portStatusC1: data.data.portStatusC1 ?? data.data.Port_Status_C1 ?? null,
+      portStatusC2: data.data.portStatusC2 ?? data.data.Port_Status_C2 ?? null,
       // Extra mapped fields for alarm evaluation
       dewPoint: data.data.dewPoint ?? data.data.DewPoint_Avg ?? data.data.DewPt ?? null,
       pm10: data.data.pm10 ?? data.data.PM10_Avg ?? data.data.PM10 ?? null,
@@ -1909,6 +1925,14 @@ export class DatabaseStorage {
       // Power & weather
       lightning: data.lightning ?? data.Lightning_Tot ?? data.Lightning_Count ?? data.Lightning ?? null,
       chargerVoltage: data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null,
+      // Wind direction std dev & SDI-12
+      windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,
+      sdi12WindVector: data.sdi12WindVector ?? data.SDI12_WVc ?? data.SDI12_WV ?? null,
+      // Pump & port status
+      pumpSelectWell: data.pumpSelectWell ?? data.Pump_Select_Well ?? null,
+      pumpSelectBore: data.pumpSelectBore ?? data.Pump_Select_Bore ?? null,
+      portStatusC1: data.portStatusC1 ?? data.Port_Status_C1 ?? null,
+      portStatusC2: data.portStatusC2 ?? data.Port_Status_C2 ?? null,
     };
   }
 
@@ -1957,6 +1981,14 @@ export class DatabaseStorage {
       // Power & weather
       lightning: data.lightning ?? data.Lightning_Tot ?? data.Lightning_Count ?? data.Lightning ?? null,
       chargerVoltage: data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null,
+      // Wind direction std dev & SDI-12
+      windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,
+      sdi12WindVector: data.sdi12WindVector ?? data.SDI12_WVc ?? data.SDI12_WV ?? null,
+      // Pump & port status
+      pumpSelectWell: data.pumpSelectWell ?? data.Pump_Select_Well ?? null,
+      pumpSelectBore: data.pumpSelectBore ?? data.Pump_Select_Bore ?? null,
+      portStatusC1: data.portStatusC1 ?? data.Port_Status_C1 ?? null,
+      portStatusC2: data.portStatusC2 ?? data.Port_Status_C2 ?? null,
     };
   }
 

@@ -8,15 +8,15 @@ import { AlertTriangle } from "lucide-react";
 interface CurrentConditionsProps {
   stationName: string;
   lastUpdate: string;
-  temperature: number;
-  humidity: number;
-  pressure: number;
-  windSpeed: number;
-  windGust: number;
-  windDirection: number;
-  solarRadiation: number;
-  rainfall: number;
-  dewPoint: number;
+  temperature?: number | null;
+  humidity?: number | null;
+  pressure?: number | null;
+  windSpeed?: number | null;
+  windGust?: number | null;
+  windDirection?: number | null;
+  solarRadiation?: number | null;
+  rainfall?: number | null;
+  dewPoint?: number | null;
   isOnline?: boolean;
   connectionType?: string; // 'dropbox', 'http', 'tcp', etc.
   syncInterval?: number; // in milliseconds
@@ -238,48 +238,64 @@ export function CurrentConditions({
       <CardContent>
         <div className="grid gap-6">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {temperature != null && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Temperature</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-temperature">{fmt(temperature, 1)}°C</p>
             </div>
+            )}
 
+            {humidity != null && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Humidity</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-humidity">{fmt(humidity, 1)}%</p>
             </div>
+            )}
 
+            {pressure != null && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Pressure</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-pressure">{fmt(pressure, 2)} hPa</p>
             </div>
+            )}
 
+            {windSpeed != null && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Wind</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-wind">{fmt(windSpeed, 1)} km/h</p>
-              <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust: {fmt(windGust, 1)} km/h</p>
+              {windGust != null && <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust: {fmt(windGust, 1)} km/h</p>}
             </div>
+            )}
 
+            {windDirection != null && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Direction</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-direction">
                 {getWindDirectionLabel(windDirection)} ({Math.round(windDirection)}°)
               </p>
             </div>
+            )}
 
+            {solarRadiation != null && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Solar</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-solar">{fmt(solarRadiation, 1)} W/m²</p>
             </div>
+            )}
 
+            {rainfall != null && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rain (24h)</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-rain">{fmt(rainfall, 2)} mm</p>
             </div>
+            )}
 
+            {dewPoint != null && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Dew Point</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="value-dewpoint">{fmt(dewPoint, 1)}°C</p>
             </div>
+            )}
           </div>
         </div>
       </CardContent>
