@@ -1472,24 +1472,36 @@ export async function registerRoutes(
   //   X-API-Key: optional API key for additional security
   // Body:
   //   { "data": { "temperature": 22.5, "humidity": 65, ... }, "timestamp": "ISO8601" }
+  // Accepts both numeric station IDs and alphanumeric ingest IDs (e.g., "ST64ART3")
   // ============================================================================
   app.post("/api/ingest/:stationId", ingestRateLimiter, async (req, res) => {
     try {
-      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
-      if (error || stationId === null) {
-        return res.status(400).json({ 
-          success: false,
-          message: error 
-        });
+      const paramId = req.params.stationId;
+      let station: any = null;
+      let stationId: number = 0;
+      
+      // Try numeric ID first, then alphanumeric ingest ID
+      const numericId = parseInt(paramId, 10);
+      if (!isNaN(numericId) && String(numericId) === paramId) {
+        station = await storage.getStation(numericId);
+        if (station) {
+          stationId = numericId;
+        }
       }
       
-      // Verify station exists
-      const station = await storage.getStation(stationId);
+      // If not found by numeric ID, try ingest ID
+      if (!station) {
+        station = await storage.getStationByIngestId(paramId.toUpperCase());
+        if (station) {
+          stationId = station.id;
+        }
+      }
+      
       if (!station) {
         return res.status(404).json({ 
           success: false,
           message: "Station not found",
-          stationId 
+          stationId: paramId 
         });
       }
       

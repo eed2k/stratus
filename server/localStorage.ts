@@ -87,6 +87,8 @@ export interface WeatherStation {
   stationAdminPhone?: string;
   // Station image (base64)
   stationImage?: string | null;
+  // Unique ingest ID for HTTP POST stations
+  ingestId?: string | null;
 }
 
 export interface WeatherData {
@@ -382,6 +384,15 @@ export class DatabaseStorage {
 
   async getWeatherStation(id: number): Promise<WeatherStation | undefined> {
     return this.getStation(id);
+  }
+
+  async getStationByIngestId(ingestId: string): Promise<WeatherStation | undefined> {
+    if (usePostgres) {
+      const station = await postgres.getStationByIngestId(ingestId);
+      if (!station) return undefined;
+      return this.mapPgStation(station);
+    }
+    return undefined; // SQLite doesn't support ingest IDs
   }
 
   async getStations(): Promise<WeatherStation[]> {
@@ -1848,7 +1859,9 @@ export class DatabaseStorage {
       stationAdminEmail: station.stationAdminEmail || undefined,
       stationAdminPhone: station.stationAdminPhone || undefined,
       // Station image
-      stationImage: station.stationImage || null
+      stationImage: station.stationImage || null,
+      // Ingest ID for HTTP POST stations
+      ingestId: station.ingestId || null
     };
   }
 

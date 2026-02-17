@@ -394,7 +394,7 @@ export default function Stations() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="dropbox">Dropbox Sync (Campbell Scientific)</SelectItem>
-                      <SelectItem value="http_post">HTTP POST (Arduino / ESP32 / Datalogger / Generic)</SelectItem>
+                      <SelectItem value="http_post">HTTP POST (Compatible Stations)</SelectItem>
                       <SelectItem value="rikacloud">RikaCloud HTTP API (Rika Weather Stations)</SelectItem>
                     </SelectContent>
                   </Select>
@@ -470,17 +470,17 @@ export default function Stations() {
                 {formData.connectionType === "http_post" && (
                   <div className="space-y-4">
                     <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300">
-                      <strong>HTTP POST Ingest:</strong> Any device that can make HTTP requests (Arduino, ESP32, Raspberry Pi, Campbell Scientific, generic datalogger) can push weather data directly to Stratus. After creating this station, configure your device to POST JSON data to the endpoint below.
+                      <strong>HTTP POST Ingest:</strong> Any compatible station or device that can send data via HTTP POST can push weather data directly to Stratus. After creating this station, configure your device to POST JSON data to the endpoint below.
                     </div>
                     <div className="space-y-2">
                       <Label>Ingest Endpoint</Label>
                       <Input
-                        value={`POST https://stratusweather.co.za/api/ingest/{station-id}`}
+                        value={`POST https://stratusweather.co.za/api/ingest/{ingest-id}`}
                         disabled
                         className="font-mono text-xs bg-muted"
                       />
                       <p className="text-xs text-muted-foreground">
-                        The station ID will be assigned after creation. Replace <code>{'{station-id}'}</code> with the numeric ID shown on the station card.
+                        A unique ingest ID (e.g. <code>ST64ART3</code>) will be assigned after creation. Use it in the endpoint URL shown on the station card.
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -496,7 +496,7 @@ export default function Stations() {
                     </div>
                     <div className="rounded-md border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900 p-3">
                       <p className="text-xs font-medium mb-2">Example JSON payload:</p>
-                      <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">{`POST /api/ingest/{id}
+                      <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">{`POST /api/ingest/{ingest-id}
 Content-Type: application/json
 X-API-Key: your-key (optional)
 
@@ -789,7 +789,14 @@ X-API-Key: your-key (optional)
                 <tbody className="divide-y">
                   {filteredStations.map((station) => (
                     <tr key={station.id} className="hover:bg-muted/30 transition-colors" data-testid={`row-station-${station.id}`}>
-                      <td className="p-3 font-medium">{station.name}</td>
+                      <td className="p-3 font-medium">
+                        {station.name}
+                        {(station as any).ingestId && (
+                          <Badge variant="outline" className="ml-2 text-xs border-amber-300 text-amber-700 bg-amber-50 font-mono">
+                            {(station as any).ingestId}
+                          </Badge>
+                        )}
+                      </td>
                       <td className="p-3 text-muted-foreground hidden sm:table-cell">
                         {station.location || '—'}
                       </td>

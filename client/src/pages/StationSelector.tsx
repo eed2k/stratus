@@ -31,6 +31,7 @@ interface Station {
   isActive: boolean;
   lastSyncTime: string | null;
   stationImage?: string | null;
+  ingestId?: string | null;
   lastReading?: {
     temperature: number | null;
     humidity: number | null;
@@ -249,6 +250,11 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                     <Badge variant="outline" className="text-xs mt-1 border-blue-300 text-blue-700 bg-blue-50">
                       {station.dataloggerModel || (station.stationType ? station.stationType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : station.connectionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}
                     </Badge>
+                    {station.ingestId && (
+                      <Badge variant="outline" className="text-xs mt-1 border-amber-300 text-amber-700 bg-amber-50 font-mono">
+                        ID: {station.ingestId}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     {station.isActive ? (

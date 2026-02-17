@@ -117,7 +117,8 @@ async function createTables(): Promise<void> {
       notes TEXT,
       station_image TEXT,
       protocol TEXT DEFAULT 'pakbus',
-      station_type TEXT DEFAULT 'http'
+      station_type TEXT DEFAULT 'http',
+      ingest_id VARCHAR(10) UNIQUE
     )
   `);
   pgLog.info('Stations table ready');
@@ -401,6 +402,7 @@ async function createTables(): Promise<void> {
 
   // ── Migrations for existing databases ──────────────────────────
   await pool.query(`ALTER TABLE alarms ADD COLUMN IF NOT EXISTS stale_minutes INTEGER`);
+  await pool.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS ingest_id VARCHAR(10) UNIQUE`);
   pgLog.info('Additional performance indexes ready');
 }
 
@@ -468,6 +470,7 @@ export interface Station {
   stationImage?: string | null;
   protocol?: string;
   stationType?: string;
+  ingestId?: string | null;
 }
 
 /**
@@ -479,7 +482,7 @@ export async function getAllStations(): Promise<Station[]> {
            security_code, created_at, updated_at, last_connected, is_active,
            latitude, longitude, altitude, location, datalogger_model,
            datalogger_serial_number, program_name, modem_model, modem_serial_number,
-           site_description, notes, station_image, protocol, station_type
+           site_description, notes, station_image, protocol, station_type, ingest_id
     FROM stations
     ORDER BY id
   `);
@@ -509,6 +512,7 @@ export async function getAllStations(): Promise<Station[]> {
     stationImage: row.station_image,
     protocol: row.protocol,
     stationType: row.station_type,
+    ingestId: row.ingest_id,
   }));
 }
 
@@ -521,7 +525,7 @@ export async function getStationById(id: number): Promise<Station | null> {
            security_code, created_at, updated_at, last_connected, is_active,
            latitude, longitude, altitude, location, datalogger_model,
            datalogger_serial_number, program_name, modem_model, modem_serial_number,
-           site_description, notes, station_image, protocol, station_type
+           site_description, notes, station_image, protocol, station_type, ingest_id
     FROM stations
     WHERE id = $1
   `, [id]);
@@ -554,19 +558,49 @@ export async function getStationById(id: number): Promise<Station | null> {
     stationImage: row.station_image,
     protocol: row.protocol,
     stationType: row.station_type,
+    ingestId: row.ingest_id,
   };
+}
+
+/**
+ * Generate a unique 8-character alphanumeric ingest ID (e.g., "ST64ART3")
+ */
+function generateIngestId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let id = '';
+  for (let i = 0; i < 8; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
 }
 
 /**
  * Create a new station
  */
 export async function createStation(station: Station): Promise<number> {
+  // Generate unique ingest_id for HTTP POST stations
+  let ingestId: string | null = null;
+  if (station.connectionType === 'http_post') {
+    // Retry up to 5 times in case of unique constraint collision
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateIngestId();
+      const existing = await query('SELECT id FROM stations WHERE ingest_id = $1', [candidate]);
+      if (existing.rows.length === 0) {
+        ingestId = candidate;
+        break;
+      }
+    }
+    if (!ingestId) {
+      throw new Error('Failed to generate unique ingest ID after 5 attempts');
+    }
+  }
+
   const result = await query(`
     INSERT INTO stations (name, pakbus_address, connection_type, connection_config,
       security_code, is_active, latitude, longitude, altitude, location,
       datalogger_model, datalogger_serial_number, program_name, modem_model,
-      modem_serial_number, site_description, notes, station_image, protocol, station_type)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      modem_serial_number, site_description, notes, station_image, protocol, station_type, ingest_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
     RETURNING id
   `, [
     station.name,
@@ -589,9 +623,56 @@ export async function createStation(station: Station): Promise<number> {
     station.stationImage || null,
     station.protocol || 'pakbus',
     station.stationType || 'http',
+    ingestId,
   ]);
   
   return result.rows[0].id;
+}
+
+/**
+ * Get a station by its unique ingest ID (for HTTP POST ingestion)
+ */
+export async function getStationByIngestId(ingestId: string): Promise<Station | null> {
+  const result = await query(`
+    SELECT id, name, pakbus_address, connection_type, connection_config,
+           security_code, created_at, updated_at, last_connected, is_active,
+           latitude, longitude, altitude, location, datalogger_model,
+           datalogger_serial_number, program_name, modem_model, modem_serial_number,
+           site_description, notes, station_image, protocol, station_type, ingest_id
+    FROM stations
+    WHERE ingest_id = $1
+  `, [ingestId]);
+  
+  if (result.rows.length === 0) return null;
+  
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    name: row.name,
+    pakbusAddress: row.pakbus_address,
+    connectionType: row.connection_type,
+    connectionConfig: row.connection_config,
+    securityCode: row.security_code,
+    createdAt: row.created_at?.toISOString(),
+    updatedAt: row.updated_at?.toISOString(),
+    lastConnected: row.last_connected?.toISOString(),
+    isActive: row.is_active,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    altitude: row.altitude,
+    location: row.location,
+    dataloggerModel: row.datalogger_model,
+    dataloggerSerialNumber: row.datalogger_serial_number,
+    programName: row.program_name,
+    modemModel: row.modem_model,
+    modemSerialNumber: row.modem_serial_number,
+    siteDescription: row.site_description,
+    notes: row.notes,
+    stationImage: row.station_image,
+    protocol: row.protocol,
+    stationType: row.station_type,
+    ingestId: row.ingest_id,
+  };
 }
 
 /**
@@ -654,7 +735,9 @@ export async function updateStation(id: number, updates: Partial<Station>): Prom
  * Delete a station
  */
 export async function deleteStation(id: number): Promise<void> {
-  // Use a transaction to prevent race conditions (e.g. Dropbox sync re-inserting data)
+  // Use a transaction to delete all referencing records and the station itself.
+  // All child tables have ON DELETE CASCADE, but we explicitly delete first
+  // to ensure clean removal under any circumstance (race conditions, partial schemas, etc.)
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -671,7 +754,21 @@ export async function deleteStation(id: number): Promise<void> {
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
-    throw err;
+    // Fallback: if explicit deletes fail (e.g. new FK tables added), try with just CASCADE
+    console.warn(`[DB] Explicit station delete failed for ${id}, retrying with CASCADE:`, err);
+    const fallbackClient = await getClient();
+    try {
+      await fallbackClient.query('BEGIN');
+      // Force-delete the station — ON DELETE CASCADE handles all child rows
+      await fallbackClient.query('DELETE FROM dropbox_configs WHERE station_id = $1', [id]);
+      await fallbackClient.query('DELETE FROM stations WHERE id = $1', [id]);
+      await fallbackClient.query('COMMIT');
+    } catch (err2) {
+      await fallbackClient.query('ROLLBACK');
+      throw err2;
+    } finally {
+      fallbackClient.release();
+    }
   } finally {
     client.release();
   }

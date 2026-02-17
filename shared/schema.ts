@@ -189,6 +189,7 @@ export const weatherStations = pgTable("weather_stations", {
   batteryAmpHours: integer("battery_amp_hours"),
   enclosureType: varchar("enclosure_type", { length: 100 }),
   stationImage: text("station_image"), // Base64 encoded image or URL
+  ingestId: varchar("ingest_id", { length: 10 }), // Unique alphanumeric ID for HTTP POST ingestion
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
