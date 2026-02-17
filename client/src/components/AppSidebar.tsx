@@ -77,7 +77,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
           <div className="flex flex-col">
             <h2 className="text-[20px] font-extrabold tracking-wide leading-tight" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</h2>
-            <span className="text-[5px] font-bold tracking-wider" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.1.0</span>
+            <span className="text-[10px] font-bold tracking-wider" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.1.0</span>
           </div>
         </div>
       </SidebarHeader>

@@ -1663,7 +1663,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Wind Direction Compass & Charts - Only show if wind data available */}
-        {availableFields.windSpeed && (
+        {(availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-6">
           <h2 className="text-base font-normal text-foreground">Wind Analysis (WMO/Beaufort Scale)</h2>
           
@@ -1796,7 +1796,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Wind Energy Section - Only show if wind data available */}
-        {availableFields.windSpeed && (
+        {(availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Wind Energy</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
