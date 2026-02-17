@@ -394,6 +394,7 @@ export default function Stations() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="dropbox">Dropbox Sync (Campbell Scientific)</SelectItem>
+                      <SelectItem value="http_post">HTTP POST (Arduino / ESP32 / Datalogger / Generic)</SelectItem>
                       <SelectItem value="rikacloud">RikaCloud HTTP API (Rika Weather Stations)</SelectItem>
                     </SelectContent>
                   </Select>
@@ -468,15 +469,50 @@ export default function Stations() {
 
                 {formData.connectionType === "http_post" && (
                   <div className="space-y-4">
+                    <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300">
+                      <strong>HTTP POST Ingest:</strong> Any device that can make HTTP requests (Arduino, ESP32, Raspberry Pi, Campbell Scientific, generic datalogger) can push weather data directly to Stratus. After creating this station, configure your device to POST JSON data to the endpoint below.
+                    </div>
                     <div className="space-y-2">
-                      <Label>API Endpoint (auto-generated)</Label>
+                      <Label>Ingest Endpoint</Label>
                       <Input
-                        placeholder="/api/campbell/data/{station-id}"
-                        value={formData.apiEndpoint}
+                        value={`POST https://stratusweather.co.za/api/ingest/{station-id}`}
                         disabled
+                        className="font-mono text-xs bg-muted"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Endpoint URL will be generated after station is created. Configure your datalogger to POST data to this URL.
+                        The station ID will be assigned after creation. Replace <code>{'{station-id}'}</code> with the numeric ID shown on the station card.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>API Key (optional security)</Label>
+                      <Input
+                        placeholder="Leave blank for no key, or enter a secret key"
+                        value={formData.apiKey}
+                        onChange={(e) => updateForm({ apiKey: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        If set, the device must send this key in the <code>X-API-Key</code> header with every request.
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900 p-3">
+                      <p className="text-xs font-medium mb-2">Example JSON payload:</p>
+                      <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">{`POST /api/ingest/{id}
+Content-Type: application/json
+X-API-Key: your-key (optional)
+
+{
+  "data": {
+    "temperature": 22.5,
+    "humidity": 65.0,
+    "pressure": 1013.2,
+    "windSpeed": 12.3,
+    "windDirection": 180,
+    "rainfall": 0.0,
+    "batteryVoltage": 3.7
+  }
+}`}</pre>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Supported fields: temperature, humidity, pressure, windSpeed, windDirection, windGust, rainfall, solarRadiation, uvIndex, dewPoint, batteryVoltage, soilTemperature, soilMoisture, waterLevel, pm25, pm10, co2, lightning, chargerVoltage, and more. Rate limit: 60 requests/min.
                       </p>
                     </div>
                   </div>
