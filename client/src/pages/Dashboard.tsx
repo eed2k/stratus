@@ -21,6 +21,7 @@ import { StationMapWithErrorBoundary } from "@/components/dashboard/StationMap";
 import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { AirDensityCard } from "@/components/dashboard/AirDensityCard";
 import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
+import { MpptChargerCard } from "@/components/dashboard/MpptChargerCard";
 import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
 import { EvapotranspirationCard } from "@/components/dashboard/EvapotranspirationCard";
 import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
@@ -208,6 +209,14 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       pumpSelectBore: d.pumpSelectBore ?? null,
       portStatusC1: d.portStatusC1 ?? null,
       portStatusC2: d.portStatusC2 ?? null,
+      mpptSolarVoltage: d.mpptSolarVoltage ?? null,
+      mpptSolarCurrent: d.mpptSolarCurrent ?? null,
+      mpptSolarPower: d.mpptSolarPower ?? null,
+      mpptLoadVoltage: d.mpptLoadVoltage ?? null,
+      mpptLoadCurrent: d.mpptLoadCurrent ?? null,
+      mpptBatteryVoltage: d.mpptBatteryVoltage ?? null,
+      mpptChargerState: d.mpptChargerState ?? null,
+      mpptAbsiAvg: d.mpptAbsiAvg ?? null,
     };
   });
 };
@@ -429,6 +438,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       pumpSelectBore: hasData('pumpSelectBore'),
       portStatusC1: hasData('portStatusC1'),
       portStatusC2: hasData('portStatusC2'),
+      mpptSolarVoltage: hasData('mpptSolarVoltage'),
+      mpptSolarCurrent: hasData('mpptSolarCurrent'),
+      mpptSolarPower: hasData('mpptSolarPower'),
+      mpptLoadVoltage: hasData('mpptLoadVoltage'),
+      mpptLoadCurrent: hasData('mpptLoadCurrent'),
+      mpptBatteryVoltage: hasData('mpptBatteryVoltage'),
+      mpptChargerState: hasData('mpptChargerState'),
+      mpptAbsiAvg: hasData('mpptAbsiAvg'),
     };
   }, [historicalData]);
 
@@ -634,7 +651,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
 
   const stationOptions = [...stations]
-    .sort((a, b) => a.id - b.id)
+    .sort((a, b) => a.name.localeCompare(b.name))
     .map(s => ({
       id: String(s.id),
       name: s.name,
@@ -691,6 +708,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         pumpSelectBore: null,
         portStatusC1: null,
         portStatusC2: null,
+        mpptSolarVoltage: null,
+        mpptSolarCurrent: null,
+        mpptSolarPower: null,
+        mpptLoadVoltage: null,
+        mpptLoadCurrent: null,
+        mpptBatteryVoltage: null,
+        mpptChargerState: null,
+        mpptAbsiAvg: null,
       };
 
   // Check if station has valid GPS coordinates
@@ -1279,6 +1304,88 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               value={formatValue(currentData.panelTemperature || 0, 1)}
               unit="°C"
               chartColor="#f97316"
+            />
+            )}
+          </div>
+        </section>
+        )}
+
+        {/* MPPT Solar Charge Controller Section */}
+        {dashboardConfig.sectionVisibility?.mpptCharger !== false && (availableFields.mpptSolarVoltage || availableFields.mpptSolarCurrent || availableFields.mpptSolarPower || availableFields.mpptLoadVoltage || availableFields.mpptLoadCurrent || availableFields.mpptBatteryVoltage || availableFields.mpptChargerState || availableFields.mpptAbsiAvg) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">MPPT Solar Charge Controller</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <MpptChargerCard
+              solarVoltage={currentData.mpptSolarVoltage ?? null}
+              solarCurrent={currentData.mpptSolarCurrent ?? null}
+              solarPower={currentData.mpptSolarPower ?? null}
+              loadVoltage={currentData.mpptLoadVoltage ?? null}
+              loadCurrent={currentData.mpptLoadCurrent ?? null}
+              batteryVoltage={currentData.mpptBatteryVoltage ?? null}
+              chargerState={currentData.mpptChargerState ?? null}
+              mpptAbsiAvg={currentData.mpptAbsiAvg ?? null}
+            />
+            {(availableFields.mpptSolarVoltage || availableFields.mpptChargerState) && (
+            <DataBlockChart
+              title="Solar Voltage & Charger State"
+              data={chartData}
+              series={[
+                ...(availableFields.mpptSolarVoltage ? [{ dataKey: "mpptSolarVoltage", name: "Solar Voltage", color: "#ef4444", unit: "V" }] : []),
+                ...(availableFields.mpptChargerState ? [{ dataKey: "mpptChargerState", name: "Charger State", color: "#22c55e", unit: "" }] : []),
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Voltage (V)"
+              showAverage={false}
+              showMinMax={true}
+            />
+            )}
+            {(availableFields.mpptLoadVoltage || availableFields.mpptBatteryVoltage) && (
+            <DataBlockChart
+              title="Load Voltage & Battery Voltage"
+              data={chartData}
+              series={[
+                ...(availableFields.mpptLoadVoltage ? [{ dataKey: "mpptLoadVoltage", name: "Load Voltage", color: "#ef4444", unit: "V" }] : []),
+                ...(availableFields.mpptBatteryVoltage ? [{ dataKey: "mpptBatteryVoltage", name: "Battery Voltage", color: "#9ca3af", unit: "V" }] : []),
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Voltage (V)"
+              showAverage={true}
+              showMinMax={true}
+            />
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {(availableFields.mpptSolarCurrent || availableFields.mpptLoadCurrent || availableFields.mpptAbsiAvg) && (
+            <DataBlockChart
+              title="Solar Current, Load Current & MPPT Current"
+              data={chartData}
+              series={[
+                ...(availableFields.mpptSolarCurrent ? [{ dataKey: "mpptSolarCurrent", name: "Solar Current", color: "#f97316", unit: "mA" }] : []),
+                ...(availableFields.mpptLoadCurrent ? [{ dataKey: "mpptLoadCurrent", name: "Load Current", color: "#111827", unit: "mA" }] : []),
+                ...(availableFields.mpptAbsiAvg ? [{ dataKey: "mpptAbsiAvg", name: "MPPT Avg Current", color: "#22c55e", unit: "mA" }] : []),
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Current (mA)"
+              showAverage={false}
+              showMinMax={true}
+            />
+            )}
+            {availableFields.mpptSolarPower && (
+            <DataBlockChart
+              title="Solar Power"
+              data={chartData}
+              series={[
+                { dataKey: "mpptSolarPower", name: "Solar Power", color: "#ef4444", unit: "W" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Power (W)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.mpptSolarPower ?? 0}
             />
             )}
           </div>

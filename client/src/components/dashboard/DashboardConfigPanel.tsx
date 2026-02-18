@@ -51,6 +51,7 @@ const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   soilEnvironment: 'Soil & Environment',
   fireDanger: 'Fire Danger Index',
   loggerBattery: 'Logger & Battery',
+  mpptCharger: 'MPPT Solar Charger',
 };
 
 const CHART_TIME_RANGE_OPTIONS = [

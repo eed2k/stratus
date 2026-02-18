@@ -650,6 +650,101 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         precision: 2
       }
     ]
+  },
+  {
+    id: 'mppt',
+    name: 'MPPT Solar Charger',
+    icon: 'battery-charging',
+    parameters: [
+      {
+        id: 'mpptSolarVoltage',
+        name: 'Solar Voltage',
+        category: 'mppt',
+        unit: 'V',
+        description: 'MPPT solar panel input voltage',
+        dataField: 'mpptSolarVoltage',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 1
+      },
+      {
+        id: 'mpptSolarCurrent',
+        name: 'Solar Current',
+        category: 'mppt',
+        unit: 'mA',
+        description: 'MPPT solar panel input current',
+        dataField: 'mpptSolarCurrent',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'mpptSolarPower',
+        name: 'Solar Power',
+        category: 'mppt',
+        unit: 'W',
+        description: 'MPPT solar power output',
+        dataField: 'mpptSolarPower',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 1
+      },
+      {
+        id: 'mpptLoadVoltage',
+        name: 'Load Voltage',
+        category: 'mppt',
+        unit: 'V',
+        description: 'MPPT load output voltage',
+        dataField: 'mpptLoadVoltage',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 2
+      },
+      {
+        id: 'mpptLoadCurrent',
+        name: 'Load Current',
+        category: 'mppt',
+        unit: 'mA',
+        description: 'MPPT load output current',
+        dataField: 'mpptLoadCurrent',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'mpptBatteryVoltage',
+        name: 'Battery Voltage',
+        category: 'mppt',
+        unit: 'V',
+        description: 'MPPT battery voltage',
+        dataField: 'mpptBatteryVoltage',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 2
+      },
+      {
+        id: 'mpptChargerState',
+        name: 'Charger State',
+        category: 'mppt',
+        unit: '',
+        description: 'MPPT charger operating state (0=Off, 1=Bulk, 2=Absorption, 3=Float)',
+        dataField: 'mpptChargerState',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'mpptAbsiAvg',
+        name: 'MPPT Current (Avg)',
+        category: 'mppt',
+        unit: 'mA',
+        description: 'Average absolute current through MPPT controller',
+        dataField: 'mpptAbsiAvg',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      }
+    ]
   }
 ];
 
@@ -677,6 +772,7 @@ export interface SectionVisibility {
   soilEnvironment: boolean;
   fireDanger: boolean;
   loggerBattery: boolean;
+  mpptCharger: boolean;
 }
 
 export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
@@ -687,6 +783,7 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
   soilEnvironment: true,
   fireDanger: true,
   loggerBattery: true,
+  mpptCharger: true,
 };
 
 export interface DashboardConfig {

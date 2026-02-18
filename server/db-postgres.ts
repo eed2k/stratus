@@ -410,6 +410,15 @@ async function createTables(): Promise<void> {
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS pump_select_bore REAL`);
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS port_status_c1 REAL`);
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS port_status_c2 REAL`);
+  // MPPT Solar Charge Controller columns
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_voltage REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_current REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_power REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_load_voltage REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_load_current REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_battery_voltage REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_charger_state REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_absi_avg REAL`);
   pgLog.info('Additional performance indexes ready');
 }
 

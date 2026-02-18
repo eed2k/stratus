@@ -308,6 +308,15 @@ export const weatherData = pgTable(
     pumpSelectBore: real("pump_select_bore"),
     portStatusC1: real("port_status_c1"),
     portStatusC2: real("port_status_c2"),
+    // MPPT Solar Charge Controller fields
+    mpptSolarVoltage: real("mppt_solar_voltage"),
+    mpptSolarCurrent: real("mppt_solar_current"),
+    mpptSolarPower: real("mppt_solar_power"),
+    mpptLoadVoltage: real("mppt_load_voltage"),
+    mpptLoadCurrent: real("mppt_load_current"),
+    mpptBatteryVoltage: real("mppt_battery_voltage"),
+    mpptChargerState: real("mppt_charger_state"),
+    mpptAbsiAvg: real("mppt_absi_avg"),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [

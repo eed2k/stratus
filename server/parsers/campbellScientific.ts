@@ -352,6 +352,15 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     pumpSelectBore: ["Pump_Select_Bore", "PumpSelectBore", "Pump_Bore"],
     portStatusC1: ["Port_Status_C1", "PortStatusC1", "Port_C1"],
     portStatusC2: ["Port_Status_C2", "PortStatusC2", "Port_C2"],
+    // MPPT Solar Charge Controller fields
+    mpptSolarVoltage: ["MPPT_SolV_Avg", "MPPT_SolarVoltage", "Solar_Voltage", "SolV_Avg", "MPPT_Vsol", "Vsol_Avg"],
+    mpptSolarCurrent: ["MPPT_SolI_Avg", "MPPT_SolarCurrent", "Solar_Current", "SolI_Avg", "MPPT_Isol", "Isol_Avg"],
+    mpptSolarPower: ["MPPT_SolP_Avg", "MPPT_SolarPower", "Solar_Power", "SolP_Avg", "MPPT_Psol", "Psol_Avg"],
+    mpptLoadVoltage: ["MPPT_LdV_Avg", "MPPT_LoadVoltage", "Load_Voltage", "LdV_Avg", "MPPT_Vload", "Vload_Avg"],
+    mpptLoadCurrent: ["MPPT_LdI_Avg", "MPPT_LoadCurrent", "Load_Current", "LdI_Avg", "MPPT_Iload", "Iload_Avg"],
+    mpptBatteryVoltage: ["MPPT_BatV_Avg", "MPPT_BatteryVoltage", "MPPT_Vbat", "Vbat_Avg"],
+    mpptChargerState: ["MPPT_ChgS", "MPPT_ChargerState", "Charger_State", "ChgState", "MPPT_State"],
+    mpptAbsiAvg: ["MPPT_ABSI_Avg", "MPPT_ABSI", "ABSI_Avg"],
   };
 
   const result: Record<string, number | null> = {};
