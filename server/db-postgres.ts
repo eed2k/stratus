@@ -419,6 +419,19 @@ async function createTables(): Promise<void> {
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_battery_voltage REAL`);
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_charger_state REAL`);
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_absi_avg REAL`);
+  // MPPT additional fields
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_board_temp REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_mode REAL`);
+  // MPPT Charger 2 columns
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_voltage REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_current REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_power REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_load_voltage REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_load_current REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_battery_voltage REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_charger_state REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_board_temp REAL`);
+  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_mode REAL`);
   pgLog.info('Additional performance indexes ready');
 }
 
@@ -802,6 +815,15 @@ export interface WeatherRecord {
   timestamp: string;
   data: any;
   collectedAt?: string;
+  // MPPT dedicated columns
+  mppt_solar_voltage?: number | null;
+  mppt_solar_current?: number | null;
+  mppt_solar_power?: number | null;
+  mppt_load_voltage?: number | null;
+  mppt_load_current?: number | null;
+  mppt_battery_voltage?: number | null;
+  mppt_charger_state?: number | null;
+  mppt_absi_avg?: number | null;
 }
 
 /**
@@ -887,7 +909,10 @@ export async function getWeatherData(
   
   // Get records with limit
   let queryText = `
-    SELECT id, station_id, table_name, record_number, timestamp, data, collected_at
+    SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
+           mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
+           mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
+           mppt_charger_state, mppt_absi_avg
     FROM weather_data
     WHERE ${whereClause}
     ORDER BY timestamp DESC
@@ -912,6 +937,14 @@ export async function getWeatherData(
       timestamp: row.timestamp?.toISOString(),
       data: row.data,
       collectedAt: row.collected_at?.toISOString(),
+      mppt_solar_voltage: row.mppt_solar_voltage,
+      mppt_solar_current: row.mppt_solar_current,
+      mppt_solar_power: row.mppt_solar_power,
+      mppt_load_voltage: row.mppt_load_voltage,
+      mppt_load_current: row.mppt_load_current,
+      mppt_battery_voltage: row.mppt_battery_voltage,
+      mppt_charger_state: row.mppt_charger_state,
+      mppt_absi_avg: row.mppt_absi_avg,
     })),
     total: result.rows.length,
   };
@@ -924,7 +957,10 @@ export async function getLatestWeatherData(stationId: number, tableName?: string
   let result;
   if (tableName) {
     result = await query(`
-      SELECT id, station_id, table_name, record_number, timestamp, data, collected_at
+      SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
+             mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
+             mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
+             mppt_charger_state, mppt_absi_avg
       FROM weather_data
       WHERE station_id = $1 AND table_name = $2
       ORDER BY timestamp DESC
@@ -933,7 +969,10 @@ export async function getLatestWeatherData(stationId: number, tableName?: string
   } else {
     // No table name filter — get the absolute latest record for this station
     result = await query(`
-      SELECT id, station_id, table_name, record_number, timestamp, data, collected_at
+      SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
+             mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
+             mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
+             mppt_charger_state, mppt_absi_avg
       FROM weather_data
       WHERE station_id = $1
       ORDER BY timestamp DESC
@@ -952,6 +991,14 @@ export async function getLatestWeatherData(stationId: number, tableName?: string
     timestamp: row.timestamp?.toISOString(),
     data: row.data,
     collectedAt: row.collected_at?.toISOString(),
+    mppt_solar_voltage: row.mppt_solar_voltage,
+    mppt_solar_current: row.mppt_solar_current,
+    mppt_solar_power: row.mppt_solar_power,
+    mppt_load_voltage: row.mppt_load_voltage,
+    mppt_load_current: row.mppt_load_current,
+    mppt_battery_voltage: row.mppt_battery_voltage,
+    mppt_charger_state: row.mppt_charger_state,
+    mppt_absi_avg: row.mppt_absi_avg,
   };
 }
 

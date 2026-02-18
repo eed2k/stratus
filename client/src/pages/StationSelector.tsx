@@ -257,7 +257,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {station.isActive ? (
+                    {station.name?.toUpperCase().includes('MPPT TEST') ? null : station.isActive ? (
                       <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 text-xs">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Active
@@ -275,7 +275,13 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                 
                 {/* Stats Footer */}
                 <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t">
-                  {formatLastSync(station.lastSyncTime) ? (
+                  {station.name?.toUpperCase().includes('MPPT TEST') ? (
+                    <div>
+                      <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50 text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                        MPPT Demo Station
+                      </Badge>
+                    </div>
+                  ) : formatLastSync(station.lastSyncTime) ? (
                     <>
                       <div>
                         <Badge variant="outline" className="border-black text-black bg-transparent text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>

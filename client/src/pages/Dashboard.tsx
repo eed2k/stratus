@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
@@ -217,6 +217,18 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       mpptBatteryVoltage: d.mpptBatteryVoltage ?? null,
       mpptChargerState: d.mpptChargerState ?? null,
       mpptAbsiAvg: d.mpptAbsiAvg ?? null,
+      mpptBoardTemp: d.mpptBoardTemp ?? null,
+      mpptMode: d.mpptMode ?? null,
+      // Charger 2
+      mppt2SolarVoltage: d.mppt2SolarVoltage ?? null,
+      mppt2SolarCurrent: d.mppt2SolarCurrent ?? null,
+      mppt2SolarPower: d.mppt2SolarPower ?? null,
+      mppt2LoadVoltage: d.mppt2LoadVoltage ?? null,
+      mppt2LoadCurrent: d.mppt2LoadCurrent ?? null,
+      mppt2BatteryVoltage: d.mppt2BatteryVoltage ?? null,
+      mppt2ChargerState: d.mppt2ChargerState ?? null,
+      mppt2BoardTemp: d.mppt2BoardTemp ?? null,
+      mppt2Mode: d.mppt2Mode ?? null,
     };
   });
 };
@@ -282,7 +294,11 @@ interface DashboardProps {
 export default function Dashboard({ isAdmin = true, canAccessStation, stationId, onBackToStations }: DashboardProps) {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(stationId || null);
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
-    // Load config from localStorage if available
+    // Load station-specific config, fall back to global, then defaults
+    if (stationId) {
+      const stationSaved = localStorage.getItem(`dashboardConfig_${stationId}`);
+      if (stationSaved) return JSON.parse(stationSaved);
+    }
     const saved = localStorage.getItem('dashboardConfig');
     return saved ? JSON.parse(saved) : DEFAULT_DASHBOARD_CONFIG;
   });
@@ -301,6 +317,19 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   }, [allStations, isAdmin, canAccessStation]);
 
   const activeStationId = selectedStationId || (stations.length > 0 ? stations[0].id : null);
+
+  // Reload per-station config when active station changes
+  useEffect(() => {
+    if (!activeStationId) return;
+    const stationSaved = localStorage.getItem(`dashboardConfig_${activeStationId}`);
+    if (stationSaved) {
+      setDashboardConfig(JSON.parse(stationSaved));
+    } else {
+      // Fall back to global config or defaults for stations without saved config
+      const globalSaved = localStorage.getItem('dashboardConfig');
+      setDashboardConfig(globalSaved ? JSON.parse(globalSaved) : DEFAULT_DASHBOARD_CONFIG);
+    }
+  }, [activeStationId]);
 
   const { data: latestData, isLoading: dataLoading, refetch } = useQuery<WeatherData>({
     queryKey: ["/api/stations", activeStationId, "data", "latest"],
@@ -446,6 +475,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       mpptBatteryVoltage: hasData('mpptBatteryVoltage'),
       mpptChargerState: hasData('mpptChargerState'),
       mpptAbsiAvg: hasData('mpptAbsiAvg'),
+      mpptBoardTemp: hasData('mpptBoardTemp'),
+      mpptMode: hasData('mpptMode'),
+      // Charger 2
+      mppt2SolarVoltage: hasData('mppt2SolarVoltage'),
+      mppt2SolarCurrent: hasData('mppt2SolarCurrent'),
+      mppt2SolarPower: hasData('mppt2SolarPower'),
+      mppt2LoadVoltage: hasData('mppt2LoadVoltage'),
+      mppt2LoadCurrent: hasData('mppt2LoadCurrent'),
+      mppt2BatteryVoltage: hasData('mppt2BatteryVoltage'),
+      mppt2ChargerState: hasData('mppt2ChargerState'),
+      mppt2BoardTemp: hasData('mppt2BoardTemp'),
+      mppt2Mode: hasData('mppt2Mode'),
     };
   }, [historicalData]);
 
@@ -628,9 +669,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [sortedStatsData, sortedHistoricalData]);
 
-  // Save config to localStorage and invalidate queries when it changes
+  // Save config to localStorage (per-station) and invalidate queries when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
     setDashboardConfig(newConfig);
+    // Save per-station config
+    if (activeStationId) {
+      localStorage.setItem(`dashboardConfig_${activeStationId}`, JSON.stringify(newConfig));
+    }
+    // Also save as global fallback
     localStorage.setItem('dashboardConfig', JSON.stringify(newConfig));
     // Invalidate historical data queries to force refresh with new time range
     queryClient.invalidateQueries({ 
@@ -651,7 +697,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
 
   const stationOptions = [...stations]
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => a.id - b.id)
     .map(s => ({
       id: String(s.id),
       name: s.name,
@@ -661,6 +707,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Check if viewing demo station (hide admin panels for demo)
   const isDemoStation = selectedStation?.connectionType === 'demo';
+  // Check if this is the MPPT-only demo station — hide all non-MPPT sections
+  const isMpptOnlyStation = selectedStation?.name?.toUpperCase().includes('MPPT TEST');
   // RIKA stations report SLP as pressure — need to handle differently
   const isRikaStation = selectedStation?.connectionType === 'rikacloud';
 
@@ -716,6 +764,17 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         mpptBatteryVoltage: null,
         mpptChargerState: null,
         mpptAbsiAvg: null,
+        mpptBoardTemp: null,
+        mpptMode: null,
+        mppt2SolarVoltage: null,
+        mppt2SolarCurrent: null,
+        mppt2SolarPower: null,
+        mppt2LoadVoltage: null,
+        mppt2LoadCurrent: null,
+        mppt2BatteryVoltage: null,
+        mppt2ChargerState: null,
+        mppt2BoardTemp: null,
+        mppt2Mode: null,
       };
 
   // Check if station has valid GPS coordinates
@@ -1062,6 +1121,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
       <div id="dashboard-content" className="space-y-6">
         {/* Current Conditions Header */}
+        {!isMpptOnlyStation && (
         <CurrentConditions
           stationName={selectedStation?.name || "Weather Station"}
           lastUpdate={((currentData as any).collectedAt || currentData.timestamp) ? new Date((currentData as any).collectedAt || currentData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false }) : "No data"}
@@ -1080,8 +1140,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           latitude={selectedStation?.latitude ?? undefined}
           longitude={selectedStation?.longitude ?? undefined}
         />
+        )}
 
         {/* Station Location Map */}
+        {!isMpptOnlyStation && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Station Location</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1123,9 +1185,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             </Card>
           </div>
         </section>
+        )}
 
         {/* Primary Metrics - Only show cards with data */}
-        {(hasValidData(currentData.temperature) || hasValidData(currentData.humidity) || hasValidData(currentData.pressure) || hasValidData(currentData.windSpeed) || hasValidData(currentData.rainfall)) && (
+        {!isMpptOnlyStation && (hasValidData(currentData.temperature) || hasValidData(currentData.humidity) || hasValidData(currentData.pressure) || hasValidData(currentData.windSpeed) || hasValidData(currentData.rainfall)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -1261,7 +1324,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Logger Battery Section - Only show if battery data exists */}
-        {dashboardConfig.sectionVisibility?.loggerBattery !== false && hasValidData(currentData.batteryVoltage) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.loggerBattery !== false && hasValidData(currentData.batteryVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
           {/* Battery Not Charging Warning */}
@@ -1311,19 +1374,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* MPPT Solar Charge Controller Section */}
-        {dashboardConfig.sectionVisibility?.mpptCharger !== false && (availableFields.mpptSolarVoltage || availableFields.mpptSolarCurrent || availableFields.mpptSolarPower || availableFields.mpptLoadVoltage || availableFields.mpptLoadCurrent || availableFields.mpptBatteryVoltage || availableFields.mpptChargerState || availableFields.mpptAbsiAvg) && (
+        {dashboardConfig.sectionVisibility?.mpptCharger !== false && (availableFields.mpptSolarVoltage || availableFields.mpptSolarCurrent || availableFields.mpptSolarPower || availableFields.mpptLoadVoltage || availableFields.mpptLoadCurrent || availableFields.mpptBatteryVoltage || availableFields.mpptChargerState || availableFields.mpptAbsiAvg || availableFields.mppt2SolarVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">MPPT Solar Charge Controller</h2>
-          {selectedStation?.name?.toUpperCase().includes('DEMO') && (
-          <div className="rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm text-amber-300 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <span><strong>Test Data</strong> — MPPT values shown below are simulated for demonstration purposes and do not represent real-world measurements.</span>
+          {isMpptOnlyStation && (
+          <div className="rounded-md border border-black px-4 py-2 text-sm" style={{ color: '#000', WebkitTextStroke: '0.3px black' }}>
+            Test Data — MPPT values shown below are simulated for demonstration purposes and do not represent real-world measurements.
           </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Charger Cards */}
+          <div className={`grid grid-cols-1 ${availableFields.mppt2SolarVoltage ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
             <MpptChargerCard
+              label={availableFields.mppt2SolarVoltage ? 'Charger 1' : undefined}
               solarVoltage={currentData.mpptSolarVoltage ?? null}
               solarCurrent={currentData.mpptSolarCurrent ?? null}
               solarPower={currentData.mpptSolarPower ?? null}
@@ -1332,8 +1394,25 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               batteryVoltage={currentData.mpptBatteryVoltage ?? null}
               chargerState={currentData.mpptChargerState ?? null}
               mpptAbsiAvg={currentData.mpptAbsiAvg ?? null}
+              boardTemp={currentData.mpptBoardTemp ?? null}
+              mode={currentData.mpptMode ?? null}
             />
-            {(availableFields.mpptSolarVoltage || availableFields.mpptChargerState) && (
+            {availableFields.mppt2SolarVoltage && (
+            <MpptChargerCard
+              label="Charger 2"
+              solarVoltage={currentData.mppt2SolarVoltage ?? null}
+              solarCurrent={currentData.mppt2SolarCurrent ?? null}
+              solarPower={currentData.mppt2SolarPower ?? null}
+              loadVoltage={currentData.mppt2LoadVoltage ?? null}
+              loadCurrent={currentData.mppt2LoadCurrent ?? null}
+              batteryVoltage={currentData.mppt2BatteryVoltage ?? null}
+              chargerState={currentData.mppt2ChargerState ?? null}
+              mpptAbsiAvg={null}
+              boardTemp={currentData.mppt2BoardTemp ?? null}
+              mode={currentData.mppt2Mode ?? null}
+            />
+            )}
+            {!availableFields.mppt2SolarVoltage && (availableFields.mpptSolarVoltage || availableFields.mpptChargerState) && (
             <DataBlockChart
               title="Solar Voltage & Charger State"
               data={chartData}
@@ -1346,32 +1425,68 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisLabel="Voltage (V)"
               showAverage={false}
               showMinMax={true}
+              defaultExpanded={isMpptOnlyStation}
             />
             )}
-            {(availableFields.mpptLoadVoltage || availableFields.mpptBatteryVoltage) && (
+            {!availableFields.mppt2SolarVoltage && (availableFields.mpptLoadVoltage || availableFields.mpptBatteryVoltage) && (
             <DataBlockChart
-              title="Load Voltage & Battery Voltage"
+              title="Load & Battery Voltage"
               data={chartData}
               series={[
                 ...(availableFields.mpptLoadVoltage ? [{ dataKey: "mpptLoadVoltage", name: "Load Voltage", color: "#ef4444", unit: "V" }] : []),
-                ...(availableFields.mpptBatteryVoltage ? [{ dataKey: "mpptBatteryVoltage", name: "Battery Voltage", color: "#9ca3af", unit: "V" }] : []),
+                ...(availableFields.mpptBatteryVoltage ? [{ dataKey: "mpptBatteryVoltage", name: "Battery Voltage", color: "#2563eb", unit: "V" }] : []),
               ]}
               chartType="line"
               xAxisLabel="Time"
               yAxisLabel="Voltage (V)"
               showAverage={true}
               showMinMax={true}
+              defaultExpanded={isMpptOnlyStation}
             />
             )}
           </div>
+          {/* Charts - Solar Voltage comparison for dual charger */}
+          {availableFields.mppt2SolarVoltage && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <DataBlockChart
+              title="Solar Voltage — Charger 1 vs 2"
+              data={chartData}
+              series={[
+                { dataKey: "mpptSolarVoltage", name: "Charger 1", color: "#ef4444", unit: "V" },
+                { dataKey: "mppt2SolarVoltage", name: "Charger 2", color: "#3b82f6", unit: "V" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Voltage (V)"
+              showAverage={false}
+              showMinMax={true}
+              defaultExpanded={isMpptOnlyStation}
+            />
+            <DataBlockChart
+              title="Battery Voltage — Charger 1 vs 2"
+              data={chartData}
+              series={[
+                { dataKey: "mpptBatteryVoltage", name: "Charger 1", color: "#2563eb", unit: "V" },
+                { dataKey: "mppt2BatteryVoltage", name: "Charger 2", color: "#8b5cf6", unit: "V" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Voltage (V)"
+              showAverage={true}
+              showMinMax={true}
+              defaultExpanded={isMpptOnlyStation}
+            />
+          </div>
+          )}
+          {/* Current & Power charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {(availableFields.mpptSolarCurrent || availableFields.mpptLoadCurrent || availableFields.mpptAbsiAvg) && (
             <DataBlockChart
-              title="Solar Current, Load Current & MPPT Current"
+              title={availableFields.mppt2SolarVoltage ? "Charger 1 — Current" : "Solar Current, Load Current & MPPT Current"}
               data={chartData}
               series={[
                 ...(availableFields.mpptSolarCurrent ? [{ dataKey: "mpptSolarCurrent", name: "Solar Current", color: "#f97316", unit: "mA" }] : []),
-                ...(availableFields.mpptLoadCurrent ? [{ dataKey: "mpptLoadCurrent", name: "Load Current", color: "#111827", unit: "mA" }] : []),
+                ...(availableFields.mpptLoadCurrent ? [{ dataKey: "mpptLoadCurrent", name: "Load Current", color: "#3b82f6", unit: "mA" }] : []),
                 ...(availableFields.mpptAbsiAvg ? [{ dataKey: "mpptAbsiAvg", name: "MPPT Avg Current", color: "#22c55e", unit: "mA" }] : []),
               ]}
               chartType="line"
@@ -1379,11 +1494,28 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisLabel="Current (mA)"
               showAverage={false}
               showMinMax={true}
+              defaultExpanded={isMpptOnlyStation}
+            />
+            )}
+            {availableFields.mppt2SolarCurrent && (
+            <DataBlockChart
+              title="Charger 2 — Current"
+              data={chartData}
+              series={[
+                { dataKey: "mppt2SolarCurrent", name: "Solar Current", color: "#3b82f6", unit: "mA" },
+                ...(availableFields.mppt2LoadCurrent ? [{ dataKey: "mppt2LoadCurrent", name: "Load Current", color: "#6366f1", unit: "mA" }] : []),
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Current (mA)"
+              showAverage={false}
+              showMinMax={true}
+              defaultExpanded={isMpptOnlyStation}
             />
             )}
             {availableFields.mpptSolarPower && (
             <DataBlockChart
-              title="Solar Power"
+              title={availableFields.mppt2SolarPower ? "Charger 1 — Solar Power" : "Solar Power"}
               data={chartData}
               series={[
                 { dataKey: "mpptSolarPower", name: "Solar Power", color: "#ef4444", unit: "W" },
@@ -1394,14 +1526,50 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.mpptSolarPower ?? 0}
+              defaultExpanded={isMpptOnlyStation}
+            />
+            )}
+            {availableFields.mppt2SolarPower && (
+            <DataBlockChart
+              title="Charger 2 — Solar Power"
+              data={chartData}
+              series={[
+                { dataKey: "mppt2SolarPower", name: "Solar Power", color: "#3b82f6", unit: "W" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Power (W)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.mppt2SolarPower ?? 0}
+              defaultExpanded={isMpptOnlyStation}
             />
             )}
           </div>
+          {/* Board Temperature chart for dual charger */}
+          {(availableFields.mpptBoardTemp || availableFields.mppt2BoardTemp) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <DataBlockChart
+              title="Board Temperature"
+              data={chartData}
+              series={[
+                ...(availableFields.mpptBoardTemp ? [{ dataKey: "mpptBoardTemp", name: "Charger 1", color: "#f97316", unit: "°C" }] : []),
+                ...(availableFields.mppt2BoardTemp ? [{ dataKey: "mppt2BoardTemp", name: "Charger 2", color: "#3b82f6", unit: "°C" }] : []),
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Temperature (°C)"
+              showAverage={true}
+              showMinMax={true}
+              defaultExpanded={isMpptOnlyStation}
+            />
+          </div>
+          )}
         </section>
         )}
 
         {/* Water & Sensors Section - Only show if any water/sensor data exists AND section enabled */}
-        {dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.chargerVoltage) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.chargerVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1505,13 +1673,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Solar & Radiation Section - only show when station has coordinates or solar data */}
-        {dashboardConfig.sectionVisibility?.solarRadiation !== false && (hasStationCoordinates || hasValidData(currentData.solarRadiation) || hasValidData(currentData.uvIndex) || availableFields.solarRadiation) && (
+        {!isMpptOnlyStation && (dashboardConfig.sectionVisibility?.solarRadiation !== false || dashboardConfig.sectionVisibility?.solarPosition !== false) && (hasStationCoordinates || hasValidData(currentData.solarRadiation) || hasValidData(currentData.uvIndex) || availableFields.solarRadiation) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar Position & Radiation</h2>
           
           {/* Solar Position and Air Density Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {hasStationCoordinates && (
+            {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
             <SolarPositionCard
               elevation={solarPosition.elevation}
               azimuth={solarPosition.azimuth}
@@ -1543,7 +1711,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           
           {/* Solar Metrics Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {hasStationCoordinates && (
+            {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
             <MetricCard
               title="Sun Elevation"
               value={formatValue(solarPosition.elevation, 1)}
@@ -1551,7 +1719,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#f59e0b"
             />
             )}
-            {hasStationCoordinates && (
+            {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
             <MetricCard
               title="Sun Azimuth"
               value={formatValue(solarPosition.azimuth, 1)}
@@ -1616,7 +1784,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             )}
             {/* Sun Elevation Chart - Calculated from station coordinates */}
-            {hasStationCoordinates && (
+            {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
             <DataBlockChart
               title="Sun Elevation (24h)"
               data={(() => {
@@ -1668,7 +1836,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Station Status Section - Battery */}
-        {hasValidData(currentData.batteryVoltage) && (
+        {!isMpptOnlyStation && hasValidData(currentData.batteryVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Station Status</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1686,7 +1854,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Soil & Environment Section - Only show if any soil/air quality data exists */}
-        {dashboardConfig.sectionVisibility?.soilEnvironment !== false && (hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture) || hasValidData(currentData.pm25) || hasValidData(currentData.pm10)) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.soilEnvironment !== false && (hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture) || hasValidData(currentData.pm25) || hasValidData(currentData.pm10)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1805,7 +1973,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Wind Direction Compass & Charts - Only show if wind data available */}
-        {dashboardConfig.sectionVisibility?.windAnalysis !== false && (availableFields.windSpeed || availableFields.windDirection) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.windAnalysis !== false && (availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-6">
           <h2 className="text-base font-normal text-foreground">Wind Analysis (WMO/Beaufort Scale)</h2>
           
@@ -1946,7 +2114,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Wind Energy Section - Only show if wind data available */}
-        {dashboardConfig.sectionVisibility?.windEnergy !== false && (availableFields.windSpeed || availableFields.windDirection) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.windEnergy !== false && (availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Wind Energy</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -2003,7 +2171,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Fire Danger Section - Only show when we have actual data */}
-        {dashboardConfig.sectionVisibility?.fireDanger !== false && (hasValidData(currentData.temperature) && hasValidData(currentData.humidity) && hasValidData(currentData.windSpeed)) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.fireDanger !== false && (hasValidData(currentData.temperature) && hasValidData(currentData.humidity) && hasValidData(currentData.windSpeed)) && (
         <section className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FireDangerCard
@@ -2020,7 +2188,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Rainfall Section - Only show if rainfall data available */}
-        {availableFields.rainfall && (
+        {!isMpptOnlyStation && availableFields.rainfall && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Rainfall</h2>
           <DataBlockChart
@@ -2039,7 +2207,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Charts Section */}
-        {chartData.length > 0 && (
+        {!isMpptOnlyStation && chartData.length > 0 && (
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-base font-normal text-foreground">Historical Data</h2>
@@ -2080,24 +2248,38 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               )}
             </div>
           </div>
-          <Tabs defaultValue="temperature" className="w-full">
+          {(() => {
+            const historicalTabs = [
+              { key: 'temperature', label: 'Temp', show: availableFields.temperature || availableFields.humidity },
+              { key: 'wind', label: 'Wind', show: availableFields.windSpeed },
+              { key: 'pressure', label: 'Pressure', show: availableFields.pressure },
+              { key: 'solar', label: 'Solar', show: availableFields.solarRadiation },
+              { key: 'rain', label: 'Rain', show: availableFields.rainfall },
+            ];
+            const firstVisible = historicalTabs.find(t => t.show);
+            if (!firstVisible) return null;
+            return (
+          <Tabs defaultValue={firstVisible.key} className="w-full">
             <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
-              <TabsTrigger value="temperature" className="flex-1 min-w-[80px]" data-testid="tab-temperature">Temp</TabsTrigger>
-              <TabsTrigger value="wind" className="flex-1 min-w-[80px]" data-testid="tab-wind">Wind</TabsTrigger>
-              <TabsTrigger value="pressure" className="flex-1 min-w-[80px]" data-testid="tab-pressure">Pressure</TabsTrigger>
-              <TabsTrigger value="solar" className="flex-1 min-w-[80px]" data-testid="tab-solar">Solar</TabsTrigger>
-              <TabsTrigger value="rain" className="flex-1 min-w-[80px]" data-testid="tab-rain">Rain</TabsTrigger>
+              {(availableFields.temperature || availableFields.humidity) && <TabsTrigger value="temperature" className="flex-1 min-w-[80px]" data-testid="tab-temperature">Temp</TabsTrigger>}
+              {availableFields.windSpeed && <TabsTrigger value="wind" className="flex-1 min-w-[80px]" data-testid="tab-wind">Wind</TabsTrigger>}
+              {availableFields.pressure && <TabsTrigger value="pressure" className="flex-1 min-w-[80px]" data-testid="tab-pressure">Pressure</TabsTrigger>}
+              {availableFields.solarRadiation && <TabsTrigger value="solar" className="flex-1 min-w-[80px]" data-testid="tab-solar">Solar</TabsTrigger>}
+              {availableFields.rainfall && <TabsTrigger value="rain" className="flex-1 min-w-[80px]" data-testid="tab-rain">Rain</TabsTrigger>}
             </TabsList>
+            {(availableFields.temperature || availableFields.humidity) && (
             <TabsContent value="temperature" className="mt-4">
               <WeatherChart
                 title="Temperature & Humidity"
                 data={chartData}
                 series={[
-                  { dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" },
-                  { dataKey: "humidity", name: "Humidity (%)", color: "#3b82f6" },
+                  ...(availableFields.temperature ? [{ dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" }] : []),
+                  ...(availableFields.humidity ? [{ dataKey: "humidity", name: "Humidity (%)", color: "#3b82f6" }] : []),
                 ]}
               />
             </TabsContent>
+            )}
+            {availableFields.windSpeed && (
             <TabsContent value="wind" className="mt-4">
               <WeatherChart
                 title="Wind Speed"
@@ -2107,6 +2289,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 ]}
               />
             </TabsContent>
+            )}
+            {availableFields.pressure && (
             <TabsContent value="pressure" className="mt-4">
               <WeatherChart
                 title="Barometric Pressure"
@@ -2116,6 +2300,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 ]}
               />
             </TabsContent>
+            )}
+            {availableFields.solarRadiation && (
             <TabsContent value="solar" className="mt-4">
               <WeatherChart
                 title="Solar Radiation"
@@ -2125,6 +2311,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 ]}
               />
             </TabsContent>
+            )}
+            {availableFields.rainfall && (
             <TabsContent value="rain" className="mt-4">
               <WeatherChart
                 title="Rainfall"
@@ -2134,12 +2322,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 ]}
               />
             </TabsContent>
+            )}
           </Tabs>
+            );
+          })()}
         </section>
         )}
 
         {/* Solar & ET Cards */}
-        {(hasValidData(currentData.solarRadiation) || hasValidData(currentData.temperature)) && (
+        {!isMpptOnlyStation && (hasValidData(currentData.solarRadiation) || hasValidData(currentData.temperature)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar & Evapotranspiration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2185,7 +2376,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Station Administration - Admin Only (hidden in PDF export) */}
-        {isAdmin && selectedStation && !isDemoStation && (
+        {isAdmin && selectedStation && !isDemoStation && !isMpptOnlyStation && (
           <section className="no-print">
           <StationInfoPanel
             station={{

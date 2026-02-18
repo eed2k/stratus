@@ -1933,6 +1933,27 @@ export class DatabaseStorage {
       pumpSelectBore: data.pumpSelectBore ?? data.Pump_Select_Bore ?? null,
       portStatusC1: data.portStatusC1 ?? data.Port_Status_C1 ?? null,
       portStatusC2: data.portStatusC2 ?? data.Port_Status_C2 ?? null,
+      // MPPT Solar Charge Controller
+      mpptSolarVoltage: data.mpptSolarVoltage ?? data.SolarCharger_PanelVoltage_1_Avg ?? null,
+      mpptSolarCurrent: data.mpptSolarCurrent ?? data.SolarCharger_PanelCurrent_1_Avg ?? null,
+      mpptSolarPower: data.mpptSolarPower ?? data.SolarCharger_PanelPower_1_Avg ?? null,
+      mpptLoadVoltage: data.mpptLoadVoltage ?? data.SolarCharger_LoadVoltage_1_Avg ?? null,
+      mpptLoadCurrent: data.mpptLoadCurrent ?? data.SolarCharger_LoadCurrent_1_Avg ?? null,
+      mpptBatteryVoltage: data.mpptBatteryVoltage ?? data.SolarCharger_BatteryVoltage_1_Avg ?? null,
+      mpptChargerState: data.mpptChargerState ?? data.SolarCharger_State_1 ?? null,
+      mpptAbsiAvg: data.mpptAbsiAvg ?? null,
+      mpptBoardTemp: data.mpptBoardTemp ?? data.SolarCharger_BoardTemp_1_Avg ?? null,
+      mpptMode: data.mpptMode ?? data.SolarCharger_Mode_1 ?? null,
+      // MPPT Charger 2
+      mppt2SolarVoltage: data.mppt2SolarVoltage ?? data.SolarCharger_PanelVoltage_2_Avg ?? null,
+      mppt2SolarCurrent: data.mppt2SolarCurrent ?? data.SolarCharger_PanelCurrent_2_Avg ?? null,
+      mppt2SolarPower: data.mppt2SolarPower ?? data.SolarCharger_PanelPower_2_Avg ?? null,
+      mppt2LoadVoltage: data.mppt2LoadVoltage ?? data.SolarCharger_LoadVoltage_2_Avg ?? null,
+      mppt2LoadCurrent: data.mppt2LoadCurrent ?? data.SolarCharger_LoadCurrent_2_Avg ?? null,
+      mppt2BatteryVoltage: data.mppt2BatteryVoltage ?? data.SolarCharger_BatteryVoltage_2_Avg ?? null,
+      mppt2ChargerState: data.mppt2ChargerState ?? data.SolarCharger_State_2 ?? null,
+      mppt2BoardTemp: data.mppt2BoardTemp ?? data.SolarCharger_BoardTemp_2_Avg ?? null,
+      mppt2Mode: data.mppt2Mode ?? data.SolarCharger_Mode_2 ?? null,
     };
   }
 
@@ -1989,6 +2010,27 @@ export class DatabaseStorage {
       pumpSelectBore: data.pumpSelectBore ?? data.Pump_Select_Bore ?? null,
       portStatusC1: data.portStatusC1 ?? data.Port_Status_C1 ?? null,
       portStatusC2: data.portStatusC2 ?? data.Port_Status_C2 ?? null,
+      // MPPT Solar Charge Controller (dedicated columns + JSONB fallback)
+      mpptSolarVoltage: record.mppt_solar_voltage ?? data.mpptSolarVoltage ?? data.SolarCharger_PanelVoltage_1_Avg ?? null,
+      mpptSolarCurrent: record.mppt_solar_current ?? data.mpptSolarCurrent ?? data.SolarCharger_PanelCurrent_1_Avg ?? null,
+      mpptSolarPower: record.mppt_solar_power ?? data.mpptSolarPower ?? data.SolarCharger_PanelPower_1_Avg ?? null,
+      mpptLoadVoltage: record.mppt_load_voltage ?? data.mpptLoadVoltage ?? data.SolarCharger_LoadVoltage_1_Avg ?? null,
+      mpptLoadCurrent: record.mppt_load_current ?? data.mpptLoadCurrent ?? data.SolarCharger_LoadCurrent_1_Avg ?? null,
+      mpptBatteryVoltage: record.mppt_battery_voltage ?? data.mpptBatteryVoltage ?? data.SolarCharger_BatteryVoltage_1_Avg ?? null,
+      mpptChargerState: record.mppt_charger_state ?? data.mpptChargerState ?? data.SolarCharger_State_1 ?? null,
+      mpptAbsiAvg: record.mppt_absi_avg ?? data.mpptAbsiAvg ?? null,
+      mpptBoardTemp: data.mpptBoardTemp ?? data.SolarCharger_BoardTemp_1_Avg ?? null,
+      mpptMode: data.mpptMode ?? data.SolarCharger_Mode_1 ?? null,
+      // MPPT Charger 2 (from JSONB data)
+      mppt2SolarVoltage: data.mppt2SolarVoltage ?? data.SolarCharger_PanelVoltage_2_Avg ?? null,
+      mppt2SolarCurrent: data.mppt2SolarCurrent ?? data.SolarCharger_PanelCurrent_2_Avg ?? null,
+      mppt2SolarPower: data.mppt2SolarPower ?? data.SolarCharger_PanelPower_2_Avg ?? null,
+      mppt2LoadVoltage: data.mppt2LoadVoltage ?? data.SolarCharger_LoadVoltage_2_Avg ?? null,
+      mppt2LoadCurrent: data.mppt2LoadCurrent ?? data.SolarCharger_LoadCurrent_2_Avg ?? null,
+      mppt2BatteryVoltage: data.mppt2BatteryVoltage ?? data.SolarCharger_BatteryVoltage_2_Avg ?? null,
+      mppt2ChargerState: data.mppt2ChargerState ?? data.SolarCharger_State_2 ?? null,
+      mppt2BoardTemp: data.mppt2BoardTemp ?? data.SolarCharger_BoardTemp_2_Avg ?? null,
+      mppt2Mode: data.mppt2Mode ?? data.SolarCharger_Mode_2 ?? null,
     };
   }
 

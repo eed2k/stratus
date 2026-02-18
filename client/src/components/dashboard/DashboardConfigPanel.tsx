@@ -48,6 +48,7 @@ const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   windAnalysis: 'Wind Analysis',
   windEnergy: 'Wind Energy Assessment',
   solarRadiation: 'Solar Radiation',
+  solarPosition: 'Solar Position (calculated)',
   soilEnvironment: 'Soil & Environment',
   fireDanger: 'Fire Danger Index',
   loggerBattery: 'Logger & Battery',

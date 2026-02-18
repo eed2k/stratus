@@ -10,18 +10,27 @@ interface MpptChargerCardProps {
   batteryVoltage: number | null;
   chargerState: number | null;
   mpptAbsiAvg: number | null;
+  boardTemp?: number | null;
+  mode?: number | null;
+  label?: string;
 }
 
-function getChargerStateLabel(state: number | null): { label: string; color: string } {
-  if (state === null || state === undefined) return { label: "Unknown", color: "text-gray-400" };
-  switch (Math.round(state)) {
-    case 0: return { label: "Off", color: "text-gray-500" };
-    case 1: return { label: "Bulk", color: "text-yellow-500" };
-    case 2: return { label: "Absorption", color: "text-orange-500" };
-    case 3: return { label: "Float", color: "text-green-500" };
-    case 4: return { label: "Equalize", color: "text-blue-500" };
-    default: return { label: `State ${state}`, color: "text-gray-500" };
-  }
+// Victron MPPT charger state codes
+const CHARGER_STATES: Record<number, { label: string; color: string; description: string }> = {
+  0: { label: "Off", color: "text-gray-500", description: "No charging — panel voltage too low or charger disabled" },
+  2: { label: "Fault", color: "text-red-500", description: "Charger fault detected" },
+  3: { label: "Bulk", color: "text-yellow-500", description: "Maximum current charging — battery below ~80% SOC" },
+  4: { label: "Absorption", color: "text-orange-500", description: "Constant voltage (14.4V) — battery ~80-100% SOC" },
+  5: { label: "Float", color: "text-green-500", description: "Maintenance voltage (13.8V) — battery fully charged" },
+  6: { label: "Storage", color: "text-blue-400", description: "Reduced voltage — battery in long-term storage mode" },
+  7: { label: "Equalize", color: "text-blue-500", description: "Controlled overcharge to balance cells" },
+  252: { label: "Ext. Control", color: "text-purple-500", description: "Charger controlled by external device" },
+};
+
+function getChargerStateLabel(state: number | null): { label: string; color: string; description: string } {
+  if (state === null || state === undefined) return { label: "Unknown", color: "text-gray-400", description: "No data available" };
+  const rounded = Math.round(state);
+  return CHARGER_STATES[rounded] || { label: `State ${state}`, color: "text-gray-500", description: "Unknown charger state" };
 }
 
 function getBatteryHealth(voltage: number | null): { label: string; color: string; percentage: number } {
@@ -47,22 +56,20 @@ export function MpptChargerCard({
   loadCurrent,
   batteryVoltage,
   chargerState,
-  mpptAbsiAvg,
+  mpptAbsiAvg: _mpptAbsiAvg,
+  boardTemp,
+  mode,
+  label,
 }: MpptChargerCardProps) {
   const stateInfo = getChargerStateLabel(chargerState);
   const batteryHealth = getBatteryHealth(batteryVoltage);
-  const isSolarActive = (solarVoltage ?? 0) > 1;
+  const cardTitle = label || 'MPPT Solar Charge Controller';
 
   return (
     <Card className="border border-gray-300 bg-white" data-testid="card-mppt-charger">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          MPPT Solar Charge Controller
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            isSolarActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-          }`}>
-            {isSolarActive ? 'Active' : 'Night'}
-          </span>
+          {cardTitle}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -70,7 +77,23 @@ export function MpptChargerCard({
           {/* Charger State */}
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Charger State</span>
-            <span className={`text-sm font-medium ${stateInfo.color}`}>{stateInfo.label}</span>
+            <div className="text-right">
+              <span className={`text-sm font-medium ${stateInfo.color}`}>{stateInfo.label}</span>
+              <p className="text-[10px] text-gray-400 max-w-[200px]">{stateInfo.description}</p>
+            </div>
+          </div>
+
+          {/* State Legend */}
+          <div className="text-[10px] text-gray-400">
+            <p className="text-[10px] text-gray-500 mb-0.5">Charger State Legend</p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 pl-2">
+              {Object.entries(CHARGER_STATES).filter(([k]) => [0, 3, 4, 5].includes(Number(k))).map(([code, info]) => (
+                <div key={code} className="flex items-center gap-1">
+                  <span className={`font-medium ${info.color}`}>{code}</span>
+                  <span>= {info.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Solar Input */}
@@ -85,7 +108,7 @@ export function MpptChargerCard({
               </div>
               <div>
                 <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {solarCurrent !== null ? safeFixed(solarCurrent, 0) : '–'}
+                  {solarCurrent !== null ? safeFixed(solarCurrent * 1000, 0) : '–'}
                 </p>
                 <p className="text-xs text-gray-500">Current (mA)</p>
               </div>
@@ -139,18 +162,38 @@ export function MpptChargerCard({
               </div>
               <div>
                 <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {loadCurrent !== null ? safeFixed(loadCurrent, 0) : '–'}
+                  {loadCurrent !== null ? safeFixed(loadCurrent * 1000, 0) : '–'}
                 </p>
                 <p className="text-xs text-gray-500">Current (mA)</p>
               </div>
               <div>
                 <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {mpptAbsiAvg !== null ? safeFixed(mpptAbsiAvg, 0) : '–'}
+                  {loadVoltage !== null && loadCurrent !== null ? safeFixed(loadVoltage * loadCurrent, 2) : '–'}
                 </p>
-                <p className="text-xs text-gray-500">MPPT Avg (mA)</p>
+                <p className="text-xs text-gray-500">Power (W)</p>
               </div>
             </div>
           </div>
+
+          {/* Board Temperature & Mode */}
+          {(boardTemp !== null && boardTemp !== undefined) && (
+          <div className="border-t border-gray-100 pt-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">Board Temperature</p>
+                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {safeFixed(boardTemp, 1)}°C
+                </p>
+              </div>
+              {mode !== null && mode !== undefined && (
+              <div className="text-right">
+                <p className="text-xs text-gray-400 mb-0.5">Mode</p>
+                <p className="text-sm font-medium text-black">{mode}</p>
+              </div>
+              )}
+            </div>
+          </div>
+          )}
         </div>
       </CardContent>
     </Card>

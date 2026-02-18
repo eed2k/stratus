@@ -102,6 +102,8 @@ interface DataBlockChartProps {
   onRangeChange?: (range: string) => void;
   /** Custom height in pixels */
   height?: number;
+  /** Start in expanded mode */
+  defaultExpanded?: boolean;
 }
 
 /**
@@ -130,8 +132,9 @@ export function DataBlockChart({
   defaultRange = "24hr",
   onRangeChange,
   height = 250,
+  defaultExpanded = false,
 }: DataBlockChartProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedRange, setSelectedRange] = useState(defaultRange);
 
   // Calculate statistics

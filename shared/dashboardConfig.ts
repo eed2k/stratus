@@ -743,6 +743,134 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         chartType: 'line',
         defaultEnabled: true,
         precision: 0
+      },
+      {
+        id: 'mpptBoardTemp',
+        name: 'Board Temp',
+        category: 'mppt',
+        unit: '°C',
+        description: 'MPPT controller board temperature',
+        dataField: 'mpptBoardTemp',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 1
+      },
+      {
+        id: 'mpptMode',
+        name: 'Charger Mode',
+        category: 'mppt',
+        unit: '',
+        description: 'MPPT charger operating mode',
+        dataField: 'mpptMode',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      }
+    ]
+  },
+  {
+    id: 'mppt2',
+    name: 'MPPT Charger 2',
+    icon: 'battery-charging',
+    parameters: [
+      {
+        id: 'mppt2SolarVoltage',
+        name: 'Solar Voltage',
+        category: 'mppt2',
+        unit: 'V',
+        description: 'Charger 2 solar panel input voltage',
+        dataField: 'mppt2SolarVoltage',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 1
+      },
+      {
+        id: 'mppt2SolarCurrent',
+        name: 'Solar Current',
+        category: 'mppt2',
+        unit: 'mA',
+        description: 'Charger 2 solar panel input current',
+        dataField: 'mppt2SolarCurrent',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'mppt2SolarPower',
+        name: 'Solar Power',
+        category: 'mppt2',
+        unit: 'W',
+        description: 'Charger 2 solar power output',
+        dataField: 'mppt2SolarPower',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 1
+      },
+      {
+        id: 'mppt2LoadVoltage',
+        name: 'Load Voltage',
+        category: 'mppt2',
+        unit: 'V',
+        description: 'Charger 2 load output voltage',
+        dataField: 'mppt2LoadVoltage',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 2
+      },
+      {
+        id: 'mppt2LoadCurrent',
+        name: 'Load Current',
+        category: 'mppt2',
+        unit: 'mA',
+        description: 'Charger 2 load output current',
+        dataField: 'mppt2LoadCurrent',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'mppt2BatteryVoltage',
+        name: 'Battery Voltage',
+        category: 'mppt2',
+        unit: 'V',
+        description: 'Charger 2 battery voltage',
+        dataField: 'mppt2BatteryVoltage',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 2
+      },
+      {
+        id: 'mppt2ChargerState',
+        name: 'Charger State',
+        category: 'mppt2',
+        unit: '',
+        description: 'Charger 2 operating state (0=Off, 1=Bulk, 2=Absorption, 3=Float)',
+        dataField: 'mppt2ChargerState',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'mppt2BoardTemp',
+        name: 'Board Temp',
+        category: 'mppt2',
+        unit: '°C',
+        description: 'Charger 2 board temperature',
+        dataField: 'mppt2BoardTemp',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 1
+      },
+      {
+        id: 'mppt2Mode',
+        name: 'Charger Mode',
+        category: 'mppt2',
+        unit: '',
+        description: 'Charger 2 operating mode',
+        dataField: 'mppt2Mode',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
       }
     ]
   }
@@ -769,6 +897,7 @@ export interface SectionVisibility {
   windAnalysis: boolean;
   windEnergy: boolean;
   solarRadiation: boolean;
+  solarPosition: boolean;
   soilEnvironment: boolean;
   fireDanger: boolean;
   loggerBattery: boolean;
@@ -780,6 +909,7 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
   windAnalysis: true,
   windEnergy: true,
   solarRadiation: true,
+  solarPosition: true,
   soilEnvironment: true,
   fireDanger: true,
   loggerBattery: true,

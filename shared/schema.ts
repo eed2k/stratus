@@ -317,6 +317,19 @@ export const weatherData = pgTable(
     mpptBatteryVoltage: real("mppt_battery_voltage"),
     mpptChargerState: real("mppt_charger_state"),
     mpptAbsiAvg: real("mppt_absi_avg"),
+    // MPPT additional fields
+    mpptBoardTemp: real("mppt_board_temp"),
+    mpptMode: real("mppt_mode"),
+    // MPPT Solar Charge Controller - Charger 2
+    mppt2SolarVoltage: real("mppt2_solar_voltage"),
+    mppt2SolarCurrent: real("mppt2_solar_current"),
+    mppt2SolarPower: real("mppt2_solar_power"),
+    mppt2LoadVoltage: real("mppt2_load_voltage"),
+    mppt2LoadCurrent: real("mppt2_load_current"),
+    mppt2BatteryVoltage: real("mppt2_battery_voltage"),
+    mppt2ChargerState: real("mppt2_charger_state"),
+    mppt2BoardTemp: real("mppt2_board_temp"),
+    mppt2Mode: real("mppt2_mode"),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [

@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { safeFixed } from "@/lib/utils";
 import { 
   WIND_DIRECTIONS, 
@@ -96,6 +97,98 @@ export function WindRose({
   const center = size / 2;
   const maxRadius = size / 2 - 40;
 
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleExportImage = useCallback(() => {
+    const cardEl = cardRef.current;
+    if (!cardEl) return;
+
+    // Use html2canvas-style approach via SVG foreignObject
+    const svgEl = cardEl.querySelector('svg[data-windrose]') as SVGSVGElement | null;
+    if (!svgEl) return;
+
+    // Clone the SVG and inline computed styles
+    const clone = svgEl.cloneNode(true) as SVGSVGElement;
+    
+    // Get computed styles for text elements to resolve CSS variables
+    const origTexts = svgEl.querySelectorAll('text');
+    const cloneTexts = clone.querySelectorAll('text');
+    origTexts.forEach((orig, i) => {
+      const computed = window.getComputedStyle(orig);
+      cloneTexts[i].setAttribute('fill', computed.fill || computed.color || '#000');
+      cloneTexts[i].setAttribute('font-size', computed.fontSize);
+      cloneTexts[i].setAttribute('font-family', computed.fontFamily);
+    });
+
+    // Get computed stroke colors for circles
+    const origCircles = svgEl.querySelectorAll('circle');
+    const cloneCircles = clone.querySelectorAll('circle');
+    origCircles.forEach((orig, i) => {
+      const computed = window.getComputedStyle(orig);
+      if (cloneCircles[i].getAttribute('stroke') === 'currentColor') {
+        cloneCircles[i].setAttribute('stroke', computed.color || '#666');
+      }
+      if (cloneCircles[i].getAttribute('fill') === 'currentColor') {
+        cloneCircles[i].setAttribute('fill', computed.color || '#ccc');
+      }
+    });
+
+    // Remove CSS classes that won't work outside DOM
+    clone.querySelectorAll('[class]').forEach(el => {
+      el.removeAttribute('class');
+    });
+
+    // Set explicit size
+    clone.setAttribute('width', String(size));
+    clone.setAttribute('height', String(size));
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+    // Add white background
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('width', String(size));
+    bg.setAttribute('height', String(size));
+    bg.setAttribute('fill', 'white');
+    clone.insertBefore(bg, clone.firstChild);
+
+    // Add title text
+    const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    titleText.setAttribute('x', String(center));
+    titleText.setAttribute('y', '18');
+    titleText.setAttribute('text-anchor', 'middle');
+    titleText.setAttribute('font-size', '14');
+    titleText.setAttribute('font-family', 'Arial, sans-serif');
+    titleText.setAttribute('fill', '#000');
+    titleText.textContent = title;
+    clone.insertBefore(titleText, clone.children[1]);
+
+    const svgData = new XMLSerializer().serializeToString(clone);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scale = 2; // 2x resolution
+      canvas.width = size * scale;
+      canvas.height = size * scale;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }, 'image/png');
+    };
+    img.src = url;
+  }, [title, size, center]);
+
   const polarToCart = (angle: number, radius: number) => {
     const rad = ((angle - 90) * Math.PI) / 180;
     return {
@@ -117,17 +210,31 @@ export function WindRose({
   };
 
   return (
-    <Card data-testid="card-wind-rose">
+    <Card ref={cardRef} data-testid="card-wind-rose">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-normal">{title}</CardTitle>
-          {showWMOInfo && (
-            <Badge variant="outline" className="text-xs">WMO/Beaufort</Badge>
-          )}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={handleExportImage}
+              title="Export as image"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              PNG
+            </Button>
+            {showWMOInfo && (
+              <Badge variant="outline" className="text-xs">WMO/Beaufort</Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        <svg width={size} height={size} className="overflow-visible">
+        <svg data-windrose width={size} height={size} className="overflow-visible">
           {/* Concentric circles with percentage labels */}
           {[0.25, 0.5, 0.75, 1].map((ratio) => (
             <g key={ratio}>

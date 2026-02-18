@@ -352,15 +352,27 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     pumpSelectBore: ["Pump_Select_Bore", "PumpSelectBore", "Pump_Bore"],
     portStatusC1: ["Port_Status_C1", "PortStatusC1", "Port_C1"],
     portStatusC2: ["Port_Status_C2", "PortStatusC2", "Port_C2"],
-    // MPPT Solar Charge Controller fields
-    mpptSolarVoltage: ["MPPT_SolV_Avg", "MPPT_SolarVoltage", "Solar_Voltage", "SolV_Avg", "MPPT_Vsol", "Vsol_Avg"],
-    mpptSolarCurrent: ["MPPT_SolI_Avg", "MPPT_SolarCurrent", "Solar_Current", "SolI_Avg", "MPPT_Isol", "Isol_Avg"],
-    mpptSolarPower: ["MPPT_SolP_Avg", "MPPT_SolarPower", "Solar_Power", "SolP_Avg", "MPPT_Psol", "Psol_Avg"],
-    mpptLoadVoltage: ["MPPT_LdV_Avg", "MPPT_LoadVoltage", "Load_Voltage", "LdV_Avg", "MPPT_Vload", "Vload_Avg"],
-    mpptLoadCurrent: ["MPPT_LdI_Avg", "MPPT_LoadCurrent", "Load_Current", "LdI_Avg", "MPPT_Iload", "Iload_Avg"],
-    mpptBatteryVoltage: ["MPPT_BatV_Avg", "MPPT_BatteryVoltage", "MPPT_Vbat", "Vbat_Avg"],
-    mpptChargerState: ["MPPT_ChgS", "MPPT_ChargerState", "Charger_State", "ChgState", "MPPT_State"],
+    // MPPT Solar Charge Controller fields (Charger 1)
+    mpptSolarVoltage: ["MPPT_SolV_Avg", "MPPT_SolarVoltage", "Solar_Voltage", "SolV_Avg", "MPPT_Vsol", "Vsol_Avg", "SolarCharger_PanelVoltage_1_Avg"],
+    mpptSolarCurrent: ["MPPT_SolI_Avg", "MPPT_SolarCurrent", "Solar_Current", "SolI_Avg", "MPPT_Isol", "Isol_Avg", "SolarCharger_PanelCurrent_1_Avg"],
+    mpptSolarPower: ["MPPT_SolP_Avg", "MPPT_SolarPower", "Solar_Power", "SolP_Avg", "MPPT_Psol", "Psol_Avg", "SolarCharger_PanelPower_1_Avg"],
+    mpptLoadVoltage: ["MPPT_LdV_Avg", "MPPT_LoadVoltage", "Load_Voltage", "LdV_Avg", "MPPT_Vload", "Vload_Avg", "SolarCharger_LoadVoltage_1_Avg"],
+    mpptLoadCurrent: ["MPPT_LdI_Avg", "MPPT_LoadCurrent", "Load_Current", "LdI_Avg", "MPPT_Iload", "Iload_Avg", "SolarCharger_LoadCurrent_1_Avg"],
+    mpptBatteryVoltage: ["MPPT_BatV_Avg", "MPPT_BatteryVoltage", "MPPT_Vbat", "Vbat_Avg", "SolarCharger_BatteryVoltage_1_Avg"],
+    mpptChargerState: ["MPPT_ChgS", "MPPT_ChargerState", "Charger_State", "ChgState", "MPPT_State", "SolarCharger_State_1"],
     mpptAbsiAvg: ["MPPT_ABSI_Avg", "MPPT_ABSI", "ABSI_Avg"],
+    mpptBoardTemp: ["SolarCharger_BoardTemp_1_Avg", "MPPT_BoardTemp", "MPPT_Temp"],
+    mpptMode: ["SolarCharger_Mode_1", "MPPT_Mode"],
+    // MPPT Solar Charge Controller fields (Charger 2)
+    mppt2SolarVoltage: ["SolarCharger_PanelVoltage_2_Avg", "MPPT2_SolV_Avg", "MPPT2_SolarVoltage"],
+    mppt2SolarCurrent: ["SolarCharger_PanelCurrent_2_Avg", "MPPT2_SolI_Avg", "MPPT2_SolarCurrent"],
+    mppt2SolarPower: ["SolarCharger_PanelPower_2_Avg", "MPPT2_SolP_Avg", "MPPT2_SolarPower"],
+    mppt2LoadVoltage: ["SolarCharger_LoadVoltage_2_Avg", "MPPT2_LdV_Avg", "MPPT2_LoadVoltage"],
+    mppt2LoadCurrent: ["SolarCharger_LoadCurrent_2_Avg", "MPPT2_LdI_Avg", "MPPT2_LoadCurrent"],
+    mppt2BatteryVoltage: ["SolarCharger_BatteryVoltage_2_Avg", "MPPT2_BatV_Avg", "MPPT2_BatteryVoltage"],
+    mppt2ChargerState: ["SolarCharger_State_2", "MPPT2_ChgS", "MPPT2_ChargerState"],
+    mppt2BoardTemp: ["SolarCharger_BoardTemp_2_Avg", "MPPT2_BoardTemp", "MPPT2_Temp"],
+    mppt2Mode: ["SolarCharger_Mode_2", "MPPT2_Mode"],
   };
 
   const result: Record<string, number | null> = {};
