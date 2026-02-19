@@ -60,9 +60,23 @@ export function serveStatic(app: Express) {
   
   console.log(`Serving static files from: ${distPath}`);
 
-  app.use(express.static(distPath));
+  // Cache hashed assets (JS/CSS with content hashes) for 1 year
+  app.use("/assets", express.static(path.join(distPath, "assets"), {
+    maxAge: "1y",
+    immutable: true,
+  }));
+
+  // Serve other static files with no-cache
+  app.use(express.static(distPath, {
+    maxAge: 0,
+    etag: false,
+  }));
 
   app.use("*", (_req, res) => {
+    // Always send fresh index.html (no browser caching)
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     res.sendFile(path.resolve(distPath!, "index.html"));
   });
 }
