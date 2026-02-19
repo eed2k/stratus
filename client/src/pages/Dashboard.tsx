@@ -317,11 +317,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     queryKey: ["/api/stations"],
   });
 
-  // Filter stations based on user access
+  // Filter stations based on user access and sort by ID (numerical order)
   const stations = useMemo(() => {
-    if (isAdmin) return allStations;
-    if (!canAccessStation) return allStations;
-    return allStations.filter(s => canAccessStation(s.id));
+    const filtered = isAdmin ? allStations : (!canAccessStation ? allStations : allStations.filter(s => canAccessStation(s.id)));
+    return [...filtered].sort((a, b) => a.id - b.id);
   }, [allStations, isAdmin, canAccessStation]);
 
   const activeStationId = selectedStationId || (stations.length > 0 ? stations[0].id : null);
@@ -1423,7 +1422,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="Voltage (V)"
+              yAxisLabel="Voltage"
               showAverage={false}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
@@ -1440,7 +1439,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="Voltage (V)"
+              yAxisLabel="Voltage"
               showAverage={true}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
@@ -1460,7 +1459,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="Voltage (V)"
+              yAxisLabel="Voltage"
               showAverage={false}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
@@ -1475,7 +1474,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="Voltage (V)"
+              yAxisLabel="Voltage"
               showAverage={true}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
@@ -1496,7 +1495,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="Current (mA)"
+              yAxisLabel="Current"
               showAverage={false}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
@@ -1513,7 +1512,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="Current (mA)"
+              yAxisLabel="Current"
               showAverage={false}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
@@ -1529,7 +1528,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="area"
               xAxisLabel="Time"
-              yAxisLabel="Power (W)"
+              yAxisLabel="Power"
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.mpptSolarPower ?? 0}
@@ -1546,7 +1545,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="area"
               xAxisLabel="Time"
-              yAxisLabel="Power (W)"
+              yAxisLabel="Power"
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.mppt2SolarPower ?? 0}
@@ -1567,7 +1566,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="Temperature (°C)"
+              yAxisLabel="Temperature"
               showAverage={true}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
@@ -1842,24 +1841,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Station Status Section - Battery */}
-        {!isMpptOnlyStation && hasValidData(currentData.batteryVoltage) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Station Status</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            <MetricCard
-              title="Battery Voltage"
-              value={formatValue(currentData.batteryVoltage || 0, 2)}
-              unit="V"
-              subMetrics={[
-                { label: "Status", value: (currentData.batteryVoltage || 0) > 12.5 ? "Good" : (currentData.batteryVoltage || 0) > 11.5 ? "Low" : "Critical" },
-              ]}
-              chartColor="#22c55e"
-            />
-          </div>
-        </section>
-        )}
-
         {/* Soil & Environment Section - Only show if any soil/air quality data exists */}
         {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.soilEnvironment !== false && (hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture) || hasValidData(currentData.pm25) || hasValidData(currentData.pm10)) && (
         <section className="space-y-4">
@@ -1953,7 +1934,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="PM10 (µg/m³)"
+              yAxisLabel="PM10"
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.pm10 || 0}
@@ -1968,7 +1949,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="PM2.5 (µg/m³)"
+              yAxisLabel="PM2.5"
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.pm25 || 0}

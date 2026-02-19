@@ -145,9 +145,10 @@ export const DataBlockChart = memo(function DataBlockChart({
   const values = data
     .map(d => d[primaryDataKey])
     .filter((v): v is number => v !== null && v !== undefined && typeof v === 'number' && !isNaN(v));
-  const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-  const min = values.length > 0 ? Math.min(...values) : 0;
-  const max = values.length > 0 ? Math.max(...values) : 0;
+  const hasStats = values.length > 0;
+  const avg = hasStats ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+  const min = hasStats ? Math.min(...values) : 0;
+  const max = hasStats ? Math.max(...values) : 0;
 
   const handleRangeChange = (range: string) => {
     setSelectedRange(range);
@@ -192,7 +193,7 @@ export const DataBlockChart = memo(function DataBlockChart({
       axisLine: { stroke: 'hsl(var(--border))' },
       width: yAxisLabel ? 55 : 40,
       label: yAxisLabel && !compact ? { 
-        value: primaryUnit ? `${yAxisLabel} (${primaryUnit})` : yAxisLabel, 
+        value: primaryUnit && !yAxisLabel.includes(`(${primaryUnit})`) ? `${yAxisLabel} (${primaryUnit})` : yAxisLabel, 
         angle: -90, 
         position: 'insideLeft',
         offset: 5,
@@ -200,7 +201,14 @@ export const DataBlockChart = memo(function DataBlockChart({
         fill: 'hsl(var(--muted-foreground))',
         style: { textAnchor: 'middle' }
       } : undefined,
-      ...(yAxisDomain ? { domain: yAxisDomain, allowDataOverflow: false } : {}),
+      // Compute a proper domain: use data bounds with 10% padding to ensure peaks are always visible
+      ...(yAxisDomain ? {
+        domain: [
+          typeof yAxisDomain[0] === 'number' ? yAxisDomain[0] : 0,
+          hasStats && max > 0 ? Math.ceil(max * 1.1) : (typeof yAxisDomain[1] === 'number' ? yAxisDomain[1] : 10),
+        ],
+        allowDataOverflow: false,
+      } : {}),
     };
 
     switch (chartType) {
@@ -356,8 +364,8 @@ export const DataBlockChart = memo(function DataBlockChart({
           </div>
         </div>
         
-        {/* Statistics row */}
-        {showMinMax && !compact && (
+        {/* Statistics row - only show when valid data exists */}
+        {showMinMax && !compact && hasStats && (
           <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
             <span>Min: <span className="font-medium text-foreground">{formatValue(min)} {primaryUnit}</span></span>
             <span>Max: <span className="font-medium text-foreground">{formatValue(max)} {primaryUnit}</span></span>
