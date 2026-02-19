@@ -415,46 +415,23 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Detect which data fields have valid data
   const availableFields = useMemo(() => {
-    if (historicalData.length === 0) {
-      return {
-        temperature: false,
-        humidity: false,
-        pressure: false,
-        windSpeed: false,
-        windDirection: false,
-        solarRadiation: false,
-        rainfall: false,
-        dewPoint: false,
-        airDensity: false,
-        uvIndex: false,
-        pm25: false,
-        pm10: false,
-        soilTemperature: false,
-        soilMoisture: false,
-        batteryVoltage: false,
-        waterLevel: false,
-        temperatureSwitch: false,
-        levelSwitch: false,
-        temperatureSwitchOutlet: false,
-        levelSwitchStatus: false,
-        lightning: false,
-        chargerVoltage: false,
-        windDirStdDev: false,
-        sdi12WindVector: false,
-        pumpSelectWell: false,
-        pumpSelectBore: false,
-        portStatusC1: false,
-        portStatusC2: false,
-      };
-    }
-    
     // Check if field has at least some non-null, meaningful values
     // Fields that are always 0 (disconnected sensors) are treated as unavailable
     const hasData = (field: keyof WeatherData) => {
-      return historicalData.some(d => {
-        const v = d[field];
+      // First check historical data
+      if (historicalData.length > 0) {
+        return historicalData.some(d => {
+          const v = d[field];
+          return v !== null && v !== undefined && v !== 0;
+        });
+      }
+      // Fallback: check latestData when no historical data in time range
+      // This prevents blank dashboards when data exists but is outside the chart window
+      if (latestData) {
+        const v = latestData[field];
         return v !== null && v !== undefined && v !== 0;
-      });
+      }
+      return false;
     };
     
     return {
@@ -507,7 +484,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       mppt2BoardTemp: hasData('mppt2BoardTemp'),
       mppt2Mode: hasData('mppt2Mode'),
     };
-  }, [historicalData]);
+  }, [historicalData, latestData]);
 
   // Sort historical data by timestamp ascending (oldest to newest) for charts to display correctly
   const sortedHistoricalData = useMemo(() => {

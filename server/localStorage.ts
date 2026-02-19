@@ -2041,7 +2041,7 @@ export class DatabaseStorage {
       mpptBatteryVoltage: toNum(record.mppt_battery_voltage) ?? toNum(data.mpptBatteryVoltage) ?? toNum(data.SolarCharger_BatteryVoltage_1_Avg) ?? null,
       mpptChargerState: toNum(record.mppt_charger_state) ?? toNum(data.mpptChargerState) ?? toNum(data.SolarCharger_State_1) ?? null,
       mpptAbsiAvg: toNum(record.mppt_absi_avg) ?? toNum(data.mpptAbsiAvg) ?? null,
-      mpptBoardTemp: toNum(data.mpptBoardTemp) ?? toNum(data.SolarCharger_BoardTemp_1_Avg) ?? null,
+      mpptBoardTemp: toNum(record.mppt_board_temp) ?? toNum(data.mpptBoardTemp) ?? toNum(data.SolarCharger_BoardTemp_1_Avg) ?? null,
       mpptMode: toNum(data.mpptMode) ?? toNum(data.SolarCharger_Mode_1) ?? null,
       // MPPT Charger 2 (from JSONB data)
       mppt2SolarVoltage: toNum(data.mppt2SolarVoltage) ?? toNum(data.SolarCharger_PanelVoltage_2_Avg) ?? null,

@@ -912,7 +912,7 @@ export async function getWeatherData(
     SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
            mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
            mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
-           mppt_charger_state, mppt_absi_avg
+           mppt_charger_state, mppt_absi_avg, mppt_board_temp
     FROM weather_data
     WHERE ${whereClause}
     ORDER BY timestamp DESC
@@ -960,7 +960,7 @@ export async function getLatestWeatherData(stationId: number, tableName?: string
       SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
              mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
              mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
-             mppt_charger_state, mppt_absi_avg
+             mppt_charger_state, mppt_absi_avg, mppt_board_temp
       FROM weather_data
       WHERE station_id = $1 AND table_name = $2
       ORDER BY timestamp DESC
@@ -972,7 +972,7 @@ export async function getLatestWeatherData(stationId: number, tableName?: string
       SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
              mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
              mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
-             mppt_charger_state, mppt_absi_avg
+             mppt_charger_state, mppt_absi_avg, mppt_board_temp
       FROM weather_data
       WHERE station_id = $1
       ORDER BY timestamp DESC
