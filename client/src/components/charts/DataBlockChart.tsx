@@ -104,6 +104,8 @@ interface DataBlockChartProps {
   height?: number;
   /** Start in expanded mode */
   defaultExpanded?: boolean;
+  /** Y-axis domain [min, max] - use 'auto' for automatic, 'dataMin'/'dataMax' for data bounds */
+  yAxisDomain?: [number | string, number | string];
 }
 
 /**
@@ -133,13 +135,16 @@ export const DataBlockChart = memo(function DataBlockChart({
   onRangeChange,
   height = 250,
   defaultExpanded = false,
+  yAxisDomain,
 }: DataBlockChartProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedRange, setSelectedRange] = useState(defaultRange);
 
-  // Calculate statistics
+  // Calculate statistics (filter out null/undefined values for accurate stats)
   const primaryDataKey = series[0]?.dataKey;
-  const values = data.map(d => Number(d[primaryDataKey] || 0));
+  const values = data
+    .map(d => d[primaryDataKey])
+    .filter((v): v is number => v !== null && v !== undefined && typeof v === 'number' && !isNaN(v));
   const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
   const min = values.length > 0 ? Math.min(...values) : 0;
   const max = values.length > 0 ? Math.max(...values) : 0;
@@ -181,7 +186,7 @@ export const DataBlockChart = memo(function DataBlockChart({
       height: data.length > 100 ? 60 : 30,
     };
 
-    const yAxisProps = {
+    const yAxisProps: Record<string, any> = {
       tick: { fontSize: 10 },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
@@ -195,6 +200,7 @@ export const DataBlockChart = memo(function DataBlockChart({
         fill: 'hsl(var(--muted-foreground))',
         style: { textAnchor: 'middle' }
       } : undefined,
+      ...(yAxisDomain ? { domain: yAxisDomain, allowDataOverflow: false } : {}),
     };
 
     switch (chartType) {

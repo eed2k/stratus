@@ -1890,6 +1890,11 @@ export class DatabaseStorage {
       data = {};
     }
 
+    // Helper: charger voltage sanity — values > 100V are likely in mV
+    const sanitizeChargerVoltage = (v: number | null) => v !== null && v > 100 ? v / 100 : v;
+    // Helper: solar radiation cap — values > 2000 W/m² are unrealistic raw readings
+    const sanitizeSolarRadiation = (v: number | null) => v !== null && v > 2000 ? null : v;
+
     return {
       id: record.id,
       stationId: record.station_id,
@@ -1967,6 +1972,11 @@ export class DatabaseStorage {
       data = {};
     }
 
+    // Helper: charger voltage sanity — values > 100V are likely in mV
+    const sanitizeChargerVoltage = (v: number | null) => v !== null && v > 100 ? v / 100 : v;
+    // Helper: solar radiation cap — values > 2000 W/m² are unrealistic raw readings
+    const sanitizeSolarRadiation = (v: number | null) => v !== null && v > 2000 ? null : v;
+
     return {
       id: record.id,
       stationId: record.stationId ?? record.station_id,
@@ -1982,7 +1992,7 @@ export class DatabaseStorage {
       windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? data.WDir_1_Avg ?? data.WDir_Avg ?? data.WDir_1_D1_WVT ?? null,
       windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? data.WindSpeed_Max ?? data.WS_Max ?? data.Wind_Gust ?? data.WSpd_1_Max ?? data.WSpd_Max ?? null,
       rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? data.Rain_1_Tot ?? data.Rain_Tot_1 ?? null,
-      solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? data.SolarRad_Avg ?? data.SlrW_Avg ?? data.SR_Avg ?? null,
+      solarRadiation: sanitizeSolarRadiation(data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? data.SolarRad_Avg ?? data.SlrW_Avg ?? data.SR_Avg ?? null),
       dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? data.DewPointTemp_Avg ?? data.DewPointTemp ?? null,
       batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? data.Batt_volt_Min ?? data.BattV_Avg ?? data.Batt_V ?? data.LoggerBattery_Avg ?? data.LoggerBattery ?? null,
       // Air quality
@@ -2001,7 +2011,7 @@ export class DatabaseStorage {
       levelSwitchStatus: data.levelSwitchStatus ?? data.Level_Switch_Status ?? data.LevelSwitchStatus ?? null,
       // Power & weather
       lightning: data.lightning ?? data.Lightning_Tot ?? data.Lightning_Count ?? data.Lightning ?? null,
-      chargerVoltage: data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null,
+      chargerVoltage: sanitizeChargerVoltage(data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null),
       // Wind direction std dev & SDI-12
       windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,
       sdi12WindVector: data.sdi12WindVector ?? data.SDI12_WVc ?? data.SDI12_WV ?? null,

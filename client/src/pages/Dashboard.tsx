@@ -440,9 +440,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       };
     }
     
-    // Check if field has at least some non-null values
+    // Check if field has at least some non-null, meaningful values
+    // Fields that are always 0 (disconnected sensors) are treated as unavailable
     const hasData = (field: keyof WeatherData) => {
-      return historicalData.some(d => d[field] !== null && d[field] !== undefined);
+      return historicalData.some(d => {
+        const v = d[field];
+        return v !== null && v !== undefined && v !== 0;
+      });
     };
     
     return {
@@ -1423,6 +1427,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={false}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
             )}
             {!availableFields.mppt2SolarVoltage && (availableFields.mpptLoadVoltage || availableFields.mpptBatteryVoltage) && (
@@ -1439,6 +1444,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
             )}
           </div>
@@ -1458,6 +1464,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={false}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
             <DataBlockChart
               title="Battery Voltage — Charger 1 vs 2"
@@ -1472,6 +1479,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
           </div>
           )}
@@ -1492,6 +1500,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={false}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
             )}
             {availableFields.mppt2SolarCurrent && (
@@ -1508,6 +1517,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={false}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
             )}
             {availableFields.mpptSolarPower && (
@@ -1524,6 +1534,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showMinMax={true}
               currentValue={currentData.mpptSolarPower ?? 0}
               defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
             )}
             {availableFields.mppt2SolarPower && (
@@ -1540,6 +1551,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showMinMax={true}
               currentValue={currentData.mppt2SolarPower ?? 0}
               defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
             )}
           </div>

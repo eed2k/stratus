@@ -427,6 +427,36 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
         }
       }
     }
+
+    // Convert charger voltage from mV to V if the source unit is mV
+    if (result['chargerVoltage'] !== null && result['chargerVoltage'] !== undefined) {
+      const chargerAliases = fieldMappings['chargerVoltage'];
+      if (chargerAliases) {
+        for (const alias of chargerAliases) {
+          const headerIdx = headers.indexOf(alias);
+          if (headerIdx >= 0 && headerIdx < units.length) {
+            const unit = units[headerIdx]?.toLowerCase()?.trim();
+            if (unit === 'mv' || unit === 'millivolts') {
+              result['chargerVoltage'] = result['chargerVoltage']! / 1000; // mV → V
+            }
+            break;
+          }
+        }
+      }
+      // Sanity check: if charger voltage > 100V, it's likely in mV (unreasonable for a solar charger)
+      if (result['chargerVoltage']! > 100) {
+        result['chargerVoltage'] = result['chargerVoltage']! / 100;
+      }
+    }
+
+    // Sanity check solar radiation: cap at physically realistic max (~1500 W/m²)
+    // Values above this indicate raw/uncalibrated sensor readings
+    if (result['solarRadiation'] !== null && result['solarRadiation'] !== undefined) {
+      if (result['solarRadiation']! > 2000) {
+        // Likely raw mV or miscalibrated — store null to avoid misleading charts
+        result['solarRadiation'] = null;
+      }
+    }
   }
 
   return result;
