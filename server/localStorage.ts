@@ -1894,6 +1894,12 @@ export class DatabaseStorage {
     const sanitizeChargerVoltage = (v: number | null) => v !== null && v > 100 ? v / 100 : v;
     // Helper: solar radiation cap — values > 2000 W/m² are unrealistic raw readings
     const sanitizeSolarRadiation = (v: number | null) => v !== null && v > 2000 ? null : v;
+    // Helper: convert pg REAL/FLOAT columns (returned as strings) to numbers
+    const toNum = (v: any): number | null => {
+      if (v === null || v === undefined) return null;
+      const n = Number(v);
+      return isNaN(n) ? null : n;
+    };
 
     return {
       id: record.id,
@@ -1939,26 +1945,26 @@ export class DatabaseStorage {
       portStatusC1: data.portStatusC1 ?? data.Port_Status_C1 ?? null,
       portStatusC2: data.portStatusC2 ?? data.Port_Status_C2 ?? null,
       // MPPT Solar Charge Controller
-      mpptSolarVoltage: data.mpptSolarVoltage ?? data.SolarCharger_PanelVoltage_1_Avg ?? null,
-      mpptSolarCurrent: data.mpptSolarCurrent ?? data.SolarCharger_PanelCurrent_1_Avg ?? null,
-      mpptSolarPower: data.mpptSolarPower ?? data.SolarCharger_PanelPower_1_Avg ?? null,
-      mpptLoadVoltage: data.mpptLoadVoltage ?? data.SolarCharger_LoadVoltage_1_Avg ?? null,
-      mpptLoadCurrent: data.mpptLoadCurrent ?? data.SolarCharger_LoadCurrent_1_Avg ?? null,
-      mpptBatteryVoltage: data.mpptBatteryVoltage ?? data.SolarCharger_BatteryVoltage_1_Avg ?? null,
-      mpptChargerState: data.mpptChargerState ?? data.SolarCharger_State_1 ?? null,
-      mpptAbsiAvg: data.mpptAbsiAvg ?? null,
-      mpptBoardTemp: data.mpptBoardTemp ?? data.SolarCharger_BoardTemp_1_Avg ?? null,
-      mpptMode: data.mpptMode ?? data.SolarCharger_Mode_1 ?? null,
+      mpptSolarVoltage: toNum(data.mpptSolarVoltage) ?? toNum(data.SolarCharger_PanelVoltage_1_Avg) ?? null,
+      mpptSolarCurrent: toNum(data.mpptSolarCurrent) ?? toNum(data.SolarCharger_PanelCurrent_1_Avg) ?? null,
+      mpptSolarPower: toNum(data.mpptSolarPower) ?? toNum(data.SolarCharger_PanelPower_1_Avg) ?? null,
+      mpptLoadVoltage: toNum(data.mpptLoadVoltage) ?? toNum(data.SolarCharger_LoadVoltage_1_Avg) ?? null,
+      mpptLoadCurrent: toNum(data.mpptLoadCurrent) ?? toNum(data.SolarCharger_LoadCurrent_1_Avg) ?? null,
+      mpptBatteryVoltage: toNum(data.mpptBatteryVoltage) ?? toNum(data.SolarCharger_BatteryVoltage_1_Avg) ?? null,
+      mpptChargerState: toNum(data.mpptChargerState) ?? toNum(data.SolarCharger_State_1) ?? null,
+      mpptAbsiAvg: toNum(data.mpptAbsiAvg) ?? null,
+      mpptBoardTemp: toNum(data.mpptBoardTemp) ?? toNum(data.SolarCharger_BoardTemp_1_Avg) ?? null,
+      mpptMode: toNum(data.mpptMode) ?? toNum(data.SolarCharger_Mode_1) ?? null,
       // MPPT Charger 2
-      mppt2SolarVoltage: data.mppt2SolarVoltage ?? data.SolarCharger_PanelVoltage_2_Avg ?? null,
-      mppt2SolarCurrent: data.mppt2SolarCurrent ?? data.SolarCharger_PanelCurrent_2_Avg ?? null,
-      mppt2SolarPower: data.mppt2SolarPower ?? data.SolarCharger_PanelPower_2_Avg ?? null,
-      mppt2LoadVoltage: data.mppt2LoadVoltage ?? data.SolarCharger_LoadVoltage_2_Avg ?? null,
-      mppt2LoadCurrent: data.mppt2LoadCurrent ?? data.SolarCharger_LoadCurrent_2_Avg ?? null,
-      mppt2BatteryVoltage: data.mppt2BatteryVoltage ?? data.SolarCharger_BatteryVoltage_2_Avg ?? null,
-      mppt2ChargerState: data.mppt2ChargerState ?? data.SolarCharger_State_2 ?? null,
-      mppt2BoardTemp: data.mppt2BoardTemp ?? data.SolarCharger_BoardTemp_2_Avg ?? null,
-      mppt2Mode: data.mppt2Mode ?? data.SolarCharger_Mode_2 ?? null,
+      mppt2SolarVoltage: toNum(data.mppt2SolarVoltage) ?? toNum(data.SolarCharger_PanelVoltage_2_Avg) ?? null,
+      mppt2SolarCurrent: toNum(data.mppt2SolarCurrent) ?? toNum(data.SolarCharger_PanelCurrent_2_Avg) ?? null,
+      mppt2SolarPower: toNum(data.mppt2SolarPower) ?? toNum(data.SolarCharger_PanelPower_2_Avg) ?? null,
+      mppt2LoadVoltage: toNum(data.mppt2LoadVoltage) ?? toNum(data.SolarCharger_LoadVoltage_2_Avg) ?? null,
+      mppt2LoadCurrent: toNum(data.mppt2LoadCurrent) ?? toNum(data.SolarCharger_LoadCurrent_2_Avg) ?? null,
+      mppt2BatteryVoltage: toNum(data.mppt2BatteryVoltage) ?? toNum(data.SolarCharger_BatteryVoltage_2_Avg) ?? null,
+      mppt2ChargerState: toNum(data.mppt2ChargerState) ?? toNum(data.SolarCharger_State_2) ?? null,
+      mppt2BoardTemp: toNum(data.mppt2BoardTemp) ?? toNum(data.SolarCharger_BoardTemp_2_Avg) ?? null,
+      mppt2Mode: toNum(data.mppt2Mode) ?? toNum(data.SolarCharger_Mode_2) ?? null,
     };
   }
 
@@ -1976,6 +1982,12 @@ export class DatabaseStorage {
     const sanitizeChargerVoltage = (v: number | null) => v !== null && v > 100 ? v / 100 : v;
     // Helper: solar radiation cap — values > 2000 W/m² are unrealistic raw readings
     const sanitizeSolarRadiation = (v: number | null) => v !== null && v > 2000 ? null : v;
+    // Helper: convert pg REAL/FLOAT columns (returned as strings) to numbers
+    const toNum = (v: any): number | null => {
+      if (v === null || v === undefined) return null;
+      const n = Number(v);
+      return isNaN(n) ? null : n;
+    };
 
     return {
       id: record.id,
@@ -2021,26 +2033,26 @@ export class DatabaseStorage {
       portStatusC1: data.portStatusC1 ?? data.Port_Status_C1 ?? null,
       portStatusC2: data.portStatusC2 ?? data.Port_Status_C2 ?? null,
       // MPPT Solar Charge Controller (dedicated columns + JSONB fallback)
-      mpptSolarVoltage: record.mppt_solar_voltage ?? data.mpptSolarVoltage ?? data.SolarCharger_PanelVoltage_1_Avg ?? null,
-      mpptSolarCurrent: record.mppt_solar_current ?? data.mpptSolarCurrent ?? data.SolarCharger_PanelCurrent_1_Avg ?? null,
-      mpptSolarPower: record.mppt_solar_power ?? data.mpptSolarPower ?? data.SolarCharger_PanelPower_1_Avg ?? null,
-      mpptLoadVoltage: record.mppt_load_voltage ?? data.mpptLoadVoltage ?? data.SolarCharger_LoadVoltage_1_Avg ?? null,
-      mpptLoadCurrent: record.mppt_load_current ?? data.mpptLoadCurrent ?? data.SolarCharger_LoadCurrent_1_Avg ?? null,
-      mpptBatteryVoltage: record.mppt_battery_voltage ?? data.mpptBatteryVoltage ?? data.SolarCharger_BatteryVoltage_1_Avg ?? null,
-      mpptChargerState: record.mppt_charger_state ?? data.mpptChargerState ?? data.SolarCharger_State_1 ?? null,
-      mpptAbsiAvg: record.mppt_absi_avg ?? data.mpptAbsiAvg ?? null,
-      mpptBoardTemp: data.mpptBoardTemp ?? data.SolarCharger_BoardTemp_1_Avg ?? null,
-      mpptMode: data.mpptMode ?? data.SolarCharger_Mode_1 ?? null,
+      mpptSolarVoltage: toNum(record.mppt_solar_voltage) ?? toNum(data.mpptSolarVoltage) ?? toNum(data.SolarCharger_PanelVoltage_1_Avg) ?? null,
+      mpptSolarCurrent: toNum(record.mppt_solar_current) ?? toNum(data.mpptSolarCurrent) ?? toNum(data.SolarCharger_PanelCurrent_1_Avg) ?? null,
+      mpptSolarPower: toNum(record.mppt_solar_power) ?? toNum(data.mpptSolarPower) ?? toNum(data.SolarCharger_PanelPower_1_Avg) ?? null,
+      mpptLoadVoltage: toNum(record.mppt_load_voltage) ?? toNum(data.mpptLoadVoltage) ?? toNum(data.SolarCharger_LoadVoltage_1_Avg) ?? null,
+      mpptLoadCurrent: toNum(record.mppt_load_current) ?? toNum(data.mpptLoadCurrent) ?? toNum(data.SolarCharger_LoadCurrent_1_Avg) ?? null,
+      mpptBatteryVoltage: toNum(record.mppt_battery_voltage) ?? toNum(data.mpptBatteryVoltage) ?? toNum(data.SolarCharger_BatteryVoltage_1_Avg) ?? null,
+      mpptChargerState: toNum(record.mppt_charger_state) ?? toNum(data.mpptChargerState) ?? toNum(data.SolarCharger_State_1) ?? null,
+      mpptAbsiAvg: toNum(record.mppt_absi_avg) ?? toNum(data.mpptAbsiAvg) ?? null,
+      mpptBoardTemp: toNum(data.mpptBoardTemp) ?? toNum(data.SolarCharger_BoardTemp_1_Avg) ?? null,
+      mpptMode: toNum(data.mpptMode) ?? toNum(data.SolarCharger_Mode_1) ?? null,
       // MPPT Charger 2 (from JSONB data)
-      mppt2SolarVoltage: data.mppt2SolarVoltage ?? data.SolarCharger_PanelVoltage_2_Avg ?? null,
-      mppt2SolarCurrent: data.mppt2SolarCurrent ?? data.SolarCharger_PanelCurrent_2_Avg ?? null,
-      mppt2SolarPower: data.mppt2SolarPower ?? data.SolarCharger_PanelPower_2_Avg ?? null,
-      mppt2LoadVoltage: data.mppt2LoadVoltage ?? data.SolarCharger_LoadVoltage_2_Avg ?? null,
-      mppt2LoadCurrent: data.mppt2LoadCurrent ?? data.SolarCharger_LoadCurrent_2_Avg ?? null,
-      mppt2BatteryVoltage: data.mppt2BatteryVoltage ?? data.SolarCharger_BatteryVoltage_2_Avg ?? null,
-      mppt2ChargerState: data.mppt2ChargerState ?? data.SolarCharger_State_2 ?? null,
-      mppt2BoardTemp: data.mppt2BoardTemp ?? data.SolarCharger_BoardTemp_2_Avg ?? null,
-      mppt2Mode: data.mppt2Mode ?? data.SolarCharger_Mode_2 ?? null,
+      mppt2SolarVoltage: toNum(data.mppt2SolarVoltage) ?? toNum(data.SolarCharger_PanelVoltage_2_Avg) ?? null,
+      mppt2SolarCurrent: toNum(data.mppt2SolarCurrent) ?? toNum(data.SolarCharger_PanelCurrent_2_Avg) ?? null,
+      mppt2SolarPower: toNum(data.mppt2SolarPower) ?? toNum(data.SolarCharger_PanelPower_2_Avg) ?? null,
+      mppt2LoadVoltage: toNum(data.mppt2LoadVoltage) ?? toNum(data.SolarCharger_LoadVoltage_2_Avg) ?? null,
+      mppt2LoadCurrent: toNum(data.mppt2LoadCurrent) ?? toNum(data.SolarCharger_LoadCurrent_2_Avg) ?? null,
+      mppt2BatteryVoltage: toNum(data.mppt2BatteryVoltage) ?? toNum(data.SolarCharger_BatteryVoltage_2_Avg) ?? null,
+      mppt2ChargerState: toNum(data.mppt2ChargerState) ?? toNum(data.SolarCharger_State_2) ?? null,
+      mppt2BoardTemp: toNum(data.mppt2BoardTemp) ?? toNum(data.SolarCharger_BoardTemp_2_Avg) ?? null,
+      mppt2Mode: toNum(data.mppt2Mode) ?? toNum(data.SolarCharger_Mode_2) ?? null,
     };
   }
 
