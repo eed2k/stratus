@@ -360,7 +360,7 @@ export default function Stations() {
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.location && s.location.toLowerCase().includes(search.toLowerCase()))
-  );
+  ).sort((a, b) => a.id - b.id);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

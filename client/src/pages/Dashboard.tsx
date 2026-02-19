@@ -77,6 +77,15 @@ const safeNumber = (value: number | string | null | undefined): number => {
 };
 
 /**
+ * Convert any value to a number or null (handles pg driver string-typed REAL columns)
+ */
+const toNum = (v: any): number | null => {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+};
+
+/**
  * Helper function to format numbers to a maximum of 3 decimal places
  * Removes trailing zeros for cleaner display
  */
@@ -218,26 +227,26 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       pumpSelectBore: d.pumpSelectBore ?? null,
       portStatusC1: d.portStatusC1 ?? null,
       portStatusC2: d.portStatusC2 ?? null,
-      mpptSolarVoltage: d.mpptSolarVoltage ?? null,
-      mpptSolarCurrent: d.mpptSolarCurrent ?? null,
-      mpptSolarPower: d.mpptSolarPower ?? null,
-      mpptLoadVoltage: d.mpptLoadVoltage ?? null,
-      mpptLoadCurrent: d.mpptLoadCurrent ?? null,
-      mpptBatteryVoltage: d.mpptBatteryVoltage ?? null,
-      mpptChargerState: d.mpptChargerState ?? null,
-      mpptAbsiAvg: d.mpptAbsiAvg ?? null,
-      mpptBoardTemp: d.mpptBoardTemp ?? null,
-      mpptMode: d.mpptMode ?? null,
+      mpptSolarVoltage: toNum(d.mpptSolarVoltage),
+      mpptSolarCurrent: toNum(d.mpptSolarCurrent),
+      mpptSolarPower: toNum(d.mpptSolarPower),
+      mpptLoadVoltage: toNum(d.mpptLoadVoltage),
+      mpptLoadCurrent: toNum(d.mpptLoadCurrent),
+      mpptBatteryVoltage: toNum(d.mpptBatteryVoltage),
+      mpptChargerState: toNum(d.mpptChargerState),
+      mpptAbsiAvg: toNum(d.mpptAbsiAvg),
+      mpptBoardTemp: toNum(d.mpptBoardTemp),
+      mpptMode: toNum(d.mpptMode),
       // Charger 2
-      mppt2SolarVoltage: d.mppt2SolarVoltage ?? null,
-      mppt2SolarCurrent: d.mppt2SolarCurrent ?? null,
-      mppt2SolarPower: d.mppt2SolarPower ?? null,
-      mppt2LoadVoltage: d.mppt2LoadVoltage ?? null,
-      mppt2LoadCurrent: d.mppt2LoadCurrent ?? null,
-      mppt2BatteryVoltage: d.mppt2BatteryVoltage ?? null,
-      mppt2ChargerState: d.mppt2ChargerState ?? null,
-      mppt2BoardTemp: d.mppt2BoardTemp ?? null,
-      mppt2Mode: d.mppt2Mode ?? null,
+      mppt2SolarVoltage: toNum(d.mppt2SolarVoltage),
+      mppt2SolarCurrent: toNum(d.mppt2SolarCurrent),
+      mppt2SolarPower: toNum(d.mppt2SolarPower),
+      mppt2LoadVoltage: toNum(d.mppt2LoadVoltage),
+      mppt2LoadCurrent: toNum(d.mppt2LoadCurrent),
+      mppt2BatteryVoltage: toNum(d.mppt2BatteryVoltage),
+      mppt2ChargerState: toNum(d.mppt2ChargerState),
+      mppt2BoardTemp: toNum(d.mppt2BoardTemp),
+      mppt2Mode: toNum(d.mppt2Mode),
     };
   });
 };
@@ -1120,14 +1129,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         <CurrentConditions
           stationName={selectedStation?.name || "Weather Station"}
           lastUpdate={((currentData as any).collectedAt || currentData.timestamp) ? new Date((currentData as any).collectedAt || currentData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false }) : "No data"}
-          temperature={currentData.temperature ?? undefined}
-          humidity={currentData.humidity ?? undefined}
-          pressure={currentData.pressure ?? undefined}
-          windSpeed={currentData.windSpeed ?? undefined}
-          windGust={currentData.windGust ?? undefined}
-          windDirection={currentData.windDirection ?? undefined}
-          solarRadiation={currentData.solarRadiation ?? undefined}
-          rainfall={currentData.rainfall ?? undefined}
+          temperature={availableFields.temperature ? (currentData.temperature ?? undefined) : undefined}
+          humidity={availableFields.humidity ? (currentData.humidity ?? undefined) : undefined}
+          pressure={availableFields.pressure ? (currentData.pressure ?? undefined) : undefined}
+          windSpeed={availableFields.windSpeed ? (currentData.windSpeed ?? undefined) : undefined}
+          windGust={availableFields.windSpeed ? (currentData.windGust ?? undefined) : undefined}
+          windDirection={availableFields.windDirection ? (currentData.windDirection ?? undefined) : undefined}
+          solarRadiation={availableFields.solarRadiation ? (currentData.solarRadiation ?? undefined) : undefined}
+          rainfall={availableFields.rainfall ? (currentData.rainfall ?? undefined) : undefined}
           dewPoint={effectiveDewPoint != null && effectiveDewPoint !== 0 ? effectiveDewPoint : undefined}
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType ?? undefined}
@@ -1184,12 +1193,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Primary Metrics - Only show cards with data */}
-        {!isMpptOnlyStation && (hasValidData(currentData.temperature) || hasValidData(currentData.humidity) || hasValidData(currentData.pressure) || hasValidData(currentData.windSpeed) || hasValidData(currentData.rainfall)) && (
+        {/* Primary Metrics - Only show cards with data (use availableFields which excludes all-zero sensors) */}
+        {!isMpptOnlyStation && (availableFields.temperature || availableFields.humidity || availableFields.pressure || availableFields.windSpeed || availableFields.rainfall) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {hasValidData(currentData.temperature) && (
+            {availableFields.temperature && (
             <MetricCard
               title="Temperature"
               value={formatValue(currentData.temperature || 0, 1)}
@@ -1199,7 +1208,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#ef4444"
             />
             )}
-            {hasValidData(currentData.humidity) && (
+            {availableFields.humidity && (
             <MetricCard
               title="Humidity"
               value={formatValue(currentData.humidity || 0, 1)}
@@ -1209,7 +1218,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#3b82f6"
             />
             )}
-            {effectiveDewPoint != null && (
+            {effectiveDewPoint != null && availableFields.dewPoint && (
               <MetricCard
                 title="Dew Point"
                 value={formatValue(effectiveDewPoint, 1)}
@@ -1217,7 +1226,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#06b6d4"
               />
             )}
-            {hasValidData(currentData.pressure) && (
+            {availableFields.pressure && (
             <MetricCard
               title="Pressure"
               value={formatValue(currentData.pressure || 0, 1)}
@@ -1227,7 +1236,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#8b5cf6"
             />
             )}
-            {hasValidData(currentData.windSpeed) && (
+            {availableFields.windSpeed && (
             <MetricCard
               title="Wind Speed"
               value={formatValue(currentData.windSpeed || 0, 1)}
@@ -1239,7 +1248,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#14b8a6"
             />
             )}
-            {hasValidData(currentData.rainfall) && (
+            {availableFields.rainfall && (
             <MetricCard
               title="Rainfall (24h)"
               value={formatValue(effectiveRainfall, 2)}
@@ -1323,7 +1332,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Logger Battery Section - Only show if battery data exists */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.loggerBattery !== false && hasValidData(currentData.batteryVoltage) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.loggerBattery !== false && availableFields.batteryVoltage && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
           {/* Battery Not Charging Warning */}
@@ -1361,7 +1370,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentValue={currentData.batteryVoltage || 0}
               defaultExpanded={true}
             />
-            {hasValidData(currentData.panelTemperature) && (
+            {hasValidData(currentData.panelTemperature) && currentData.panelTemperature !== 0 && (
             <MetricCard
               title="Panel Temperature"
               value={formatValue(currentData.panelTemperature || 0, 1)}
@@ -1581,7 +1590,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {hasValidData(currentData.waterLevel) && (
+            {availableFields.waterLevel && (
               <MetricCard
                 title="Water Level"
                 value={formatValue(currentData.waterLevel || 0, 2)}
@@ -1590,7 +1599,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#3b82f6"
               />
             )}
-            {hasValidData(currentData.temperatureSwitch) && (
+            {availableFields.temperatureSwitch && (
               <MetricCard
                 title="Temp Switch"
                 value={formatValue(currentData.temperatureSwitch || 0, 2)}
@@ -1599,7 +1608,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#ef4444"
               />
             )}
-            {hasValidData(currentData.levelSwitch) && (
+            {availableFields.levelSwitch && (
               <MetricCard
                 title="Level Switch"
                 value={formatValue(currentData.levelSwitch || 0, 0)}
@@ -1607,7 +1616,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#22c55e"
               />
             )}
-            {hasValidData(currentData.temperatureSwitchOutlet) && (
+            {availableFields.temperatureSwitchOutlet && (
               <MetricCard
                 title="Temp Switch Outlet"
                 value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)}
@@ -1616,7 +1625,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#f97316"
               />
             )}
-            {hasValidData(currentData.levelSwitchStatus) && (
+            {availableFields.levelSwitchStatus && (
               <MetricCard
                 title="Level Switch Status"
                 value={formatValue(currentData.levelSwitchStatus || 0, 0)}
@@ -1624,7 +1633,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#8b5cf6"
               />
             )}
-            {hasValidData(currentData.lightning) && (
+            {availableFields.lightning && (
               <MetricCard
                 title="Lightning"
                 value={formatValue(currentData.lightning || 0, 0)}
@@ -1633,7 +1642,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#eab308"
               />
             )}
-            {hasValidData(currentData.chargerVoltage) && (
+            {availableFields.chargerVoltage && (
               <MetricCard
                 title="Charger Voltage"
                 value={formatValue(currentData.chargerVoltage || 0, 2)}
@@ -1681,7 +1690,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Solar & Radiation Section - only show when station has coordinates or solar data */}
-        {!isMpptOnlyStation && (dashboardConfig.sectionVisibility?.solarRadiation !== false || dashboardConfig.sectionVisibility?.solarPosition !== false) && (hasStationCoordinates || hasValidData(currentData.solarRadiation) || hasValidData(currentData.uvIndex) || availableFields.solarRadiation) && (
+        {!isMpptOnlyStation && (dashboardConfig.sectionVisibility?.solarRadiation !== false || dashboardConfig.sectionVisibility?.solarPosition !== false) && (hasStationCoordinates || availableFields.solarRadiation || availableFields.uvIndex) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar Position & Radiation</h2>
           
@@ -1699,7 +1708,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               dayLength={solarPosition.dayLength}
             />
             )}
-            {(hasValidData(currentData.temperature) && hasValidData(currentData.pressure)) && (
+            {(availableFields.temperature && availableFields.pressure) && (
             <AirDensityCard
               airDensity={currentData.airDensity || calculatedAirDensity}
               temperature={currentData.temperature ?? undefined}
@@ -1707,7 +1716,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               humidity={currentData.humidity ?? undefined}
             />
             )}
-            {(hasValidData(currentData.temperature) && hasValidData(currentData.humidity)) && (
+            {(availableFields.temperature && availableFields.humidity) && (
             <EvapotranspirationCard
               currentETo={(currentData.eto ?? calculatedETo ?? etoStats.daily ?? 0) / 24}
               dailyETo={currentData.eto ?? calculatedETo ?? etoStats.daily ?? 0}
@@ -1735,7 +1744,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#fb923c"
             />
             )}
-            {hasValidData(currentData.solarRadiation) && (
+            {availableFields.solarRadiation && (
             <MetricCard
               title="Solar Radiation"
               value={formatValue(currentData.solarRadiation || 0, 0)}
@@ -1744,7 +1753,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#f59e0b"
             />
             )}
-            {hasValidData(currentData.uvIndex) && (
+            {availableFields.uvIndex && (
               <MetricCard
                 title="UV Index"
                 value={formatValue(currentData.uvIndex || 0, 1)}
@@ -1755,7 +1764,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 chartColor="#dc2626"
               />
             )}
-            {(hasValidData(currentData.temperature) && hasValidData(currentData.humidity)) && (
+            {(availableFields.temperature && availableFields.humidity) && (
             <MetricCard
               title="Reference ETo"
               value={formatValue(currentData.eto || calculatedETo, 2)}
@@ -1763,7 +1772,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#22c55e"
             />
             )}
-            {(hasValidData(currentData.temperature) && hasValidData(currentData.pressure)) && (
+            {(availableFields.temperature && availableFields.pressure) && (
             <MetricCard
               title="Air Density"
               value={formatValue(currentData.airDensity || calculatedAirDensity, 3)}
@@ -1833,7 +1842,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           {/* Solar Power Harvesting Potential - only show when solar radiation data available */}
           {availableFields.solarRadiation && (
             <SolarPowerHarvestCard
-              currentRadiation={hasValidData(currentData.solarRadiation) ? currentData.solarRadiation : null}
+              currentRadiation={availableFields.solarRadiation ? currentData.solarRadiation : null}
               panelEfficiency={0.20}
               systemLosses={0.15}
             />
@@ -1842,11 +1851,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Soil & Environment Section - Only show if any soil/air quality data exists */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.soilEnvironment !== false && (hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture) || hasValidData(currentData.pm25) || hasValidData(currentData.pm10)) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.soilEnvironment !== false && (availableFields.soilTemperature || availableFields.soilMoisture || availableFields.pm25 || availableFields.pm10) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {hasValidData(currentData.soilTemperature) && (
+            {availableFields.soilTemperature && (
             <MetricCard
               title="Soil Temperature"
               value={formatValue(currentData.soilTemperature || 0, 1)}
@@ -1854,7 +1863,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#a16207"
             />
             )}
-            {hasValidData(currentData.soilMoisture) && (
+            {availableFields.soilMoisture && (
             <MetricCard
               title="Soil Moisture"
               value={formatValue(currentData.soilMoisture || 0, 1)}
@@ -1865,7 +1874,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#15803d"
             />
             )}
-            {hasValidData(currentData.pm25) && (
+            {availableFields.pm25 && (
             <MetricCard
               title="PM2.5"
               value={formatValue(currentData.pm25 || 0, 1)}
@@ -1876,7 +1885,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartColor="#6b7280"
             />
             )}
-            {hasValidData(currentData.pm10) && (
+            {availableFields.pm10 && (
             <MetricCard
               title="PM10"
               value={formatValue(currentData.pm10 || 0, 1)}
@@ -1887,9 +1896,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           </div>
           
           {/* Soil Charts - Only show if soil data available */}
-          {(hasValidData(currentData.soilTemperature) || hasValidData(currentData.soilMoisture)) && (
+          {(availableFields.soilTemperature || availableFields.soilMoisture) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {hasValidData(currentData.soilTemperature) && (
+            {availableFields.soilTemperature && (
             <DataBlockChart
               title="Soil Temperature"
               data={chartData.filter(d => d.soilTemperature !== null).map(d => ({ ...d, soilTemp: d.soilTemperature }))}
@@ -1904,7 +1913,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentValue={currentData.soilTemperature || 0}
             />
             )}
-            {hasValidData(currentData.soilMoisture) && (
+            {availableFields.soilMoisture && (
             <DataBlockChart
               title="Soil Moisture"
               data={chartData.filter(d => d.soilMoisture !== null).map(d => ({ ...d, soilMoist: d.soilMoisture }))}
@@ -1923,9 +1932,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           )}
 
           {/* Air Quality Charts - Only show if PM data available */}
-          {(hasValidData(currentData.pm10) || hasValidData(currentData.pm25)) && (
+          {(availableFields.pm10 || availableFields.pm25) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {hasValidData(currentData.pm10) && (
+            {availableFields.pm10 && (
             <DataBlockChart
               title="PM10 History"
               data={chartData.filter(d => d.pm10 !== null && d.pm10 !== undefined).map(d => ({ ...d, pm10Val: d.pm10 }))}
@@ -1940,7 +1949,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentValue={currentData.pm10 || 0}
             />
             )}
-            {hasValidData(currentData.pm25) && (
+            {availableFields.pm25 && (
             <DataBlockChart
               title="PM2.5 History"
               data={chartData.filter(d => d.pm25 !== null && d.pm25 !== undefined).map(d => ({ ...d, pm25Val: d.pm25 }))}
@@ -1967,7 +1976,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           
           {/* Wind Compass and Wind Roses */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {hasValidData(currentData.windDirection) ? (
+            {availableFields.windDirection ? (
             <WindCompass
               direction={currentData.windDirection || 0}
               speed={currentData.windSpeed || 0}
@@ -2159,7 +2168,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Fire Danger Section - Only show when we have actual data */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.fireDanger !== false && (hasValidData(currentData.temperature) && hasValidData(currentData.humidity) && hasValidData(currentData.windSpeed)) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.fireDanger !== false && (availableFields.temperature && availableFields.humidity && availableFields.windSpeed) && (
         <section className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FireDangerCard
@@ -2320,11 +2329,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Solar & ET Cards */}
-        {!isMpptOnlyStation && (hasValidData(currentData.solarRadiation) || hasValidData(currentData.temperature)) && (
+        {!isMpptOnlyStation && (availableFields.solarRadiation || availableFields.temperature) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar & Evapotranspiration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {hasValidData(currentData.solarRadiation) && (
+            {availableFields.solarRadiation && (
             <SolarRadiationCard
               currentRadiation={currentData.solarRadiation || 0}
               peakRadiation={solarStats.peak ?? 0}
