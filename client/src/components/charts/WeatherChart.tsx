@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,7 +62,7 @@ interface WeatherChartProps {
   onRangeChange?: (range: string) => void;
 }
 
-export function WeatherChart({
+export const WeatherChart = memo(function WeatherChart({
   title,
   data,
   series,
@@ -132,4 +132,4 @@ export function WeatherChart({
       </CardContent>
     </Card>
   );
-}
+});

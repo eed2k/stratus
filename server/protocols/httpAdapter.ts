@@ -12,6 +12,8 @@ export class HTTPAdapter extends BaseProtocolAdapter {
   private serviceType: string = "generic";
   private rikaSession: string | null = null;
   private rikaFarmPk: number | null = null;
+  private arduinoAccessToken: string | null = null;
+  private arduinoTokenExpiry: number = 0;
 
   constructor(config: ProtocolConfig) {
     super(config);
@@ -67,6 +69,17 @@ export class HTTPAdapter extends BaseProtocolAdapter {
 
   async connect(): Promise<boolean> {
     try {
+      // Arduino IoT Cloud requires OAuth2 client_credentials token
+      if (this.serviceType === "arduino_iot") {
+        const token = await this.arduinoGetAccessToken();
+        if (!token) {
+          this.setError(new Error("Arduino IoT Cloud auth failed — check client ID/secret"));
+          return false;
+        }
+        this.setConnected(true);
+        return true;
+      }
+
       // RikaCloud requires session-based login first
       if (this.serviceType === "rikacloud") {
         const loggedIn = await this.rikaCloudLogin();
@@ -111,6 +124,11 @@ export class HTTPAdapter extends BaseProtocolAdapter {
 
   async readData(): Promise<NormalizedWeatherData | null> {
     try {
+      // Arduino IoT Cloud: use OAuth2 token to read thing properties
+      if (this.serviceType === "arduino_iot") {
+        return await this.readArduinoIoTData();
+      }
+
       // RikaCloud v2: use session header and handle re-login
       if (this.serviceType === "rikacloud") {
         return await this.readRikaCloudData();
@@ -233,6 +251,94 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       console.error(`[HTTPAdapter] RikaCloud login error: ${error.message}`);
       return false;
     }
+  }
+
+  /**
+   * Arduino IoT Cloud: OAuth2 client_credentials token exchange.
+   * POST to https://api2.arduino.cc/iot/v1/clients/token
+   */
+  private async arduinoGetAccessToken(): Promise<string | null> {
+    // Return cached token if still valid (with 60s buffer)
+    if (this.arduinoAccessToken && Date.now() < this.arduinoTokenExpiry - 60000) {
+      return this.arduinoAccessToken;
+    }
+
+    const config = this.config as any;
+    const clientId = config.arduinoClientId || config.apiKey;
+    const clientSecret = config.arduinoClientSecret;
+
+    if (!clientId || !clientSecret) {
+      console.error("[HTTPAdapter] Arduino IoT Cloud requires clientId and clientSecret");
+      return null;
+    }
+
+    try {
+      console.log(`[HTTPAdapter] Requesting Arduino IoT Cloud access token...`);
+      const response = await axios.post(
+        "https://api2.arduino.cc/iot/v1/clients/token",
+        new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: clientId,
+          client_secret: clientSecret,
+          audience: "https://api2.arduino.cc/iot",
+        }).toString(),
+        {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          timeout: 15000,
+        }
+      );
+
+      if (response.status === 200 && response.data?.access_token) {
+        this.arduinoAccessToken = response.data.access_token;
+        // Token typically expires in 300s, cache it
+        const expiresIn = response.data.expires_in || 300;
+        this.arduinoTokenExpiry = Date.now() + expiresIn * 1000;
+        console.log(`[HTTPAdapter] Arduino IoT Cloud token acquired (expires in ${expiresIn}s)`);
+        return this.arduinoAccessToken;
+      }
+
+      console.error(`[HTTPAdapter] Arduino IoT Cloud token request failed — status ${response.status}`);
+      return null;
+    } catch (error: any) {
+      console.error(`[HTTPAdapter] Arduino IoT Cloud token error: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Read data from Arduino IoT Cloud.
+   * GET /iot/v2/things/{thingId}/properties to fetch all property values.
+   */
+  private async readArduinoIoTData(): Promise<NormalizedWeatherData | null> {
+    const token = await this.arduinoGetAccessToken();
+    if (!token) throw new Error("Arduino IoT Cloud auth failed");
+
+    const config = this.config as any;
+    const thingId = config.arduinoThingId;
+
+    if (!thingId) {
+      throw new Error("Arduino IoT Cloud requires a Thing ID");
+    }
+
+    const url = `https://api2.arduino.cc/iot/v2/things/${thingId}/properties`;
+    console.log(`[HTTPAdapter] Fetching Arduino IoT Cloud properties from ${url}`);
+
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+      timeout: 15000,
+    });
+
+    if (response.status !== 200) {
+      throw new Error(`Arduino IoT Cloud HTTP ${response.status}`);
+    }
+
+    const rawData = this.parseArduinoIoTResponse(response.data);
+    const normalized = this.normalizeData(rawData);
+    this.emit("data", normalized);
+    return normalized;
   }
 
   private buildEndpointUrl(): string {
@@ -391,20 +497,41 @@ export class HTTPAdapter extends BaseProtocolAdapter {
   }
 
   private parseArduinoIoTResponse(data: any): Record<string, number | null> {
-    const properties = data?.properties || data;
+    // Arduino IoT Cloud /iot/v2/things/{id}/properties returns an array of property objects:
+    // [{ id, name, last_value, type, variable_name, update_at, ... }]
+    const properties = Array.isArray(data) ? data : (data?.properties || []);
     const result: Record<string, number | null> = {};
 
-    for (const prop of (Array.isArray(properties) ? properties : [])) {
-      const name = prop.name?.toLowerCase() || "";
+    for (const prop of properties) {
+      const name = (prop.variable_name || prop.name || "").toLowerCase();
       const value = prop.last_value;
-      
-      if (name.includes("temp")) result.temperature = value;
-      if (name.includes("humid")) result.humidity = value;
-      if (name.includes("press")) result.pressure = value;
-      if (name.includes("wind") && name.includes("speed")) result.windSpeed = value;
-      if (name.includes("wind") && name.includes("dir")) result.windDirection = value;
-      if (name.includes("rain")) result.rainfall = value;
+      if (value === null || value === undefined) continue;
+      const num = typeof value === "number" ? value : parseFloat(value);
+      if (isNaN(num)) continue;
+
+      // Map Arduino property names to normalized weather fields
+      if (name.includes("temp") && !name.includes("board") && !name.includes("soil")) result.temperature = num;
+      if (name.includes("humid") || name === "rh") result.humidity = num;
+      if (name.includes("press") || name.includes("baro")) result.pressure = num;
+      if (name.includes("wind") && (name.includes("speed") || name.includes("spd"))) result.windSpeed = num;
+      if (name.includes("wind") && (name.includes("dir") || name.includes("bearing"))) result.windDirection = num;
+      if (name.includes("gust")) result.windGust = num;
+      if (name.includes("rain") || name.includes("precip")) result.rainfall = num;
+      if (name.includes("solar") || name.includes("radiation") || name === "sr") result.solarRadiation = num;
+      if (name.includes("uv")) result.uvIndex = num;
+      if (name.includes("dew")) result.dewPoint = num;
+      if (name.includes("batt")) result.batteryVoltage = num;
+      if (name.includes("soil") && name.includes("temp")) result.soilTemperature = num;
+      if (name.includes("soil") && name.includes("moist")) result.soilMoisture = num;
+      if (name.includes("pm25") || name.includes("pm2_5")) result.pm25 = num;
+      if (name.includes("pm10")) result.pm10 = num;
+      if (name.includes("co2")) result.co2 = num;
+
+      console.log(`[HTTPAdapter] Arduino IoT property "${name}": ${num}`);
     }
+
+    const populated = Object.keys(result).length;
+    console.log(`[HTTPAdapter] Arduino IoT: mapped ${populated} weather fields from ${properties.length} properties`);
 
     return result;
   }

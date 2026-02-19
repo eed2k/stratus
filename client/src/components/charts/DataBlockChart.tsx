@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,7 +116,7 @@ interface DataBlockChartProps {
  * - Current value display with trend
  * - Min/Max/Average statistics
  */
-export function DataBlockChart({
+export const DataBlockChart = memo(function DataBlockChart({
   title,
   data,
   series,
@@ -381,5 +381,6 @@ export function DataBlockChart({
     </Card>
   );
 }
+);
 
 export default DataBlockChart;

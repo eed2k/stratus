@@ -49,7 +49,7 @@ interface StationWithReading extends WeatherStation {
 }
 
 type StationType = "campbell" | "rika";
-type ConnectionType = "dropbox" | "lora" | "gsm" | "ip" | "mqtt" | "4g" | "tcp_ip" | "http_post" | "rikacloud";
+type ConnectionType = "dropbox" | "lora" | "gsm" | "ip" | "mqtt" | "4g" | "tcp_ip" | "http_post" | "rikacloud" | "arduino_iot";
 
 interface StationFormData {
   name: string;
@@ -90,6 +90,10 @@ interface StationFormData {
   // RikaCloud credentials
   rikaEmail: string;
   rikaPassword: string;
+  // Arduino IoT Cloud credentials
+  arduinoClientId: string;
+  arduinoClientSecret: string;
+  arduinoThingId: string;
 }
 
 const initialFormData: StationFormData = {
@@ -131,6 +135,10 @@ const initialFormData: StationFormData = {
   // RikaCloud credentials
   rikaEmail: "",
   rikaPassword: "",
+  // Arduino IoT Cloud credentials
+  arduinoClientId: "",
+  arduinoClientSecret: "",
+  arduinoThingId: "",
 };
 
 export default function Stations() {
@@ -297,6 +305,18 @@ export default function Stations() {
           rikaPassword: data.rikaPassword,
           pollInterval: parseInt(data.pollInterval) || 60,
         });
+      } else if (data.connectionType === "arduino_iot") {
+        // Arduino IoT Cloud — OAuth2 client_credentials
+        payload.stationType = "arduino";
+        payload.protocol = "http";
+        payload.connectionConfig = JSON.stringify({
+          type: "arduino_iot",
+          apiEndpoint: `https://api2.arduino.cc/iot/v2/things/${data.arduinoThingId}/properties`,
+          arduinoClientId: data.arduinoClientId,
+          arduinoClientSecret: data.arduinoClientSecret,
+          arduinoThingId: data.arduinoThingId,
+          pollInterval: parseInt(data.pollInterval) || 300,
+        });
       }
 
       return await apiRequest("POST", "/api/stations", payload);
@@ -396,6 +416,7 @@ export default function Stations() {
                       <SelectItem value="dropbox">Dropbox Sync (Campbell Scientific)</SelectItem>
                       <SelectItem value="http_post">HTTP POST (Compatible Stations)</SelectItem>
                       <SelectItem value="rikacloud">RikaCloud HTTP API (Rika Weather Stations)</SelectItem>
+                      <SelectItem value="arduino_iot">Arduino IoT Cloud (Arduino Weather Stations)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -618,6 +639,63 @@ X-API-Key: your-key (optional)
                       />
                       <p className="text-xs text-muted-foreground">
                         Leave blank to use the default (<code className="text-xs">cloud.rikacloud.com</code>). Stratus will auto-discover your farm and sensor data.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Poll Interval</Label>
+                      <Select value={formData.pollInterval} onValueChange={(v) => updateForm({ pollInterval: v })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="60">1 minute</SelectItem>
+                          <SelectItem value="300">5 minutes</SelectItem>
+                          <SelectItem value="600">10 minutes</SelectItem>
+                          <SelectItem value="1800">30 minutes</SelectItem>
+                          <SelectItem value="3600">1 hour</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {formData.connectionType === "arduino_iot" && (
+                  <div className="space-y-4">
+                    <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300">
+                      <strong>Read-only integration:</strong> Stratus fetches property values from your Arduino IoT Cloud Thing via the REST API. It will never modify your Arduino devices or data. Create an API key at <code className="text-xs">cloud.arduino.cc</code> &rarr; Settings &rarr; API Keys.
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Client ID *</Label>
+                      <Input
+                        placeholder="aBcDeFgHiJkLmNoPqRsTuVwXyZ"
+                        value={formData.arduinoClientId}
+                        onChange={(e) => updateForm({ arduinoClientId: e.target.value })}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        From Arduino IoT Cloud &rarr; Settings &rarr; API Keys
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Client Secret *</Label>
+                      <Input
+                        type="password"
+                        placeholder="Your client secret"
+                        value={formData.arduinoClientSecret}
+                        onChange={(e) => updateForm({ arduinoClientSecret: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Thing ID *</Label>
+                      <Input
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        value={formData.arduinoThingId}
+                        onChange={(e) => updateForm({ arduinoThingId: e.target.value })}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        UUID of the Thing containing your weather properties. Find it under Things &rarr; your device &rarr; Thing ID.
                       </p>
                     </div>
                     <div className="space-y-2">

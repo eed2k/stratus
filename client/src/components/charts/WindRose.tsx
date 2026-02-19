@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback } from "react";
+import { useMemo, useRef, useCallback, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ const calculateWindStats = (data: WindRoseData[]) => {
   };
 };
 
-export function WindRose({ 
+export const WindRose = memo(function WindRose({ 
   data, 
   speedClasses, 
   title = "Wind Rose", 
@@ -344,6 +344,7 @@ export function WindRose({
     </Card>
   );
 }
+);
 
 // Re-export constants from shared module for backward compatibility
 export { WMO_SPEED_CLASSES, WMO_SIMPLIFIED_CLASSES, getWindDescription } from "@/lib/windConstants";

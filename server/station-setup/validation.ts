@@ -222,6 +222,8 @@ export function validateConnectionConfig(
     gsm: validateGSMConfig,
     "4g": validateGSMConfig,
     pakbus: validateHTTPConfig,
+    arduino_iot: validateHTTPConfig,
+    rikacloud: validateHTTPConfig,
   };
 
   const validator = typeMap[connectionType.toLowerCase()];
@@ -262,6 +264,8 @@ export function buildProtocolConfig(
     modbus: "modbus" as any,
     dnp3: "dnp3" as any,
     demo: "http",
+    rikacloud: "http",
+    arduino_iot: "http",
   };
 
   const connectionTypeMap: Record<string, ProtocolConfig['connectionType']> = {
@@ -280,6 +284,8 @@ export function buildProtocolConfig(
     modbus: "modbus" as any,
     dnp3: "dnp3" as any,
     demo: "http",
+    rikacloud: "http",
+    arduino_iot: "http",
   };
 
   return {

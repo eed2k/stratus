@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getWindDirectionLabel } from "@/lib/windConstants";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { AlertTriangle } from "lucide-react";
 
 interface CurrentConditionsProps {
@@ -65,7 +65,7 @@ const getTimezoneInfo = (lat?: number, lon?: number) => {
   return { timezone, offset };
 };
 
-export function CurrentConditions({
+export const CurrentConditions = memo(function CurrentConditions({
   stationName,
   lastUpdate,
   temperature,
@@ -301,4 +301,4 @@ export function CurrentConditions({
       </CardContent>
     </Card>
   );
-}
+});

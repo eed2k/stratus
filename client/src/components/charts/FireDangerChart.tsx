@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { safeFixed } from "@/lib/utils";
@@ -38,7 +38,7 @@ interface FireDangerChartProps {
  * - Reference lines for danger thresholds
  * - Statistics (max, min, avg FDI)
  */
-export function FireDangerChart({
+export const FireDangerChart = memo(function FireDangerChart({
   data,
   title = "Fire Danger Index History",
   showThresholds = true,
@@ -336,4 +336,4 @@ export function FireDangerChart({
       </CardContent>
     </Card>
   );
-}
+});

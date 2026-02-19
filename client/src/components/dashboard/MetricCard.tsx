@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 
 interface MetricCardProps {
   title: string;
@@ -19,7 +19,7 @@ interface MetricCardProps {
   showChart?: boolean; // Control whether to show the mini chart
 }
 
-export function MetricCard({
+export const MetricCard = memo(function MetricCard({
   title,
   value,
   unit,
@@ -115,4 +115,4 @@ export function MetricCard({
       </CardContent>
     </Card>
   );
-}
+});

@@ -1,14 +1,10 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { MetricCard } from "@/components/dashboard/MetricCard";
-import { WindRose } from "@/components/charts/WindRose";
-import { WindRoseScatter } from "@/components/charts/WindRoseScatter";
 import { WindCompass } from "@/components/dashboard/WindCompass";
 import { WindPowerCard } from "@/components/dashboard/WindPowerCard";
-import { WeatherChart } from "@/components/charts/WeatherChart";
-import { DataBlockChart } from "@/components/charts/DataBlockChart";
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
 import { EToCard } from "@/components/dashboard/EToCard";
@@ -17,8 +13,6 @@ import { DataImport } from "@/components/dashboard/DataImport";
 import { DashboardConfigPanel } from "@/components/dashboard/DashboardConfigPanel";
 import { ShareDashboard } from "@/components/dashboard/ShareDashboard";
 import { StationInfoPanel } from "@/components/dashboard/StationInfoPanel";
-import { StationMapWithErrorBoundary } from "@/components/dashboard/StationMap";
-import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { AirDensityCard } from "@/components/dashboard/AirDensityCard";
 import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
 import { MpptChargerCard } from "@/components/dashboard/MpptChargerCard";
@@ -26,9 +20,24 @@ import { BarometricPressureCard } from "@/components/dashboard/BarometricPressur
 import { EvapotranspirationCard } from "@/components/dashboard/EvapotranspirationCard";
 import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
-import { FireDangerChart } from "@/components/charts/FireDangerChart";
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
 import { safeFixed } from "@/lib/utils";
+
+// Lazy-load heavy chart and visualization components for faster initial render
+const WindRose = lazy(() => import("@/components/charts/WindRose").then(m => ({ default: m.WindRose })));
+const WindRoseScatter = lazy(() => import("@/components/charts/WindRoseScatter").then(m => ({ default: m.WindRoseScatter })));
+const WeatherChart = lazy(() => import("@/components/charts/WeatherChart").then(m => ({ default: m.WeatherChart })));
+const DataBlockChart = lazy(() => import("@/components/charts/DataBlockChart").then(m => ({ default: m.DataBlockChart })));
+const FireDangerChart = lazy(() => import("@/components/charts/FireDangerChart").then(m => ({ default: m.FireDangerChart })));
+const StationMapWithErrorBoundary = lazy(() => import("@/components/dashboard/StationMap").then(m => ({ default: m.StationMapWithErrorBoundary })));
+const SolarPositionCard = lazy(() => import("@/components/dashboard/SolarPositionCard").then(m => ({ default: m.SolarPositionCard })));
+
+// Chart loading placeholder
+const ChartFallback = () => (
+  <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg animate-pulse">
+    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+  </div>
+);
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -294,13 +303,12 @@ interface DashboardProps {
 export default function Dashboard({ isAdmin = true, canAccessStation, stationId, onBackToStations }: DashboardProps) {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(stationId || null);
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
-    // Load station-specific config, fall back to global, then defaults
+    // Load station-specific config only — each dashboard is independent
     if (stationId) {
       const stationSaved = localStorage.getItem(`dashboardConfig_${stationId}`);
       if (stationSaved) return JSON.parse(stationSaved);
     }
-    const saved = localStorage.getItem('dashboardConfig');
-    return saved ? JSON.parse(saved) : DEFAULT_DASHBOARD_CONFIG;
+    return DEFAULT_DASHBOARD_CONFIG;
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -318,16 +326,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   const activeStationId = selectedStationId || (stations.length > 0 ? stations[0].id : null);
 
-  // Reload per-station config when active station changes
+  // Reload per-station config when active station changes — each station is independent
   useEffect(() => {
     if (!activeStationId) return;
     const stationSaved = localStorage.getItem(`dashboardConfig_${activeStationId}`);
     if (stationSaved) {
       setDashboardConfig(JSON.parse(stationSaved));
     } else {
-      // Fall back to global config or defaults for stations without saved config
-      const globalSaved = localStorage.getItem('dashboardConfig');
-      setDashboardConfig(globalSaved ? JSON.parse(globalSaved) : DEFAULT_DASHBOARD_CONFIG);
+      // No config saved for this station — use clean defaults (not another station's config)
+      setDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
     }
   }, [activeStationId]);
 
@@ -508,6 +515,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const windScatterData = useMemo(() => processWindScatterData(sortedHistoricalData), [sortedHistoricalData]);
 
   // Process wind data for different time periods (60min, 24h, 48h, 7d, 31d)
+  // Optimization: only compute counts upfront; rose/scatter are lazy-computed on first access
   const windDataByPeriod = useMemo(() => {
     const now = Date.now();
     const thirtyMinAgo = now - 30 * 60 * 1000;
@@ -521,42 +529,28 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const last60Min = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > oneHourAgo);
     const last24h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
     const last48h = sortedHistoricalData.filter(d => new Date(d.timestamp).getTime() > fortyEightHoursAgo);
-    // Use sortedStatsData (7-day dataset) for 7d/31d wind periods so they have real data
     const windDataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     const last7d = windDataSource.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
     const last31d = windDataSource.filter(d => new Date(d.timestamp).getTime() > thirtyOneDaysAgo);
     
+    // Helper: create a lazy wind period object that defers heavy processing until accessed
+    const makeLazyPeriod = (data: typeof sortedHistoricalData) => {
+      let cachedRose: ReturnType<typeof processWindRoseData> | null = null;
+      let cachedScatter: ReturnType<typeof processWindScatterData> | null = null;
+      return {
+        get rose() { return cachedRose ?? (cachedRose = processWindRoseData(data)); },
+        get scatter() { return cachedScatter ?? (cachedScatter = processWindScatterData(data)); },
+        count: data.length,
+      };
+    };
+    
     return {
-      '30min': {
-        rose: processWindRoseData(last30Min),
-        scatter: processWindScatterData(last30Min),
-        count: last30Min.length
-      },
-      '60min': {
-        rose: processWindRoseData(last60Min),
-        scatter: processWindScatterData(last60Min),
-        count: last60Min.length
-      },
-      '24h': {
-        rose: processWindRoseData(last24h),
-        scatter: processWindScatterData(last24h),
-        count: last24h.length
-      },
-      '48h': {
-        rose: processWindRoseData(last48h),
-        scatter: processWindScatterData(last48h),
-        count: last48h.length
-      },
-      '7d': {
-        rose: processWindRoseData(last7d),
-        scatter: processWindScatterData(last7d),
-        count: last7d.length
-      },
-      '31d': {
-        rose: processWindRoseData(last31d),
-        scatter: processWindScatterData(last31d),
-        count: last31d.length
-      },
+      '30min': makeLazyPeriod(last30Min),
+      '60min': makeLazyPeriod(last60Min),
+      '24h': makeLazyPeriod(last24h),
+      '48h': makeLazyPeriod(last48h),
+      '7d': makeLazyPeriod(last7d),
+      '31d': makeLazyPeriod(last31d),
       'configured': {
         rose: windRoseData,
         scatter: windScatterData,
@@ -669,15 +663,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [sortedStatsData, sortedHistoricalData]);
 
-  // Save config to localStorage (per-station) and invalidate queries when it changes
+  // Save config to localStorage (per-station only) and invalidate queries when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
     setDashboardConfig(newConfig);
-    // Save per-station config
+    // Save only for this station — never write to global key
     if (activeStationId) {
       localStorage.setItem(`dashboardConfig_${activeStationId}`, JSON.stringify(newConfig));
     }
-    // Also save as global fallback
-    localStorage.setItem('dashboardConfig', JSON.stringify(newConfig));
     // Invalidate historical data queries to force refresh with new time range
     queryClient.invalidateQueries({ 
       queryKey: ["/api/stations", activeStationId, "data", "history"],
@@ -1147,6 +1139,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Station Location</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Suspense fallback={<ChartFallback />}>
             <StationMapWithErrorBoundary
               key={`map-${selectedStation?.id || 'default'}-${selectedStation?.latitude ?? 'nolat'}-${selectedStation?.longitude ?? 'nolng'}`}
               latitude={selectedStation?.latitude ?? undefined}
@@ -1154,6 +1147,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               stationName={selectedStation?.name || "Weather Station"}
               altitude={selectedStation?.altitude ?? undefined}
             />
+            </Suspense>
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-normal">Station Details</CardTitle>
@@ -1258,6 +1252,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           </div>
           
           {/* Primary Metrics Dedicated Charts - Grid Layout */}
+          <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {availableFields.temperature && (
               <DataBlockChart
@@ -1292,6 +1287,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             )}
           </div>
+          </Suspense>
           
           {/* Barometric Pressure Section with Sea Level and Station Level */}
           {availableFields.pressure && (
@@ -1360,6 +1356,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.batteryVoltage || 0}
+              defaultExpanded={true}
             />
             {hasValidData(currentData.panelTemperature) && (
             <MetricCard
@@ -1824,13 +1821,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
           {/* Solar Power Harvesting Potential - only show when solar radiation data available */}
           {availableFields.solarRadiation && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SolarPowerHarvestCard
               currentRadiation={hasValidData(currentData.solarRadiation) ? currentData.solarRadiation : null}
               panelEfficiency={0.20}
               systemLosses={0.15}
             />
-          </div>
           )}
         </section>
         )}
@@ -2259,6 +2254,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             const firstVisible = historicalTabs.find(t => t.show);
             if (!firstVisible) return null;
             return (
+          <Suspense fallback={<ChartFallback />}>
           <Tabs defaultValue={firstVisible.key} className="w-full">
             <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
               {(availableFields.temperature || availableFields.humidity) && <TabsTrigger value="temperature" className="flex-1 min-w-[80px]" data-testid="tab-temperature">Temp</TabsTrigger>}
@@ -2324,6 +2320,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             </TabsContent>
             )}
           </Tabs>
+          </Suspense>
             );
           })()}
         </section>

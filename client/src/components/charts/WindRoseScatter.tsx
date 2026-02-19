@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { safeFixed } from "@/lib/utils";
@@ -63,7 +63,7 @@ const calculateScatterStats = (data: WindSpeedPoint[]) => {
  * where the angle represents wind direction and the radius represents wind speed.
  * Points are color-coded according to WMO/Beaufort wind speed classifications.
  */
-export function WindRoseScatter({ 
+export const WindRoseScatter = memo(function WindRoseScatter({ 
   data, 
   title = "Wind Speed Scatter", 
   maxWindSpeed,
@@ -259,6 +259,7 @@ export function WindRoseScatter({
     </Card>
   );
 }
+);
 
 // Re-export constants from shared module for backward compatibility
 export { WMO_SPEED_CLASSES as SPEED_COLOR_CLASSES, getSpeedColor } from "@/lib/windConstants";

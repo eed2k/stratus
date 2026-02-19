@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { safeFixed } from "@/lib/utils";
+import { memo } from "react";
 
 interface MpptChargerCardProps {
   solarVoltage: number | null;
@@ -48,7 +49,7 @@ function getBatteryHealth(voltage: number | null): { label: string; color: strin
   return { label: "Full", color: "text-emerald-500", percentage: pct };
 }
 
-export function MpptChargerCard({
+export const MpptChargerCard = memo(function MpptChargerCard({
   solarVoltage,
   solarCurrent,
   solarPower,
@@ -199,3 +200,4 @@ export function MpptChargerCard({
     </Card>
   );
 }
+);
