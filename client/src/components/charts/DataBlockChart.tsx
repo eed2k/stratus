@@ -36,15 +36,15 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || !payload.length) return null;
   
   return (
-    <div className="bg-card border border-border rounded-md p-3 shadow-lg text-sm">
-      <p className="font-medium mb-2 text-foreground">{label}</p>
+    <div className="bg-white border border-gray-300 rounded-md p-3 shadow-lg text-sm">
+      <p className="font-medium mb-2 text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{label}</p>
       {payload.map((entry: any, index: number) => (
         <div key={index} className="flex items-center gap-2 text-sm">
           <div 
             className="w-3 h-3 rounded-full" 
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{entry.name}:</span>
           <span className="font-medium" style={{ color: entry.color }}>
             {formatValue(entry.value)} {entry.payload?.unit || ''}
           </span>
@@ -304,13 +304,13 @@ export const DataBlockChart = memo(function DataBlockChart({
 
   return (
     <Card 
-      className={`transition-all duration-300 ${isExpanded ? "col-span-full" : ""}`}
+      className={`transition-all duration-300 border border-gray-300 bg-white ${isExpanded ? "col-span-full" : ""}`}
       data-testid={`chart-${title.toLowerCase().replace(/\s+/g, '-')}`}
     >
       <CardHeader className={compact ? "pb-1 pt-3 px-3" : "pb-2"}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <CardTitle className={`${compact ? "text-sm" : "text-lg"} font-normal`}>
+            <CardTitle className={`${compact ? "text-sm" : "text-lg"} font-normal text-black`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               {title}
             </CardTitle>
             {currentValue !== undefined && (

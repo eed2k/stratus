@@ -191,7 +191,7 @@ export function SolarPowerHarvestCard({
   // No data at all and no saved values
   if (!hasData && !lastSaved) {
     return (
-      <Card className="border border-black bg-white">
+      <Card className="border border-gray-300 bg-white">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Solar Power Harvesting Potential
@@ -210,11 +210,11 @@ export function SolarPowerHarvestCard({
   }
 
   return (
-    <Card className="border border-black bg-white">
+    <Card className="border border-gray-300 bg-white">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Solar Power Harvesting Potential
-          <Badge variant="outline" className="ml-auto text-xs border-black text-black">
+          <Badge variant="outline" className="ml-auto text-xs border-gray-300 text-black">
             {safeFixed(panelEfficiency * 100, 0)}% efficiency
           </Badge>
         </CardTitle>
@@ -223,7 +223,7 @@ export function SolarPowerHarvestCard({
         <div className="space-y-4">
           {/* Last values notice */}
           {usingLastValues && (
-            <div className="rounded border border-black bg-white p-2">
+            <div className="rounded border border-gray-300 bg-white p-2">
               <p className="text-[10px] text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 Showing last calculated daily average values. Updates on next day cycle.
               </p>
@@ -242,7 +242,7 @@ export function SolarPowerHarvestCard({
 
           {/* Energy Estimates Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-black bg-white p-3">
+            <div className="rounded-lg border border-gray-300 bg-white p-3">
               <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(displayEstimates.dailyEnergy, 2)}
@@ -250,7 +250,7 @@ export function SolarPowerHarvestCard({
               <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
-            <div className="rounded-lg border border-black bg-white p-3">
+            <div className="rounded-lg border border-gray-300 bg-white p-3">
               <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Weekly</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(displayEstimates.weeklyEnergy, 1)}
@@ -258,7 +258,7 @@ export function SolarPowerHarvestCard({
               <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
-            <div className="rounded-lg border border-black bg-white p-3">
+            <div className="rounded-lg border border-gray-300 bg-white p-3">
               <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(displayEstimates.monthlyEnergy, 1)}
@@ -266,7 +266,7 @@ export function SolarPowerHarvestCard({
               <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
-            <div className="rounded-lg border border-black bg-white p-3">
+            <div className="rounded-lg border border-gray-300 bg-white p-3">
               <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(displayEstimates.yearlyEnergy, 0)}
@@ -276,7 +276,7 @@ export function SolarPowerHarvestCard({
           </div>
 
           {/* Peak Sun Hours */}
-          <div className="rounded-lg border border-black bg-white p-3">
+          <div className="rounded-lg border border-gray-300 bg-white p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours (Daily Avg)</p>
@@ -293,26 +293,7 @@ export function SolarPowerHarvestCard({
             </div>
           </div>
 
-          {/* Monthly Energy Potential - Data Cards */}
-          <div className="space-y-2">
-            <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential (kWh/m²)</p>
-            <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-              {displayMonthly.map(({ month, energy }) => (
-                <div key={month} className="rounded border border-black bg-white p-2 text-center">
-                  <p className="text-[10px] font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{month}</p>
-                  <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                    {safeFixed(energy, 1)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Info Text */}
-          <p className="text-[10px] text-black text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            Estimates based on {safeFixed(panelEfficiency * 100, 0)}% panel efficiency, {safeFixed(systemLosses * 100, 0)}% system losses.
-            Actual output varies with weather, shading, and panel orientation.
-          </p>
         </div>
       </CardContent>
     </Card>

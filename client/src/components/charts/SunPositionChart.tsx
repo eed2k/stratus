@@ -153,22 +153,22 @@ export function SunPositionChart({
         <div className="space-y-3">
           {/* Key metrics */}
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded border border-black bg-white p-2">
+            <div className="rounded border border-gray-300 bg-white p-2">
               <p className="text-[10px] text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Azimuth</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
-                {safeFixed(currentAzimuth, 1)}°
+                {safeFixed(currentAzimuth, 1)}Â°
               </p>
             </div>
-            <div className="rounded border border-black bg-white p-2">
+            <div className="rounded border border-gray-300 bg-white p-2">
               <p className="text-[10px] text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Elevation</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
-                {safeFixed(currentElevation, 1)}°
+                {safeFixed(currentElevation, 1)}Â°
               </p>
             </div>
-            <div className="rounded border border-black bg-white p-2">
+            <div className="rounded border border-gray-300 bg-white p-2">
               <p className="text-[10px] text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Peak</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
-                {safeFixed(maxElevation, 1)}°
+                {safeFixed(maxElevation, 1)}Â°
               </p>
             </div>
           </div>
@@ -188,9 +188,9 @@ export function SunPositionChart({
                   ]}
                   tick={{ fontSize: 10, fill: "#000" }}
                   tickLine={false}
-                  axisLine={{ stroke: "#000" }}
+                  axisLine={{ stroke: "#d1d5db" }}
                   label={{
-                    value: "Azimuth (°)",
+                    value: "Azimuth (Â°)",
                     position: "insideBottom",
                     offset: -5,
                     style: { fontSize: 10, fill: "#000" },
@@ -203,9 +203,9 @@ export function SunPositionChart({
                   domain={[0, (dataMax: number) => Math.max(dataMax + 5, 45)]}
                   tick={{ fontSize: 10, fill: "#000" }}
                   tickLine={false}
-                  axisLine={{ stroke: "#000" }}
+                  axisLine={{ stroke: "#d1d5db" }}
                   label={{
-                    value: "Elevation (°)",
+                    value: "Elevation (Â°)",
                     angle: -90,
                     position: "insideLeft",
                     style: { fontSize: 10, fill: "#000" },
@@ -217,10 +217,10 @@ export function SunPositionChart({
                     if (active && payload && payload.length > 0) {
                       const data = payload[0].payload;
                       return (
-                        <div className="rounded border border-black bg-white p-2 shadow-sm text-xs" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+                        <div className="rounded border border-gray-300 bg-white p-2 shadow-sm text-xs" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
                           <p className="text-black">Time: {data.label}</p>
-                          <p className="text-black">Azimuth: {safeFixed(data.azimuth, 1)}°</p>
-                          <p className="text-black">Elevation: {safeFixed(data.elevation, 1)}°</p>
+                          <p className="text-black">Azimuth: {safeFixed(data.azimuth, 1)}Â°</p>
+                          <p className="text-black">Elevation: {safeFixed(data.elevation, 1)}Â°</p>
                         </div>
                       );
                     }
@@ -232,7 +232,7 @@ export function SunPositionChart({
                   dataKey="elevation"
                   stroke="#2563eb"
                   strokeWidth={2}
-                  dot={renderDot}
+                  dot={renderDot as any}
                   activeDot={{ r: 5, fill: "#1d4ed8", stroke: "#1e3a5f", strokeWidth: 2 }}
                 />
               </LineChart>
@@ -242,10 +242,10 @@ export function SunPositionChart({
           {/* Sunrise/Sunset info */}
           <div className="flex justify-between text-[10px] text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
             {sunrisePoint && (
-              <span>Sunrise: {sunrisePoint.label} ({safeFixed(sunrisePoint.azimuth, 0)}°)</span>
+              <span>Sunrise: {sunrisePoint.label} ({safeFixed(sunrisePoint.azimuth, 0)}Â°)</span>
             )}
             {sunsetPoint && (
-              <span>Sunset: {sunsetPoint.label} ({safeFixed(sunsetPoint.azimuth, 0)}°)</span>
+              <span>Sunset: {sunsetPoint.label} ({safeFixed(sunsetPoint.azimuth, 0)}Â°)</span>
             )}
           </div>
         </div>
