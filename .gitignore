@@ -59,6 +59,10 @@ node_modules
 # Exclude demo_data from ignore (allow tracking)
 !demo_data/
 *.tar.gz
+*.tar
+*.zip
+build.log
+*.png
 
 # Sensitive / ad-hoc scripts
 scripts/login.json
@@ -66,6 +70,11 @@ test_neon.js
 check_timestamps.js
 del_stations.js
 set_server.js
+fix_encoding.js
+check_mppt_tmp.js
+check_mppt_api.py
+mppt_test.sql
+update_coords.sql
 .neon
 
 # .NET Desktop build artifacts

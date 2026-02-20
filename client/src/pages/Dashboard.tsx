@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
+﻿import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
@@ -31,7 +31,6 @@ const DataBlockChart = lazy(() => import("@/components/charts/DataBlockChart").t
 const FireDangerChart = lazy(() => import("@/components/charts/FireDangerChart").then(m => ({ default: m.FireDangerChart })));
 const StationMapWithErrorBoundary = lazy(() => import("@/components/dashboard/StationMap").then(m => ({ default: m.StationMapWithErrorBoundary })));
 const SolarPositionCard = lazy(() => import("@/components/dashboard/SolarPositionCard").then(m => ({ default: m.SolarPositionCard })));
-const SunPositionChart = lazy(() => import("@/components/charts/SunPositionChart").then(m => ({ default: m.SunPositionChart })));
 
 // Chart loading placeholder
 const ChartFallback = () => (
@@ -254,7 +253,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
 
 /**
  * Process historical data into wind energy format
- * Calculates wind power density using P = 0.5 * ÃÂ * vÃ‚Â³
+ * Calculates wind power density using P = 0.5 * rho * v³
  */
 const processWindEnergyData = (historicalData: WeatherData[], density: number = 1.225) => {
   let cumulativeEnergy = 0;
@@ -264,14 +263,14 @@ const processWindEnergyData = (historicalData: WeatherData[], density: number = 
     const windGust = d.windGust ?? windSpeed; // Fall back to windSpeed if no gust data
     const speedMs = windSpeed / 3.6; // Convert km/h to m/s
     const gustMs = windGust / 3.6; // Convert gust km/h to m/s
-    const windPower = 0.5 * density * Math.pow(speedMs, 3); // W/mÃ‚Â²
-    const gustPower = 0.5 * density * Math.pow(gustMs, 3); // W/mÃ‚Â² for gusts
+    const windPower = 0.5 * density * Math.pow(speedMs, 3); // W/m²
+    const gustPower = 0.5 * density * Math.pow(gustMs, 3); // W/m² for gusts
     
     // Calculate actual interval in hours from data timestamps
     let intervalHours = 1; // default fallback
     if (i > 0 && d.timestamp && historicalData[i - 1].timestamp) {
       const dtMs = new Date(d.timestamp).getTime() - new Date(historicalData[i - 1].timestamp).getTime();
-      intervalHours = Math.max(dtMs / 3_600_000, 0); // convert ms to hours, clamp Ã¢â€°Â¥0
+      intervalHours = Math.max(dtMs / 3_600_000, 0); // convert ms to hours, clamp >=0
     } else if (historicalData.length > 1) {
       // Estimate from total span for the first point
       const first = new Date(historicalData[0].timestamp).getTime();
@@ -279,7 +278,7 @@ const processWindEnergyData = (historicalData: WeatherData[], density: number = 
       intervalHours = (last - first) / 3_600_000 / Math.max(historicalData.length - 1, 1);
     }
     
-    cumulativeEnergy += (windPower * intervalHours) / 1000; // kWh/mÃ‚Â²
+    cumulativeEnergy += (windPower * intervalHours) / 1000; // kWh/m²
     
     return {
       timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
@@ -293,10 +292,10 @@ const processWindEnergyData = (historicalData: WeatherData[], density: number = 
 };
 
 /**
- * Calculate wind power density using P = 0.5 * ÃÂ * vÃ‚Â³
+ * Calculate wind power density using P = 0.5 * rho * v³
  * @param windSpeed Wind speed in km/h
- * @param airDensity Air density in kg/mÃ‚Â³ (default 1.225)
- * @returns Power density in W/mÃ‚Â²
+ * @param airDensity Air density in kg/m³ (default 1.225)
+ * @returns Power density in W/m²
  */
 const calculateWindPower = (windSpeed: number, airDensity: number = 1.225): number => {
   const speedMs = windSpeed / 3.6; // Convert km/h to m/s
@@ -313,7 +312,7 @@ interface DashboardProps {
 export default function Dashboard({ isAdmin = true, canAccessStation, stationId, onBackToStations }: DashboardProps) {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(stationId || null);
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
-    // Load station-specific config only Ã¢â‚¬â€ each dashboard is independent
+    // Load station-specific config only -- each dashboard is independent
     if (stationId) {
       const stationSaved = localStorage.getItem(`dashboardConfig_${stationId}`);
       if (stationSaved) return JSON.parse(stationSaved);
@@ -335,14 +334,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   const activeStationId = selectedStationId || (stations.length > 0 ? stations[0].id : null);
 
-  // Reload per-station config when active station changes Ã¢â‚¬â€ each station is independent
+  // Reload per-station config when active station changes -- each station is independent
   useEffect(() => {
     if (!activeStationId) return;
     const stationSaved = localStorage.getItem(`dashboardConfig_${activeStationId}`);
     if (stationSaved) {
       setDashboardConfig(JSON.parse(stationSaved));
     } else {
-      // No config saved for this station Ã¢â‚¬â€ use clean defaults (not another station's config)
+      // No config saved for this station -- use clean defaults (not another station's config)
       setDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
     }
   }, [activeStationId]);
@@ -388,7 +387,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     },
     enabled: !!activeStationId,
     refetchInterval: Math.max(dashboardConfig.updatePeriod, 300) * 1000, // Min 5min for stats refresh
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes Ã¢â‚¬â€ stats data changes slowly
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes -- stats data changes slowly
   });
 
   // Sort stats data by timestamp ascending
@@ -607,7 +606,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const peak = Math.max(...radiationValues);
     const avg = radiationValues.reduce((sum, r) => sum + r, 0) / radiationValues.length;
     
-    // Estimate daily energy in MJ/mÃ‚Â² (rough approximation: avg W/mÃ‚Â² * hours * 0.0036)
+    // Estimate daily energy in MJ/m² (rough approximation: avg W/m² * hours * 0.0036)
     // This assumes data points are roughly evenly distributed
     const hoursOfData = last24h.length > 1 
       ? (new Date(last24h[last24h.length - 1].timestamp).getTime() - new Date(last24h[0].timestamp).getTime()) / (1000 * 60 * 60)
@@ -656,7 +655,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Save config to localStorage (per-station only) and invalidate queries when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
     setDashboardConfig(newConfig);
-    // Save only for this station Ã¢â‚¬â€ never write to global key
+    // Save only for this station -- never write to global key
     if (activeStationId) {
       localStorage.setItem(`dashboardConfig_${activeStationId}`, JSON.stringify(newConfig));
     }
@@ -689,9 +688,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Check if viewing demo station (hide admin panels for demo)
   const isDemoStation = selectedStation?.connectionType === 'demo';
-  // Check if this is the MPPT-only demo station Ã¢â‚¬â€ hide all non-MPPT sections
+  // Check if this is the MPPT-only demo station -- hide all non-MPPT sections
   const isMpptOnlyStation = selectedStation?.name?.toUpperCase().includes('MPPT TEST');
-  // RIKA stations report SLP as pressure Ã¢â‚¬â€ need to handle differently
+  // RIKA stations report SLP as pressure -- need to handle differently
   const isRikaStation = selectedStation?.connectionType === 'rikacloud';
 
   // Use actual data, with sensible defaults for missing fields
@@ -785,7 +784,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Calculate air density from current conditions (needs actual station pressure, not SLP)
   const calculatedAirDensity = useMemo(() => {
     const rawPressure = currentData.pressure || 1013.25;
-    // For RIKA, pressure is SLP Ã¢â‚¬â€ convert to station pressure for density calc
+    // For RIKA, pressure is SLP -- convert to station pressure for density calc
     const stationPressure = isRikaStation
       ? calculateStationPressure(rawPressure, selectedStation?.altitude || 0, currentData.temperature || 20)
       : rawPressure;
@@ -812,7 +811,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   }, [currentData.temperature, currentData.humidity]);
 
   // Use station-reported dew point, or calculated fallback
-  // Only produce a value when there's actual data Ã¢â‚¬â€ never fall back to 0
+  // Only produce a value when there's actual data -- never fall back to 0
   const effectiveDewPoint = currentData.dewPoint ?? calculatedDewPoint ?? null;
 
   // Calculate sea level pressure
@@ -821,7 +820,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const seaLevelPressure = useMemo(() => {
     const altitude = selectedStation?.altitude || 0;
     if (isRikaStation) {
-      // RIKA pressure IS already SLP Ã¢â‚¬â€ use it directly
+      // RIKA pressure IS already SLP -- use it directly
       return currentData.pressure || 1013.25;
     }
     return calculateSeaLevelPressure(
@@ -849,7 +848,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const lat = selectedStation?.latitude || 0;
     const altitude = selectedStation?.altitude || 0;
     const dayOfYear = getDayOfYear();
-    // Convert solar radiation from W/mÃ‚Â² to MJ/mÃ‚Â²/day (assuming 12hr daylight average)
+    // Convert solar radiation from W/m² to MJ/m²/day (assuming 12hr daylight average)
     const solarMJ = wattsToMJPerDay(currentData.solarRadiation || 0, 12);
     // Convert wind speed from km/h to m/s
     const windMs = kmhToMs(currentData.windSpeed || 0);
@@ -941,7 +940,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const range = maxVal - minVal;
     
     // If all rainfall values within 24h are essentially the same (< 0.1mm variation),
-    // the station is likely sending cumulative rainfall that hasn't changed Ã¢â‚¬â€ treat as no rain
+    // the station is likely sending cumulative rainfall that hasn't changed -- treat as no rain
     const isStale = range < 0.1;
     const rainfallChange = isStale ? 0 : range;
     
@@ -960,7 +959,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     }));
   }, [sortedHistoricalData]);
 
-  // Battery charging daily check Ã¢â‚¬â€ detect if battery charged in the last 24h
+  // Battery charging daily check -- detect if battery charged in the last 24h
   const batteryChargingStatus = useMemo(() => {
     const batteryReadings = sortedHistoricalData
       .filter(d => d.batteryVoltage != null && d.batteryVoltage > 0);
@@ -1146,11 +1145,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Latitude</p>
-                    <p className="text-sm font-normal">{safeFixed(selectedStation?.latitude, 6, "Not set")}Ã‚Â°</p>
+                    <p className="text-sm font-normal">{safeFixed(selectedStation?.latitude, 6, "Not set")}°</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Longitude</p>
-                    <p className="text-sm font-normal">{safeFixed(selectedStation?.longitude, 6, "Not set")}Ã‚Â°</p>
+                    <p className="text-sm font-normal">{safeFixed(selectedStation?.longitude, 6, "Not set")}°</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Altitude</p>
@@ -1180,7 +1179,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="Temperature"
               value={formatValue(currentData.temperature || 0, 1)}
-              unit="Ã‚Â°C"
+              unit="°C"
               trend={trends.temperature !== null ? { value: parseFloat(safeFixed(trends.temperature, 1, "0")), label: "vs avg" } : undefined}
               sparklineData={sparkline}
               chartColor="#ef4444"
@@ -1200,7 +1199,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               <MetricCard
                 title="Dew Point"
                 value={formatValue(effectiveDewPoint, 1)}
-                unit="Ã‚Â°C"
+                unit="°C"
                 chartColor="#3b82f6"
               />
             )}
@@ -1249,7 +1248,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Temperature"
                 data={chartData}
                 series={[
-                  { dataKey: "temperature", name: "Temperature", color: "#ef4444", unit: "Ã‚Â°C" },
+                  { dataKey: "temperature", name: "Temperature", color: "#ef4444", unit: "°C" },
                 ]}
                 chartType="area"
                 xAxisLabel="Time"
@@ -1320,7 +1319,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               <div>
                 <p className="text-sm font-medium">Battery Not Charging</p>
                 <p className="text-xs text-amber-600">
-                  No charging activity detected in the last 24 hours. Voltage range: {batteryChargingStatus.minVoltage.toFixed(2)}V Ã¢â‚¬â€œ {batteryChargingStatus.maxVoltage.toFixed(2)}V. 
+                  No charging activity detected in the last 24 hours. Voltage range: {batteryChargingStatus.minVoltage.toFixed(2)}V – {batteryChargingStatus.maxVoltage.toFixed(2)}V. 
                   Check solar panel, wiring, or charge controller.
                 </p>
               </div>
@@ -1352,7 +1351,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="Panel Temperature"
               value={formatValue(currentData.panelTemperature || 0, 1)}
-              unit="Ã‚Â°C"
+              unit="°C"
               chartColor="#ef4444"
             />
             )}
@@ -1366,7 +1365,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <h2 className="text-base font-normal text-foreground">MPPT Solar Charge Controller</h2>
           {isMpptOnlyStation && (
           <div className="rounded-md border border-gray-300 px-4 py-2 text-sm text-black">
-            Test Data Ã¢â‚¬â€ MPPT values shown below are simulated for demonstration purposes and do not represent real-world measurements.
+            Test Data -- MPPT values shown below are simulated for demonstration purposes and do not represent real-world measurements.
           </div>
           )}
           {/* Charger Cards */}
@@ -1438,7 +1437,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           {availableFields.mppt2SolarVoltage && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <DataBlockChart
-              title="Solar Voltage Ã¢â‚¬â€ Charger 1 vs 2"
+              title="Solar Voltage -- Charger 1 vs 2"
               data={chartData}
               series={[
                 { dataKey: "mpptSolarVoltage", name: "Charger 1", color: "#ef4444", unit: "V" },
@@ -1453,7 +1452,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisDomain={[0, 'auto']}
             />
             <DataBlockChart
-              title="Battery Voltage Ã¢â‚¬â€ Charger 1 vs 2"
+              title="Battery Voltage -- Charger 1 vs 2"
               data={chartData}
               series={[
                 { dataKey: "mpptBatteryVoltage", name: "Charger 1", color: "#3b82f6", unit: "V" },
@@ -1473,7 +1472,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {(availableFields.mpptSolarCurrent || availableFields.mpptLoadCurrent || availableFields.mpptAbsiAvg) && (
             <DataBlockChart
-              title={availableFields.mppt2SolarVoltage ? "Charger 1 Ã¢â‚¬â€ Current" : "Solar Current, Load Current & MPPT Current"}
+              title={availableFields.mppt2SolarVoltage ? "Charger 1 -- Current" : "Solar Current, Load Current & MPPT Current"}
               data={chartData}
               series={[
                 ...(availableFields.mpptSolarCurrent ? [{ dataKey: "mpptSolarCurrent", name: "Solar Current", color: "#ef4444", unit: "mA" }] : []),
@@ -1491,7 +1490,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.mppt2SolarCurrent && (
             <DataBlockChart
-              title="Charger 2 Ã¢â‚¬â€ Current"
+              title="Charger 2 -- Current"
               data={chartData}
               series={[
                 { dataKey: "mppt2SolarCurrent", name: "Solar Current", color: "#3b82f6", unit: "mA" },
@@ -1508,7 +1507,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.mpptSolarPower && (
             <DataBlockChart
-              title={availableFields.mppt2SolarPower ? "Charger 1 Ã¢â‚¬â€ Solar Power" : "Solar Power"}
+              title={availableFields.mppt2SolarPower ? "Charger 1 -- Solar Power" : "Solar Power"}
               data={chartData}
               series={[
                 { dataKey: "mpptSolarPower", name: "Solar Power", color: "#ef4444", unit: "W" },
@@ -1525,7 +1524,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.mppt2SolarPower && (
             <DataBlockChart
-              title="Charger 2 Ã¢â‚¬â€ Solar Power"
+              title="Charger 2 -- Solar Power"
               data={chartData}
               series={[
                 { dataKey: "mppt2SolarPower", name: "Solar Power", color: "#3b82f6", unit: "W" },
@@ -1548,8 +1547,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Board Temperature"
               data={chartData}
               series={[
-                ...(availableFields.mpptBoardTemp ? [{ dataKey: "mpptBoardTemp", name: "Charger 1", color: "#ef4444", unit: "Ã‚Â°C" }] : []),
-                ...(availableFields.mppt2BoardTemp ? [{ dataKey: "mppt2BoardTemp", name: "Charger 2", color: "#3b82f6", unit: "Ã‚Â°C" }] : []),
+                ...(availableFields.mpptBoardTemp ? [{ dataKey: "mpptBoardTemp", name: "Charger 1", color: "#ef4444", unit: "°C" }] : []),
+                ...(availableFields.mppt2BoardTemp ? [{ dataKey: "mppt2BoardTemp", name: "Charger 2", color: "#3b82f6", unit: "°C" }] : []),
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -1581,7 +1580,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               <MetricCard
                 title="Temp Switch"
                 value={formatValue(currentData.temperatureSwitch || 0, 2)}
-                unit="Ã‚Â°C"
+                unit="°C"
                 sparklineData={chartData.slice(-24).map(d => d.temperatureSwitch).filter((v): v is number => v != null)}
                 chartColor="#ef4444"
               />
@@ -1598,7 +1597,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               <MetricCard
                 title="Temp Switch Outlet"
                 value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)}
-                unit="Ã‚Â°C"
+                unit="°C"
                 sparklineData={chartData.slice(-24).map(d => d.temperatureSwitchOutlet).filter((v): v is number => v != null)}
                 chartColor="#ef4444"
               />
@@ -1651,8 +1650,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Temperature Switch History"
               data={chartData}
               series={[
-                { dataKey: "temperatureSwitch", name: "Temp Switch", color: "#ef4444", unit: "Ã‚Â°C" },
-                ...(availableFields.temperatureSwitchOutlet ? [{ dataKey: "temperatureSwitchOutlet", name: "Temp Switch Outlet", color: "#ef4444", unit: "Ã‚Â°C" }] : []),
+                { dataKey: "temperatureSwitch", name: "Temp Switch", color: "#ef4444", unit: "°C" },
+                ...(availableFields.temperatureSwitchOutlet ? [{ dataKey: "temperatureSwitchOutlet", name: "Temp Switch Outlet", color: "#ef4444", unit: "°C" }] : []),
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -1713,7 +1712,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Solar Radiation"
               data={chartData}
               series={[
-                { dataKey: "solar", name: "Solar Radiation", color: "#ef4444", unit: "W/mÃ‚Â²" },
+                { dataKey: "solar", name: "Solar Radiation", color: "#ef4444", unit: "W/m²" },
               ]}
               chartType="area"
               xAxisLabel="Time"
@@ -1776,8 +1775,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 return points;
               })()}
               series={[
-                { dataKey: "sunElevation", name: "Sun Elevation", color: "#3b82f6", unit: "Ã‚Â°" },
-                { dataKey: "sunAzimuth", name: "Sun Azimuth", color: "#ef4444", unit: "Ã‚Â°" },
+                { dataKey: "sunElevation", name: "Sun Elevation", color: "#3b82f6", unit: "°" },
+                { dataKey: "sunAzimuth", name: "Sun Azimuth", color: "#ef4444", unit: "°" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -1790,17 +1789,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
           </div>
 
-          {/* Sun Position Azimuth vs Elevation Chart */}
-          {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
-            <Suspense fallback={<ChartFallback />}>
-              <SunPositionChart
-                latitude={selectedStation?.latitude || 0}
-                longitude={selectedStation?.longitude || 0}
-                currentElevation={solarPosition.elevation}
-                currentAzimuth={solarPosition.azimuth}
-              />
-            </Suspense>
-          )}
+
 
           {/* Solar Power Harvesting Potential - only show when solar radiation data available */}
           {availableFields.solarRadiation && (
@@ -1822,7 +1811,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="Soil Temperature"
               value={formatValue(currentData.soilTemperature || 0, 1)}
-              unit="Ã‚Â°C"
+              unit="°C"
               chartColor="#ef4444"
             />
             )}
@@ -1841,7 +1830,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="PM2.5"
               value={formatValue(currentData.pm25 || 0, 1)}
-              unit="Ã‚Âµg/mÃ‚Â³"
+              unit="µg/m³"
               subMetrics={[
                 { label: "AQI", value: (currentData.pm25 || 0) < 12 ? "Good" : (currentData.pm25 || 0) < 35 ? "Moderate" : "Unhealthy" },
               ]}
@@ -1852,7 +1841,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="PM10"
               value={formatValue(currentData.pm10 || 0, 1)}
-              unit="Ã‚Âµg/mÃ‚Â³"
+              unit="µg/m³"
               chartColor="#22c55e"
             />
             )}
@@ -1866,7 +1855,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Soil Temperature"
               data={chartData.filter(d => d.soilTemperature !== null).map(d => ({ ...d, soilTemp: d.soilTemperature }))}
               series={[
-                { dataKey: "soilTemp", name: "Soil Temp", color: "#ef4444", unit: "Ã‚Â°C" },
+                { dataKey: "soilTemp", name: "Soil Temp", color: "#ef4444", unit: "°C" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -1902,7 +1891,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="PM10 History"
               data={chartData.filter(d => d.pm10 !== null && d.pm10 !== undefined).map(d => ({ ...d, pm10Val: d.pm10 }))}
               series={[
-                { dataKey: "pm10Val", name: "PM10", color: "#ef4444", unit: "Ã‚Âµg/mÃ‚Â³" },
+                { dataKey: "pm10Val", name: "PM10", color: "#ef4444", unit: "µg/m³" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -1917,7 +1906,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="PM2.5 History"
               data={chartData.filter(d => d.pm25 !== null && d.pm25 !== undefined).map(d => ({ ...d, pm25Val: d.pm25 }))}
               series={[
-                { dataKey: "pm25Val", name: "PM2.5", color: "#ef4444", unit: "Ã‚Âµg/mÃ‚Â³" },
+                { dataKey: "pm25Val", name: "PM2.5", color: "#ef4444", unit: "µg/m³" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2089,21 +2078,21 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="Current Wind Power"
               value={safeFixed(calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225), 1)}
-              unit="W/mÃ‚Â²"
+              unit="W/m²"
               sparklineData={windEnergyData.slice(-12).map(d => d.windPower)}
               chartColor="#22c55e"
             />
             <MetricCard
               title="Peak Gust Power"
               value={safeFixed(calculateWindPower(currentData.windGust || 0, currentData.airDensity || 1.225), 1)}
-              unit="W/mÃ‚Â²"
+              unit="W/m²"
               sparklineData={windEnergyData.slice(-12).map(d => d.gustPower)}
               chartColor="#ef4444"
             />
             <MetricCard
               title="Daily Energy Potential"
               value={safeFixed(windEnergyData.length > 0 ? windEnergyData[windEnergyData.length - 1].cumulativeEnergy : 0, 2)}
-              unit="kWh/mÃ‚Â²"
+              unit="kWh/m²"
               sparklineData={windEnergyData.slice(-12).map(d => d.cumulativeEnergy)}
               chartColor="#3b82f6"
             />
@@ -2117,7 +2106,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               windSpeed: d.windSpeed,
             }))}
             series={[
-              { dataKey: "windPower", name: "Wind Power", color: "#22c55e", unit: "W/mÃ‚Â²" },
+              { dataKey: "windPower", name: "Wind Power", color: "#22c55e", unit: "W/m²" },
               { dataKey: "windSpeed", name: "Wind Speed", color: "#3b82f6", unit: "km/h" },
             ]}
             chartType="area"
@@ -2234,7 +2223,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Temperature & Humidity"
                 data={chartData}
                 series={[
-                  ...(availableFields.temperature ? [{ dataKey: "temperature", name: "Temperature (Ã‚Â°C)", color: "#ef4444" }] : []),
+                  ...(availableFields.temperature ? [{ dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" }] : []),
                   ...(availableFields.humidity ? [{ dataKey: "humidity", name: "Relative Humidity (%)", color: "#3b82f6" }] : []),
                 ]}
               />
@@ -2268,7 +2257,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Solar Radiation"
                 data={chartData}
                 series={[
-                  { dataKey: "solar", name: "Solar Radiation (W/mÃ‚Â²)", color: "#ef4444" },
+                  { dataKey: "solar", name: "Solar Radiation (W/m²)", color: "#ef4444" },
                 ]}
               />
             </TabsContent>
@@ -2316,19 +2305,19 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 {
                   period: "24h",
                   stats: [
-                    { label: "Min", value: temperatureStats['24h'].min ?? '--', unit: "Ã‚Â°C" },
-                    { label: "Max", value: temperatureStats['24h'].max ?? '--', unit: "Ã‚Â°C" },
-                    { label: "Avg", value: temperatureStats['24h'].avg ?? '--', unit: "Ã‚Â°C" },
-                    { label: "Range", value: temperatureStats['24h'].range ?? '--', unit: "Ã‚Â°C" },
+                    { label: "Min", value: temperatureStats['24h'].min ?? '--', unit: "°C" },
+                    { label: "Max", value: temperatureStats['24h'].max ?? '--', unit: "°C" },
+                    { label: "Avg", value: temperatureStats['24h'].avg ?? '--', unit: "°C" },
+                    { label: "Range", value: temperatureStats['24h'].range ?? '--', unit: "°C" },
                   ],
                 },
                 {
                   period: "7d",
                   stats: [
-                    { label: "Min", value: temperatureStats['7d'].min ?? '--', unit: "Ã‚Â°C" },
-                    { label: "Max", value: temperatureStats['7d'].max ?? '--', unit: "Ã‚Â°C" },
-                    { label: "Avg", value: temperatureStats['7d'].avg ?? '--', unit: "Ã‚Â°C" },
-                    { label: "Range", value: temperatureStats['7d'].range ?? '--', unit: "Ã‚Â°C" },
+                    { label: "Min", value: temperatureStats['7d'].min ?? '--', unit: "°C" },
+                    { label: "Max", value: temperatureStats['7d'].max ?? '--', unit: "°C" },
+                    { label: "Avg", value: temperatureStats['7d'].avg ?? '--', unit: "°C" },
+                    { label: "Range", value: temperatureStats['7d'].range ?? '--', unit: "°C" },
                   ],
                 },
               ]}
@@ -2369,7 +2358,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                   body: JSON.stringify(data),
                 });
                 if (!response.ok) throw new Error('Failed to save');
-                // Refresh station data Ã¢â‚¬â€ invalidate both list and station-specific queries
+                // Refresh station data -- invalidate both list and station-specific queries
                 // so the map and all panels pick up the new coordinates immediately
                 await queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
                 await queryClient.invalidateQueries({ queryKey: [`/api/stations/${selectedStation.id}`] });
