@@ -410,7 +410,7 @@ export class DatabaseStorage {
 
   async getStations(): Promise<WeatherStation[]> {
     const now = Date.now();
-    if (this.stationsCache && (now - this.stationsCacheTime) < LocalStorage.STATIONS_CACHE_TTL) {
+    if (this.stationsCache && (now - this.stationsCacheTime) < DatabaseStorage.STATIONS_CACHE_TTL) {
       return this.stationsCache;
     }
     if (usePostgres) {
