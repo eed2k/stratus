@@ -1404,9 +1404,9 @@ export async function registerRoutes(
         new Date(endTime as string)
       );
 
-      // Server-side downsampling: if >2000 records, thin to ~1000 evenly-spaced points
-      // This prevents huge payloads for multi-day queries with minute-resolution data
-      const maxPoints = limit ? parseInt(limit as string) : 2000;
+      // Server-side downsampling: if >500 records, thin to ~500 evenly-spaced points
+      // This prevents huge payloads while still providing sufficient chart resolution
+      const maxPoints = limit ? parseInt(limit as string) : 500;
       if (data.length > maxPoints) {
         const step = data.length / maxPoints;
         const sampled: typeof data = [];

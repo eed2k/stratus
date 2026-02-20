@@ -380,7 +380,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       const endTime = new Date();
       const startTime = new Date(endTime.getTime() - statsTimeRangeHours * 60 * 60 * 1000);
       const response = await authFetch(
-        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=500`
       );
       if (!response.ok) return [];
       return response.json();

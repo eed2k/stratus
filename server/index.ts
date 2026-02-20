@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -100,6 +101,10 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Enable gzip/brotli compression for all responses
+// This dramatically reduces JSON payload sizes (e.g. 2MB → ~200KB for weather data)
+app.use(compression({ level: 6 }));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {

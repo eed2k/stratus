@@ -403,16 +403,36 @@ export class DatabaseStorage {
     return undefined; // SQLite doesn't support ingest IDs
   }
 
+  // Simple in-memory cache for stations list (rarely changes)
+  private stationsCache: WeatherStation[] | null = null;
+  private stationsCacheTime = 0;
+  private static STATIONS_CACHE_TTL = 60_000; // 60 seconds
+
   async getStations(): Promise<WeatherStation[]> {
+    const now = Date.now();
+    if (this.stationsCache && (now - this.stationsCacheTime) < LocalStorage.STATIONS_CACHE_TTL) {
+      return this.stationsCache;
+    }
     if (usePostgres) {
       const stations = await postgres.getAllStations();
-      return stations.map(s => this.mapPgStation(s));
+      this.stationsCache = stations.map(s => this.mapPgStation(s));
+      this.stationsCacheTime = now;
+      return this.stationsCache;
     }
     const stations = db.getAllStations();
-    return stations.map(s => this.mapDbStation(s));
+    this.stationsCache = stations.map(s => this.mapDbStation(s));
+    this.stationsCacheTime = now;
+    return this.stationsCache;
+  }
+
+  /** Invalidate stations cache (call after create/update/delete) */
+  private invalidateStationsCache(): void {
+    this.stationsCache = null;
+    this.stationsCacheTime = 0;
   }
 
   async createStation(station: InsertWeatherStation): Promise<WeatherStation> {
+    this.invalidateStationsCache();
     if (usePostgres) {
       const id = await postgres.createStation({
         name: station.name,
@@ -469,6 +489,7 @@ export class DatabaseStorage {
   }
 
   async updateStation(id: number, station: Partial<InsertWeatherStation>): Promise<WeatherStation | undefined> {
+    this.invalidateStationsCache();
     const updateData: any = {};
     if (station.name !== undefined) updateData.name = station.name;
     if (station.pakbusAddress !== undefined) updateData.pakbus_address = station.pakbusAddress;
@@ -517,6 +538,7 @@ export class DatabaseStorage {
   }
 
   async deleteStation(id: number): Promise<boolean> {
+    this.invalidateStationsCache();
     if (usePostgres) {
       await postgres.deleteStation(id);
     } else {

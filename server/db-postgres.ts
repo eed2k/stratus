@@ -904,8 +904,9 @@ export async function getWeatherData(
   
   const whereClause = conditions.join(' AND ');
   
-  // Apply a default limit cap to prevent huge payloads (max 10000 records)
-  const effectiveLimit = options.limit || 10000;
+  // Apply a default limit cap to prevent huge payloads (max 2000 records)
+  // Route-level downsampling will further thin to ~500 points for charts
+  const effectiveLimit = options.limit || 2000;
   
   // Get records with limit
   let queryText = `
