@@ -2,15 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMemo } from "react";
 import { safeFixed } from "@/lib/utils";
 import {
-  ScatterChart,
-  Scatter,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Cell,
 } from "recharts";
 
 interface SunPositionChartProps {
@@ -33,7 +32,7 @@ interface SunPoint {
 
 /**
  * Sun Position Chart showing solar azimuth vs elevation trajectory for the current day.
- * The chart displays the sun's path across the sky dome, with the current position highlighted.
+ * Line chart with azimuth on X-axis and elevation on Y-axis, blue line.
  */
 export function SunPositionChart({
   latitude,
@@ -82,7 +81,6 @@ export function SunPositionChart({
 
       // Azimuth
       let azimuth: number;
-      const zenithDeg = zenith * 180 / Math.PI;
       if (hourAngle > 0) {
         azimuth =
           (Math.acos(
@@ -122,14 +120,24 @@ export function SunPositionChart({
     return points;
   }, [latitude, longitude]);
 
-  // Separate daytime and nighttime points
+  // Only daytime points for the line chart
   const daytimePoints = sunPath.filter((p) => !p.isNight);
-  const currentPoint = sunPath.find((p) => p.isCurrent);
 
   // Find sunrise and sunset azimuths for reference
   const sunrisePoint = daytimePoints.length > 0 ? daytimePoints[0] : null;
   const sunsetPoint = daytimePoints.length > 0 ? daytimePoints[daytimePoints.length - 1] : null;
   const maxElevation = daytimePoints.length > 0 ? Math.max(...daytimePoints.map((p) => p.elevation)) : 0;
+
+  // Custom dot to highlight current position
+  const renderDot = (props: any) => {
+    const { cx, cy, payload } = props;
+    if (payload?.isCurrent) {
+      return (
+        <circle cx={cx} cy={cy} r={6} fill="#1d4ed8" stroke="#1e3a5f" strokeWidth={2} />
+      );
+    }
+    return null;
+  };
 
   return (
     <Card className="border border-gray-300 bg-white">
@@ -145,70 +153,62 @@ export function SunPositionChart({
         <div className="space-y-3">
           {/* Key metrics */}
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded border border-gray-200 bg-orange-50 p-2">
-              <p className="text-[10px] text-orange-600" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Azimuth</p>
+            <div className="rounded border border-black bg-white p-2">
+              <p className="text-[10px] text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Azimuth</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
                 {safeFixed(currentAzimuth, 1)}°
               </p>
             </div>
-            <div className="rounded border border-gray-200 bg-yellow-50 p-2">
-              <p className="text-[10px] text-yellow-600" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Elevation</p>
+            <div className="rounded border border-black bg-white p-2">
+              <p className="text-[10px] text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Elevation</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
                 {safeFixed(currentElevation, 1)}°
               </p>
             </div>
-            <div className="rounded border border-gray-200 bg-amber-50 p-2">
-              <p className="text-[10px] text-amber-600" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Peak</p>
+            <div className="rounded border border-black bg-white p-2">
+              <p className="text-[10px] text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>Peak</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
                 {safeFixed(maxElevation, 1)}°
               </p>
             </div>
           </div>
 
-          {/* Chart */}
+          {/* Line Chart - Azimuth (X) vs Elevation (Y), blue line */}
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
+              <LineChart data={daytimePoints} margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis
-                  type="number"
                   dataKey="azimuth"
+                  type="number"
                   name="Azimuth"
-                  unit="°"
-                  domain={[0, 360]}
-                  tick={{ fontSize: 10 }}
+                  domain={[
+                    (dataMin: number) => Math.floor(dataMin / 10) * 10,
+                    (dataMax: number) => Math.ceil(dataMax / 10) * 10,
+                  ]}
+                  tick={{ fontSize: 10, fill: "#000" }}
                   tickLine={false}
-                  axisLine={{ stroke: "#e5e7eb" }}
-                  ticks={[0, 45, 90, 135, 180, 225, 270, 315, 360]}
-                  tickFormatter={(v) => {
-                    const labels: Record<number, string> = {
-                      0: "N",
-                      45: "NE",
-                      90: "E",
-                      135: "SE",
-                      180: "S",
-                      225: "SW",
-                      270: "W",
-                      315: "NW",
-                      360: "N",
-                    };
-                    return labels[v] || `${v}°`;
+                  axisLine={{ stroke: "#000" }}
+                  label={{
+                    value: "Azimuth (°)",
+                    position: "insideBottom",
+                    offset: -5,
+                    style: { fontSize: 10, fill: "#000" },
                   }}
                 />
                 <YAxis
-                  type="number"
                   dataKey="elevation"
+                  type="number"
                   name="Elevation"
-                  unit="°"
-                  domain={[-5, (dataMax: number) => Math.max(dataMax + 5, 45)]}
-                  tick={{ fontSize: 10 }}
+                  domain={[0, (dataMax: number) => Math.max(dataMax + 5, 45)]}
+                  tick={{ fontSize: 10, fill: "#000" }}
                   tickLine={false}
-                  axisLine={{ stroke: "#e5e7eb" }}
+                  axisLine={{ stroke: "#000" }}
                   label={{
                     value: "Elevation (°)",
                     angle: -90,
                     position: "insideLeft",
-                    style: { fontSize: 10, fill: "#6b7280" },
+                    style: { fontSize: 10, fill: "#000" },
                   }}
                 />
                 <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="5 5" label={{ value: "Horizon", fontSize: 9, fill: "#94a3b8" }} />
@@ -217,40 +217,30 @@ export function SunPositionChart({
                     if (active && payload && payload.length > 0) {
                       const data = payload[0].payload;
                       return (
-                        <div className="rounded border border-gray-200 bg-white p-2 shadow-sm text-xs" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
-                          <p className="font-medium text-black">Time: {data.label}</p>
-                          <p className="text-gray-600">Azimuth: {safeFixed(data.azimuth, 1)}°</p>
-                          <p className="text-gray-600">Elevation: {safeFixed(data.elevation, 1)}°</p>
+                        <div className="rounded border border-black bg-white p-2 shadow-sm text-xs" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+                          <p className="text-black">Time: {data.label}</p>
+                          <p className="text-black">Azimuth: {safeFixed(data.azimuth, 1)}°</p>
+                          <p className="text-black">Elevation: {safeFixed(data.elevation, 1)}°</p>
                         </div>
                       );
                     }
                     return null;
                   }}
                 />
-                {/* Sun path trajectory */}
-                <Scatter
-                  name="Sun Path"
-                  data={daytimePoints}
-                  fill="#fbbf24"
-                  line={{ stroke: "#f59e0b", strokeWidth: 2 }}
-                  lineType="fitting"
-                >
-                  {daytimePoints.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.isCurrent ? "#ef4444" : "#fbbf24"}
-                      r={entry.isCurrent ? 7 : 3}
-                      stroke={entry.isCurrent ? "#b91c1c" : "none"}
-                      strokeWidth={entry.isCurrent ? 2 : 0}
-                    />
-                  ))}
-                </Scatter>
-              </ScatterChart>
+                <Line
+                  type="monotone"
+                  dataKey="elevation"
+                  stroke="#2563eb"
+                  strokeWidth={2}
+                  dot={renderDot}
+                  activeDot={{ r: 5, fill: "#1d4ed8", stroke: "#1e3a5f", strokeWidth: 2 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
 
           {/* Sunrise/Sunset info */}
-          <div className="flex justify-between text-[10px] text-gray-500" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+          <div className="flex justify-between text-[10px] text-black" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
             {sunrisePoint && (
               <span>Sunrise: {sunrisePoint.label} ({safeFixed(sunrisePoint.azimuth, 0)}°)</span>
             )}

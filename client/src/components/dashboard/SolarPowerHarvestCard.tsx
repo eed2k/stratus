@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sun } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { safeFixed } from "@/lib/utils";
 
 interface SolarPowerHarvestCardProps {
@@ -37,6 +37,43 @@ const toPeakSunHours = (radiationWm2: number, hours: number): number => {
   return (radiationWm2 * hours) / 1000;
 };
 
+const STORAGE_KEY = "stratus_solar_last_estimates";
+
+/** Load last non-zero estimates from localStorage */
+function loadLastEstimates(): {
+  dailyEnergy: number;
+  weeklyEnergy: number;
+  monthlyEnergy: number;
+  yearlyEnergy: number;
+  peakSunHours: number;
+  currentPower: number;
+  monthlyData: { month: string; energy: number; peakSunHours: number }[];
+  savedAt: string;
+} | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/** Save non-zero estimates to localStorage */
+function saveEstimates(data: {
+  dailyEnergy: number;
+  weeklyEnergy: number;
+  monthlyEnergy: number;
+  yearlyEnergy: number;
+  peakSunHours: number;
+  currentPower: number;
+  monthlyData: { month: string; energy: number; peakSunHours: number }[];
+}) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, savedAt: new Date().toISOString() }));
+  } catch { /* ignore */ }
+}
+
 export function SolarPowerHarvestCard({
   currentRadiation,
   panelEfficiency = 0.18, // 18% typical for modern panels
@@ -45,10 +82,11 @@ export function SolarPowerHarvestCard({
 }: SolarPowerHarvestCardProps) {
   // Check if we have valid data
   const hasData = currentRadiation !== null && currentRadiation !== undefined;
-  
+  const isZero = !hasData || (currentRadiation ?? 0) === 0;
+
   // Calculate energy estimates based on current radiation
   const estimates = useMemo(() => {
-    if (!hasData) {
+    if (!hasData || (currentRadiation ?? 0) === 0) {
       return {
         dailyEnergy: 0,
         weeklyEnergy: 0,
@@ -60,27 +98,25 @@ export function SolarPowerHarvestCard({
     }
 
     const radiation = currentRadiation || 0;
-    
+
     // Estimate average daily radiation (assuming current is representative)
-    // Typical daylight hours: 8-12 hours depending on season
     const avgDaylightHours = 10;
-    
+
     // Current instantaneous power output (kW)
     const currentPower = (radiation * panelEfficiency * (1 - systemLosses) * panelArea) / 1000;
-    
+
     // Daily energy (kWh) - using average radiation over daylight hours
-    // Assume current radiation is peak, average is about 50% of peak
     const avgRadiation = radiation * 0.5;
     const dailyEnergy = calculateSolarEnergy(avgRadiation, avgDaylightHours, panelEfficiency, systemLosses, panelArea);
-    
+
     // Weekly, monthly, yearly extrapolations
     const weeklyEnergy = dailyEnergy * 7;
     const monthlyEnergy = dailyEnergy * 30;
     const yearlyEnergy = dailyEnergy * 365 * 0.85; // 85% to account for weather variations
-    
+
     // Peak sun hours (daily equivalent)
     const peakSunHours = toPeakSunHours(avgRadiation, avgDaylightHours);
-    
+
     return {
       dailyEnergy,
       weeklyEnergy,
@@ -93,8 +129,9 @@ export function SolarPowerHarvestCard({
 
   // Generate chart data for energy potential over months
   const monthlyChartData = useMemo(() => {
-    if (!hasData) return [];
-    
+    const baseMonthlyEnergy = estimates.monthlyEnergy;
+    const basePeakSunHours = estimates.peakSunHours;
+
     // Seasonal variation factors (Southern hemisphere - SA stations)
     const seasonalFactors = [
       { month: 'Jan', factor: 1.0 },
@@ -110,20 +147,51 @@ export function SolarPowerHarvestCard({
       { month: 'Nov', factor: 0.95 },
       { month: 'Dec', factor: 1.0 },
     ];
-    
-    const baseMonthlyEnergy = estimates.monthlyEnergy;
-    
+
     return seasonalFactors.map(({ month, factor }) => ({
       month,
       energy: baseMonthlyEnergy * factor,
-      peakSunHours: estimates.peakSunHours * factor * 30,
+      peakSunHours: basePeakSunHours * factor * 30,
     }));
-  }, [hasData, estimates.monthlyEnergy, estimates.peakSunHours]);
+  }, [estimates.monthlyEnergy, estimates.peakSunHours]);
 
-  // No data state
-  if (!hasData) {
+  // Determine display values: if current is zero, use last saved non-zero values
+  const lastSaved = useMemo(() => loadLastEstimates(), []);
+  const usingLastValues = isZero && lastSaved !== null;
+
+  const displayEstimates = usingLastValues
+    ? {
+        dailyEnergy: lastSaved!.dailyEnergy,
+        weeklyEnergy: lastSaved!.weeklyEnergy,
+        monthlyEnergy: lastSaved!.monthlyEnergy,
+        yearlyEnergy: lastSaved!.yearlyEnergy,
+        peakSunHours: lastSaved!.peakSunHours,
+        currentPower: lastSaved!.currentPower,
+      }
+    : estimates;
+
+  const displayMonthly = usingLastValues && lastSaved!.monthlyData
+    ? lastSaved!.monthlyData
+    : monthlyChartData;
+
+  const displayRadiation = usingLastValues
+    ? 0
+    : (currentRadiation ?? 0);
+
+  // Save non-zero values for future fallback
+  useEffect(() => {
+    if (!isZero && estimates.dailyEnergy > 0) {
+      saveEstimates({
+        ...estimates,
+        monthlyData: monthlyChartData,
+      });
+    }
+  }, [isZero, estimates, monthlyChartData]);
+
+  // No data at all and no saved values
+  if (!hasData && !lastSaved) {
     return (
-      <Card className="border border-gray-300 bg-white">
+      <Card className="border border-black bg-white">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Solar Power Harvesting Potential
@@ -131,8 +199,8 @@ export function SolarPowerHarvestCard({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <p className="text-sm font-medium text-muted-foreground">No Data</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">
+            <p className="text-sm font-normal text-black">No Data</p>
+            <p className="text-xs text-black mt-1">
               Solar radiation data is not available for this station
             </p>
           </div>
@@ -142,75 +210,84 @@ export function SolarPowerHarvestCard({
   }
 
   return (
-    <Card className="border border-gray-300 bg-white">
+    <Card className="border border-black bg-white">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Solar Power Harvesting Potential
-          <Badge variant="outline" className="ml-auto text-xs">
+          <Badge variant="outline" className="ml-auto text-xs border-black text-black">
             {safeFixed(panelEfficiency * 100, 0)}% efficiency
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {/* Last values notice */}
+          {usingLastValues && (
+            <div className="rounded border border-black bg-white p-2">
+              <p className="text-[10px] text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                Showing last calculated daily average values. Updates on next day cycle.
+              </p>
+            </div>
+          )}
+
           {/* Current Power Output */}
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              {safeFixed(estimates.currentPower * 1000, 0)}
+              {safeFixed(displayEstimates.currentPower * 1000, 0)}
             </span>
-            <span className="text-sm font-normal text-muted-foreground" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <span className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               W/m² (current output)
             </span>
           </div>
 
           {/* Energy Estimates Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-yellow-50 to-orange-50 p-3">
-              <p className="text-xs font-normal text-yellow-700 mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily</p>
+            <div className="rounded-lg border border-black bg-white p-3">
+              <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {safeFixed(estimates.dailyEnergy, 2)}
+                {safeFixed(displayEstimates.dailyEnergy, 2)}
               </p>
-              <p className="text-xs text-yellow-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-orange-50 to-amber-50 p-3">
-              <p className="text-xs font-normal text-orange-700 mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Weekly</p>
+            <div className="rounded-lg border border-black bg-white p-3">
+              <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Weekly</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {safeFixed(estimates.weeklyEnergy, 1)}
+                {safeFixed(displayEstimates.weeklyEnergy, 1)}
               </p>
-              <p className="text-xs text-orange-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-3">
-              <p className="text-xs font-normal text-amber-700 mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly</p>
+            <div className="rounded-lg border border-black bg-white p-3">
+              <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {safeFixed(estimates.monthlyEnergy, 1)}
+                {safeFixed(displayEstimates.monthlyEnergy, 1)}
               </p>
-              <p className="text-xs text-amber-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-green-50 to-emerald-50 p-3">
-              <p className="text-xs font-normal text-green-700 mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly</p>
+            <div className="rounded-lg border border-black bg-white p-3">
+              <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {safeFixed(estimates.yearlyEnergy, 0)}
+                {safeFixed(displayEstimates.yearlyEnergy, 0)}
               </p>
-              <p className="text-xs text-green-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
             </div>
           </div>
 
           {/* Peak Sun Hours */}
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="rounded-lg border border-black bg-white p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours (Daily Avg)</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours (Daily Avg)</p>
                 <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(estimates.peakSunHours, 1)} hours
+                  {safeFixed(displayEstimates.peakSunHours, 1)} hours
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
                 <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(currentRadiation ?? 0, 0)} W/m²
+                  {safeFixed(displayRadiation, 0)} W/m²
                 </p>
               </div>
             </div>
@@ -218,11 +295,11 @@ export function SolarPowerHarvestCard({
 
           {/* Monthly Energy Potential - Data Cards */}
           <div className="space-y-2">
-            <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential (kWh/m²)</p>
+            <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential (kWh/m²)</p>
             <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-              {monthlyChartData.map(({ month, energy }) => (
-                <div key={month} className="rounded border border-gray-200 bg-gradient-to-br from-green-50 to-emerald-50 p-2 text-center">
-                  <p className="text-[10px] font-normal text-green-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{month}</p>
+              {displayMonthly.map(({ month, energy }) => (
+                <div key={month} className="rounded border border-black bg-white p-2 text-center">
+                  <p className="text-[10px] font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{month}</p>
                   <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(energy, 1)}
                   </p>
@@ -232,7 +309,7 @@ export function SolarPowerHarvestCard({
           </div>
 
           {/* Info Text */}
-          <p className="text-[10px] text-gray-500 text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-[10px] text-black text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Estimates based on {safeFixed(panelEfficiency * 100, 0)}% panel efficiency, {safeFixed(systemLosses * 100, 0)}% system losses.
             Actual output varies with weather, shading, and panel orientation.
           </p>
