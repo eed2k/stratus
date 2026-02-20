@@ -74,7 +74,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   
   // Detect the server's network address
   useEffect(() => {
-    // Get the current hostname - in Electron/local it might be localhost
+    // Get the current hostname - in local dev it might be localhost
     const hostname = window.location.hostname;
     const port = window.location.port || '5000';
     

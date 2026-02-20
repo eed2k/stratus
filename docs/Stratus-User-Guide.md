@@ -16,7 +16,7 @@
 
 - **Frontend:** React, TypeScript, Tailwind CSS, Recharts
 - **Backend:** Node.js, Express, SQLite
-- **Desktop:** Electron for native Windows application
+- **Desktop:** Native WPF (.NET 8) Windows application
 - **Maps:** Leaflet with OpenStreetMap tiles
 
 ### System Requirements

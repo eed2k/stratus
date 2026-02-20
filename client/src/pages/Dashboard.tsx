@@ -31,6 +31,7 @@ const DataBlockChart = lazy(() => import("@/components/charts/DataBlockChart").t
 const FireDangerChart = lazy(() => import("@/components/charts/FireDangerChart").then(m => ({ default: m.FireDangerChart })));
 const StationMapWithErrorBoundary = lazy(() => import("@/components/dashboard/StationMap").then(m => ({ default: m.StationMapWithErrorBoundary })));
 const SolarPositionCard = lazy(() => import("@/components/dashboard/SolarPositionCard").then(m => ({ default: m.SolarPositionCard })));
+const SunPositionChart = lazy(() => import("@/components/charts/SunPositionChart").then(m => ({ default: m.SunPositionChart })));
 
 // Chart loading placeholder
 const ChartFallback = () => (
@@ -1815,6 +1816,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             )}
           </div>
+
+          {/* Sun Position Azimuth vs Elevation Chart */}
+          {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
+            <Suspense fallback={<ChartFallback />}>
+              <SunPositionChart
+                latitude={selectedStation?.latitude || 0}
+                longitude={selectedStation?.longitude || 0}
+                currentElevation={solarPosition.elevation}
+                currentAzimuth={solarPosition.azimuth}
+              />
+            </Suspense>
+          )}
 
           {/* Solar Power Harvesting Potential - only show when solar radiation data available */}
           {availableFields.solarRadiation && (

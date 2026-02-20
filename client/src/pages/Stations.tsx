@@ -150,7 +150,7 @@ export default function Stations() {
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
   const { toast } = useToast();
 
-  // Listen for Electron menu events
+  // Listen for menu events
   useEffect(() => {
     const handleOpenNewStation = () => {
       setActiveTab("setup");

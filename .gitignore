@@ -12,7 +12,6 @@ tmp_dist/
 .next/
 out/
 output/
-release/
 # Compiled shared files (these are compiled from .ts sources)
 shared/*.js
 shared/*.d.ts
@@ -68,3 +67,9 @@ check_timestamps.js
 del_stations.js
 set_server.js
 .neon
+
+# .NET Desktop build artifacts
+desktop/Stratus.Desktop/bin/
+desktop/Stratus.Desktop/obj/
+*.user
+*.suo

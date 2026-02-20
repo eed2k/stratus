@@ -3,17 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Sun } from "lucide-react";
 import { useMemo } from "react";
 import { safeFixed } from "@/lib/utils";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from "recharts";
 
 interface SolarPowerHarvestCardProps {
   /** Current solar radiation in W/m² */
@@ -131,27 +120,6 @@ export function SolarPowerHarvestCard({
     }));
   }, [hasData, estimates.monthlyEnergy, estimates.peakSunHours]);
 
-  // Daily energy chart (hourly breakdown)
-  const dailyChartData = useMemo(() => {
-    if (!hasData) return [];
-    
-    const hours = [];
-    for (let h = 5; h <= 20; h++) {
-      // Simplified solar curve (bell curve peaking at noon)
-      const hourFromNoon = Math.abs(h - 12);
-      const factor = Math.max(0, Math.cos(hourFromNoon * Math.PI / 14));
-      const radiation = (currentRadiation || 0) * factor;
-      const power = (radiation * panelEfficiency * (1 - systemLosses) * panelArea) / 1000;
-      
-      hours.push({
-        hour: `${h}:00`,
-        radiation: Math.round(radiation),
-        power: power,
-      });
-    }
-    return hours;
-  }, [currentRadiation, hasData, panelEfficiency, systemLosses, panelArea]);
-
   // No data state
   if (!hasData) {
     return (
@@ -248,75 +216,18 @@ export function SolarPowerHarvestCard({
             </div>
           </div>
 
-          {/* Daily Power Curve Chart */}
-          <div className="space-y-2">
-            <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Power Generation Curve</p>
-            <div className="h-32">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyChartData}>
-                  <defs>
-                    <linearGradient id="powerGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis
-                    dataKey="hour"
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                    tickFormatter={(v) => `${(v * 1000).toFixed(0)}W`}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [`${(value * 1000).toFixed(0)} W`, 'Power']}
-                    labelFormatter={(label) => `Time: ${label}`}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="power"
-                    stroke="#f59e0b"
-                    fill="url(#powerGradient)"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Monthly Energy Potential Chart */}
+          {/* Monthly Energy Potential - Data Cards */}
           <div className="space-y-2">
             <p className="text-xs font-normal text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential (kWh/m²)</p>
-            <div className="h-32">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [`${value.toFixed(1)} kWh/m²`, 'Energy']}
-                  />
-                  <Bar
-                    dataKey="energy"
-                    fill="#22c55e"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+              {monthlyChartData.map(({ month, energy }) => (
+                <div key={month} className="rounded border border-gray-200 bg-gradient-to-br from-green-50 to-emerald-50 p-2 text-center">
+                  <p className="text-[10px] font-normal text-green-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{month}</p>
+                  <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                    {safeFixed(energy, 1)}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
 

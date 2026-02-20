@@ -215,28 +215,16 @@ export default function Documentation() {
               </ul>
             </div>
 
-            {/* Build & Desktop */}
+            {/* Build Tools */}
             <div>
               <h4 className="font-medium mb-2">
-                Build &amp; Desktop
+                Build Tools
               </h4>
               <ul className="space-y-1.5 text-muted-foreground ml-4 list-disc">
                 <li>
                   <span className="text-foreground font-medium">Vite</span>
                   {" - "}Evan You and the Vite team. Next-generation frontend build
                   tool.
-                </li>
-                <li>
-                  <span className="text-foreground font-medium">Electron</span>
-                  {" - "}GitHub / OpenJS Foundation. Cross-platform desktop
-                  application shell.
-                </li>
-                <li>
-                  <span className="text-foreground font-medium">
-                    electron-builder
-                  </span>
-                  {" - "}Vladimir Krivosheev (develar). Packaging and distribution
-                  for Electron apps.
                 </li>
               </ul>
             </div>

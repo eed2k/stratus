@@ -6,7 +6,7 @@
  * This file defines schemas using Drizzle ORM with PostgreSQL types for
  * cloud deployment compatibility.
  * 
- * For desktop/Electron deployments, the application uses SQLite via sql.js
+ * For desktop deployments, the application uses SQLite via sql.js
  * (see server/db.ts). The actual database schema is defined in db.ts
  * createTables() and runMigrations() functions.
  * 

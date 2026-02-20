@@ -1,0 +1,64 @@
+<Window x:Class="Stratus.Desktop.Views.LicenseDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="License Activation — Stratus" 
+        Height="420" Width="500"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Style="{StaticResource StratusWindow}">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="License Activation" Style="{StaticResource SectionHeader}"/>
+        
+        <!-- Current License Info -->
+        <Border Grid.Row="1" Background="#F0F4F8" BorderBrush="{StaticResource BorderBrush}" 
+                BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Current License" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4"/>
+                <TextBlock x:Name="LicenseTypeText" Text="Trial" FontSize="11" 
+                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                <TextBlock x:Name="LicenseExpiryText" Text="" FontSize="11" 
+                           Foreground="{StaticResource TextSecondaryBrush}"/>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="2" Text="License Key:" FontSize="11" Margin="0,0,0,4"/>
+        <TextBox Grid.Row="3" x:Name="LicenseKeyBox" 
+                 Style="{StaticResource StratusTextBox}" 
+                 Text="" FontFamily="Consolas" FontSize="14" CharacterCasing="Upper"
+                 MaxLength="24" Margin="0,0,0,8"
+                 ToolTip="Format: XXXX-XXXX-XXXX-XXXX-XXXX"/>
+
+        <TextBlock Grid.Row="4" Text="License Holder:" FontSize="11" Margin="0,0,0,4"/>
+        <TextBox Grid.Row="5" x:Name="HolderNameBox" 
+                 Style="{StaticResource StratusTextBox}" Margin="0,0,0,8"/>
+
+        <TextBlock Grid.Row="6" Text="Organization:" FontSize="11" Margin="0,0,0,4"/>
+        <TextBox Grid.Row="7" x:Name="OrganizationBox" 
+                 Style="{StaticResource StratusTextBox}" VerticalAlignment="Top"/>
+
+        <StackPanel Grid.Row="8" Margin="0,16,0,0">
+            <TextBlock x:Name="ActivationStatus" Text="" FontSize="11" 
+                       Margin="0,0,0,8" TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Start Trial" Style="{StaticResource SecondaryButton}" 
+                        Click="Trial_Click" Margin="0,0,8,0"/>
+                <Button Content="Activate" Style="{StaticResource PrimaryButton}" 
+                        Click="Activate_Click" Margin="0,0,8,0"/>
+                <Button Content="Close" Style="{StaticResource SecondaryButton}" 
+                        Click="Close_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>
