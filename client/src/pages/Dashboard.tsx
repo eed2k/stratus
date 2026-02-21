@@ -145,7 +145,7 @@ const processWindScatterData = (historicalData: WeatherData[]) => {
  * Adapts timestamp display based on the data time range
  * Samples data for large datasets to prevent chart overload
  */
-const processChartData = (historicalData: WeatherData[], timeRangeHours?: number) => {
+const processChartData = (historicalData: WeatherData[], timeRangeHours?: number, stationLat?: number, stationAltitude?: number) => {
   if (historicalData.length === 0) return [];
   
   // Sample data if there are too many points (target ~500 points max for smooth charts)
@@ -247,6 +247,21 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       mppt2ChargerState: toNum(d.mppt2ChargerState),
       mppt2BoardTemp: toNum(d.mppt2BoardTemp),
       mppt2Mode: toNum(d.mppt2Mode),
+      // Calculate ETo per data point using FAO Penman-Monteith
+      eto: (() => {
+        const temp = d.temperature;
+        const hum = d.humidity;
+        const ws = d.windSpeed;
+        const sr = d.solarRadiation;
+        if (temp == null || hum == null || ws == null || sr == null) return null;
+        const lat = stationLat || 0;
+        const alt = stationAltitude || 0;
+        const ts = new Date(d.timestamp);
+        const dayOfYear = Math.floor((ts.getTime() - new Date(ts.getFullYear(), 0, 0).getTime()) / 86400000);
+        const solarMJ = wattsToMJPerDay(sr, 12);
+        const windMs = kmhToMs(ws);
+        return calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
+      })(),
     };
   });
 };
@@ -333,6 +348,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   }, [allStations, isAdmin, canAccessStation]);
 
   const activeStationId = selectedStationId || (stations.length > 0 ? stations[0].id : null);
+  const selectedStation = stations.find(s => s.id === activeStationId);
 
   // Reload per-station config when active station changes -- each station is independent
   useEffect(() => {
@@ -495,7 +511,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   }, [historicalData]);
 
   // Process historical data into chart format (pass time range for proper axis formatting)
-  const chartData = useMemo(() => processChartData(sortedHistoricalData, dashboardConfig.chartTimeRange), [sortedHistoricalData, dashboardConfig.chartTimeRange]);
+  const chartData = useMemo(() => processChartData(sortedHistoricalData, dashboardConfig.chartTimeRange, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined), [sortedHistoricalData, dashboardConfig.chartTimeRange, selectedStation?.latitude, selectedStation?.altitude]);
   
   // Process wind rose data from historical data
   const windRoseData = useMemo(() => processWindRoseData(sortedHistoricalData), [sortedHistoricalData]);
@@ -620,12 +636,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [sortedHistoricalData]);
 
-  // Calculate ETo statistics from historical data (uses 7-day stats data)
+  // Calculate ETo statistics from historical data using FAO Penman-Monteith per data point
   const etoStats = useMemo(() => {
     const now = Date.now();
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+    const lat = selectedStation?.latitude || 0;
+    const alt = selectedStation?.altitude || 0;
 
     // Use sortedStatsData (7-day dataset) for more accurate period stats
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
@@ -633,24 +652,40 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const last7d = dataSource.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
     const last30d = dataSource.filter(d => new Date(d.timestamp).getTime() > thirtyDaysAgo);
 
-    // Calculate cumulative ETo for each period
-    const calculateCumulativeETo = (data: WeatherData[]) => {
+    // Calculate ETo per point using FAO formula, then average to get daily rate
+    const calculatePeriodETo = (data: WeatherData[]) => {
       const etoValues = data
-        .map(d => d.eto)
-        .filter((e): e is number => e !== null && e !== undefined && !isNaN(e));
+        .map(d => {
+          const temp = d.temperature;
+          const hum = d.humidity;
+          const ws = d.windSpeed;
+          const sr = d.solarRadiation;
+          if (temp == null || hum == null || ws == null || sr == null) return null;
+          const ts = new Date(d.timestamp);
+          const dayOfYear = Math.floor((ts.getTime() - new Date(ts.getFullYear(), 0, 0).getTime()) / 86400000);
+          return calculateETo(temp, hum, kmhToMs(ws), wattsToMJPerDay(sr, 12), alt, lat, dayOfYear);
+        })
+        .filter((e): e is number => e !== null && e !== undefined && !isNaN(e) && e > 0);
       
       if (etoValues.length === 0) return null;
       
-      // Sum up ETo values (assumes each reading is hourly increment)
-      return Math.round(etoValues.reduce((sum, e) => sum + e, 0) * 10) / 10;
+      // Average ETo rate (mm/day) across points in the period
+      const avgETo = etoValues.reduce((sum, e) => sum + e, 0) / etoValues.length;
+      return Math.round(avgETo * 10) / 10;
     };
 
+    // For daily: average ETo rate (mm/day)
+    // For weekly/monthly: average daily rate * number of days in the period
+    const dailyETo = calculatePeriodETo(last24h);
+    const weeklyETo = calculatePeriodETo(last7d);
+    const monthlyETo = calculatePeriodETo(last30d);
+
     return {
-      daily: calculateCumulativeETo(last24h),
-      weekly: calculateCumulativeETo(last7d),
-      monthly: calculateCumulativeETo(last30d),
+      daily: dailyETo,
+      weekly: weeklyETo != null ? Math.round(weeklyETo * 7 * 10) / 10 : null,
+      monthly: monthlyETo != null ? Math.round(monthlyETo * 30 * 10) / 10 : null,
     };
-  }, [sortedStatsData, sortedHistoricalData]);
+  }, [sortedStatsData, sortedHistoricalData, selectedStation?.latitude, selectedStation?.altitude]);
 
   // Save config to localStorage (per-station only) and invalidate queries when it changes
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
@@ -673,8 +708,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     refetch();
     refetchHistorical();
   }, [refetch, refetchHistorical]);
-
-  const selectedStation = stations.find(s => s.id === activeStationId);
 
 
   const stationOptions = [...stations]
