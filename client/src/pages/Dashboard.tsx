@@ -1979,15 +1979,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             </NoDataWrapper>
             )}
             
-            {/* Wind Rose - 30 Minutes */}
-            {windDataByPeriod['30min'].count > 0 && (
-            <WindRose 
-              data={windDataByPeriod['30min'].rose} 
-              title="Wind Rose (30 min)"
-              maxWindSpeed={maxWindSpeed}
-            />
-            )}
-            
             {/* Wind Rose - 60 Minutes */}
             {windDataByPeriod['60min'].count > 0 && (
             <WindRose 
@@ -2005,57 +1996,37 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               maxWindSpeed={maxWindSpeed}
             />
             )}
+            
+            {/* Wind Rose - 48h */}
+            {windDataByPeriod['48h'].count > 0 && (
+            <WindRose 
+              data={windDataByPeriod['48h'].rose} 
+              title="Wind Rose (48h)"
+              maxWindSpeed={maxWindSpeed}
+            />
+            )}
           </div>
           
-          {/* Additional Wind Rose - 48h when more data available */}
-          {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <WindRose 
-                data={windDataByPeriod['48h'].rose} 
-                title="Wind Rose (48h)"
-                maxWindSpeed={maxWindSpeed}
-              />
-            </div>
-          )}
-          
-          {/* Extended Period Wind Roses - Show 7-day and 31-day roses when time range > 24h */}
-          {dashboardConfig.chartTimeRange > 24 && windDataByPeriod['7d'].count > windDataByPeriod['48h'].count && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {/* Extended Period Wind Roses - 7-day and 30-day */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            {windDataByPeriod['7d'].count > 0 && (
               <WindRose 
                 data={windDataByPeriod['7d'].rose} 
                 title="Wind Rose (7 days)"
                 maxWindSpeed={maxWindSpeed}
               />
-              {dashboardConfig.chartTimeRange > 168 && windDataByPeriod['31d'].count > windDataByPeriod['7d'].count && (
-                <WindRose 
-                  data={windDataByPeriod['31d'].rose} 
-                  title="Wind Rose (31 days)"
-                  maxWindSpeed={maxWindSpeed}
-                />
-              )}
-            </div>
-          )}
+            )}
+            {windDataByPeriod['31d'].count > 0 && (
+              <WindRose 
+                data={windDataByPeriod['31d'].rose} 
+                title="Wind Rose (30 days)"
+                maxWindSpeed={maxWindSpeed}
+              />
+            )}
+          </div>
           
-          {/* Wind Scatter Plots */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {/* Wind Scatter - 30 Minutes */}
-            {windDataByPeriod['30min'].count > 0 && (
-            <WindRoseScatter 
-              data={windDataByPeriod['30min'].scatter} 
-              title="Wind Scatter (30 min)"
-              maxWindSpeed={maxWindSpeed}
-            />
-            )}
-            
-            {/* Wind Scatter - 60 Minutes */}
-            {windDataByPeriod['60min'].count > 0 && (
-            <WindRoseScatter 
-              data={windDataByPeriod['60min'].scatter} 
-              title="Wind Scatter (60 min)"
-              maxWindSpeed={maxWindSpeed}
-            />
-            )}
-            
+          {/* Wind Scatter Plots - 24h and 48h only */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* Wind Scatter - 24h */}
             {windDataByPeriod['24h'].count > 0 && (
             <WindRoseScatter 
@@ -2065,33 +2036,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             )}
             
-            {/* Wind Scatter - 48h when more data available */}
-            {windDataByPeriod['48h'].count > windDataByPeriod['24h'].count && (
-              <WindRoseScatter 
-                data={windDataByPeriod['48h'].scatter} 
-                title="Wind Scatter (48h)"
-                maxWindSpeed={maxWindSpeed}
-              />
+            {/* Wind Scatter - 48h */}
+            {windDataByPeriod['48h'].count > 0 && (
+            <WindRoseScatter 
+              data={windDataByPeriod['48h'].scatter} 
+              title="Wind Scatter (48h)"
+              maxWindSpeed={maxWindSpeed}
+            />
             )}
           </div>
-          
-          {/* Extended Period Wind Scatter - Show 7-day and 31-day scatter when time range > 24h */}
-          {dashboardConfig.chartTimeRange > 24 && windDataByPeriod['7d'].count > windDataByPeriod['48h'].count && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              <WindRoseScatter 
-                data={windDataByPeriod['7d'].scatter} 
-                title="Wind Scatter (7 days)"
-                maxWindSpeed={maxWindSpeed}
-              />
-              {dashboardConfig.chartTimeRange > 168 && windDataByPeriod['31d'].count > windDataByPeriod['7d'].count && (
-                <WindRoseScatter 
-                  data={windDataByPeriod['31d'].scatter} 
-                  title="Wind Scatter (31 days)"
-                  maxWindSpeed={maxWindSpeed}
-                />
-              )}
-            </div>
-          )}
         </section>
         )}
 

@@ -7,7 +7,7 @@
 #define AppPublisher "Itronics"
 #define AppURL "https://github.com/reuxnergy-admin1/stratus"
 #define AppExeName "Stratus.exe"
-#define BuildOutput "..\Stratus.Desktop\bin\Release\net8.0-windows"
+#define BuildOutput "..\Stratus.Desktop\bin\Publish"
 
 [Setup]
 AppId={{B8F4A2E1-7C3D-4E5A-9B1F-D6E8C2A4F3B7}

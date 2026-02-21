@@ -15,10 +15,10 @@ Write-Host "  Stratus Desktop Build" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Check .NET 8 SDK
+# Check .NET SDK (need 8.0+)
 $dotnetVersion = dotnet --version 2>$null
-if (-not $dotnetVersion -or -not $dotnetVersion.StartsWith("8.")) {
-    Write-Host "ERROR: .NET 8 SDK required. Download from https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Red
+if (-not $dotnetVersion) {
+    Write-Host "ERROR: .NET SDK required. Download from https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Red
     exit 1
 }
 Write-Host "[OK] .NET SDK: $dotnetVersion" -ForegroundColor Green
