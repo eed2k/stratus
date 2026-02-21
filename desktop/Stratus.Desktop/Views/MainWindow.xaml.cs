@@ -64,7 +64,7 @@ public partial class MainWindow : Window
             $"Version {version}\n\n" +
             $"Research-grade weather station data acquisition\n" +
             $"and monitoring software.\n\n" +
-            $"© 2026 Itronics. All rights reserved.\n\n" +
+            $"© 2025-2026 Lukas Esterhuizen. All rights reserved.\n\n" +
             $"Built with .NET 8, WPF, Npgsql",
             "About Stratus", MessageBoxButton.OK, MessageBoxImage.Information);
     }

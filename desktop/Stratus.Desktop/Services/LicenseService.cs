@@ -17,7 +17,7 @@ public class LicenseService
     private LicenseInfo? _cachedLicense;
     
     // License validation secret (in production, this would be server-side validated)
-    private static readonly byte[] LicenseSecret = Encoding.UTF8.GetBytes("Stratus-Itronics-2026-Research-Grade");
+    private static readonly byte[] LicenseSecret = Encoding.UTF8.GetBytes("REDACTED_LICENSE_SECRET");
 
     public LicenseService(string appDataPath)
     {

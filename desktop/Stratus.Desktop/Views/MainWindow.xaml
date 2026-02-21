@@ -22,27 +22,27 @@
 
         <!-- Menu Bar -->
         <Menu Grid.Row="0" Background="{StaticResource PrimaryBrush}" Foreground="White" FontSize="12" Padding="2">
-            <MenuItem Header="_File" Foreground="White">
+            <MenuItem Header="_File">
                 <MenuItem Header="_Connect to Server..." Command="{Binding ConnectCommand}"/>
                 <MenuItem Header="_Export Data..." Command="{Binding ExportDataCommand}"/>
                 <Separator/>
                 <MenuItem Header="E_xit" Click="Exit_Click"/>
             </MenuItem>
-            <MenuItem Header="_Station" Foreground="White">
+            <MenuItem Header="_Station">
                 <MenuItem Header="_Refresh Stations" Command="{Binding LoadStationsCommand}"/>
                 <MenuItem Header="_Load Data" Command="{Binding LoadDataCommand}"/>
                 <Separator/>
                 <MenuItem Header="Start _Collection" Command="{Binding ToggleCollectionCommand}"/>
             </MenuItem>
-            <MenuItem Header="_Database" Foreground="White">
+            <MenuItem Header="_Database">
                 <MenuItem Header="_Connect to PostgreSQL..." Click="ConnectDb_Click"/>
                 <MenuItem Header="_Disconnect" Click="DisconnectDb_Click"/>
             </MenuItem>
-            <MenuItem Header="_Tools" Foreground="White">
+            <MenuItem Header="_Tools">
                 <MenuItem Header="_License Activation..." Click="License_Click"/>
                 <MenuItem Header="_Settings" Click="Settings_Click"/>
             </MenuItem>
-            <MenuItem Header="_Help" Foreground="White">
+            <MenuItem Header="_Help">
                 <MenuItem Header="_About Stratus" Click="About_Click"/>
                 <MenuItem Header="_Documentation" Click="Docs_Click"/>
             </MenuItem>
@@ -365,7 +365,7 @@
                 </TextBlock>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="Stratus Desktop v1.2.0 — Itronics" Foreground="#8899AA" FontSize="10"/>
+                <TextBlock Text="Stratus Desktop v1.2.0 — Lukas Esterhuizen" Foreground="#8899AA" FontSize="10"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

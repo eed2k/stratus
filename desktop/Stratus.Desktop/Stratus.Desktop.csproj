@@ -11,11 +11,11 @@
     <Version>1.2.0</Version>
     <FileVersion>1.2.0.0</FileVersion>
     <AssemblyVersion>1.2.0.0</AssemblyVersion>
-    <Company>Itronics</Company>
+    <Company>Lukas Esterhuizen</Company>
     <Product>Stratus Weather Station Manager</Product>
     <Description>Research-grade weather station data acquisition and monitoring software</Description>
-    <Copyright>Copyright © Itronics 2026. All rights reserved.</Copyright>
-    <Authors>Itronics</Authors>
+    <Copyright>Copyright © 2025-2026 Lukas Esterhuizen. All rights reserved.</Copyright>
+    <Authors>Lukas Esterhuizen</Authors>
     <PackageProjectUrl>https://github.com/reuxnergy-admin1/stratus</PackageProjectUrl>
     <StartupObject>Stratus.Desktop.App</StartupObject>
   </PropertyGroup>

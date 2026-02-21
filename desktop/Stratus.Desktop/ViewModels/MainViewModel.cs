@@ -65,7 +65,16 @@ public partial class MainViewModel : ObservableObject
 
         // Check license
         var license = App.LicenseService.GetLicense();
-        LicenseStatus = license?.Type.ToString() ?? "No License";
+        if (license != null && App.LicenseService.IsLicenseValid())
+        {
+            LicenseStatus = license.Type.ToString();
+            if (license.ExpiryDate.HasValue)
+                LicenseStatus += $" (expires {license.ExpiryDate.Value:yyyy-MM-dd})";
+        }
+        else
+        {
+            LicenseStatus = "No License";
+        }
 
         _serverUrl = _apiService.BaseUrl;
     }

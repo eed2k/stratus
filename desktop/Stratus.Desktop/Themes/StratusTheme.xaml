@@ -199,4 +199,24 @@
         <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
         <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
+
+    <!-- MenuItem Style: white text on dark menu bar, black text on white dropdown -->
+    <Style TargetType="MenuItem">
+        <Setter Property="Foreground" Value="#2C3E50"/>
+        <Setter Property="Background" Value="White"/>
+        <Style.Triggers>
+            <Trigger Property="Role" Value="TopLevelHeader">
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Background" Value="Transparent"/>
+            </Trigger>
+            <Trigger Property="Role" Value="TopLevelItem">
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Background" Value="Transparent"/>
+            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter Property="Background" Value="#E8F0FE"/>
+                <Setter Property="Foreground" Value="#1B3A5C"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>

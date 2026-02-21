@@ -4,7 +4,7 @@
 
 #define AppName "Stratus Weather Station Manager"
 #define AppVersion "1.2.0"
-#define AppPublisher "Itronics"
+#define AppPublisher "Lukas Esterhuizen"
 #define AppURL "https://github.com/reuxnergy-admin1/stratus"
 #define AppExeName "Stratus.exe"
 #define BuildOutput "..\Stratus.Desktop\bin\Publish"
@@ -36,7 +36,7 @@ UninstallDisplayIcon={app}\{#AppExeName}
 UninstallDisplayName={#AppName}
 VersionInfoVersion={#AppVersion}.0
 VersionInfoCompany={#AppPublisher}
-VersionInfoCopyright=Copyright (C) 2026 Itronics
+VersionInfoCopyright=Copyright (C) 2025-2026 Lukas Esterhuizen
 VersionInfoProductName={#AppName}
 VersionInfoProductVersion={#AppVersion}
 
@@ -64,8 +64,8 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Registry]
-Root: HKCU; Subkey: "Software\Itronics\Stratus"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Itronics\Stratus"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"
+Root: HKCU; Subkey: "Software\Stratus"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Stratus"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"
 
 [Code]
 var

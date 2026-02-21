@@ -3,6 +3,7 @@ using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Stratus.Desktop.Services;
+using Stratus.Desktop.Views;
 
 namespace Stratus.Desktop;
 
@@ -43,19 +44,15 @@ public partial class App : Application
             typeof(App).Assembly.GetName().Version);
 
         // Load configuration
+        // Always refresh cached config from built-in defaults to prevent stale URLs
         var configPath = Path.Combine(appData, "appsettings.json");
-        if (!File.Exists(configPath))
-        {
-            // Copy default config to app data
-            var defaultConfig = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-            if (File.Exists(defaultConfig))
-                File.Copy(defaultConfig, configPath);
-        }
+        var defaultConfig = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+        if (File.Exists(defaultConfig))
+            File.Copy(defaultConfig, configPath, overwrite: true);
 
         _configuration = new ConfigurationBuilder()
             .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true)
-            .AddJsonFile(configPath, optional: true, reloadOnChange: true)
             .Build();
 
         // Initialize services
@@ -64,10 +61,35 @@ public partial class App : Application
         DatabaseService = new DatabaseService(Configuration);
         DataAcquisitionService = new DataAcquisitionService(ApiService, DatabaseService);
 
-        // Check license on startup
-        if (!LicenseService.IsLicenseValid())
+        // Check for first-run setup
+        var setupMarker = Path.Combine(appData, ".setup-complete");
+        if (!File.Exists(setupMarker))
         {
-            Log.Warning("No valid license found, showing activation dialog");
+            Log.Information("First run detected, showing setup wizard");
+            var setupDialog = new SetupWizardDialog();
+            var result = setupDialog.ShowDialog();
+
+            if (result != true || !setupDialog.SetupCompleted)
+            {
+                Log.Information("Setup cancelled, shutting down");
+                Shutdown();
+                return;
+            }
+
+            // Apply server URL from setup
+            if (!string.IsNullOrWhiteSpace(setupDialog.ServerUrl))
+            {
+                ApiService.SetServerUrl(setupDialog.ServerUrl);
+            }
+        }
+        else
+        {
+            // Not first run — ensure license is valid, auto-trial if expired/missing
+            if (!LicenseService.IsLicenseValid())
+            {
+                Log.Information("No valid license, generating trial");
+                LicenseService.GenerateTrialLicense();
+            }
         }
 
         Log.Information("Stratus Desktop initialized successfully");
