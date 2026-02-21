@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Stratus.Desktop</RootNamespace>
     <AssemblyName>Stratus</AssemblyName>
-    <ApplicationIcon Condition="Exists('Assets\stratus.ico')">Assets\stratus.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\stratus.ico</ApplicationIcon>
     <Version>1.2.0</Version>
     <FileVersion>1.2.0.0</FileVersion>
     <AssemblyVersion>1.2.0.0</AssemblyVersion>
@@ -43,7 +43,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\stratus.ico" Condition="Exists('Assets\stratus.ico')" />
+    <Resource Include="Assets\stratus.ico" />
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
