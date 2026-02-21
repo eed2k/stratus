@@ -5,7 +5,7 @@ namespace Stratus.Desktop.Models;
 /// </summary>
 public class ServerConfig
 {
-    public string BaseUrl { get; set; } = "https://stratus.itronics.co.za";
+    public string BaseUrl { get; set; } = "https://stratusweather.co.za";
     public string? Username { get; set; }
     public string? AuthToken { get; set; }
     public int ApiTimeoutSeconds { get; set; } = 30;

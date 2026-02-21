@@ -28,7 +28,7 @@ public class ApiService : IDisposable
 
     public ApiService(IConfiguration config)
     {
-        _baseUrl = config["Server:BaseUrl"] ?? "https://stratus.itronics.co.za";
+        _baseUrl = config["Server:BaseUrl"] ?? "https://stratusweather.co.za";
         var timeout = int.TryParse(config["Server:ApiTimeout"], out var t) ? t : 30;
 
         _httpClient = new HttpClient

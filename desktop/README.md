@@ -105,7 +105,7 @@ The app stores settings in `%APPDATA%\Stratus\`:
 ## Connecting to Stratus
 
 ### Via API (recommended)
-1. Enter the server URL (e.g., `https://stratus.itronics.co.za`)
+1. Enter the server URL (e.g., `https://stratusweather.co.za`)
 2. Enter username and password
 3. Click Connect
 

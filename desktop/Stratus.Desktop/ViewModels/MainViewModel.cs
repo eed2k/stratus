@@ -19,7 +19,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isCollecting;
     [ObservableProperty] private WeatherStation? _selectedStation;
     [ObservableProperty] private WeatherRecord? _latestData;
-    [ObservableProperty] private string _serverUrl = "https://stratus.itronics.co.za";
+    [ObservableProperty] private string _serverUrl = "https://stratusweather.co.za";
     [ObservableProperty] private string _username = string.Empty;
     [ObservableProperty] private string _selectedTimeRange = "24h";
     [ObservableProperty] private long _recordCount;
