@@ -785,56 +785,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-email-settings">
-          <CardHeader>
-            <CardTitle className="text-lg">Email Alerts</CardTitle>
-            <CardDescription>Configure email notifications for alarms</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center gap-2">
-              {emailStatus?.configured ? (
-                <>
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-sm text-green-600 font-medium">Email service configured</span>
-                </>
-              ) : (
-                <>
-                  <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                  <span className="text-sm text-muted-foreground">Email service not configured</span>
-                </>
-              )}
-            </div>
-            
-
-            
-            {emailStatus?.configured && (
-              <div className="space-y-3">
-                <Label htmlFor="testEmail">Send Test Email</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="testEmail"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={testEmailAddress}
-                    onChange={(e) => setTestEmailAddress(e.target.value)}
-                    data-testid="input-test-email"
-                  />
-                  <Button 
-                    onClick={handleSendTestEmail} 
-                    disabled={isSendingTest}
-                    variant="outline"
-                  >
-                    {isSendingTest ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Test'}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Test your email configuration by sending a sample alert.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         <Card data-testid="card-server-settings">
           <CardHeader>
             <CardTitle className="text-lg">Server & Sharing</CardTitle>

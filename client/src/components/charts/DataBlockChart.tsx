@@ -245,6 +245,7 @@ export const DataBlockChart = memo(function DataBlockChart({
                 stroke={s.color}
                 fill={`url(#gradient-${s.dataKey})`}
                 strokeWidth={2}
+                connectNulls={true}
               />
             ))}
           </AreaChart>
@@ -295,6 +296,7 @@ export const DataBlockChart = memo(function DataBlockChart({
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5, strokeWidth: 2 }}
+                connectNulls={true}
               />
             ))}
           </LineChart>

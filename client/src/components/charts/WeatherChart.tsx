@@ -124,6 +124,7 @@ export const WeatherChart = memo(function WeatherChart({
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4 }}
+                  connectNulls={true}
                 />
               ))}
             </LineChart>

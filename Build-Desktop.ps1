@@ -38,11 +38,15 @@ dotnet build $projectFile -c $config --no-restore
 if ($LASTEXITCODE -ne 0) { Write-Host "Build failed!" -ForegroundColor Red; exit 1 }
 Write-Host "[OK] Build complete" -ForegroundColor Green
 
-# Publish (self-contained) for Release
+# Publish (self-contained single-file) for Release
 if ($Release) {
     Write-Host ""
-    Write-Host "Publishing self-contained..." -ForegroundColor Yellow
-    dotnet publish $projectFile -c Release -r win-x64 --self-contained -o "$desktopDir\bin\Publish"
+    Write-Host "Publishing self-contained single-file EXE..." -ForegroundColor Yellow
+    dotnet publish $projectFile -c Release -r win-x64 --self-contained `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        -p:EnableCompressionInSingleFile=true `
+        -o "$desktopDir\bin\Publish"
     if ($LASTEXITCODE -ne 0) { Write-Host "Publish failed!" -ForegroundColor Red; exit 1 }
     Write-Host "[OK] Published to desktop\Stratus.Desktop\bin\Publish" -ForegroundColor Green
 }

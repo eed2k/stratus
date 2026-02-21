@@ -8,6 +8,8 @@ interface EvapotranspirationCardProps {
   monthlyETo?: number;          // mm (cumulative 30 days)
   yearlyETo?: number;           // mm (cumulative year)
   cropCoefficient?: number;     // Kc value for ETc calculation
+  dailyRain?: number;           // mm/day rainfall
+  valveFlowRate?: number;       // mm/hour valve delivery rate (default 5 mm/hr typical drip)
   sparklineData?: number[];
 }
 
@@ -41,12 +43,21 @@ export function EvapotranspirationCard({
   monthlyETo,
   yearlyETo,
   cropCoefficient = 1.0,
+  dailyRain = 0,
+  valveFlowRate = 5,
   sparklineData = [],
 }: EvapotranspirationCardProps) {
   const status = getEToStatus(dailyETo);
   
   // Calculate ETc (Crop Evapotranspiration)
   const dailyETc = dailyETo * cropCoefficient;
+  
+  // Calculate irrigation requirement: (ETo - rain) * crop factor
+  // If rain exceeds ETo, no irrigation needed
+  const netIrrigationNeed = Math.max((dailyETo - dailyRain) * cropCoefficient, 0);
+  // Irrigation time = net need (mm) / valve flow rate (mm/hr)
+  const irrigationTimeHours = valveFlowRate > 0 ? netIrrigationNeed / valveFlowRate : 0;
+  const irrigationMinutes = Math.round(irrigationTimeHours * 60);
   
   // Only use sparkline data if provided - no fake data generation
   const chartData = sparklineData.length > 0 ? sparklineData : [];
@@ -140,6 +151,37 @@ export function EvapotranspirationCard({
               </p>
             </div>
           )}
+
+          {/* Irrigation Time Estimate */}
+          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-normal text-blue-800" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Irrigation Time</span>
+              <span className="text-sm font-medium text-blue-800" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                {irrigationMinutes > 0 ? (
+                  irrigationTimeHours >= 1 
+                    ? `${Math.floor(irrigationTimeHours)}h ${irrigationMinutes % 60}min`
+                    : `${irrigationMinutes} min`
+                ) : 'None needed'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              <div className="text-center">
+                <p className="text-xs text-blue-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Net Need</p>
+                <p className="text-xs font-normal text-blue-800" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(netIrrigationNeed, 2)} mm</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-blue-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rain</p>
+                <p className="text-xs font-normal text-blue-800" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(dailyRain, 1)} mm</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-blue-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Flow Rate</p>
+                <p className="text-xs font-normal text-blue-800" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(valveFlowRate, 1)} mm/hr</p>
+              </div>
+            </div>
+            <p className="text-xs text-blue-500 mt-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              (ETo − Rain) × Kc ÷ Flow Rate
+            </p>
+          </div>
 
           {/* FAO method note */}
           <div className="text-center pt-2 border-t border-gray-200">

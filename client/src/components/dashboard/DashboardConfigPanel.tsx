@@ -55,6 +55,59 @@ const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   mpptCharger: 'MPPT Solar Charger',
 };
 
+// Map derived/calculated fields to their source dependencies
+// If a field's dataField isn't directly in availableFields, check these deps
+const DERIVED_FIELD_DEPS: Record<string, string[]> = {
+  pressureSeaLevel: ['pressure'],
+  temperatureMin: ['temperature'],
+  temperatureMax: ['temperature'],
+  dewPoint: ['temperature', 'humidity'],
+  airDensity: ['temperature', 'pressure', 'humidity'],
+  windGust: ['windSpeed'],
+  windGust10min: ['windSpeed'],
+  windPower: ['windSpeed'],
+  rainfall10min: ['rainfall'],
+  rainfall24h: ['rainfall'],
+  rainfall7d: ['rainfall'],
+  rainfall30d: ['rainfall'],
+  rainfallYearly: ['rainfall'],
+  solarRadiationMax: ['solarRadiation'],
+  sunAzimuth: ['solarRadiation'],
+  sunElevation: ['solarRadiation'],
+  eto: ['solarRadiation', 'temperature', 'humidity', 'windSpeed'],
+  eto24h: ['solarRadiation', 'temperature', 'humidity', 'windSpeed'],
+  eto7d: ['solarRadiation', 'temperature', 'humidity', 'windSpeed'],
+  eto30d: ['solarRadiation', 'temperature', 'humidity', 'windSpeed'],
+  panelTemperature: ['batteryVoltage'],
+  leafWetness: ['soilMoisture'],
+};
+
+// Map sections to the availableFields they depend on
+const SECTION_FIELD_DEPS: Record<keyof SectionVisibility, string[]> = {
+  waterSensors: ['waterLevel', 'temperatureSwitch', 'levelSwitch', 'temperatureSwitchOutlet', 'levelSwitchStatus', 'lightning', 'chargerVoltage'],
+  windAnalysis: ['windSpeed', 'windDirection'],
+  windEnergy: ['windSpeed'],
+  solarRadiation: ['solarRadiation'],
+  solarPosition: ['solarRadiation'],
+  soilEnvironment: ['soilTemperature', 'soilMoisture'],
+  fireDanger: ['temperature', 'humidity', 'windSpeed'],
+  loggerBattery: ['batteryVoltage'],
+  mpptCharger: ['mpptSolarVoltage', 'mpptSolarCurrent', 'mpptSolarPower', 'mpptLoadVoltage', 'mpptLoadCurrent', 'mpptBatteryVoltage', 'mpptChargerState', 'mpptAbsiAvg', 'mpptBoardTemp', 'mpptMode',
+    'mppt2SolarVoltage', 'mppt2SolarCurrent', 'mppt2SolarPower', 'mppt2LoadVoltage', 'mppt2LoadCurrent', 'mppt2BatteryVoltage', 'mppt2ChargerState', 'mppt2BoardTemp', 'mppt2Mode'],
+};
+
+/** Check if a parameter is available based on available fields */
+function isParamAvailable(param: DashboardParameter, availableFields: Record<string, boolean>): boolean {
+  // Direct match
+  if (availableFields[param.dataField] === true) return true;
+  // Check derived field dependencies - all deps must be available
+  const deps = DERIVED_FIELD_DEPS[param.dataField];
+  if (deps && deps.length > 0) {
+    return deps.every(dep => availableFields[dep] === true);
+  }
+  return false;
+}
+
 const CHART_TIME_RANGE_OPTIONS = [
   { value: 6, label: '6 hours' },
   { value: 12, label: '12 hours' },
@@ -71,9 +124,10 @@ interface DashboardConfigPanelProps {
   config: DashboardConfig;
   onConfigChange: (config: DashboardConfig) => void;
   onRefresh?: () => void;
+  availableFields?: Record<string, boolean>;
 }
 
-export function DashboardConfigPanel({ config, onConfigChange }: DashboardConfigPanelProps) {
+export function DashboardConfigPanel({ config, onConfigChange, availableFields }: DashboardConfigPanelProps) {
   const [localConfig, setLocalConfig] = useState<DashboardConfig>(config);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -91,12 +145,15 @@ export function DashboardConfigPanel({ config, onConfigChange }: DashboardConfig
   };
 
   const handleCategoryToggleAll = (category: DashboardCategory, enabled: boolean) => {
-    const categoryParamIds = category.parameters.map((p: DashboardParameter) => p.id);
+    // Only toggle parameters that are available
+    const availableParamIds = category.parameters
+      .filter((p: DashboardParameter) => !availableFields || isParamAvailable(p, availableFields))
+      .map((p: DashboardParameter) => p.id);
     setLocalConfig((prev: DashboardConfig) => ({
       ...prev,
       enabledParameters: enabled
-        ? [...new Set([...prev.enabledParameters, ...categoryParamIds])]
-        : prev.enabledParameters.filter((p: string) => !categoryParamIds.includes(p))
+        ? [...new Set([...prev.enabledParameters, ...availableParamIds])]
+        : prev.enabledParameters.filter((p: string) => !availableParamIds.includes(p))
     }));
   };
 
@@ -109,8 +166,28 @@ export function DashboardConfigPanel({ config, onConfigChange }: DashboardConfig
     setLocalConfig(DEFAULT_DASHBOARD_CONFIG);
   };
 
-  const enabledCount = localConfig.enabledParameters.length;
-  const totalCount = DASHBOARD_CATEGORIES.reduce((sum: number, cat: DashboardCategory) => sum + cat.parameters.length, 0);
+  // Filter categories and parameters to only show available data
+  const filteredCategories = availableFields
+    ? DASHBOARD_CATEGORIES
+        .map(cat => ({
+          ...cat,
+          parameters: cat.parameters.filter(p => isParamAvailable(p, availableFields))
+        }))
+        .filter(cat => cat.parameters.length > 0)
+    : DASHBOARD_CATEGORIES;
+
+  // Filter section visibility toggles to only show sections with available data
+  const availableSections = availableFields
+    ? (Object.keys(SECTION_LABELS) as (keyof SectionVisibility)[]).filter(key => {
+        const deps = SECTION_FIELD_DEPS[key];
+        return deps.some(field => availableFields[field] === true);
+      })
+    : (Object.keys(SECTION_LABELS) as (keyof SectionVisibility)[]);
+
+  const enabledCount = localConfig.enabledParameters.filter(id =>
+    filteredCategories.some(cat => cat.parameters.some(p => p.id === id))
+  ).length;
+  const totalCount = filteredCategories.reduce((sum: number, cat: DashboardCategory) => sum + cat.parameters.length, 0);
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -220,7 +297,7 @@ export function DashboardConfigPanel({ config, onConfigChange }: DashboardConfig
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {(Object.keys(SECTION_LABELS) as (keyof SectionVisibility)[]).map((key) => (
+                {availableSections.map((key) => (
                   <div key={key} className="flex items-center justify-between">
                     <Label htmlFor={`section-${key}`}>{SECTION_LABELS[key]}</Label>
                     <Switch
@@ -252,7 +329,7 @@ export function DashboardConfigPanel({ config, onConfigChange }: DashboardConfig
               </CardHeader>
               <CardContent>
                 <Accordion type="multiple" defaultValue={['temperature', 'wind', 'precipitation']}>
-                  {DASHBOARD_CATEGORIES.map((category: DashboardCategory) => {
+                  {filteredCategories.map((category: DashboardCategory) => {
                     const enabledInCategory = category.parameters.filter(
                       (p: DashboardParameter) => localConfig.enabledParameters.includes(p.id)
                     ).length;

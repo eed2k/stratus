@@ -148,13 +148,8 @@ const processWindScatterData = (historicalData: WeatherData[]) => {
 const processChartData = (historicalData: WeatherData[], timeRangeHours?: number, stationLat?: number, stationAltitude?: number) => {
   if (historicalData.length === 0) return [];
   
-  // Sample data if there are too many points (target ~500 points max for smooth charts)
-  const maxPoints = 500;
-  let sampledData = historicalData;
-  if (historicalData.length > maxPoints) {
-    const sampleRate = Math.ceil(historicalData.length / maxPoints);
-    sampledData = historicalData.filter((_, index) => index % sampleRate === 0);
-  }
+  // Server already limits to ~500 points, so no client-side sampling needed
+  const sampledData = historicalData;
   
   // Determine the time span of the data
   const timestamps = sampledData.map(d => new Date(d.timestamp).getTime());
@@ -247,6 +242,16 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       mppt2ChargerState: toNum(d.mppt2ChargerState),
       mppt2BoardTemp: toNum(d.mppt2BoardTemp),
       mppt2Mode: toNum(d.mppt2Mode),
+      // Calculate dew point per data point using Magnus formula
+      dewPoint: (() => {
+        const t = d.temperature;
+        const rh = d.humidity;
+        if (t == null || rh == null || rh <= 0) return d.dewPoint ?? null;
+        const a = 17.625;
+        const b = 243.04;
+        const alpha = Math.log(rh / 100) + (a * t) / (b + t);
+        return Math.round(((b * alpha) / (a - alpha)) * 10) / 10;
+      })(),
       // Calculate ETo per data point using FAO Penman-Monteith
       eto: (() => {
         const temp = d.temperature;
@@ -334,6 +339,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     }
     return DEFAULT_DASHBOARD_CONFIG;
   });
+  // Local time range for historical charts section (independent of global dashboard time range)
+  const [historicalChartRange, setHistoricalChartRange] = useState(24);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -369,14 +376,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   });
 
   // Fetch historical data for charts and wind roses (based on configured time range)
-  const { data: historicalData = [], isLoading: historicalLoading, refetch: refetchHistorical } = useQuery<WeatherData[]>({
+  const { data: historicalData = [], refetch: refetchHistorical } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange],
     queryFn: async () => {
       if (!activeStationId) return [];
       const endTime = new Date();
       const startTime = new Date(endTime.getTime() - dashboardConfig.chartTimeRange * 60 * 60 * 1000);
+      // Request more data points for longer time ranges to avoid gaps
+      const limit = dashboardConfig.chartTimeRange > 72 ? 2000 : 1000;
       const response = await authFetch(
-        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`
       );
       if (!response.ok) return [];
       return response.json();
@@ -405,6 +414,62 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     refetchInterval: Math.max(dashboardConfig.updatePeriod, 300) * 1000, // Min 5min for stats refresh
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes -- stats data changes slowly
   });
+
+  // Separate 31-day query for dew point chart (always fetches 31 days regardless of dashboard time range)
+  const { data: dewPointData31d = [] } = useQuery<WeatherData[]>({
+    queryKey: ["/api/stations", activeStationId, "data", "dewpoint-31d"],
+    queryFn: async () => {
+      if (!activeStationId) return [];
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - 31 * 24 * 60 * 60 * 1000);
+      const response = await authFetch(
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=1500`
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeStationId,
+    refetchInterval: 30 * 60 * 1000, // Refresh every 30 minutes
+    staleTime: 15 * 60 * 1000,
+  });
+
+  // Process 31-day dew point chart data
+  const dewPointChartData = useMemo(() => {
+    if (dewPointData31d.length === 0) return [];
+    const sorted = [...dewPointData31d].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    return processChartData(sorted, 744, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined);
+  }, [dewPointData31d, selectedStation?.latitude, selectedStation?.altitude]);
+
+  // Separate query for historical charts section (uses its own independent time range)
+  const { data: historicalSectionData = [], isLoading: historicalSectionLoading } = useQuery<WeatherData[]>({
+    queryKey: ["/api/stations", activeStationId, "data", "historical-section", historicalChartRange],
+    queryFn: async () => {
+      if (!activeStationId) return [];
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - historicalChartRange * 60 * 60 * 1000);
+      const limit = historicalChartRange > 72 ? 2000 : 1000;
+      const response = await authFetch(
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeStationId,
+    refetchInterval: Math.max(dashboardConfig.updatePeriod, 120) * 1000,
+    staleTime: 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  // Process historical section chart data
+  const historicalChartData = useMemo(() => {
+    if (historicalSectionData.length === 0) return [];
+    const sorted = [...historicalSectionData].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    return processChartData(sorted, historicalChartRange, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined);
+  }, [historicalSectionData, historicalChartRange, selectedStation?.latitude, selectedStation?.altitude]);
 
   // Sort stats data by timestamp ascending
   const sortedStatsData = useMemo(() => {
@@ -1117,6 +1182,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             config={dashboardConfig}
             onConfigChange={handleConfigChange}
             onRefresh={handleRefresh}
+            availableFields={availableFields}
           />
           {activeStationId && !isDemoStation && (
             <DataImport 
@@ -1732,6 +1798,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               dailyETo={currentData.eto ?? calculatedETo ?? etoStats.daily ?? 0}
               weeklyETo={etoStats.weekly ?? 0}
               monthlyETo={etoStats.monthly ?? 0}
+              dailyRain={effectiveRainfall}
             />
             )}
           </div>
@@ -1769,6 +1836,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.eto ?? calculatedETo ?? 0}
+            />
+            )}
+            {/* Dew Point 31-day Chart - Always shows when temp+humidity available */}
+            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
+            <DataBlockChart
+              title="Dew Point Temperature (31 days)"
+              data={dewPointChartData}
+              series={[
+                { dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Dew Point (°C)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={effectiveDewPoint ?? 0}
             />
             )}
             {/* Sun Elevation & Azimuth Chart - Calculated from station coordinates */}
@@ -2142,7 +2225,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Charts Section */}
-        {!isMpptOnlyStation && chartData.length > 0 && (
+        {!isMpptOnlyStation && (chartData.length > 0 || historicalChartData.length > 0) && (
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-base font-normal text-foreground">Historical Data</h2>
@@ -2160,25 +2243,24 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 ].map(({ label, hours }) => (
                   <Button
                     key={hours}
-                    variant={dashboardConfig.chartTimeRange === hours ? "default" : "outline"}
+                    variant={historicalChartRange === hours ? "default" : "outline"}
                     size="sm"
                     className="h-7 px-2 text-xs"
-                    onClick={() => handleConfigChange({ ...dashboardConfig, chartTimeRange: hours })}
+                    onClick={() => setHistoricalChartRange(hours)}
                   >
                     {label}
                   </Button>
                 ))}
               </div>
-              {dataTimeRange && (
-                <Badge variant="outline" className="text-xs ml-2">
-                  {historicalLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-                  {dataTimeRange.recordCount} records
-                </Badge>
-              )}
-              {historicalLoading && !dataTimeRange && (
+              {historicalSectionLoading && (
                 <Badge variant="outline" className="text-xs ml-2">
                   <Loader2 className="h-3 w-3 animate-spin mr-1" />
                   Loading...
+                </Badge>
+              )}
+              {!historicalSectionLoading && historicalSectionData.length > 0 && (
+                <Badge variant="outline" className="text-xs ml-2">
+                  {historicalSectionData.length} records
                 </Badge>
               )}
             </div>
@@ -2207,7 +2289,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <TabsContent value="temperature" className="mt-4">
               <WeatherChart
                 title="Temperature & Humidity"
-                data={chartData}
+                data={historicalChartData}
                 series={[
                   ...(availableFields.temperature ? [{ dataKey: "temperature", name: "Temperature (°C)", color: "#ef4444" }] : []),
                   ...(availableFields.humidity ? [{ dataKey: "humidity", name: "Relative Humidity (%)", color: "#3b82f6" }] : []),
@@ -2219,7 +2301,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <TabsContent value="wind" className="mt-4">
               <WeatherChart
                 title="Wind Speed"
-                data={chartData}
+                data={historicalChartData}
                 series={[
                   { dataKey: "windSpeed", name: "Wind Speed (km/h)", color: "#22c55e" },
                 ]}
@@ -2230,7 +2312,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <TabsContent value="pressure" className="mt-4">
               <WeatherChart
                 title="Barometric Pressure"
-                data={chartData}
+                data={historicalChartData}
                 series={[
                   { dataKey: "pressure", name: "Pressure (hPa)", color: "#3b82f6" },
                 ]}
@@ -2241,7 +2323,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <TabsContent value="solar" className="mt-4">
               <WeatherChart
                 title="Solar Radiation"
-                data={chartData}
+                data={historicalChartData}
                 series={[
                   { dataKey: "solar", name: "Solar Radiation (W/m²)", color: "#ef4444" },
                 ]}
@@ -2252,7 +2334,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <TabsContent value="rain" className="mt-4">
               <WeatherChart
                 title="Rainfall"
-                data={chartData}
+                data={historicalChartData}
                 series={[
                   { dataKey: "rain", name: "Rainfall (mm)", color: "#3b82f6" },
                 ]}
