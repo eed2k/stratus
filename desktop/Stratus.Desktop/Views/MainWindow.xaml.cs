@@ -77,7 +77,7 @@ public partial class MainWindow : Window
             $"Version {version}\n\n" +
             $"Research-grade weather station data acquisition\n" +
             $"and monitoring software.\n\n" +
-            $"© 2025-2026 Lukas Esterhuizen. All rights reserved.\n\n" +
+            $"\u00a9 2025-2026 Lukas Esterhuizen. All rights reserved.\n\n" +
             $"Built with .NET 8, WPF, Npgsql",
             "About Stratus", MessageBoxButton.OK, MessageBoxImage.Information);
     }
@@ -136,9 +136,9 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Import Wind Data CSV",
-            Filter = "CSV Files (*.csv;*.dat;*.txt)|*.csv;*.dat;*.txt|All Files (*.*)|*.*",
-            DefaultExt = ".csv"
+            Title = "Import TOA5/CSV Wind Data",
+            Filter = "Data Files (*.csv;*.dat;*.txt)|*.csv;*.dat;*.txt|TOA5 Files (*.dat)|*.dat|CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+            DefaultExt = ".dat"
         };
 
         if (dialog.ShowDialog() != true)
@@ -154,10 +154,10 @@ public partial class MainWindow : Window
             ComputeAndDisplayWindRoses(windData, fileName);
 
             if (DataContext is MainViewModel vm)
-                vm.AddLog($"Wind rose generated from CSV: {dialog.FileName} ({windData.Count:N0} records)");
+                vm.AddLog($"Wind rose generated from file: {dialog.FileName} ({windData.Count:N0} records)");
 
-            MessageBox.Show($"Successfully loaded {windData.Count:N0} wind records from CSV.",
-                "CSV Import", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"Successfully loaded {windData.Count:N0} wind records from file.",
+                "Import Complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (IOException ex)
         {
@@ -226,46 +226,32 @@ public partial class MainWindow : Window
     {
         string prefix = title ?? "Wind Rose";
         double angle = _currentSectorAngle;
+        var now = windData.Count > 0 ? windData.Max(d => d.Date) : DateTime.UtcNow;
 
-        var result24h = WindRoseCalculator.Calculate(windData, angle, $"{prefix} - 24 Hour");
-        WindRose24h.WindRoseData = result24h;
+        // 24h — last 24 hours of data
+        var data24h = windData.Where(d => d.Date >= now.AddHours(-24)).ToList();
+        WindRose24h.WindRoseData = WindRoseCalculator.Calculate(
+            data24h.Count > 0 ? data24h : windData, angle, $"{prefix} — 24h");
 
-        var resultDay = WindRoseCalculator.CalculateDaylight(windData, angle);
-        resultDay.Title = $"{prefix} - Daylight";
-        WindRoseDaylight.WindRoseData = resultDay;
+        // 1d — last 1 calendar day
+        var data1d = windData.Where(d => d.Date >= now.AddDays(-1)).ToList();
+        WindRose1d.WindRoseData = WindRoseCalculator.Calculate(
+            data1d.Count > 0 ? data1d : windData, angle, $"{prefix} — 1 Day");
 
-        var resultNight = WindRoseCalculator.CalculateNighttime(windData, angle);
-        resultNight.Title = $"{prefix} - Nighttime";
-        WindRoseNighttime.WindRoseData = resultNight;
+        // 3d — last 3 days
+        var data3d = windData.Where(d => d.Date >= now.AddDays(-3)).ToList();
+        WindRose3d.WindRoseData = WindRoseCalculator.Calculate(
+            data3d.Count > 0 ? data3d : windData, angle, $"{prefix} — 3 Days");
 
-        // Seasonal wind roses (Southern Hemisphere classification)
-        var seasonal = WindRoseCalculator.CalculateSeasonal(windData, angle);
-        SetSeasonalRose(seasonal, WindSeason.Summer, WindRoseSummer, prefix, "Summer", "Dec-Feb");
-        SetSeasonalRose(seasonal, WindSeason.Autumn, WindRoseAutumn, prefix, "Autumn", "Mar-May");
-        SetSeasonalRose(seasonal, WindSeason.Winter, WindRoseWinter, prefix, "Winter", "Jun-Aug");
-        SetSeasonalRose(seasonal, WindSeason.Spring, WindRoseSpring, prefix, "Spring", "Sep-Nov");
-    }
+        // 7d — last 7 days
+        var data7d = windData.Where(d => d.Date >= now.AddDays(-7)).ToList();
+        WindRose7d.WindRoseData = WindRoseCalculator.Calculate(
+            data7d.Count > 0 ? data7d : windData, angle, $"{prefix} — 7 Days");
 
-    /// <summary>
-    /// Assigns a seasonal wind rose result to its control, or sets an empty placeholder.
-    /// </summary>
-    private static void SetSeasonalRose(
-        Dictionary<WindSeason, WindRoseResult> seasonal,
-        WindSeason season,
-        WindRoseControl control,
-        string prefix,
-        string label,
-        string months)
-    {
-        if (seasonal.TryGetValue(season, out var result))
-        {
-            result.Title = $"{prefix} - {label} ({months})";
-            control.WindRoseData = result;
-        }
-        else
-        {
-            control.WindRoseData = new WindRoseResult { Title = $"{prefix} - {label} (no data)" };
-        }
+        // 30d — last 30 days (all data)
+        var data30d = windData.Where(d => d.Date >= now.AddDays(-30)).ToList();
+        WindRose30d.WindRoseData = WindRoseCalculator.Calculate(
+            data30d.Count > 0 ? data30d : windData, angle, $"{prefix} — 30 Days");
     }
 
     private WindRoseControl? GetActiveWindRoseControl()

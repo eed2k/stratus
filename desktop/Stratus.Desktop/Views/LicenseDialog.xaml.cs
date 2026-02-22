@@ -28,7 +28,7 @@ public partial class LicenseDialog : Window
         }
         else
         {
-            LicenseTypeText.Text = "No license activated";
+            LicenseTypeText.Text = "No licence activated";
             LicenseExpiryText.Text = "";
         }
     }
@@ -41,7 +41,7 @@ public partial class LicenseDialog : Window
 
         if (string.IsNullOrEmpty(key))
         {
-            ActivationStatus.Text = "Please enter a license key.";
+            ActivationStatus.Text = "Please enter a licence key.";
             ActivationStatus.Foreground = FindResource("DangerBrush") as Brush ?? Brushes.Red;
             return;
         }
@@ -60,7 +60,7 @@ public partial class LicenseDialog : Window
     private void Trial_Click(object sender, RoutedEventArgs e)
     {
         var trial = App.LicenseService.GenerateTrialLicense();
-        ActivationStatus.Text = $"Trial license activated. Expires: {trial.ExpiryDate:yyyy-MM-dd}";
+        ActivationStatus.Text = $"Trial licence activated. Expires: {trial.ExpiryDate:yyyy-MM-dd}";
         ActivationStatus.Foreground = FindResource("SuccessBrush") as Brush ?? Brushes.Green;
         LoadCurrentLicense();
     }

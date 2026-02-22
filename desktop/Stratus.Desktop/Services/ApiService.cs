@@ -42,7 +42,8 @@ public class ApiService : IDisposable
         _handler = new HttpClientHandler
         {
             CookieContainer = _cookies,
-            UseCookies = true
+            UseCookies = true,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
         };
         _httpClient = new HttpClient(_handler)
         {
@@ -51,9 +52,7 @@ public class ApiService : IDisposable
         };
         _httpClient.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Stratus-Desktop/1.2.0");
-        _httpClient.DefaultRequestHeaders.AcceptEncoding.Add(
-            new StringWithQualityHeaderValue("gzip"));
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Stratus-Desktop/1.1.0");
 
         _jsonOptions = new JsonSerializerOptions
         {
@@ -75,7 +74,8 @@ public class ApiService : IDisposable
         _handler = new HttpClientHandler
         {
             CookieContainer = _cookies,
-            UseCookies = true
+            UseCookies = true,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
         };
         _httpClient = new HttpClient(_handler)
         {
@@ -84,9 +84,7 @@ public class ApiService : IDisposable
         };
         _httpClient.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Stratus-Desktop/1.2.0");
-        _httpClient.DefaultRequestHeaders.AcceptEncoding.Add(
-            new StringWithQualityHeaderValue("gzip"));
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Stratus-Desktop/1.1.0");
 
         _isAuthenticated = false;
         Log.Information("API base URL set to {Url}", _baseUrl);

@@ -3,7 +3,7 @@
 ; installation directory selection, and desktop/start menu shortcuts.
 
 #define AppName "Stratus Weather Station Manager"
-#define AppVersion "1.2.0"
+#define AppVersion "1.1.0"
 #define AppPublisher "Lukas Esterhuizen"
 #define AppURL "https://github.com/reuxnergy-admin1/stratus"
 #define AppExeName "Stratus.exe"

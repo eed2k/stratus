@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Serilog;
@@ -84,14 +85,55 @@ public partial class App : Application
         }
         else
         {
-            // Not first run - check license validity
+            // Not first run - check licence validity
             if (!LicenseService.IsLicenseValid())
             {
-                Log.Warning("No valid license found");
+                Log.Warning("No valid licence found");
             }
         }
 
-        Log.Information("Stratus Desktop initialized successfully");
+        // Apply user-saved settings (server URL, poll interval, etc.)
+        ApplyUserSettings();
+
+        Log.Information("Stratus Desktop initialised successfully");
+    }
+
+    /// <summary>
+    /// Loads user-saved settings from %LOCALAPPDATA%\Stratus\settings.json
+    /// and applies them to the running services.
+    /// </summary>
+    private static void ApplyUserSettings()
+    {
+        try
+        {
+            var settingsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Stratus", "settings.json");
+
+            if (!File.Exists(settingsPath)) return;
+
+            var json = File.ReadAllText(settingsPath);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("ServerUrl", out var urlProp))
+            {
+                var url = urlProp.GetString();
+                if (!string.IsNullOrWhiteSpace(url))
+                    ApiService.SetServerUrl(url);
+            }
+
+            if (root.TryGetProperty("PollInterval", out var pollProp) && pollProp.TryGetInt32(out var poll))
+            {
+                DataAcquisitionService.PollIntervalSeconds = poll;
+            }
+
+            Log.Information("User settings applied from {Path}", settingsPath);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to load user settings");
+        }
     }
 
     private void Application_Exit(object sender, ExitEventArgs e)

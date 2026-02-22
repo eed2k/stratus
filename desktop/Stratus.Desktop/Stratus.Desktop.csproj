@@ -8,9 +8,9 @@
     <RootNamespace>Stratus.Desktop</RootNamespace>
     <AssemblyName>Stratus</AssemblyName>
     <ApplicationIcon>Assets\stratus.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
-    <FileVersion>1.2.0.0</FileVersion>
-    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <Version>1.1.0</Version>
+    <FileVersion>1.1.0.0</FileVersion>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
     <Company>Lukas Esterhuizen</Company>
     <Product>Stratus Weather Station Manager</Product>
     <Description>Research-grade weather station data acquisition and monitoring software</Description>

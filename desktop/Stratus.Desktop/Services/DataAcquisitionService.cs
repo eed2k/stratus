@@ -150,7 +150,7 @@ public class DataAcquisitionService
         if (format == "TOA5")
         {
             // TOA5 header format (Campbell Scientific compatible)
-            sb.AppendLine("\"TOA5\",\"Stratus\",\"CR1000\",\"Stratus-Export\",\"Stratus.Desktop\",\"1.2\",\"StationData\",\"\"");
+            sb.AppendLine("\"TOA5\",\"Stratus\",\"CR1000\",\"Stratus-Export\",\"Stratus.Desktop\",\"1.1\",\"StationData\",\"\"");
             sb.AppendLine("\"TIMESTAMP\",\"RECORD\",\"AirTC_Avg\",\"RH_Avg\",\"BP_mbar_Avg\",\"WS_ms_Avg\",\"WindDir_D1_WVT\",\"WS_ms_Max\",\"Rain_mm_Tot\",\"SlrW_Avg\",\"SoilT_Avg\",\"SoilM_Avg\",\"BattV_Min\"");
             sb.AppendLine("\"TS\",\"RN\",\"Deg C\",\"%\",\"mbar\",\"m/s\",\"degrees\",\"m/s\",\"mm\",\"W/m2\",\"Deg C\",\"%\",\"V\"");
             sb.AppendLine("\"\",\"\",\"Avg\",\"Avg\",\"Avg\",\"Avg\",\"WVT\",\"Max\",\"Tot\",\"Avg\",\"Avg\",\"Avg\",\"Min\"");

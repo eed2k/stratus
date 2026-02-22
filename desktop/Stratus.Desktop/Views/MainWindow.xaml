@@ -42,10 +42,10 @@
             </MenuItem>
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Generate Wind Rose" Click="GenerateWindRose_Click"/>
-                <MenuItem Header="_Import CSV for Wind Rose..." Click="ImportCsvWindRose_Click"/>
+                <MenuItem Header="_Import TOA5/CSV for Wind Rose..." Click="ImportCsvWindRose_Click"/>
                 <MenuItem Header="_Export Wind Rose PNG..." Click="ExportWindRosePng_Click"/>
                 <Separator/>
-                <MenuItem Header="_License Activation..." Click="License_Click"/>
+                <MenuItem Header="_Licence Activation..." Click="License_Click"/>
                 <MenuItem Header="_Settings" Click="Settings_Click"/>
             </MenuItem>
             <MenuItem Header="_Help">
@@ -372,7 +372,7 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="Generate from Station Data" Style="{StaticResource PrimaryButton}"
                                             Click="GenerateWindRose_Click" Padding="12,6" FontSize="11" Margin="0,0,8,0"/>
-                                    <Button Content="Import CSV..." Style="{StaticResource SecondaryButton}"
+                                    <Button Content="Import TOA5/CSV..." Style="{StaticResource SecondaryButton}"
                                             Click="ImportCsvWindRose_Click" Padding="12,6" FontSize="11" Margin="0,0,8,0"/>
                                     <Button Content="Export PNG..." Style="{StaticResource SecondaryButton}"
                                             Click="ExportWindRosePng_Click" Padding="12,6" FontSize="11"/>
@@ -383,26 +383,20 @@
                         <!-- Wind Rose Display -->
                         <TabControl Grid.Row="1" x:Name="WindRoseTabControl" BorderThickness="1"
                                     BorderBrush="{StaticResource BorderBrush}" Background="White">
-                            <TabItem Header="  24-Hour  " FontSize="11">
+                            <TabItem Header="  24h  " FontSize="11">
                                 <controls:WindRoseControl x:Name="WindRose24h" Margin="4"/>
                             </TabItem>
-                            <TabItem Header="  Daylight  " FontSize="11">
-                                <controls:WindRoseControl x:Name="WindRoseDaylight" Margin="4"/>
+                            <TabItem Header="  1d  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRose1d" Margin="4"/>
                             </TabItem>
-                            <TabItem Header="  Nighttime  " FontSize="11">
-                                <controls:WindRoseControl x:Name="WindRoseNighttime" Margin="4"/>
+                            <TabItem Header="  3d  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRose3d" Margin="4"/>
                             </TabItem>
-                            <TabItem Header="  Summer  " FontSize="11">
-                                <controls:WindRoseControl x:Name="WindRoseSummer" Margin="4"/>
+                            <TabItem Header="  7d  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRose7d" Margin="4"/>
                             </TabItem>
-                            <TabItem Header="  Autumn  " FontSize="11">
-                                <controls:WindRoseControl x:Name="WindRoseAutumn" Margin="4"/>
-                            </TabItem>
-                            <TabItem Header="  Winter  " FontSize="11">
-                                <controls:WindRoseControl x:Name="WindRoseWinter" Margin="4"/>
-                            </TabItem>
-                            <TabItem Header="  Spring  " FontSize="11">
-                                <controls:WindRoseControl x:Name="WindRoseSpring" Margin="4"/>
+                            <TabItem Header="  30d  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRose30d" Margin="4"/>
                             </TabItem>
                         </TabControl>
                     </Grid>
@@ -436,12 +430,12 @@
             <Separator Background="#CCCCCC"/>
             <StatusBarItem>
                 <TextBlock Foreground="Black">
-                    <Run Text="License: "/>
+                    <Run Text="Licence: "/>
                     <Run Text="{Binding LicenseStatus, Mode=OneWay}"/>
                 </TextBlock>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="Stratus Desktop v1.2.1 | Lukas Esterhuizen" Foreground="#777777" FontSize="10"/>
+                <TextBlock Text="Stratus Desktop v1.1.0 | Lukas Esterhuizen" Foreground="#777777" FontSize="10"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

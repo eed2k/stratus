@@ -85,5 +85,5 @@ desktop/publish/
 *.suo
 
 # Release binaries (too large for GitHub)
-release/Stratus-*/
+release/
 windrose-main/
