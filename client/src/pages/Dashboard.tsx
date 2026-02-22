@@ -376,6 +376,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   });
 
   // Fetch historical data for charts and wind roses (based on configured time range)
+  // Auto-expands to 30 days if no data found in the requested window
   const { data: historicalData = [], refetch: refetchHistorical } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange],
     queryFn: async () => {
@@ -388,7 +389,17 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`
       );
       if (!response.ok) return [];
-      return response.json();
+      const data = await response.json();
+      // If no data in requested range, auto-expand to 30 days to find most recent data
+      if (Array.isArray(data) && data.length === 0) {
+        const expandedStart = new Date(endTime.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const fallback = await authFetch(
+          `/api/stations/${activeStationId}/data?startTime=${expandedStart.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`
+        );
+        if (!fallback.ok) return [];
+        return fallback.json();
+      }
+      return data;
     },
     enabled: !!activeStationId,
     refetchInterval: Math.max(dashboardConfig.updatePeriod, 120) * 1000, // Min 2min for historical charts
@@ -443,6 +454,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   }, [dewPointData31d, selectedStation?.latitude, selectedStation?.altitude]);
 
   // Separate query for historical charts section (uses its own independent time range)
+  // Auto-expands to 30 days if no data found in the requested window
   const { data: historicalSectionData = [], isLoading: historicalSectionLoading } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "historical-section", historicalChartRange],
     queryFn: async () => {
@@ -454,7 +466,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`
       );
       if (!response.ok) return [];
-      return response.json();
+      const data = await response.json();
+      if (Array.isArray(data) && data.length === 0) {
+        const expandedStart = new Date(endTime.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const fallback = await authFetch(
+          `/api/stations/${activeStationId}/data?startTime=${expandedStart.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`
+        );
+        if (!fallback.ok) return [];
+        return fallback.json();
+      }
+      return data;
     },
     enabled: !!activeStationId,
     refetchInterval: Math.max(dashboardConfig.updatePeriod, 120) * 1000,
