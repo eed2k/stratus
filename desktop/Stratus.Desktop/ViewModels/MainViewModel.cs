@@ -112,18 +112,32 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        StatusText = "Authenticating...";
-        var success = await _apiService.LoginAsync(Email, password);
+        // Ensure HttpClient points to current ServerUrl before login
+        _apiService.SetServerUrl(ServerUrl);
 
-        if (success)
+        StatusText = "Authenticating...";
+        try
         {
-            StatusText = "Authenticated, loading stations...";
-            AddLog($"[INFO] Logged in as {Email}");
-            await LoadStationsAsync();
+            var success = await _apiService.LoginAsync(Email, password);
+
+            if (success)
+            {
+                IsConnected = true;
+                ConnectionStatus = "Connected";
+                StatusText = "Authenticated, loading stations...";
+                AddLog($"[INFO] Logged in as {Email}");
+                await LoadStationsAsync();
+            }
+            else
+            {
+                StatusText = "Authentication failed";
+                AddLog("[WARN] Login failed - check credentials");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            StatusText = "Authentication failed";
+            StatusText = $"Login error: {ex.Message}";
+            AddLog($"[ERROR] Login failed: {ex.Message}");
         }
     }
 
@@ -133,25 +147,33 @@ public partial class MainViewModel : ObservableObject
         StatusText = "Loading stations...";
         Stations.Clear();
 
-        List<WeatherStation> stations;
-        if (_dbService.IsConnected)
+        try
         {
-            stations = await _dbService.GetStationsAsync();
-            AddLog($"[DB] Loaded {stations.Count} stations from database");
+            List<WeatherStation> stations;
+            if (_dbService.IsConnected)
+            {
+                stations = await _dbService.GetStationsAsync();
+                AddLog($"[DB] Loaded {stations.Count} stations from database");
+            }
+            else
+            {
+                stations = await _apiService.GetStationsAsync();
+                AddLog($"[API] Loaded {stations.Count} stations from server");
+            }
+
+            foreach (var s in stations)
+                Stations.Add(s);
+
+            StatusText = $"{stations.Count} stations loaded";
+
+            if (stations.Count > 0 && SelectedStation == null)
+                SelectedStation = stations[0];
         }
-        else
+        catch (Exception ex)
         {
-            stations = await _apiService.GetStationsAsync();
-            AddLog($"[API] Loaded {stations.Count} stations from server");
+            StatusText = $"Failed to load stations: {ex.Message}";
+            AddLog($"[ERROR] Station load failed: {ex.Message}");
         }
-
-        foreach (var s in stations)
-            Stations.Add(s);
-
-        StatusText = $"{stations.Count} stations loaded";
-
-        if (stations.Count > 0 && SelectedStation == null)
-            SelectedStation = stations[0];
     }
 
     [RelayCommand]
@@ -162,38 +184,46 @@ public partial class MainViewModel : ObservableObject
         StatusText = $"Loading data for {SelectedStation.Name}...";
         DataRecords.Clear();
 
-        var endTime = DateTime.UtcNow;
-        var startTime = SelectedTimeRange switch
+        try
         {
-            "1h" => endTime.AddHours(-1),
-            "6h" => endTime.AddHours(-6),
-            "24h" => endTime.AddHours(-24),
-            "48h" => endTime.AddHours(-48),
-            "7d" => endTime.AddDays(-7),
-            "30d" => endTime.AddDays(-30),
-            _ => endTime.AddHours(-24)
-        };
+            var endTime = DateTime.UtcNow;
+            var startTime = SelectedTimeRange switch
+            {
+                "1h" => endTime.AddHours(-1),
+                "6h" => endTime.AddHours(-6),
+                "24h" => endTime.AddHours(-24),
+                "48h" => endTime.AddHours(-48),
+                "7d" => endTime.AddDays(-7),
+                "30d" => endTime.AddDays(-30),
+                _ => endTime.AddHours(-24)
+            };
 
-        List<WeatherRecord> records;
-        if (_dbService.IsConnected)
-        {
-            records = await _dbService.GetDataAsync(SelectedStation.Id, startTime, endTime);
-            RecordCount = await _dbService.GetRecordCountAsync(SelectedStation.Id);
+            List<WeatherRecord> records;
+            if (_dbService.IsConnected)
+            {
+                records = await _dbService.GetDataAsync(SelectedStation.Id, startTime, endTime);
+                RecordCount = await _dbService.GetRecordCountAsync(SelectedStation.Id);
+            }
+            else
+            {
+                records = await _apiService.GetStationDataAsync(SelectedStation.Id, startTime, endTime);
+                RecordCount = records.Count;
+            }
+
+            foreach (var r in records.OrderByDescending(r => r.Timestamp))
+                DataRecords.Add(r);
+
+            if (records.Count > 0)
+                LatestData = records.OrderByDescending(r => r.Timestamp).First();
+
+            StatusText = $"Loaded {records.Count} records for {SelectedStation.Name}";
+            AddLog($"[DATA] Loaded {records.Count} records ({SelectedTimeRange})");
         }
-        else
+        catch (Exception ex)
         {
-            records = await _apiService.GetStationDataAsync(SelectedStation.Id, startTime, endTime);
-            RecordCount = records.Count;
+            StatusText = $"Failed to load data: {ex.Message}";
+            AddLog($"[ERROR] Data load failed: {ex.Message}");
         }
-
-        foreach (var r in records.OrderByDescending(r => r.Timestamp))
-            DataRecords.Add(r);
-
-        if (records.Count > 0)
-            LatestData = records.OrderByDescending(r => r.Timestamp).First();
-
-        StatusText = $"Loaded {records.Count} records for {SelectedStation.Name}";
-        AddLog($"[DATA] Loaded {records.Count} records ({SelectedTimeRange})");
     }
 
     [RelayCommand]
@@ -236,19 +266,37 @@ public partial class MainViewModel : ObservableObject
     private async Task ConnectDatabaseAsync(string connectionString)
     {
         StatusText = "Testing database connection...";
-        var (success, message) = await DatabaseService.TestConnectionAsync(connectionString);
+        AddLog("[DB] Testing connection...");
 
-        if (success)
+        try
         {
-            _dbService.Connect(connectionString);
-            StatusText = "Database connected";
-            AddLog($"[DB] {message}");
-            await LoadStationsAsync();
+            var (success, message) = await DatabaseService.TestConnectionAsync(connectionString);
+
+            if (success)
+            {
+                var connected = _dbService.Connect(connectionString);
+                if (connected)
+                {
+                    StatusText = "Database connected";
+                    AddLog($"[DB] {message}");
+                    await LoadStationsAsync();
+                }
+                else
+                {
+                    StatusText = "DB connection failed after test passed";
+                    AddLog("[DB ERROR] Connection succeeded in test but failed on actual connect");
+                }
+            }
+            else
+            {
+                StatusText = $"DB connection failed: {message}";
+                AddLog($"[DB ERROR] {message}");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            StatusText = $"DB connection failed: {message}";
-            AddLog($"[DB ERROR] {message}");
+            StatusText = $"DB connection error: {ex.Message}";
+            AddLog($"[DB ERROR] {ex.Message}");
         }
     }
 
@@ -256,7 +304,18 @@ public partial class MainViewModel : ObservableObject
     {
         if (value != null)
         {
-            _ = LoadDataAsync();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                        async () => await LoadDataAsync());
+                }
+                catch (Exception ex)
+                {
+                    AddLog($"[ERROR] Failed to load data: {ex.Message}");
+                }
+            });
         }
     }
 

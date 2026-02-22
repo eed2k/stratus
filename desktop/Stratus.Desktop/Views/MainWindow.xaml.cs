@@ -51,6 +51,10 @@ public partial class MainWindow : Window
     private void DisconnectDb_Click(object sender, RoutedEventArgs e)
     {
         App.DatabaseService.Disconnect();
+        if (DataContext is MainViewModel vm)
+        {
+            vm.AddLog("[DB] Disconnected from database");
+        }
     }
 
     private void License_Click(object sender, RoutedEventArgs e)

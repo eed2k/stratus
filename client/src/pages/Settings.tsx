@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, CheckCircle, Plus, Trash2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
+import { Save, Loader2, Plus, Trash2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAllUsers, updateUser } from "@/hooks/useAuth";
 import { verifyPassword } from "@/lib/passwordUtils";
@@ -46,8 +46,6 @@ export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
-  const [testEmailAddress, setTestEmailAddress] = useState('');
-  const [isSendingTest, setIsSendingTest] = useState(false);
   
   // Dropbox state
   const [newConfigName, setNewConfigName] = useState('');
@@ -179,16 +177,6 @@ export default function Settings() {
     queryFn: async () => {
       const res = await authFetch('/api/user/preferences');
       if (!res.ok) return null;
-      return res.json();
-    },
-  });
-
-  // Fetch email status
-  const { data: emailStatus } = useQuery({
-    queryKey: ['/api/email/status'],
-    queryFn: async () => {
-      const res = await authFetch('/api/email/status');
-      if (!res.ok) return { configured: false };
       return res.json();
     },
   });
@@ -556,50 +544,6 @@ export default function Settings() {
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Send test email
-  const handleSendTestEmail = async () => {
-    if (!testEmailAddress || !testEmailAddress.includes('@')) {
-      toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsSendingTest(true);
-    try {
-      const res = await authFetch('/api/email/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: testEmailAddress }),
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        toast({
-          title: "Test Email Sent",
-          description: `A test email has been sent to ${testEmailAddress}`,
-        });
-      } else {
-        toast({
-          title: "Email Failed",
-          description: data.message || "Could not send test email.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send test email.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSendingTest(false);
     }
   };
 
