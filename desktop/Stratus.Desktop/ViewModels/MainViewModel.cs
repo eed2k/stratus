@@ -70,6 +70,8 @@ public partial class MainViewModel : ObservableObject
             LicenseStatus = license.Type.ToString();
             if (license.ExpiryDate.HasValue)
                 LicenseStatus += $" (expires {license.ExpiryDate.Value:yyyy-MM-dd})";
+            else
+                LicenseStatus += " (Lifetime)";
         }
         else
         {
@@ -258,7 +260,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void AddLog(string message)
+    public void AddLog(string message)
     {
         var entry = $"[{DateTime.Now:HH:mm:ss}] {message}";
         System.Windows.Application.Current.Dispatcher.Invoke(() =>

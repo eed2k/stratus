@@ -111,6 +111,14 @@ public class ApiService : IDisposable
                     _isAuthenticated = true;
                     _userEmail = result.User?.Email;
                     _userRole = result.User?.Role;
+
+                    // Server identifies sessions via X-User-Email header
+                    if (_userEmail != null)
+                    {
+                        _httpClient.DefaultRequestHeaders.Remove("X-User-Email");
+                        _httpClient.DefaultRequestHeaders.Add("X-User-Email", _userEmail);
+                    }
+
                     ConnectionStatusChanged?.Invoke(this, true);
                     Log.Information("Authenticated as {User} (role: {Role})", _userEmail, _userRole);
                     return true;

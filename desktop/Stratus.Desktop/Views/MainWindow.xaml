@@ -2,9 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Stratus.Desktop.ViewModels"
+        xmlns:controls="clr-namespace:Stratus.Desktop.Controls"
         Title="Stratus Weather Station Manager" 
         Height="768" Width="1200"
         MinHeight="600" MinWidth="900"
+        WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
         Style="{StaticResource StratusWindow}"
         Icon="/Assets/stratus.ico">
@@ -39,6 +41,10 @@
                 <MenuItem Header="_Disconnect" Click="DisconnectDb_Click"/>
             </MenuItem>
             <MenuItem Header="_Tools">
+                <MenuItem Header="_Generate Wind Rose" Click="GenerateWindRose_Click"/>
+                <MenuItem Header="_Import CSV for Wind Rose..." Click="ImportCsvWindRose_Click"/>
+                <MenuItem Header="_Export Wind Rose PNG..." Click="ExportWindRosePng_Click"/>
+                <Separator/>
                 <MenuItem Header="_License Activation..." Click="License_Click"/>
                 <MenuItem Header="_Settings" Click="Settings_Click"/>
             </MenuItem>
@@ -252,21 +258,27 @@
                         <!-- Data Grid -->
                         <DataGrid Grid.Row="2" ItemsSource="{Binding DataRecords}" 
                                   Style="{StaticResource StratusDataGrid}"
-                                  VerticalScrollBarVisibility="Auto">
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  CanUserResizeColumns="True"
+                                  CanUserReorderColumns="True"
+                                  CanUserSortColumns="True"
+                                  AutoGenerateColumns="False"
+                                  FrozenColumnCount="1">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="160"/>
-                                <DataGridTextColumn Header="Temp (°C)" Binding="{Binding Temperature, StringFormat='{}{0:F1}'}" Width="80"/>
-                                <DataGridTextColumn Header="RH (%)" Binding="{Binding Humidity, StringFormat='{}{0:F0}'}" Width="70"/>
-                                <DataGridTextColumn Header="Press (hPa)" Binding="{Binding Pressure, StringFormat='{}{0:F1}'}" Width="90"/>
-                                <DataGridTextColumn Header="Wind (km/h)" Binding="{Binding WindSpeed, StringFormat='{}{0:F1}'}" Width="90"/>
-                                <DataGridTextColumn Header="Dir (°)" Binding="{Binding WindDirection, StringFormat='{}{0:F0}'}" Width="70"/>
-                                <DataGridTextColumn Header="Gust (km/h)" Binding="{Binding WindGust, StringFormat='{}{0:F1}'}" Width="90"/>
-                                <DataGridTextColumn Header="Rain (mm)" Binding="{Binding Rainfall, StringFormat='{}{0:F1}'}" Width="80"/>
-                                <DataGridTextColumn Header="Solar (W/m²)" Binding="{Binding SolarRadiation, StringFormat='{}{0:F0}'}" Width="90"/>
-                                <DataGridTextColumn Header="UV" Binding="{Binding UvIndex, StringFormat='{}{0:F1}'}" Width="60"/>
-                                <DataGridTextColumn Header="Soil T (°C)" Binding="{Binding SoilTemperature, StringFormat='{}{0:F1}'}" Width="80"/>
-                                <DataGridTextColumn Header="Soil M (%)" Binding="{Binding SoilMoisture, StringFormat='{}{0:F1}'}" Width="80"/>
-                                <DataGridTextColumn Header="Batt (V)" Binding="{Binding BatteryVoltage, StringFormat='{}{0:F2}'}" Width="70"/>
+                                <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="160" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Temp (°C)" Binding="{Binding Temperature, StringFormat='{}{0:F1}'}" Width="80" CanUserResize="True"/>
+                                <DataGridTextColumn Header="RH (%)" Binding="{Binding Humidity, StringFormat='{}{0:F0}'}" Width="70" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Press (hPa)" Binding="{Binding Pressure, StringFormat='{}{0:F1}'}" Width="90" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Wind (km/h)" Binding="{Binding WindSpeed, StringFormat='{}{0:F1}'}" Width="90" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Dir (°)" Binding="{Binding WindDirection, StringFormat='{}{0:F0}'}" Width="70" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Gust (km/h)" Binding="{Binding WindGust, StringFormat='{}{0:F1}'}" Width="90" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Rain (mm)" Binding="{Binding Rainfall, StringFormat='{}{0:F1}'}" Width="80" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Solar (W/m²)" Binding="{Binding SolarRadiation, StringFormat='{}{0:F0}'}" Width="90" CanUserResize="True"/>
+                                <DataGridTextColumn Header="UV" Binding="{Binding UvIndex, StringFormat='{}{0:F1}'}" Width="60" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Soil T (°C)" Binding="{Binding SoilTemperature, StringFormat='{}{0:F1}'}" Width="80" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Soil M (%)" Binding="{Binding SoilMoisture, StringFormat='{}{0:F1}'}" Width="80" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Batt (V)" Binding="{Binding BatteryVoltage, StringFormat='{}{0:F2}'}" Width="70" CanUserResize="True"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -328,6 +340,71 @@
                                         Command="{Binding ExportDataCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>
                         </GroupBox>
+                    </Grid>
+                </TabItem>
+
+                <!-- Wind Rose Tab -->
+                <TabItem Header="  Wind Rose  " FontSize="12">
+                    <Grid Margin="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Wind Rose Controls -->
+                        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="4" Padding="12" Margin="0,0,0,12">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="Sector Angle:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                                    <Slider x:Name="AngleSlider" Minimum="5" Maximum="60" Value="15"
+                                            TickFrequency="5" IsSnapToTickEnabled="True"
+                                            Width="200" VerticalAlignment="Center"
+                                            ValueChanged="AngleSlider_ValueChanged"/>
+                                    <TextBlock x:Name="AngleLabel" Text="15°" VerticalAlignment="Center"
+                                               Margin="8,0,0,0" FontSize="12" FontWeight="SemiBold" MinWidth="30"/>
+                                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="16,0"/>
+                                    <TextBlock Text="Station:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                                    <TextBlock Text="{Binding SelectedStation.Name, FallbackValue='No station selected'}"
+                                               VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" Margin="0,0,16,0"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Generate from Station Data" Style="{StaticResource PrimaryButton}"
+                                            Click="GenerateWindRose_Click" Padding="12,6" FontSize="11" Margin="0,0,8,0"/>
+                                    <Button Content="Import CSV..." Style="{StaticResource SecondaryButton}"
+                                            Click="ImportCsvWindRose_Click" Padding="12,6" FontSize="11" Margin="0,0,8,0"/>
+                                    <Button Content="Export PNG..." Style="{StaticResource SecondaryButton}"
+                                            Click="ExportWindRosePng_Click" Padding="12,6" FontSize="11"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Wind Rose Display -->
+                        <TabControl Grid.Row="1" x:Name="WindRoseTabControl" BorderThickness="1"
+                                    BorderBrush="{StaticResource BorderBrush}" Background="White">
+                            <TabItem Header="  24-Hour  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRose24h" Margin="4"/>
+                            </TabItem>
+                            <TabItem Header="  Daylight  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRoseDaylight" Margin="4"/>
+                            </TabItem>
+                            <TabItem Header="  Nighttime  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRoseNighttime" Margin="4"/>
+                            </TabItem>
+                            <TabItem Header="  Summer  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRoseSummer" Margin="4"/>
+                            </TabItem>
+                            <TabItem Header="  Autumn  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRoseAutumn" Margin="4"/>
+                            </TabItem>
+                            <TabItem Header="  Winter  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRoseWinter" Margin="4"/>
+                            </TabItem>
+                            <TabItem Header="  Spring  " FontSize="11">
+                                <controls:WindRoseControl x:Name="WindRoseSpring" Margin="4"/>
+                            </TabItem>
+                        </TabControl>
                     </Grid>
                 </TabItem>
             </TabControl>

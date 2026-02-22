@@ -80,5 +80,10 @@ update_coords.sql
 # .NET Desktop build artifacts
 desktop/Stratus.Desktop/bin/
 desktop/Stratus.Desktop/obj/
+desktop/publish/
 *.user
 *.suo
+
+# Release binaries (too large for GitHub)
+release/Stratus-*/
+windrose-main/

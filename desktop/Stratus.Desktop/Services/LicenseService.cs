@@ -79,13 +79,16 @@ public class LicenseService
             _ => 2
         };
 
+        // Lifetime key: if key body contains "LIFE", no expiry
+        var isLifetime = keyBody.Contains("LIFE");
+
         // Create license
         var license = new LicenseInfo
         {
             Key = licenseKey,
             LicenseHolder = holderName,
             Organization = organization,
-            ExpiryDate = DateTime.UtcNow.AddYears(1),
+            ExpiryDate = isLifetime ? null : DateTime.UtcNow.AddYears(1),
             Type = licenseType,
             IsValid = true,
             MaxStations = maxStations

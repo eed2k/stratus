@@ -54,7 +54,7 @@ public partial class SetupWizardDialog : Window
             var result = App.LicenseService.ActivateLicense(LicenseKey, HolderName, Organization);
             if (!result.Success)
             {
-                StatusText.Text = $"Licence activation failed: {result.Message}\nYou can leave the key blank to start a trial.";
+                StatusText.Text = $"Licence activation failed: {result.Message}";
                 StatusText.Visibility = Visibility.Visible;
                 return;
             }
@@ -62,9 +62,9 @@ public partial class SetupWizardDialog : Window
         }
         else
         {
-            // Auto-generate trial
-            App.LicenseService.GenerateTrialLicense();
-            Log.Information("Setup: Trial license generated");
+            StatusText.Text = "A licence key is required to continue.";
+            StatusText.Visibility = Visibility.Visible;
+            return;
         }
 
         // Create shortcuts
