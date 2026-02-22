@@ -57,14 +57,6 @@ public partial class LicenseDialog : Window
             LoadCurrentLicense();
     }
 
-    private void Trial_Click(object sender, RoutedEventArgs e)
-    {
-        var trial = App.LicenseService.GenerateTrialLicense();
-        ActivationStatus.Text = $"Trial licence activated. Expires: {trial.ExpiryDate:yyyy-MM-dd}";
-        ActivationStatus.Foreground = FindResource("SuccessBrush") as Brush ?? Brushes.Green;
-        LoadCurrentLicense();
-    }
-
     private void Close_Click(object sender, RoutedEventArgs e)
     {
         Close();

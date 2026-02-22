@@ -149,15 +149,23 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            List<WeatherStation> stations;
+            List<WeatherStation>? stations;
             if (_dbService.IsConnected)
             {
                 stations = await _dbService.GetStationsAsync();
-                AddLog($"[DB] Loaded {stations.Count} stations from database");
+                AddLog($"[DB] Loaded {stations?.Count ?? 0} stations from database");
             }
             else
             {
                 stations = await _apiService.GetStationsAsync();
+                if (stations == null)
+                {
+                    // GetStationsAsync returns null on error — keep the error status visible
+                    AddLog("[ERROR] Station fetch failed (see log for details)");
+                    if (!StatusText.StartsWith("Failed"))
+                        StatusText = "Failed to load stations — check connection & auth";
+                    return;
+                }
                 AddLog($"[API] Loaded {stations.Count} stations from server");
             }
 

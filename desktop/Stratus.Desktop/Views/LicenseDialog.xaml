@@ -52,8 +52,6 @@
             <TextBlock x:Name="ActivationStatus" Text="" FontSize="11" 
                        Margin="0,0,0,8" TextWrapping="Wrap"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Start Trial" Style="{StaticResource SecondaryButton}" 
-                        Click="Trial_Click" Margin="0,0,8,0"/>
                 <Button Content="Activate" Style="{StaticResource PrimaryButton}" 
                         Click="Activate_Click" Margin="0,0,8,0"/>
                 <Button Content="Close" Style="{StaticResource SecondaryButton}" 

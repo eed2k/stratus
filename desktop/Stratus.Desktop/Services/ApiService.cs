@@ -115,6 +115,11 @@ public class ApiService : IDisposable
                     {
                         _httpClient.DefaultRequestHeaders.Remove("X-User-Email");
                         _httpClient.DefaultRequestHeaders.Add("X-User-Email", _userEmail);
+                        Log.Information("X-User-Email header set to {Email}", _userEmail);
+                    }
+                    else
+                    {
+                        Log.Warning("Login succeeded but User.Email was null — auth header NOT set");
                     }
 
                     ConnectionStatusChanged?.Invoke(this, true);
@@ -158,21 +163,40 @@ public class ApiService : IDisposable
 
     /// <summary>
     /// Fetch all weather stations from the API.
+    /// Returns null on error so callers can distinguish "no stations" from "request failed".
     /// </summary>
-    public async Task<List<WeatherStation>> GetStationsAsync()
+    public async Task<List<WeatherStation>?> GetStationsAsync()
     {
         try
         {
+            Log.Information("Fetching stations from {Url}api/stations (auth header present: {HasAuth})",
+                _baseUrl + "/", _httpClient.DefaultRequestHeaders.Contains("X-User-Email"));
+
             var response = await _httpClient.GetAsync("api/stations");
-            response.EnsureSuccessStatusCode();
-            var stations = await response.Content.ReadFromJsonAsync<List<WeatherStation>>(_jsonOptions);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Log.Error("GET /api/stations failed: {StatusCode} {Reason} — {Body}",
+                    (int)response.StatusCode, response.ReasonPhrase, errorBody);
+                ErrorOccurred?.Invoke(this,
+                    $"Failed to fetch stations: {(int)response.StatusCode} {response.ReasonPhrase}");
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            Log.Debug("Stations response ({Length} chars): {Preview}",
+                json.Length, json.Length > 500 ? json[..500] + "…" : json);
+
+            var stations = JsonSerializer.Deserialize<List<WeatherStation>>(json, _jsonOptions);
+            Log.Information("Deserialized {Count} stations", stations?.Count ?? 0);
             return stations ?? new List<WeatherStation>();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to fetch stations");
             ErrorOccurred?.Invoke(this, $"Failed to fetch stations: {ex.Message}");
-            return new List<WeatherStation>();
+            return null;
         }
     }
 
@@ -184,14 +208,19 @@ public class ApiService : IDisposable
     {
         try
         {
-            var query = $"api/stations/{stationId}/data?limit={limit}";
-            if (startTime.HasValue)
-                query += $"&startTime={startTime.Value:O}";
-            if (endTime.HasValue)
-                query += $"&endTime={endTime.Value:O}";
+            // Server requires startTime and endTime — default to last 24h if not provided
+            var end = endTime ?? DateTime.UtcNow;
+            var start = startTime ?? end.AddHours(-24);
+            var query = $"api/stations/{stationId}/data?limit={limit}&startTime={start:O}&endTime={end:O}";
 
             var response = await _httpClient.GetAsync(query);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Log.Warning("GET data for station {Id} failed: {Status} {Body}",
+                    stationId, (int)response.StatusCode, errorBody);
+                return new List<WeatherRecord>();
+            }
             var data = await response.Content.ReadFromJsonAsync<List<WeatherRecord>>(_jsonOptions);
             return data ?? new List<WeatherRecord>();
         }
@@ -210,10 +239,13 @@ public class ApiService : IDisposable
     {
         try
         {
-            var response = await _httpClient.GetAsync($"api/stations/{stationId}/data?limit=1");
-            response.EnsureSuccessStatusCode();
-            var data = await response.Content.ReadFromJsonAsync<List<WeatherRecord>>(_jsonOptions);
-            return data?.FirstOrDefault();
+            var response = await _httpClient.GetAsync($"api/stations/{stationId}/data/latest");
+            if (!response.IsSuccessStatusCode)
+            {
+                Log.Warning("GET /api/stations/{Id}/data/latest returned {Status}", stationId, (int)response.StatusCode);
+                return null;
+            }
+            return await response.Content.ReadFromJsonAsync<WeatherRecord>(_jsonOptions);
         }
         catch (Exception ex)
         {

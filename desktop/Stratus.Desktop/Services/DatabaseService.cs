@@ -77,8 +77,8 @@ public class DatabaseService : IDisposable
 
         var stations = new List<WeatherStation>();
         await using var cmd = _dataSource.CreateCommand(
-            "SELECT id, name, location, latitude, longitude, elevation, station_type, " +
-            "endpoint, is_active, last_connected, description " +
+            "SELECT id, name, location, latitude, longitude, altitude, station_type, " +
+            "api_endpoint, is_active, last_connected, site_description " +
             "FROM stations ORDER BY id");
 
         await using var reader = await cmd.ExecuteReaderAsync();

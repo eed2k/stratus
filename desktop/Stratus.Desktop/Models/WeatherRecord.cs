@@ -68,6 +68,22 @@ public class WeatherRecord
     [JsonPropertyName("batteryVoltage")]
     public double? BatteryVoltage { get; set; }
 
+    // Water Level / Environmental
+    [JsonPropertyName("waterLevel")]
+    public double? WaterLevel { get; set; }
+    
+    [JsonPropertyName("temperatureSwitch")]
+    public double? TemperatureSwitch { get; set; }
+    
+    [JsonPropertyName("levelSwitch")]
+    public double? LevelSwitch { get; set; }
+    
+    [JsonPropertyName("temperatureSwitchOutlet")]
+    public double? TemperatureSwitchOutlet { get; set; }
+    
+    [JsonPropertyName("chargerVoltage")]
+    public double? ChargerVoltage { get; set; }
+
     // MPPT Solar Charger
     [JsonPropertyName("mpptSolarVoltage")]
     public double? MpptSolarVoltage { get; set; }
