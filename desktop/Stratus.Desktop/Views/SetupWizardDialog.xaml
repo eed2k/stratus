@@ -15,12 +15,12 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Border Grid.Row="0" Background="{StaticResource PrimaryBrush}" Padding="20,16">
+        <Border Grid.Row="0" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="20,16">
             <StackPanel>
                 <TextBlock Text="Welcome to Stratus" FontSize="22" FontWeight="SemiBold" 
-                           Foreground="White" FontFamily="{StaticResource HeaderFont}"/>
+                           Foreground="Black" FontFamily="{StaticResource HeaderFont}"/>
                 <TextBlock Text="Weather Station Manager - First-Time Setup" 
-                           FontSize="12" Foreground="#A0C4E8" Margin="0,4,0,0"/>
+                           FontSize="12" Foreground="#777777" Margin="0,4,0,0"/>
             </StackPanel>
         </Border>
 
@@ -90,7 +90,7 @@
         </ScrollViewer>
 
         <!-- Footer Buttons -->
-        <Border Grid.Row="2" Background="#F5F6FA" BorderBrush="{StaticResource BorderBrush}" 
+        <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource BorderBrush}" 
                 BorderThickness="0,1,0,0" Padding="20,12">
             <StackPanel>
                 <TextBlock x:Name="StatusText" Text="" FontSize="11" 

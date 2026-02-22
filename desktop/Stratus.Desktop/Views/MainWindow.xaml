@@ -23,7 +23,7 @@
         </Grid.RowDefinitions>
 
         <!-- Menu Bar -->
-        <Menu Grid.Row="0" Background="{StaticResource PrimaryBrush}" Foreground="White" FontSize="12" Padding="2">
+        <Menu Grid.Row="0" Background="{StaticResource MenuBarBrush}" Foreground="Black" FontSize="12" Padding="2">
             <MenuItem Header="_File">
                 <MenuItem Header="_Connect to Server..." Command="{Binding ConnectCommand}"/>
                 <MenuItem Header="_Export Data..." Command="{Binding ExportDataCommand}"/>
@@ -266,19 +266,19 @@
                                   AutoGenerateColumns="False"
                                   FrozenColumnCount="1">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="160" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Temp (°C)" Binding="{Binding Temperature, StringFormat='{}{0:F1}'}" Width="80" CanUserResize="True"/>
-                                <DataGridTextColumn Header="RH (%)" Binding="{Binding Humidity, StringFormat='{}{0:F0}'}" Width="70" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Press (hPa)" Binding="{Binding Pressure, StringFormat='{}{0:F1}'}" Width="90" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Wind (km/h)" Binding="{Binding WindSpeed, StringFormat='{}{0:F1}'}" Width="90" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Dir (°)" Binding="{Binding WindDirection, StringFormat='{}{0:F0}'}" Width="70" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Gust (km/h)" Binding="{Binding WindGust, StringFormat='{}{0:F1}'}" Width="90" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Rain (mm)" Binding="{Binding Rainfall, StringFormat='{}{0:F1}'}" Width="80" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Solar (W/m²)" Binding="{Binding SolarRadiation, StringFormat='{}{0:F0}'}" Width="90" CanUserResize="True"/>
-                                <DataGridTextColumn Header="UV" Binding="{Binding UvIndex, StringFormat='{}{0:F1}'}" Width="60" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Soil T (°C)" Binding="{Binding SoilTemperature, StringFormat='{}{0:F1}'}" Width="80" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Soil M (%)" Binding="{Binding SoilMoisture, StringFormat='{}{0:F1}'}" Width="80" CanUserResize="True"/>
-                                <DataGridTextColumn Header="Batt (V)" Binding="{Binding BatteryVoltage, StringFormat='{}{0:F2}'}" Width="70" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="1.5*" MinWidth="120" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Temp" Binding="{Binding Temperature, StringFormat='{}{0:F1}'}" Width="*" MinWidth="50" CanUserResize="True"/>
+                                <DataGridTextColumn Header="RH%" Binding="{Binding Humidity, StringFormat='{}{0:F0}'}" Width="*" MinWidth="40" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Press" Binding="{Binding Pressure, StringFormat='{}{0:F1}'}" Width="*" MinWidth="50" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Wind" Binding="{Binding WindSpeed, StringFormat='{}{0:F1}'}" Width="*" MinWidth="45" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Dir" Binding="{Binding WindDirection, StringFormat='{}{0:F0}'}" Width="*" MinWidth="35" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Gust" Binding="{Binding WindGust, StringFormat='{}{0:F1}'}" Width="*" MinWidth="45" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Rain" Binding="{Binding Rainfall, StringFormat='{}{0:F1}'}" Width="*" MinWidth="45" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Solar" Binding="{Binding SolarRadiation, StringFormat='{}{0:F0}'}" Width="*" MinWidth="45" CanUserResize="True"/>
+                                <DataGridTextColumn Header="UV" Binding="{Binding UvIndex, StringFormat='{}{0:F1}'}" Width="0.7*" MinWidth="30" CanUserResize="True"/>
+                                <DataGridTextColumn Header="SoilT" Binding="{Binding SoilTemperature, StringFormat='{}{0:F1}'}" Width="*" MinWidth="40" CanUserResize="True"/>
+                                <DataGridTextColumn Header="SoilM" Binding="{Binding SoilMoisture, StringFormat='{}{0:F1}'}" Width="*" MinWidth="40" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Batt" Binding="{Binding BatteryVoltage, StringFormat='{}{0:F2}'}" Width="*" MinWidth="40" CanUserResize="True"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -413,9 +413,9 @@
         <!-- Status Bar -->
         <StatusBar Grid.Row="2" Style="{StaticResource StratusStatusBar}" Padding="8,4">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}" Foreground="White"/>
+                <TextBlock Text="{Binding StatusText}" Foreground="Black"/>
             </StatusBarItem>
-            <Separator Background="#3A5A80"/>
+            <Separator Background="#CCCCCC"/>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <Ellipse Width="8" Height="8" Margin="0,0,4,0">
@@ -430,18 +430,18 @@
                             </Style>
                         </Ellipse.Style>
                     </Ellipse>
-                    <TextBlock Text="{Binding ConnectionStatus}" Foreground="White"/>
+                    <TextBlock Text="{Binding ConnectionStatus}" Foreground="Black"/>
                 </StackPanel>
             </StatusBarItem>
-            <Separator Background="#3A5A80"/>
+            <Separator Background="#CCCCCC"/>
             <StatusBarItem>
-                <TextBlock Foreground="White">
+                <TextBlock Foreground="Black">
                     <Run Text="License: "/>
                     <Run Text="{Binding LicenseStatus, Mode=OneWay}"/>
                 </TextBlock>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="Stratus Desktop v1.2.0 | Lukas Esterhuizen" Foreground="#8899AA" FontSize="10"/>
+                <TextBlock Text="Stratus Desktop v1.2.1 | Lukas Esterhuizen" Foreground="#777777" FontSize="10"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

@@ -1,21 +1,25 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Stratus Color Palette - Professional/Research Grade -->
-    <Color x:Key="PrimaryColor">#1B3A5C</Color>
-    <Color x:Key="PrimaryLightColor">#2A5580</Color>
-    <Color x:Key="PrimaryDarkColor">#0F2640</Color>
-    <Color x:Key="AccentColor">#3498DB</Color>
-    <Color x:Key="AccentLightColor">#5DADE2</Color>
+    <!-- Stratus Color Palette - Clean Black/White/Grey -->
+    <Color x:Key="PrimaryColor">#1A1A1A</Color>
+    <Color x:Key="PrimaryLightColor">#333333</Color>
+    <Color x:Key="PrimaryDarkColor">#000000</Color>
+    <Color x:Key="AccentColor">#555555</Color>
+    <Color x:Key="AccentLightColor">#888888</Color>
     <Color x:Key="SuccessColor">#27AE60</Color>
     <Color x:Key="WarningColor">#F39C12</Color>
     <Color x:Key="DangerColor">#E74C3C</Color>
-    <Color x:Key="BackgroundColor">#F5F6FA</Color>
+    <Color x:Key="BackgroundColor">#FFFFFF</Color>
     <Color x:Key="SurfaceColor">#FFFFFF</Color>
-    <Color x:Key="BorderColor">#DCE1E8</Color>
-    <Color x:Key="TextPrimaryColor">#2C3E50</Color>
-    <Color x:Key="TextSecondaryColor">#7F8C8D</Color>
-    <Color x:Key="TextMutedColor">#BDC3C7</Color>
+    <Color x:Key="BorderColor">#D0D0D0</Color>
+    <Color x:Key="TextPrimaryColor">#000000</Color>
+    <Color x:Key="TextSecondaryColor">#555555</Color>
+    <Color x:Key="TextMutedColor">#999999</Color>
+    <Color x:Key="TabGreyColor">#E8E8E8</Color>
+    <Color x:Key="MenuBarColor">#F0F0F0</Color>
+    <Color x:Key="StatusBarColor">#E0E0E0</Color>
+    <Color x:Key="HeaderGreyColor">#D5D5D5</Color>
 
     <!-- Brushes -->
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}"/>
@@ -32,6 +36,10 @@
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
     <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}"/>
+    <SolidColorBrush x:Key="TabGreyBrush" Color="{StaticResource TabGreyColor}"/>
+    <SolidColorBrush x:Key="MenuBarBrush" Color="{StaticResource MenuBarColor}"/>
+    <SolidColorBrush x:Key="StatusBarBrush" Color="{StaticResource StatusBarColor}"/>
+    <SolidColorBrush x:Key="HeaderGreyBrush" Color="{StaticResource HeaderGreyColor}"/>
 
     <!-- Fonts -->
     <FontFamily x:Key="DefaultFont">Segoe UI</FontFamily>
@@ -81,8 +89,8 @@
     </Style>
 
     <Style x:Key="SecondaryButton" TargetType="Button">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Foreground" Value="Black"/>
         <Setter Property="FontFamily" Value="{StaticResource DefaultFont}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="16,8"/>
@@ -101,7 +109,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#F0F4F8"/>
+                            <Setter Property="Background" Value="#F0F0F0"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
@@ -133,13 +141,13 @@
 
     <!-- DataGrid Column Header Style -->
     <Style TargetType="DataGridColumnHeader">
-        <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Background" Value="{StaticResource HeaderGreyBrush}"/>
+        <Setter Property="Foreground" Value="Black"/>
         <Setter Property="FontFamily" Value="{StaticResource HeaderFont}"/>
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="Padding" Value="8,6"/>
-        <Setter Property="BorderBrush" Value="{StaticResource PrimaryDarkBrush}"/>
-        <Setter Property="BorderThickness" Value="0,0,1,0"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Padding" Value="6,5"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,1,1"/>
     </Style>
 
     <!-- TextBox Style -->
@@ -154,8 +162,8 @@
 
     <!-- Status Bar Style -->
     <Style x:Key="StratusStatusBar" TargetType="StatusBar">
-        <Setter Property="Background" Value="{StaticResource PrimaryDarkBrush}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Background" Value="{StaticResource StatusBarBrush}"/>
+        <Setter Property="Foreground" Value="Black"/>
         <Setter Property="FontFamily" Value="{StaticResource DefaultFont}"/>
         <Setter Property="FontSize" Value="11"/>
     </Style>
@@ -168,7 +176,7 @@
         <Setter Property="Margin" Value="0,0,0,10"/>
         <Setter Property="FontFamily" Value="{StaticResource HeaderFont}"/>
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+        <Setter Property="Foreground" Value="Black"/>
     </Style>
 
     <!-- TabControl Style -->
@@ -196,27 +204,53 @@
     <Style x:Key="SectionHeader" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource HeaderFont}"/>
         <Setter Property="FontSize" Value="15"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+        <Setter Property="Foreground" Value="Black"/>
         <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
 
-    <!-- MenuItem Style: white text on dark menu bar, black text on white dropdown -->
+    <!-- MenuItem Style: black text on light grey menu bar -->
     <Style TargetType="MenuItem">
-        <Setter Property="Foreground" Value="#2C3E50"/>
-        <Setter Property="Background" Value="White"/>
+        <Setter Property="Foreground" Value="Black"/>
+        <Setter Property="Background" Value="Transparent"/>
         <Style.Triggers>
-            <Trigger Property="Role" Value="TopLevelHeader">
-                <Setter Property="Foreground" Value="White"/>
-                <Setter Property="Background" Value="Transparent"/>
-            </Trigger>
-            <Trigger Property="Role" Value="TopLevelItem">
-                <Setter Property="Foreground" Value="White"/>
-                <Setter Property="Background" Value="Transparent"/>
-            </Trigger>
             <Trigger Property="IsHighlighted" Value="True">
-                <Setter Property="Background" Value="#E8F0FE"/>
-                <Setter Property="Foreground" Value="#1B3A5C"/>
+                <Setter Property="Background" Value="#E0E0E0"/>
+                <Setter Property="Foreground" Value="Black"/>
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- TabItem Style: grey tabs -->
+    <Style TargetType="TabItem">
+        <Setter Property="Background" Value="{StaticResource TabGreyBrush}"/>
+        <Setter Property="Foreground" Value="Black"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="FontFamily" Value="{StaticResource DefaultFont}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="TabBorder"
+                            Background="{StaticResource TabGreyBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1,1,1,0"
+                            Padding="{TemplateBinding Padding}"
+                            Margin="0,0,2,0"
+                            CornerRadius="3,3,0,0">
+                        <ContentPresenter ContentSource="Header" HorizontalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="TabBorder" Property="Background" Value="White"/>
+                            <Setter TargetName="TabBorder" Property="BorderThickness" Value="1,1,1,0"/>
+                            <Setter TargetName="TabBorder" Property="Margin" Value="0,0,2,-1"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="TabBorder" Property="Background" Value="#F0F0F0"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 </ResourceDictionary>

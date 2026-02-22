@@ -22,7 +22,7 @@
         <TextBlock Grid.Row="0" Text="License Activation" Style="{StaticResource SectionHeader}"/>
         
         <!-- Current License Info -->
-        <Border Grid.Row="1" Background="#F0F4F8" BorderBrush="{StaticResource BorderBrush}" 
+        <Border Grid.Row="1" Background="#F5F5F5" BorderBrush="{StaticResource BorderBrush}" 
                 BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
             <StackPanel>
                 <TextBlock Text="Current License" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4"/>

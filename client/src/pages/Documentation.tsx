@@ -20,7 +20,7 @@ export default function Documentation() {
             <div className="grid gap-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Version</span>
-                <span className="font-medium">1.1.0</span>
+                <span className="font-medium">1.2.1 (Build 19.6)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Developer</span>
@@ -41,6 +41,97 @@ export default function Documentation() {
                 <span className="font-medium">&copy; 2025-2026 Lukas Esterhuizen</span>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Desktop Application */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Desktop Application
+              <Badge variant="outline" className="text-xs">Windows</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-3">
+            <p>
+              Stratus Desktop is a standalone Windows application for direct
+              station management, data acquisition, and wind rose analysis.
+              It requires no browser or internet connection for local operation.
+            </p>
+            <div className="grid gap-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Platform</span>
+                <span className="font-medium text-foreground">Windows 10/11 (x64)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Runtime</span>
+                <span className="font-medium text-foreground">.NET 8 (self-contained)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Framework</span>
+                <span className="font-medium text-foreground">WPF (Windows Presentation Foundation)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Distribution</span>
+                <span className="font-medium text-foreground">Single-file EXE (~169 MB, no installer required)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Licence</span>
+                <span className="font-medium text-foreground">Hardware-locked with lifetime key</span>
+              </div>
+            </div>
+            <h4 className="font-medium text-foreground pt-2">Key Features</h4>
+            <ul className="space-y-1.5 ml-4 list-disc">
+              <li>Setup wizard for first-run database and server configuration</li>
+              <li>Station management with real-time data collection</li>
+              <li>Wind rose generator with 24-hour, daylight, nighttime, and seasonal analysis</li>
+              <li>CSV import for external wind data (TOA5, standard CSV, auto-detect)</li>
+              <li>High-resolution PNG export (192 DPI) for publication-quality figures</li>
+              <li>Adjustable sector angle (5-60 degrees) for wind direction binning</li>
+              <li>Fullscreen mode (F11) for field deployment</li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        {/* Wind Rose Analysis */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Wind Rose Analysis
+              <Badge variant="outline" className="text-xs">Research</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-3">
+            <p>
+              The wind rose module provides research-grade polar plots
+              conforming to standard meteorological conventions. Wind speed
+              categories follow the openair R package classification bins
+              (0-2, 2-5, 5-8, 8-12, 12-20, 20-35 m/s) for compatibility
+              with published literature.
+            </p>
+            <h4 className="font-medium text-foreground">Analysis Modes</h4>
+            <ul className="space-y-1.5 ml-4 list-disc">
+              <li>
+                <span className="text-foreground font-medium">24-Hour</span>
+                {" - "}Full-period wind rose from all available records.
+              </li>
+              <li>
+                <span className="text-foreground font-medium">Daylight / Nighttime</span>
+                {" - "}Solar declination-based sunrise/sunset classification for diurnal analysis.
+              </li>
+              <li>
+                <span className="text-foreground font-medium">Seasonal</span>
+                {" - "}Southern Hemisphere seasons: Summer (Dec-Feb), Autumn (Mar-May),
+                Winter (Jun-Aug), Spring (Sep-Nov).
+              </li>
+            </ul>
+            <h4 className="font-medium text-foreground pt-2">Technical Details</h4>
+            <ul className="space-y-1.5 ml-4 list-disc">
+              <li>Sector angles: 5, 6, 8, 9, 10, 12, 15, 18, 20, 24, 30, 36, 40, 45, or 60 degrees (must evenly divide 360)</li>
+              <li>Calm threshold: wind speed &lt; 0.5 m/s</li>
+              <li>Direction convention: meteorological (direction wind blows FROM, clockwise from north)</li>
+              <li>Default latitude: -33.0 degrees (South Africa) for daylight calculation</li>
+            </ul>
           </CardContent>
         </Card>
 
@@ -215,6 +306,33 @@ export default function Documentation() {
               </ul>
             </div>
 
+            {/* Desktop */}
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                Desktop Application
+                <Badge variant="outline" className="text-xs">.NET 8</Badge>
+              </h4>
+              <ul className="space-y-1.5 text-muted-foreground ml-4 list-disc">
+                <li>
+                  <span className="text-foreground font-medium">WPF</span>
+                  {" - "}Windows Presentation Foundation (.NET 8). Native desktop
+                  UI framework with hardware-accelerated rendering.
+                </li>
+                <li>
+                  <span className="text-foreground font-medium">Npgsql</span>
+                  {" - "}Shay Rojansky and the Npgsql contributors. High-performance
+                  .NET data provider for PostgreSQL.
+                </li>
+                <li>
+                  <span className="text-foreground font-medium">
+                    System.Management
+                  </span>
+                  {" - "}Microsoft. WMI-based hardware fingerprinting for
+                  licence validation.
+                </li>
+              </ul>
+            </div>
+
             {/* Build Tools */}
             <div>
               <h4 className="font-medium mb-2">
@@ -256,6 +374,13 @@ export default function Documentation() {
                   </span>
                   {" - "}Wind speed classifications follow World Meteorological
                   Organization standards for surface wind observation.
+                </li>
+                <li>
+                  <span className="text-foreground font-medium">
+                    Solar Declination Model
+                  </span>
+                  {" - "}Simplified solar declination calculation for sunrise/sunset
+                  estimation used in daylight/nighttime wind rose classification.
                 </li>
               </ul>
             </div>
