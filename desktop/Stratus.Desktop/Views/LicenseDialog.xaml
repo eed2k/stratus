@@ -1,7 +1,7 @@
 <Window x:Class="Stratus.Desktop.Views.LicenseDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="License Activation — Stratus" 
+        Title="License Activation - Stratus" 
         Height="420" Width="500"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"

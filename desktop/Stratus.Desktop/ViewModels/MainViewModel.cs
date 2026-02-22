@@ -20,7 +20,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private WeatherStation? _selectedStation;
     [ObservableProperty] private WeatherRecord? _latestData;
     [ObservableProperty] private string _serverUrl = "https://stratusweather.co.za";
-    [ObservableProperty] private string _username = string.Empty;
+    [ObservableProperty] private string _email = string.Empty;
     [ObservableProperty] private string _selectedTimeRange = "24h";
     [ObservableProperty] private long _recordCount;
     [ObservableProperty] private string _licenseStatus = "Trial";
@@ -90,7 +90,7 @@ public partial class MainViewModel : ObservableObject
         if (healthy)
         {
             ConnectionStatus = "Server reachable";
-            StatusText = "Server online — please log in";
+            StatusText = "Server online, please log in";
             AddLog("[INFO] Server health check passed");
         }
         else
@@ -104,19 +104,19 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task LoginAsync(string password)
     {
-        if (string.IsNullOrEmpty(Username))
+        if (string.IsNullOrEmpty(Email))
         {
-            StatusText = "Please enter username";
+            StatusText = "Please enter email";
             return;
         }
 
         StatusText = "Authenticating...";
-        var success = await _apiService.LoginAsync(Username, password);
+        var success = await _apiService.LoginAsync(Email, password);
 
         if (success)
         {
-            StatusText = "Authenticated — loading stations...";
-            AddLog($"[INFO] Logged in as {Username}");
+            StatusText = "Authenticated, loading stations...";
+            AddLog($"[INFO] Logged in as {Email}");
             await LoadStationsAsync();
         }
         else

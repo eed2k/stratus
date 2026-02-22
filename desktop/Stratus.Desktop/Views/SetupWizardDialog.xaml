@@ -1,7 +1,7 @@
 <Window x:Class="Stratus.Desktop.Views.SetupWizardDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Stratus — First-Time Setup" 
+        Title="Stratus First-Time Setup" 
         Height="620" Width="560"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
@@ -19,7 +19,7 @@
             <StackPanel>
                 <TextBlock Text="Welcome to Stratus" FontSize="22" FontWeight="SemiBold" 
                            Foreground="White" FontFamily="{StaticResource HeaderFont}"/>
-                <TextBlock Text="Weather Station Manager — First-Time Setup" 
+                <TextBlock Text="Weather Station Manager - First-Time Setup" 
                            FontSize="12" Foreground="#A0C4E8" Margin="0,4,0,0"/>
             </StackPanel>
         </Border>

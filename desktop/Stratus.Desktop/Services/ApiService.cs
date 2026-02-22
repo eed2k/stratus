@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -15,13 +16,19 @@ namespace Stratus.Desktop.Services;
 /// </summary>
 public class ApiService : IDisposable
 {
-    private readonly HttpClient _httpClient;
+    private HttpClient _httpClient;
+    private HttpClientHandler _handler;
+    private CookieContainer _cookies;
     private readonly JsonSerializerOptions _jsonOptions;
-    private string? _authToken;
+    private bool _isAuthenticated;
     private string _baseUrl;
+    private string? _userEmail;
+    private string? _userRole;
 
-    public bool IsAuthenticated => !string.IsNullOrEmpty(_authToken);
+    public bool IsAuthenticated => _isAuthenticated;
     public string BaseUrl => _baseUrl;
+    public string? UserEmail => _userEmail;
+    public string? UserRole => _userRole;
 
     public event EventHandler<bool>? ConnectionStatusChanged;
     public event EventHandler<string>? ErrorOccurred;
@@ -31,7 +38,13 @@ public class ApiService : IDisposable
         _baseUrl = config["Server:BaseUrl"] ?? "https://stratusweather.co.za";
         var timeout = int.TryParse(config["Server:ApiTimeout"], out var t) ? t : 30;
 
-        _httpClient = new HttpClient
+        _cookies = new CookieContainer();
+        _handler = new HttpClientHandler
+        {
+            CookieContainer = _cookies,
+            UseCookies = true
+        };
+        _httpClient = new HttpClient(_handler)
         {
             BaseAddress = new Uri(_baseUrl.TrimEnd('/') + "/"),
             Timeout = TimeSpan.FromSeconds(timeout)
@@ -50,36 +63,64 @@ public class ApiService : IDisposable
     }
 
     /// <summary>
-    /// Configure the server URL.
+    /// Configure the server URL (recreates HttpClient with fresh cookies).
     /// </summary>
     public void SetServerUrl(string url)
     {
         _baseUrl = url.TrimEnd('/');
-        _httpClient.BaseAddress = new Uri(_baseUrl + "/");
+        var timeout = _httpClient.Timeout;
+        _httpClient.Dispose();
+
+        _cookies = new CookieContainer();
+        _handler = new HttpClientHandler
+        {
+            CookieContainer = _cookies,
+            UseCookies = true
+        };
+        _httpClient = new HttpClient(_handler)
+        {
+            BaseAddress = new Uri(_baseUrl + "/"),
+            Timeout = timeout
+        };
+        _httpClient.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json"));
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Stratus-Desktop/1.2.0");
+        _httpClient.DefaultRequestHeaders.AcceptEncoding.Add(
+            new StringWithQualityHeaderValue("gzip"));
+
+        _isAuthenticated = false;
         Log.Information("API base URL set to {Url}", _baseUrl);
     }
 
     /// <summary>
-    /// Authenticate with the Stratus server.
+    /// Authenticate with the Stratus server using email and password.
+    /// Server uses session cookies (connect.sid) for auth.
     /// </summary>
-    public async Task<bool> LoginAsync(string username, string password)
+    public async Task<bool> LoginAsync(string email, string password)
     {
         try
         {
             var response = await _httpClient.PostAsJsonAsync("api/auth/login",
-                new { username, password });
+                new { email, password });
 
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<LoginResponse>(_jsonOptions);
-                if (result?.Token != null)
+                if (result?.Success == true)
                 {
-                    _authToken = result.Token;
-                    _httpClient.DefaultRequestHeaders.Authorization =
-                        new AuthenticationHeaderValue("Bearer", _authToken);
+                    _isAuthenticated = true;
+                    _userEmail = result.User?.Email;
+                    _userRole = result.User?.Role;
                     ConnectionStatusChanged?.Invoke(this, true);
-                    Log.Information("Authenticated as {User}", username);
+                    Log.Information("Authenticated as {User} (role: {Role})", _userEmail, _userRole);
                     return true;
+                }
+                else
+                {
+                    var msg = result?.Message ?? "Unknown error";
+                    Log.Warning("Login failed: {Message}", msg);
+                    ErrorOccurred?.Invoke(this, $"Login failed: {msg}");
+                    return false;
                 }
             }
 
@@ -97,13 +138,16 @@ public class ApiService : IDisposable
     }
 
     /// <summary>
-    /// Set an existing auth token (from saved session).
+    /// Log out and clear session.
     /// </summary>
-    public void SetAuthToken(string token)
+    public void Logout()
     {
-        _authToken = token;
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", _authToken);
+        _isAuthenticated = false;
+        _userEmail = null;
+        _userRole = null;
+        // Clear cookies for a fresh session
+        SetServerUrl(_baseUrl);
+        ConnectionStatusChanged?.Invoke(this, false);
     }
 
     /// <summary>
@@ -195,7 +239,16 @@ public class ApiService : IDisposable
 
     private class LoginResponse
     {
-        public string? Token { get; set; }
+        public bool Success { get; set; }
         public string? Message { get; set; }
+        public LoginUser? User { get; set; }
+    }
+
+    private class LoginUser
+    {
+        public string? Email { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Role { get; set; }
     }
 }

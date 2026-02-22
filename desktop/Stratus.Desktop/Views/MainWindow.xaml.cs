@@ -52,8 +52,8 @@ public partial class MainWindow : Window
 
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show("Settings dialog - configure data acquisition parameters, polling intervals, and export defaults.",
-            "Settings", MessageBoxButton.OK, MessageBoxImage.Information);
+        var dialog = new SettingsDialog { Owner = this };
+        dialog.ShowDialog();
     }
 
     private void About_Click(object sender, RoutedEventArgs e)
@@ -69,18 +69,6 @@ public partial class MainWindow : Window
             "About Stratus", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    private void Docs_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "https://github.com/reuxnergy-admin1/stratus",
-                UseShellExecute = true
-            });
-        }
-        catch { }
-    }
 }
 
 /// <summary>

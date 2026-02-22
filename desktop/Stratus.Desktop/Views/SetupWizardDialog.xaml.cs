@@ -58,7 +58,7 @@ public partial class SetupWizardDialog : Window
                 StatusText.Visibility = Visibility.Visible;
                 return;
             }
-            Log.Information("Setup: License activated — {Type}", result.License?.Type);
+            Log.Information("Setup: License activated - {Type}", result.License?.Type);
         }
         else
         {

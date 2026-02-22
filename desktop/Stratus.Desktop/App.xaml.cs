@@ -84,7 +84,7 @@ public partial class App : Application
         }
         else
         {
-            // Not first run — ensure license is valid, auto-trial if expired/missing
+            // Not first run - ensure license is valid, auto-trial if expired/missing
             if (!LicenseService.IsLicenseValid())
             {
                 Log.Information("No valid license, generating trial");
