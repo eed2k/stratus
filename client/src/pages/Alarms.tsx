@@ -67,9 +67,9 @@ const PARAMETERS = [
   // Fire danger
   { value: "fireDangerIndex", label: "Fire Danger Index (FDI)", unit: "" },
   // Water & sensors
-  { value: "waterLevel", label: "Water Level", unit: "m" },
+  { value: "waterLevel", label: "Water Level", unit: "mm" },
   { value: "temperatureSwitch", label: "Temperature Switch", unit: "mV" },
-  { value: "levelSwitch", label: "Level Switch", unit: "mV" },
+  { value: "levelSwitch", label: "Level Switch", unit: "On/Off" },
   { value: "temperatureSwitchOutlet", label: "Temp Switch Outlet", unit: "mV" },
   { value: "levelSwitchStatus", label: "Level Switch Status", unit: "" },
   { value: "lightning", label: "Lightning", unit: "strikes" },

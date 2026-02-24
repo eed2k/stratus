@@ -1819,11 +1819,11 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.connection_type,
-      // Location fields — pg REAL columns can arrive as strings; ensure numbers
+      // Location fields — keep raw pg values (strings) so the desktop EXE (string? model) can deserialise
       location: station.location || undefined,
-      latitude: this.toReal(station.latitude),
-      longitude: this.toReal(station.longitude),
-      altitude: this.toReal(station.altitude),
+      latitude: station.latitude ?? undefined,
+      longitude: station.longitude ?? undefined,
+      altitude: station.altitude ?? undefined,
       // Equipment fields
       dataloggerModel: station.datalogger_model || undefined,
       dataloggerSerialNumber: station.datalogger_serial_number || undefined,
@@ -1884,11 +1884,11 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.stationType || station.connectionType,
-      // Location fields — pg REAL columns can arrive as strings; ensure numbers
+      // Location fields — keep raw pg values (strings) so the desktop EXE (string? model) can deserialise
       location: station.location || undefined,
-      latitude: this.toReal(station.latitude),
-      longitude: this.toReal(station.longitude),
-      altitude: this.toReal(station.altitude),
+      latitude: station.latitude ?? undefined,
+      longitude: station.longitude ?? undefined,
+      altitude: station.altitude ?? undefined,
       // Equipment fields
       dataloggerModel: station.dataloggerModel || undefined,
       dataloggerSerialNumber: station.dataloggerSerialNumber || undefined,

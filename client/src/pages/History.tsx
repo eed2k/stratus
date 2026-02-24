@@ -67,7 +67,7 @@ export default function History() {
       "Wind Gust", "Rainfall", "Solar Radiation", "UV Index", "Dew Point", "ETo",
       "Battery Voltage", "Panel Temp", "Soil Temp", "Soil Moisture",
       "PM10", "PM2.5", "Air Density",
-      "Water Level", "Temp Switch (mV)", "Level Switch (mV)", "Temp Switch Outlet (mV)", "Level Switch Status",
+      "Water Level (mm)", "Temp Switch (mV)", "Level Switch (On/Off)", "Temp Switch Outlet (mV)", "Level Switch Status",
       "Lightning", "Charger Voltage",
     ];
     const rows = weatherData.map(d => [

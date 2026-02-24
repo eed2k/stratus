@@ -1690,8 +1690,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {availableFields.waterLevel && (
               <MetricCard
                 title="Water Level"
-                value={formatValue(currentData.waterLevel || 0, 2)}
-                unit="m"
+                value={formatValue(currentData.waterLevel || 0, 1)}
+                unit="mm"
                 sparklineData={chartData.slice(-24).map(d => d.waterLevel).filter((v): v is number => v != null)}
                 chartColor="#3b82f6"
               />
@@ -1708,9 +1708,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {availableFields.levelSwitch && (
               <MetricCard
                 title="Level Switch"
-                value={formatValue(currentData.levelSwitch || 0, 1)}
-                unit="mV"
-                chartColor="#22c55e"
+                value={(currentData.levelSwitch ?? 0) > 100 ? "On" : "Off"}
+                unit=""
+                chartColor={(currentData.levelSwitch ?? 0) > 100 ? "#22c55e" : "#6b7280"}
               />
             )}
             {availableFields.temperatureSwitchOutlet && (
@@ -1725,9 +1725,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {availableFields.levelSwitchStatus && (
               <MetricCard
                 title="Level Switch Status"
-                value={formatValue(currentData.levelSwitchStatus || 0, 0)}
+                value={(currentData.levelSwitchStatus ?? 0) > 0 ? "On" : "Off"}
                 unit=""
-                chartColor="#3b82f6"
+                chartColor={(currentData.levelSwitchStatus ?? 0) > 0 ? "#22c55e" : "#6b7280"}
               />
             )}
             {availableFields.lightning && (
@@ -1756,7 +1756,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Water Level History"
               data={chartData}
               series={[
-                { dataKey: "waterLevel", name: "Water Level", color: "#3b82f6", unit: "m" },
+                { dataKey: "waterLevel", name: "Water Level", color: "#3b82f6", unit: "mm" },
               ]}
               chartType="line"
               xAxisLabel="Time"
