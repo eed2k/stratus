@@ -1699,8 +1699,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {availableFields.temperatureSwitch && (
               <MetricCard
                 title="Temp Switch"
-                value={formatValue(currentData.temperatureSwitch || 0, 2)}
-                unit="°C"
+                value={formatValue(currentData.temperatureSwitch || 0, 1)}
+                unit="mV"
                 sparklineData={chartData.slice(-24).map(d => d.temperatureSwitch).filter((v): v is number => v != null)}
                 chartColor="#ef4444"
               />
@@ -1708,8 +1708,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {availableFields.levelSwitch && (
               <MetricCard
                 title="Level Switch"
-                value={formatValue(currentData.levelSwitch || 0, 0)}
-                unit=""
+                value={formatValue(currentData.levelSwitch || 0, 1)}
+                unit="mV"
                 chartColor="#22c55e"
               />
             )}
@@ -1717,7 +1717,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               <MetricCard
                 title="Temp Switch Outlet"
                 value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)}
-                unit="°C"
+                unit="mV"
                 sparklineData={chartData.slice(-24).map(d => d.temperatureSwitchOutlet).filter((v): v is number => v != null)}
                 chartColor="#ef4444"
               />
@@ -1770,12 +1770,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Temperature Switch History"
               data={chartData}
               series={[
-                { dataKey: "temperatureSwitch", name: "Temp Switch", color: "#ef4444", unit: "°C" },
-                ...(availableFields.temperatureSwitchOutlet ? [{ dataKey: "temperatureSwitchOutlet", name: "Temp Switch Outlet", color: "#ef4444", unit: "°C" }] : []),
+                { dataKey: "temperatureSwitch", name: "Temp Switch", color: "#ef4444", unit: "mV" },
+                ...(availableFields.temperatureSwitchOutlet ? [{ dataKey: "temperatureSwitchOutlet", name: "Temp Switch Outlet", color: "#ef4444", unit: "mV" }] : []),
               ]}
               chartType="line"
               xAxisLabel="Time"
-              yAxisLabel="Temperature"
+              yAxisLabel="Millivolts (mV)"
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.temperatureSwitch || 0}
