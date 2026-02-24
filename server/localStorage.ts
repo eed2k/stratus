@@ -1821,9 +1821,9 @@ export class DatabaseStorage {
       stationType: connectionConfig.stationType || station.connection_type,
       // Location fields — pg REAL columns can arrive as strings; ensure numbers
       location: station.location || undefined,
-      latitude: station.latitude != null ? parseFloat(station.latitude) || null : null,
-      longitude: station.longitude != null ? parseFloat(station.longitude) || null : null,
-      altitude: station.altitude != null ? parseFloat(station.altitude) || null : null,
+      latitude: this.toReal(station.latitude),
+      longitude: this.toReal(station.longitude),
+      altitude: this.toReal(station.altitude),
       // Equipment fields
       dataloggerModel: station.datalogger_model || undefined,
       dataloggerSerialNumber: station.datalogger_serial_number || undefined,
@@ -1841,6 +1841,13 @@ export class DatabaseStorage {
       // Station image
       stationImage: station.station_image || null
     };
+  }
+
+  /** Convert a pg REAL value (may arrive as string) to a proper number, or undefined */
+  private toReal(v: any): number | undefined {
+    if (v == null) return undefined;
+    const n = typeof v === 'number' ? v : parseFloat(v);
+    return isNaN(n) ? undefined : n;
   }
 
   // Map PostgreSQL station (uses camelCase from db-postgres.ts)
@@ -1879,9 +1886,9 @@ export class DatabaseStorage {
       stationType: connectionConfig.stationType || station.stationType || station.connectionType,
       // Location fields — pg REAL columns can arrive as strings; ensure numbers
       location: station.location || undefined,
-      latitude: station.latitude != null ? parseFloat(station.latitude) || null : null,
-      longitude: station.longitude != null ? parseFloat(station.longitude) || null : null,
-      altitude: station.altitude != null ? parseFloat(station.altitude) || null : null,
+      latitude: this.toReal(station.latitude),
+      longitude: this.toReal(station.longitude),
+      altitude: this.toReal(station.altitude),
       // Equipment fields
       dataloggerModel: station.dataloggerModel || undefined,
       dataloggerSerialNumber: station.dataloggerSerialNumber || undefined,
