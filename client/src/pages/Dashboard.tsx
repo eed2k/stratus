@@ -198,11 +198,11 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
     return {
       timestamp: formatTimestamp(new Date(d.timestamp)),
       fullTimestamp: new Date(d.timestamp).toISOString(),
-      temperature: d.temperature ?? 0,
-      humidity: d.humidity ?? 0,
-      pressure: d.pressure ?? 0,
-      windSpeed: d.windSpeed ?? 0,
-      solar: Math.max(d.solarRadiation ?? 0, 0),
+      temperature: d.temperature ?? null,
+      humidity: d.humidity ?? null,
+      pressure: d.pressure ?? null,
+      windSpeed: d.windSpeed ?? null,
+      solar: d.solarRadiation != null ? Math.max(d.solarRadiation, 0) : null,
       rain: incrementalRain,
       soilTemperature: d.soilTemperature ?? null,
       soilMoisture: d.soilMoisture ?? null,
@@ -1093,7 +1093,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     return { hasData: true, didCharge, maxVoltage: maxV, minVoltage: minV };
   }, [sortedHistoricalData]);
 
-  const sparkline = chartData.slice(-12).map(d => d.temperature);
+  const sparkline = chartData.slice(-12).map(d => d.temperature).filter((v): v is number => v != null);
   
   // Calculate max wind speed from actual observations, not from wind rose bin counts
   const maxWindSpeed = useMemo(() => {
@@ -1311,7 +1311,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               value={formatValue(currentData.humidity || 0, 1)}
               unit="%"
               trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
-              sparklineData={chartData.slice(-12).map(d => d.humidity)}
+              sparklineData={chartData.slice(-12).map(d => d.humidity).filter((v): v is number => v != null)}
               chartColor="#3b82f6"
             />
             )}
@@ -1329,7 +1329,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               value={formatValue(currentData.pressure || 0, 1)}
               unit="hPa"
               trend={trends.pressure !== null ? { value: parseFloat(safeFixed(trends.pressure, 1, "0")), label: "vs avg" } : undefined}
-              sparklineData={chartData.slice(-12).map(d => d.pressure)}
+              sparklineData={chartData.slice(-12).map(d => d.pressure).filter((v): v is number => v != null)}
               chartColor="#3b82f6"
             />
             )}
@@ -1341,7 +1341,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               subMetrics={[
                 { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} km/h` },
               ]}
-              sparklineData={chartData.slice(-12).map(d => d.windSpeed)}
+              sparklineData={chartData.slice(-12).map(d => d.windSpeed).filter((v): v is number => v != null)}
               chartColor="#22c55e"
             />
             )}
@@ -1407,8 +1407,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               altitude={selectedStation?.altitude || 0}
               temperature={currentData.temperature || 20}
               trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
-              sparklineDataStation={chartData.slice(-24).map(d => isRikaStation ? calculateStationPressure(d.pressure, selectedStation?.altitude || 0, d.temperature ?? 20) : d.pressure)}
-              sparklineDataSeaLevel={chartData.slice(-24).map(d => isRikaStation ? d.pressure : calculateSeaLevelPressure(d.pressure, selectedStation?.altitude || 0, d.temperature ?? 20))}
+              sparklineDataStation={chartData.slice(-24).map(d => isRikaStation ? calculateStationPressure(d.pressure ?? 0, selectedStation?.altitude || 0, d.temperature ?? 20) : (d.pressure ?? 0)).filter((v): v is number => v != null)}
+              sparklineDataSeaLevel={chartData.slice(-24).map(d => isRikaStation ? (d.pressure ?? 0) : calculateSeaLevelPressure(d.pressure ?? 0, selectedStation?.altitude || 0, d.temperature ?? 20)).filter((v): v is number => v != null)}
             />
             <DataBlockChart
               title="Barometric Pressure History"
@@ -2161,9 +2161,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentPower={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || 1.225)}
               gustPower={calculateWindPower(currentData.windGust || 0, currentData.airDensity || 1.225)}
               airDensity={currentData.airDensity || 1.225}
-              avgSpeed={chartData.slice(-10).reduce((sum, d) => sum + d.windSpeed, 0) / Math.max(chartData.slice(-10).length, 1)}
-              avgPower={chartData.slice(-10).reduce((sum, d) => sum + calculateWindPower(d.windSpeed), 0) / Math.max(chartData.slice(-10).length, 1)}
-              sparklineData={chartData.slice(-12).map(d => calculateWindPower(d.windSpeed))}
+              avgSpeed={chartData.slice(-10).reduce((sum, d) => sum + (d.windSpeed ?? 0), 0) / Math.max(chartData.slice(-10).length, 1)}
+              avgPower={chartData.slice(-10).reduce((sum, d) => sum + calculateWindPower(d.windSpeed ?? 0), 0) / Math.max(chartData.slice(-10).length, 1)}
+              sparklineData={chartData.slice(-12).map(d => calculateWindPower(d.windSpeed ?? 0))}
             />
             <MetricCard
               title="Current Wind Power"
