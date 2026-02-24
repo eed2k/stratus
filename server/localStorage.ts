@@ -1819,11 +1819,11 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.connection_type,
-      // Location fields
+      // Location fields — pg REAL columns can arrive as strings; ensure numbers
       location: station.location || undefined,
-      latitude: station.latitude || undefined,
-      longitude: station.longitude || undefined,
-      altitude: station.altitude || undefined,
+      latitude: station.latitude != null ? parseFloat(station.latitude) || null : null,
+      longitude: station.longitude != null ? parseFloat(station.longitude) || null : null,
+      altitude: station.altitude != null ? parseFloat(station.altitude) || null : null,
       // Equipment fields
       dataloggerModel: station.datalogger_model || undefined,
       dataloggerSerialNumber: station.datalogger_serial_number || undefined,
@@ -1877,11 +1877,11 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.stationType || station.connectionType,
-      // Location fields
+      // Location fields — pg REAL columns can arrive as strings; ensure numbers
       location: station.location || undefined,
-      latitude: station.latitude || undefined,
-      longitude: station.longitude || undefined,
-      altitude: station.altitude || undefined,
+      latitude: station.latitude != null ? parseFloat(station.latitude) || null : null,
+      longitude: station.longitude != null ? parseFloat(station.longitude) || null : null,
+      altitude: station.altitude != null ? parseFloat(station.altitude) || null : null,
       // Equipment fields
       dataloggerModel: station.dataloggerModel || undefined,
       dataloggerSerialNumber: station.dataloggerSerialNumber || undefined,
