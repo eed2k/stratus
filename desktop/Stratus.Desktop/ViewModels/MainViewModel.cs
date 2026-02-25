@@ -37,14 +37,61 @@ public partial class MainViewModel : ObservableObject
     public string[] TimeRanges { get; } = { "1h", "6h", "24h", "48h", "7d", "30d" };
 
     // ── LiveCharts2 series for the Charts tab ──
+    // Atmospheric
     [ObservableProperty] private ISeries[] _temperatureSeries = Array.Empty<ISeries>();
     [ObservableProperty] private ISeries[] _humiditySeries = Array.Empty<ISeries>();
     [ObservableProperty] private ISeries[] _pressureSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _dewPointSeries = Array.Empty<ISeries>();
+    // Wind
     [ObservableProperty] private ISeries[] _windSeries = Array.Empty<ISeries>();
-    [ObservableProperty] private ISeries[] _solarSeries = Array.Empty<ISeries>();
-    [ObservableProperty] private ISeries[] _batterySeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _windDirectionSeries = Array.Empty<ISeries>();
+    // Precipitation
     [ObservableProperty] private ISeries[] _rainfallSeries = Array.Empty<ISeries>();
+    // Solar
+    [ObservableProperty] private ISeries[] _solarSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _uvIndexSeries = Array.Empty<ISeries>();
+    // Evapotranspiration
+    [ObservableProperty] private ISeries[] _etoSeries = Array.Empty<ISeries>();
+    // Soil
+    [ObservableProperty] private ISeries[] _soilSeries = Array.Empty<ISeries>();
+    // Air Quality
+    [ObservableProperty] private ISeries[] _airQualitySeries = Array.Empty<ISeries>();
+    // Battery & Power
+    [ObservableProperty] private ISeries[] _batterySeries = Array.Empty<ISeries>();
+    // Water & Sensors
     [ObservableProperty] private ISeries[] _waterLevelSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _switchSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _lightningSeries = Array.Empty<ISeries>();
+    // MPPT Charger 1
+    [ObservableProperty] private ISeries[] _mpptPowerSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _mpptVoltageSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _mpptCurrentSeries = Array.Empty<ISeries>();
+    // MPPT Charger 2
+    [ObservableProperty] private ISeries[] _mppt2PowerSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _mppt2VoltageSeries = Array.Empty<ISeries>();
+
+    // Chart visibility (only show charts that have data)
+    [ObservableProperty] private bool _hasTemperature;
+    [ObservableProperty] private bool _hasHumidity;
+    [ObservableProperty] private bool _hasPressure;
+    [ObservableProperty] private bool _hasDewPoint;
+    [ObservableProperty] private bool _hasWind;
+    [ObservableProperty] private bool _hasWindDirection;
+    [ObservableProperty] private bool _hasRainfall;
+    [ObservableProperty] private bool _hasSolar;
+    [ObservableProperty] private bool _hasUvIndex;
+    [ObservableProperty] private bool _hasEto;
+    [ObservableProperty] private bool _hasSoil;
+    [ObservableProperty] private bool _hasAirQuality;
+    [ObservableProperty] private bool _hasBattery;
+    [ObservableProperty] private bool _hasWaterLevel;
+    [ObservableProperty] private bool _hasSwitch;
+    [ObservableProperty] private bool _hasLightning;
+    [ObservableProperty] private bool _hasMpptPower;
+    [ObservableProperty] private bool _hasMpptVoltage;
+    [ObservableProperty] private bool _hasMpptCurrent;
+    [ObservableProperty] private bool _hasMppt2Power;
+    [ObservableProperty] private bool _hasMppt2Voltage;
 
     // Shared X-axis for all charts (time-based)
     [ObservableProperty] private Axis[] _chartXAxes = new Axis[]
@@ -375,152 +422,190 @@ public partial class MainViewModel : ObservableObject
 
         var ordered = records.OrderBy(r => r.Timestamp).ToList();
 
-        // Helper to build a point collection from a selector
-        List<DateTimePoint> BuildPoints(Func<WeatherRecord, double?> selector)
-        {
-            return ordered
-                .Where(r => selector(r).HasValue)
-                .Select(r => new DateTimePoint(r.Timestamp, selector(r)!.Value))
-                .ToList();
-        }
+        // Helper to build points from a nullable double selector
+        List<DateTimePoint> Pts(Func<WeatherRecord, double?> sel) =>
+            ordered.Where(r => sel(r).HasValue)
+                   .Select(r => new DateTimePoint(r.Timestamp, sel(r)!.Value))
+                   .ToList();
 
-        var tempPts = BuildPoints(r => r.Temperature);
-        var humPts  = BuildPoints(r => r.Humidity);
-        var presPts = BuildPoints(r => r.Pressure);
-        var windPts = BuildPoints(r => r.WindSpeed);
-        var gustPts = BuildPoints(r => r.WindGust);
-        var solPts  = BuildPoints(r => r.SolarRadiation);
-        var battPts = BuildPoints(r => r.BatteryVoltage);
-        var rainPts = BuildPoints(r => r.Rainfall);
-        var wlPts   = BuildPoints(r => r.WaterLevel);
+        // Helper to create a line series
+        LineSeries<DateTimePoint> Line(List<DateTimePoint> pts, string name, byte r, byte g, byte b, bool fill = false) =>
+            new()
+            {
+                Values = pts, Name = name,
+                Stroke = new SolidColorPaint(new SKColor(r, g, b)) { StrokeThickness = 2 },
+                Fill = fill ? new SolidColorPaint(new SKColor(r, g, b, 0x30)) : null,
+                GeometrySize = 0, LineSmoothness = 0.3
+            };
 
-        // Temperature
+        // ── Temperature (+ DewPoint overlay) ──
+        var tempPts = Pts(x => x.Temperature);
+        var dewPts = Pts(x => x.DewPoint);
         if (tempPts.Count > 0)
-            TemperatureSeries = new ISeries[]
-            {
-                new LineSeries<DateTimePoint>
-                {
-                    Values = tempPts,
-                    Name = "Temperature (°C)",
-                    Stroke = new SolidColorPaint(new SKColor(0xEF, 0x44, 0x44)) { StrokeThickness = 2 },
-                    Fill = null,
-                    GeometrySize = 0,
-                    LineSmoothness = 0.3
-                }
-            };
+        {
+            var s = new List<ISeries> { Line(tempPts, "Temperature (°C)", 0xEF, 0x44, 0x44) };
+            if (dewPts.Count > 0) s.Add(Line(dewPts, "Dew Point (°C)", 0x8B, 0x5C, 0xF6));
+            TemperatureSeries = s.ToArray();
+            HasTemperature = true;
+        } else HasTemperature = false;
 
-        // Humidity
-        if (humPts.Count > 0)
-            HumiditySeries = new ISeries[]
-            {
-                new LineSeries<DateTimePoint>
-                {
-                    Values = humPts,
-                    Name = "Humidity (%)",
-                    Stroke = new SolidColorPaint(new SKColor(0x3B, 0x82, 0xF6)) { StrokeThickness = 2 },
-                    Fill = null,
-                    GeometrySize = 0,
-                    LineSmoothness = 0.3
-                }
-            };
+        // ── Humidity ──
+        var humPts = Pts(x => x.Humidity);
+        HumiditySeries = humPts.Count > 0 ? new ISeries[] { Line(humPts, "Humidity (%)", 0x3B, 0x82, 0xF6) } : Array.Empty<ISeries>();
+        HasHumidity = humPts.Count > 0;
 
-        // Pressure
-        if (presPts.Count > 0)
-            PressureSeries = new ISeries[]
-            {
-                new LineSeries<DateTimePoint>
-                {
-                    Values = presPts,
-                    Name = "Pressure (hPa)",
-                    Stroke = new SolidColorPaint(new SKColor(0x64, 0x74, 0x8B)) { StrokeThickness = 2 },
-                    Fill = null,
-                    GeometrySize = 0,
-                    LineSmoothness = 0.3
-                }
-            };
+        // ── Pressure ──
+        var presPts = Pts(x => x.Pressure);
+        HasPressure = presPts.Count > 0;
+        PressureSeries = HasPressure ? new ISeries[] { Line(presPts, "Pressure (hPa)", 0x64, 0x74, 0x8B) } : Array.Empty<ISeries>();
 
-        // Wind Speed + Gust
-        var windSeries = new List<ISeries>();
-        if (windPts.Count > 0)
-            windSeries.Add(new LineSeries<DateTimePoint>
-            {
-                Values = windPts,
-                Name = "Wind Speed (m/s)",
-                Stroke = new SolidColorPaint(new SKColor(0x22, 0xC5, 0x5E)) { StrokeThickness = 2 },
-                Fill = null,
-                GeometrySize = 0,
-                LineSmoothness = 0.3
-            });
-        if (gustPts.Count > 0)
-            windSeries.Add(new LineSeries<DateTimePoint>
-            {
-                Values = gustPts,
-                Name = "Wind Gust (m/s)",
-                Stroke = new SolidColorPaint(new SKColor(0xF9, 0x73, 0x16)) { StrokeThickness = 2 },
-                Fill = null,
-                GeometrySize = 0,
-                LineSmoothness = 0.3
-            });
-        if (windSeries.Count > 0)
-            WindSeries = windSeries.ToArray();
+        // ── Dew Point (standalone if no temperature) ──
+        HasDewPoint = dewPts.Count > 0 && tempPts.Count == 0;
+        DewPointSeries = HasDewPoint ? new ISeries[] { Line(dewPts, "Dew Point (°C)", 0x8B, 0x5C, 0xF6) } : Array.Empty<ISeries>();
 
-        // Solar Radiation
-        if (solPts.Count > 0)
-            SolarSeries = new ISeries[]
-            {
-                new LineSeries<DateTimePoint>
-                {
-                    Values = solPts,
-                    Name = "Solar Radiation (W/m²)",
-                    Stroke = new SolidColorPaint(new SKColor(0xEA, 0xB3, 0x08)) { StrokeThickness = 2 },
-                    Fill = new SolidColorPaint(new SKColor(0xEA, 0xB3, 0x08, 0x30)),
-                    GeometrySize = 0,
-                    LineSmoothness = 0.3
-                }
-            };
+        // ── Wind Speed + Gust ──
+        var windPts = Pts(x => x.WindSpeed);
+        var gustPts = Pts(x => x.WindGust);
+        var windList = new List<ISeries>();
+        if (windPts.Count > 0) windList.Add(Line(windPts, "Wind Speed (km/h)", 0x22, 0xC5, 0x5E));
+        if (gustPts.Count > 0) windList.Add(Line(gustPts, "Wind Gust (km/h)", 0xF9, 0x73, 0x16));
+        WindSeries = windList.ToArray();
+        HasWind = windList.Count > 0;
 
-        // Battery Voltage
-        if (battPts.Count > 0)
-            BatterySeries = new ISeries[]
-            {
-                new LineSeries<DateTimePoint>
-                {
-                    Values = battPts,
-                    Name = "Battery (V)",
-                    Stroke = new SolidColorPaint(new SKColor(0x16, 0xA3, 0x4A)) { StrokeThickness = 2 },
-                    Fill = null,
-                    GeometrySize = 0,
-                    LineSmoothness = 0.3
-                }
-            };
+        // ── Wind Direction ──
+        var wdirPts = Pts(x => x.WindDirection);
+        HasWindDirection = wdirPts.Count > 0;
+        WindDirectionSeries = HasWindDirection ? new ISeries[] { new ScatterSeries<DateTimePoint>
+        {
+            Values = wdirPts, Name = "Wind Direction (°)",
+            Stroke = null,
+            Fill = new SolidColorPaint(new SKColor(0x06, 0xB6, 0xD4)),
+            GeometrySize = 3
+        } } : Array.Empty<ISeries>();
 
-        // Rainfall (bar chart)
-        if (rainPts.Count > 0)
-            RainfallSeries = new ISeries[]
-            {
-                new ColumnSeries<DateTimePoint>
-                {
-                    Values = rainPts,
-                    Name = "Rainfall (mm)",
-                    Fill = new SolidColorPaint(new SKColor(0x38, 0xBD, 0xF8)),
-                    Stroke = null,
-                    MaxBarWidth = 8
-                }
-            };
+        // ── Rainfall (bar chart) ──
+        var rainPts = Pts(x => x.Rainfall);
+        HasRainfall = rainPts.Count > 0;
+        RainfallSeries = HasRainfall ? new ISeries[] { new ColumnSeries<DateTimePoint>
+        {
+            Values = rainPts, Name = "Rainfall (mm)",
+            Fill = new SolidColorPaint(new SKColor(0x38, 0xBD, 0xF8)),
+            Stroke = null, MaxBarWidth = 8
+        } } : Array.Empty<ISeries>();
 
-        // Water Level
-        if (wlPts.Count > 0)
-            WaterLevelSeries = new ISeries[]
-            {
-                new LineSeries<DateTimePoint>
-                {
-                    Values = wlPts,
-                    Name = "Water Level (mm)",
-                    Stroke = new SolidColorPaint(new SKColor(0x06, 0xB6, 0xD4)) { StrokeThickness = 2 },
-                    Fill = new SolidColorPaint(new SKColor(0x06, 0xB6, 0xD4, 0x30)),
-                    GeometrySize = 0,
-                    LineSmoothness = 0.3
-                }
-            };
+        // ── Solar Radiation ──
+        var solPts = Pts(x => x.SolarRadiation);
+        HasSolar = solPts.Count > 0;
+        SolarSeries = HasSolar ? new ISeries[] { Line(solPts, "Solar Radiation (W/m²)", 0xEA, 0xB3, 0x08, true) } : Array.Empty<ISeries>();
+
+        // ── UV Index ──
+        var uvPts = Pts(x => x.UvIndex);
+        HasUvIndex = uvPts.Count > 0;
+        UvIndexSeries = HasUvIndex ? new ISeries[] { Line(uvPts, "UV Index", 0xA8, 0x55, 0xF7) } : Array.Empty<ISeries>();
+
+        // ── Evapotranspiration ──
+        var etoPts = Pts(x => x.Eto);
+        HasEto = etoPts.Count > 0;
+        EtoSeries = HasEto ? new ISeries[] { Line(etoPts, "ETo (mm/day)", 0x14, 0xB8, 0xA6, true) } : Array.Empty<ISeries>();
+
+        // ── Soil (Temperature + Moisture) ──
+        var stPts = Pts(x => x.SoilTemperature);
+        var smPts = Pts(x => x.SoilMoisture);
+        var soilList = new List<ISeries>();
+        if (stPts.Count > 0) soilList.Add(Line(stPts, "Soil Temp (°C)", 0x92, 0x40, 0x0E));
+        if (smPts.Count > 0) soilList.Add(Line(smPts, "Soil Moisture (%)", 0x16, 0xA3, 0x4A));
+        SoilSeries = soilList.ToArray();
+        HasSoil = soilList.Count > 0;
+
+        // ── Air Quality (PM2.5 + PM10) ──
+        var pm25Pts = Pts(x => x.Pm25);
+        var pm10Pts = Pts(x => x.Pm10);
+        var aqList = new List<ISeries>();
+        if (pm25Pts.Count > 0) aqList.Add(Line(pm25Pts, "PM2.5 (µg/m³)", 0xF5, 0x9E, 0x0B));
+        if (pm10Pts.Count > 0) aqList.Add(Line(pm10Pts, "PM10 (µg/m³)", 0xEF, 0x44, 0x44));
+        AirQualitySeries = aqList.ToArray();
+        HasAirQuality = aqList.Count > 0;
+
+        // ── Battery & Power (Battery + Charger + Panel Temp) ──
+        var battPts = Pts(x => x.BatteryVoltage);
+        var chgPts = Pts(x => x.ChargerVoltage);
+        var pnlPts = Pts(x => x.PanelTemperature);
+        var battList = new List<ISeries>();
+        if (battPts.Count > 0) battList.Add(Line(battPts, "Battery (V)", 0x16, 0xA3, 0x4A));
+        if (chgPts.Count > 0) battList.Add(Line(chgPts, "Charger (V)", 0xEA, 0xB3, 0x08));
+        if (pnlPts.Count > 0) battList.Add(Line(pnlPts, "Panel Temp (°C)", 0xEF, 0x44, 0x44));
+        BatterySeries = battList.ToArray();
+        HasBattery = battList.Count > 0;
+
+        // ── Water Level ──
+        var wlPts = Pts(x => x.WaterLevel);
+        HasWaterLevel = wlPts.Count > 0;
+        WaterLevelSeries = HasWaterLevel ? new ISeries[] { Line(wlPts, "Water Level (mm)", 0x06, 0xB6, 0xD4, true) } : Array.Empty<ISeries>();
+
+        // ── Temperature Switch + Level Switch ──
+        var tswPts = Pts(x => x.TemperatureSwitch);
+        var lswPts = Pts(x => x.LevelSwitch);
+        var tsoPts = Pts(x => x.TemperatureSwitchOutlet);
+        var swList = new List<ISeries>();
+        if (tswPts.Count > 0) swList.Add(Line(tswPts, "Temp Switch (mV)", 0xEF, 0x44, 0x44));
+        if (lswPts.Count > 0) swList.Add(Line(lswPts, "Level Switch (mV)", 0x3B, 0x82, 0xF6));
+        if (tsoPts.Count > 0) swList.Add(Line(tsoPts, "Temp Switch Outlet (mV)", 0xF9, 0x73, 0x16));
+        SwitchSeries = swList.ToArray();
+        HasSwitch = swList.Count > 0;
+
+        // ── Lightning ──
+        var ltPts = Pts(x => x.Lightning);
+        HasLightning = ltPts.Count > 0;
+        LightningSeries = HasLightning ? new ISeries[] { new ColumnSeries<DateTimePoint>
+        {
+            Values = ltPts, Name = "Lightning (strikes)",
+            Fill = new SolidColorPaint(new SKColor(0xFA, 0xCC, 0x15)),
+            Stroke = null, MaxBarWidth = 6
+        } } : Array.Empty<ISeries>();
+
+        // ── MPPT Charger 1 — Power ──
+        var mp1Pts = Pts(x => x.MpptSolarPower);
+        HasMpptPower = mp1Pts.Count > 0;
+        MpptPowerSeries = HasMpptPower ? new ISeries[] { Line(mp1Pts, "MPPT Solar Power (W)", 0xEA, 0xB3, 0x08, true) } : Array.Empty<ISeries>();
+
+        // ── MPPT Charger 1 — Voltage ──
+        var msv = Pts(x => x.MpptSolarVoltage);
+        var mbv = Pts(x => x.MpptBatteryVoltage);
+        var mlv = Pts(x => x.MpptLoadVoltage);
+        var mvList = new List<ISeries>();
+        if (msv.Count > 0) mvList.Add(Line(msv, "Solar V", 0xEA, 0xB3, 0x08));
+        if (mbv.Count > 0) mvList.Add(Line(mbv, "Battery V", 0x16, 0xA3, 0x4A));
+        if (mlv.Count > 0) mvList.Add(Line(mlv, "Load V", 0x3B, 0x82, 0xF6));
+        MpptVoltageSeries = mvList.ToArray();
+        HasMpptVoltage = mvList.Count > 0;
+
+        // ── MPPT Charger 1 — Current ──
+        var msc = Pts(x => x.MpptSolarCurrent);
+        var mbc = Pts(x => x.MpptBatteryCurrent);
+        var mlc = Pts(x => x.MpptLoadCurrent);
+        var mcList = new List<ISeries>();
+        if (msc.Count > 0) mcList.Add(Line(msc, "Solar mA", 0xEA, 0xB3, 0x08));
+        if (mbc.Count > 0) mcList.Add(Line(mbc, "Battery mA", 0x16, 0xA3, 0x4A));
+        if (mlc.Count > 0) mcList.Add(Line(mlc, "Load mA", 0x3B, 0x82, 0xF6));
+        MpptCurrentSeries = mcList.ToArray();
+        HasMpptCurrent = mcList.Count > 0;
+
+        // ── MPPT Charger 2 — Power ──
+        var m2pPts = Pts(x => x.Mppt2SolarPower);
+        HasMppt2Power = m2pPts.Count > 0;
+        Mppt2PowerSeries = HasMppt2Power ? new ISeries[] { Line(m2pPts, "MPPT2 Solar Power (W)", 0xF9, 0x73, 0x16, true) } : Array.Empty<ISeries>();
+
+        // ── MPPT Charger 2 — Voltage ──
+        var m2sv = Pts(x => x.Mppt2SolarVoltage);
+        var m2bv = Pts(x => x.Mppt2BatteryVoltage);
+        var m2lv = Pts(x => x.Mppt2LoadVoltage);
+        var m2vList = new List<ISeries>();
+        if (m2sv.Count > 0) m2vList.Add(Line(m2sv, "Solar V", 0xF9, 0x73, 0x16));
+        if (m2bv.Count > 0) m2vList.Add(Line(m2bv, "Battery V", 0x16, 0xA3, 0x4A));
+        if (m2lv.Count > 0) m2vList.Add(Line(m2lv, "Load V", 0x3B, 0x82, 0xF6));
+        Mppt2VoltageSeries = m2vList.ToArray();
+        HasMppt2Voltage = m2vList.Count > 0;
+
+        AddLog($"[CHARTS] Updated — {(HasTemperature?1:0)+(HasHumidity?1:0)+(HasPressure?1:0)+(HasWind?1:0)+(HasRainfall?1:0)+(HasSolar?1:0)+(HasBattery?1:0)+(HasWaterLevel?1:0)+(HasMpptPower?1:0)} active charts");
     }
 }
