@@ -149,39 +149,15 @@ public class DatabaseService : IDisposable
 
     /// <summary>
     /// Fetch weather data for a station within a time range.
-    /// Uses column-name-based reading for robustness against schema changes.
+    /// Uses SELECT * and column-existence checks for maximum robustness
+    /// against schema variations across different database deployments.
     /// </summary>
     public async Task<List<WeatherRecord>> GetDataAsync(
         int stationId, DateTime? startTime = null, DateTime? endTime = null, int limit = 2000)
     {
         if (_dataSource == null) return new List<WeatherRecord>();
 
-        // Select all columns the model supports — the query is tolerant of missing
-        // columns because we read by name and default to null.
-        var sql = @"SELECT id, station_id, timestamp,
-                    temperature, temperature_min, temperature_max,
-                    humidity, pressure, pressure_sea_level,
-                    dew_point, air_density,
-                    wind_speed, wind_direction, wind_gust, wind_gust_10min, wind_power,
-                    wind_dir_std_dev, sdi12_wind_vector,
-                    rainfall, rainfall_10min, rainfall_24h,
-                    solar_radiation, solar_radiation_max, uv_index,
-                    sun_elevation, sun_azimuth,
-                    eto, eto_24h,
-                    soil_temperature, soil_moisture, leaf_wetness,
-                    pm25, pm10, pm1, co2, tvoc,
-                    battery_voltage, panel_temperature, charger_voltage,
-                    water_level, temperature_switch, level_switch,
-                    temperature_switch_outlet, level_switch_status, lightning,
-                    pump_select_well, pump_select_bore, port_status_c1, port_status_c2,
-                    mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
-                    mppt_load_voltage, mppt_load_current,
-                    mppt_battery_voltage, mppt_battery_current,
-                    mppt_charger_state, mppt_absi_avg, mppt_board_temp, mppt_mode,
-                    mppt2_solar_voltage, mppt2_solar_current, mppt2_solar_power,
-                    mppt2_load_voltage, mppt2_load_current,
-                    mppt2_battery_voltage, mppt2_charger_state, mppt2_board_temp, mppt2_mode
-                    FROM weather_data WHERE station_id = @stationId";
+        var sql = "SELECT * FROM weather_data WHERE station_id = @stationId";
 
         if (startTime.HasValue)
             sql += " AND timestamp >= @startTime";
@@ -200,91 +176,97 @@ public class DatabaseService : IDisposable
             cmd.Parameters.AddWithValue("endTime", endTime.Value);
 
         await using var reader = await cmd.ExecuteReaderAsync();
+
+        // Build a lookup of available column names for safe reading
+        var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < reader.FieldCount; i++)
+            cols.Add(reader.GetName(i));
+
         while (await reader.ReadAsync())
         {
             records.Add(new WeatherRecord
             {
-                Id = reader.GetInt64(reader.GetOrdinal("id")),
+                Id = cols.Contains("id") ? reader.GetInt64(reader.GetOrdinal("id")) : 0,
                 StationId = reader.GetInt32(reader.GetOrdinal("station_id")),
                 Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
                 // Atmospheric
-                Temperature = GetNullableDouble(reader, "temperature"),
-                TemperatureMin = GetNullableDouble(reader, "temperature_min"),
-                TemperatureMax = GetNullableDouble(reader, "temperature_max"),
-                Humidity = GetNullableDouble(reader, "humidity"),
-                Pressure = GetNullableDouble(reader, "pressure"),
-                PressureSeaLevel = GetNullableDouble(reader, "pressure_sea_level"),
-                DewPoint = GetNullableDouble(reader, "dew_point"),
-                AirDensity = GetNullableDouble(reader, "air_density"),
+                Temperature = GetNullableDouble(reader, "temperature", cols),
+                TemperatureMin = GetNullableDouble(reader, "temperature_min", cols),
+                TemperatureMax = GetNullableDouble(reader, "temperature_max", cols),
+                Humidity = GetNullableDouble(reader, "humidity", cols),
+                Pressure = GetNullableDouble(reader, "pressure", cols),
+                PressureSeaLevel = GetNullableDouble(reader, "pressure_sea_level", cols),
+                DewPoint = GetNullableDouble(reader, "dew_point", cols),
+                AirDensity = GetNullableDouble(reader, "air_density", cols),
                 // Wind
-                WindSpeed = GetNullableDouble(reader, "wind_speed"),
-                WindDirection = GetNullableDouble(reader, "wind_direction"),
-                WindGust = GetNullableDouble(reader, "wind_gust"),
-                WindGust10min = GetNullableDouble(reader, "wind_gust_10min"),
-                WindPower = GetNullableDouble(reader, "wind_power"),
-                WindDirStdDev = GetNullableDouble(reader, "wind_dir_std_dev"),
-                Sdi12WindVector = GetNullableDouble(reader, "sdi12_wind_vector"),
+                WindSpeed = GetNullableDouble(reader, "wind_speed", cols),
+                WindDirection = GetNullableDouble(reader, "wind_direction", cols),
+                WindGust = GetNullableDouble(reader, "wind_gust", cols),
+                WindGust10min = GetNullableDouble(reader, "wind_gust_10min", cols),
+                WindPower = GetNullableDouble(reader, "wind_power", cols),
+                WindDirStdDev = GetNullableDouble(reader, "wind_dir_std_dev", cols),
+                Sdi12WindVector = GetNullableDouble(reader, "sdi12_wind_vector", cols),
                 // Precipitation
-                Rainfall = GetNullableDouble(reader, "rainfall"),
-                Rainfall10min = GetNullableDouble(reader, "rainfall_10min"),
-                Rainfall24h = GetNullableDouble(reader, "rainfall_24h"),
+                Rainfall = GetNullableDouble(reader, "rainfall", cols),
+                Rainfall10min = GetNullableDouble(reader, "rainfall_10min", cols),
+                Rainfall24h = GetNullableDouble(reader, "rainfall_24h", cols),
                 // Solar
-                SolarRadiation = GetNullableDouble(reader, "solar_radiation"),
-                SolarRadiationMax = GetNullableDouble(reader, "solar_radiation_max"),
-                UvIndex = GetNullableDouble(reader, "uv_index"),
-                SunElevation = GetNullableDouble(reader, "sun_elevation"),
-                SunAzimuth = GetNullableDouble(reader, "sun_azimuth"),
+                SolarRadiation = GetNullableDouble(reader, "solar_radiation", cols),
+                SolarRadiationMax = GetNullableDouble(reader, "solar_radiation_max", cols),
+                UvIndex = GetNullableDouble(reader, "uv_index", cols),
+                SunElevation = GetNullableDouble(reader, "sun_elevation", cols),
+                SunAzimuth = GetNullableDouble(reader, "sun_azimuth", cols),
                 // Evapotranspiration
-                Eto = GetNullableDouble(reader, "eto"),
-                Eto24h = GetNullableDouble(reader, "eto_24h"),
+                Eto = GetNullableDouble(reader, "eto", cols),
+                Eto24h = GetNullableDouble(reader, "eto_24h", cols),
                 // Soil
-                SoilTemperature = GetNullableDouble(reader, "soil_temperature"),
-                SoilMoisture = GetNullableDouble(reader, "soil_moisture"),
-                LeafWetness = GetNullableDouble(reader, "leaf_wetness"),
+                SoilTemperature = GetNullableDouble(reader, "soil_temperature", cols),
+                SoilMoisture = GetNullableDouble(reader, "soil_moisture", cols),
+                LeafWetness = GetNullableDouble(reader, "leaf_wetness", cols),
                 // Air Quality
-                Pm25 = GetNullableDouble(reader, "pm25"),
-                Pm10 = GetNullableDouble(reader, "pm10"),
-                Pm1 = GetNullableDouble(reader, "pm1"),
-                Co2 = GetNullableDouble(reader, "co2"),
-                Tvoc = GetNullableDouble(reader, "tvoc"),
+                Pm25 = GetNullableDouble(reader, "pm25", cols),
+                Pm10 = GetNullableDouble(reader, "pm10", cols),
+                Pm1 = GetNullableDouble(reader, "pm1", cols),
+                Co2 = GetNullableDouble(reader, "co2", cols),
+                Tvoc = GetNullableDouble(reader, "tvoc", cols),
                 // Battery / Power
-                BatteryVoltage = GetNullableDouble(reader, "battery_voltage"),
-                PanelTemperature = GetNullableDouble(reader, "panel_temperature"),
-                ChargerVoltage = GetNullableDouble(reader, "charger_voltage"),
+                BatteryVoltage = GetNullableDouble(reader, "battery_voltage", cols),
+                PanelTemperature = GetNullableDouble(reader, "panel_temperature", cols),
+                ChargerVoltage = GetNullableDouble(reader, "charger_voltage", cols),
                 // Water & Sensors
-                WaterLevel = GetNullableDouble(reader, "water_level"),
-                TemperatureSwitch = GetNullableDouble(reader, "temperature_switch"),
-                LevelSwitch = GetNullableDouble(reader, "level_switch"),
-                TemperatureSwitchOutlet = GetNullableDouble(reader, "temperature_switch_outlet"),
-                LevelSwitchStatus = GetNullableDouble(reader, "level_switch_status"),
-                Lightning = GetNullableDouble(reader, "lightning"),
+                WaterLevel = GetNullableDouble(reader, "water_level", cols),
+                TemperatureSwitch = GetNullableDouble(reader, "temperature_switch", cols),
+                LevelSwitch = GetNullableDouble(reader, "level_switch", cols),
+                TemperatureSwitchOutlet = GetNullableDouble(reader, "temperature_switch_outlet", cols),
+                LevelSwitchStatus = GetNullableDouble(reader, "level_switch_status", cols),
+                Lightning = GetNullableDouble(reader, "lightning", cols),
                 // Pump & Port
-                PumpSelectWell = GetNullableDouble(reader, "pump_select_well"),
-                PumpSelectBore = GetNullableDouble(reader, "pump_select_bore"),
-                PortStatusC1 = GetNullableDouble(reader, "port_status_c1"),
-                PortStatusC2 = GetNullableDouble(reader, "port_status_c2"),
+                PumpSelectWell = GetNullableDouble(reader, "pump_select_well", cols),
+                PumpSelectBore = GetNullableDouble(reader, "pump_select_bore", cols),
+                PortStatusC1 = GetNullableDouble(reader, "port_status_c1", cols),
+                PortStatusC2 = GetNullableDouble(reader, "port_status_c2", cols),
                 // MPPT 1
-                MpptSolarVoltage = GetNullableDouble(reader, "mppt_solar_voltage"),
-                MpptSolarCurrent = GetNullableDouble(reader, "mppt_solar_current"),
-                MpptSolarPower = GetNullableDouble(reader, "mppt_solar_power"),
-                MpptLoadVoltage = GetNullableDouble(reader, "mppt_load_voltage"),
-                MpptLoadCurrent = GetNullableDouble(reader, "mppt_load_current"),
-                MpptBatteryVoltage = GetNullableDouble(reader, "mppt_battery_voltage"),
-                MpptBatteryCurrent = GetNullableDouble(reader, "mppt_battery_current"),
-                MpptChargerState = GetNullableDouble(reader, "mppt_charger_state"),
-                MpptAbsiAvg = GetNullableDouble(reader, "mppt_absi_avg"),
-                MpptBoardTemp = GetNullableDouble(reader, "mppt_board_temp"),
-                MpptMode = GetNullableDouble(reader, "mppt_mode"),
+                MpptSolarVoltage = GetNullableDouble(reader, "mppt_solar_voltage", cols),
+                MpptSolarCurrent = GetNullableDouble(reader, "mppt_solar_current", cols),
+                MpptSolarPower = GetNullableDouble(reader, "mppt_solar_power", cols),
+                MpptLoadVoltage = GetNullableDouble(reader, "mppt_load_voltage", cols),
+                MpptLoadCurrent = GetNullableDouble(reader, "mppt_load_current", cols),
+                MpptBatteryVoltage = GetNullableDouble(reader, "mppt_battery_voltage", cols),
+                MpptBatteryCurrent = GetNullableDouble(reader, "mppt_battery_current", cols),
+                MpptChargerState = GetNullableDouble(reader, "mppt_charger_state", cols),
+                MpptAbsiAvg = GetNullableDouble(reader, "mppt_absi_avg", cols),
+                MpptBoardTemp = GetNullableDouble(reader, "mppt_board_temp", cols),
+                MpptMode = GetNullableDouble(reader, "mppt_mode", cols),
                 // MPPT 2
-                Mppt2SolarVoltage = GetNullableDouble(reader, "mppt2_solar_voltage"),
-                Mppt2SolarCurrent = GetNullableDouble(reader, "mppt2_solar_current"),
-                Mppt2SolarPower = GetNullableDouble(reader, "mppt2_solar_power"),
-                Mppt2LoadVoltage = GetNullableDouble(reader, "mppt2_load_voltage"),
-                Mppt2LoadCurrent = GetNullableDouble(reader, "mppt2_load_current"),
-                Mppt2BatteryVoltage = GetNullableDouble(reader, "mppt2_battery_voltage"),
-                Mppt2ChargerState = GetNullableDouble(reader, "mppt2_charger_state"),
-                Mppt2BoardTemp = GetNullableDouble(reader, "mppt2_board_temp"),
-                Mppt2Mode = GetNullableDouble(reader, "mppt2_mode"),
+                Mppt2SolarVoltage = GetNullableDouble(reader, "mppt2_solar_voltage", cols),
+                Mppt2SolarCurrent = GetNullableDouble(reader, "mppt2_solar_current", cols),
+                Mppt2SolarPower = GetNullableDouble(reader, "mppt2_solar_power", cols),
+                Mppt2LoadVoltage = GetNullableDouble(reader, "mppt2_load_voltage", cols),
+                Mppt2LoadCurrent = GetNullableDouble(reader, "mppt2_load_current", cols),
+                Mppt2BatteryVoltage = GetNullableDouble(reader, "mppt2_battery_voltage", cols),
+                Mppt2ChargerState = GetNullableDouble(reader, "mppt2_charger_state", cols),
+                Mppt2BoardTemp = GetNullableDouble(reader, "mppt2_board_temp", cols),
+                Mppt2Mode = GetNullableDouble(reader, "mppt2_mode", cols),
             });
         }
 
@@ -341,12 +323,23 @@ public class DatabaseService : IDisposable
 
     /// <summary>
     /// Safely reads a nullable double by column name.
-    /// Returns null if the column value is DBNull.
+    /// Returns null if the column does not exist in the result set or the value is DBNull.
+    /// Handles type mismatches (int, float, decimal) by converting to double.
     /// </summary>
-    private static double? GetNullableDouble(NpgsqlDataReader reader, string column)
+    private static double? GetNullableDouble(NpgsqlDataReader reader, string column, HashSet<string> availableColumns)
     {
-        var ordinal = reader.GetOrdinal(column);
-        return reader.IsDBNull(ordinal) ? null : reader.GetDouble(ordinal);
+        if (!availableColumns.Contains(column)) return null;
+        try
+        {
+            var ordinal = reader.GetOrdinal(column);
+            if (reader.IsDBNull(ordinal)) return null;
+            var value = reader.GetValue(ordinal);
+            return Convert.ToDouble(value);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>

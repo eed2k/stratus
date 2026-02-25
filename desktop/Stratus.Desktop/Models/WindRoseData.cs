@@ -18,63 +18,25 @@ public enum WindSpeedUnit
 }
 
 /// <summary>
-/// Wind speed categories for wind rose analysis, matching the openair R package breaks.
-/// Supports km/h, m/s, and knots with automatically converted bin boundaries.
-/// Color scheme follows a diverging blue-to-red palette for clear visual separation.
+/// WMO Simplified Beaufort wind speed categories for wind rose analysis.
+/// Matches the Stratus web application's wind rose display (6 categories, km/h).
+/// Based on WMO-No. 8 Beaufort Scale converted from knots to km/h.
+/// Color scheme follows a thermal gradient: blues → greens → yellows → reds.
 /// </summary>
 public static class WindSpeedCategories
 {
     /// <summary>
-    /// Base speed bin definitions in m/s: (Min, Max, Label, Hex Color).
+    /// Speed bin definitions in km/h matching WMO Simplified Beaufort classes.
+    /// (Min, Max, Label, Hex Color)
     /// </summary>
     public static readonly (double Min, double Max, string Label, string Color)[] Categories =
     {
-        (0.0,  0.3, "0 - 0.3 m/s",    "#4575B4"),  // Calm - Dark blue
-        (0.3,  1.5, "0.3 - 1.5 m/s",   "#91BFDB"),  // Light air - Light blue
-        (1.5,  3.4, "1.5 - 3.4 m/s",   "#E0F3F8"),  // Light breeze - Pale blue
-        (3.4,  5.4, "3.4 - 5.4 m/s",   "#FEE090"),  // Gentle breeze - Yellow
-        (5.4,  7.9, "5.4 - 7.9 m/s",   "#FC8D59"),  // Moderate breeze - Orange
-        (7.9, 35.0, "7.9 - 35 m/s",    "#D73027"),  // Fresh+ breeze - Red
-    };
-
-    /// <summary>
-    /// Returns speed bins converted to the specified unit, with labels updated accordingly.
-    /// </summary>
-    public static (double Min, double Max, string Label, string Color)[] GetCategories(WindSpeedUnit unit)
-    {
-        if (unit == WindSpeedUnit.MetresPerSecond)
-            return Categories;
-
-        double factor = unit switch
-        {
-            WindSpeedUnit.KilometresPerHour => 3.6,
-            WindSpeedUnit.Knots => 1.94384,
-            _ => 1.0
-        };
-
-        string suffix = unit switch
-        {
-            WindSpeedUnit.KilometresPerHour => "km/h",
-            WindSpeedUnit.Knots => "kn",
-            _ => "m/s"
-        };
-
-        return Categories.Select(c =>
-        {
-            double min = Math.Round(c.Min * factor, 1);
-            double max = Math.Round(c.Max * factor, 1);
-            return (min, max, $"{min} - {max} {suffix}", c.Color);
-        }).ToArray();
-    }
-
-    /// <summary>
-    /// Convert a wind speed value to the target unit from m/s.
-    /// </summary>
-    public static double ConvertFromMs(double ms, WindSpeedUnit unit) => unit switch
-    {
-        WindSpeedUnit.KilometresPerHour => ms * 3.6,
-        WindSpeedUnit.Knots => ms * 1.94384,
-        _ => ms
+        (0.0,    6.0, "Calm / Light (0–6 km/h)",          "#bae6fd"),  // Beaufort 0-1
+        (6.0,   20.0, "Light / Gentle (6–20 km/h)",        "#38bdf8"),  // Beaufort 2-3
+        (20.0,  39.0, "Moderate / Fresh (20–39 km/h)",     "#22c55e"),  // Beaufort 4-5
+        (39.0,  62.0, "Strong / Near Gale (39–62 km/h)",   "#eab308"),  // Beaufort 6-7
+        (62.0,  89.0, "Gale / Strong Gale (62–89 km/h)",   "#f97316"),  // Beaufort 8-9
+        (89.0, 999.0, "Storm+ (>89 km/h)",                  "#dc2626"),  // Beaufort 10+
     };
 }
 

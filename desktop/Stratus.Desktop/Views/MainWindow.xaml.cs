@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using LiveChartsCore.SkiaSharpView.SKCharts;
 using Microsoft.Win32;
 using SkiaSharp;
@@ -21,7 +22,6 @@ public partial class MainWindow : Window
 {
     private List<WindDataPoint>? _currentWindData;
     private int _currentSectorAngle = 15;
-    private WindSpeedUnit _currentWindUnit = WindSpeedUnit.KilometresPerHour;
 
     public MainWindow()
     {
@@ -98,25 +98,6 @@ public partial class MainWindow : Window
 
         _currentSectorAngle = (int)e.NewValue;
         AngleLabel.Text = $"{_currentSectorAngle}\u00B0";
-
-        // Recompute if we already have data
-        if (_currentWindData != null && _currentWindData.Count > 0)
-        {
-            ComputeAndDisplayWindRoses(_currentWindData);
-        }
-    }
-
-    private void WindUnitCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (WindUnitCombo == null) return;
-
-        _currentWindUnit = WindUnitCombo.SelectedIndex switch
-        {
-            0 => WindSpeedUnit.KilometresPerHour,
-            1 => WindSpeedUnit.MetresPerSecond,
-            2 => WindSpeedUnit.Knots,
-            _ => WindSpeedUnit.KilometresPerHour
-        };
 
         // Recompute if we already have data
         if (_currentWindData != null && _currentWindData.Count > 0)
@@ -251,33 +232,32 @@ public partial class MainWindow : Window
     {
         string prefix = title ?? "Wind Rose";
         double angle = _currentSectorAngle;
-        var unit = _currentWindUnit;
         var now = windData.Count > 0 ? windData.Max(d => d.Date) : DateTime.UtcNow;
 
         // 24h — last 24 hours of data
         var data24h = windData.Where(d => d.Date >= now.AddHours(-24)).ToList();
         WindRose24h.WindRoseData = WindRoseCalculator.Calculate(
-            data24h.Count > 0 ? data24h : windData, angle, $"{prefix} — 24h", unit);
+            data24h.Count > 0 ? data24h : windData, angle, $"{prefix} — 24h");
 
         // 1d — last 1 calendar day
         var data1d = windData.Where(d => d.Date >= now.AddDays(-1)).ToList();
         WindRose1d.WindRoseData = WindRoseCalculator.Calculate(
-            data1d.Count > 0 ? data1d : windData, angle, $"{prefix} — 1 Day", unit);
+            data1d.Count > 0 ? data1d : windData, angle, $"{prefix} — 1 Day");
 
         // 3d — last 3 days
         var data3d = windData.Where(d => d.Date >= now.AddDays(-3)).ToList();
         WindRose3d.WindRoseData = WindRoseCalculator.Calculate(
-            data3d.Count > 0 ? data3d : windData, angle, $"{prefix} — 3 Days", unit);
+            data3d.Count > 0 ? data3d : windData, angle, $"{prefix} — 3 Days");
 
         // 7d — last 7 days
         var data7d = windData.Where(d => d.Date >= now.AddDays(-7)).ToList();
         WindRose7d.WindRoseData = WindRoseCalculator.Calculate(
-            data7d.Count > 0 ? data7d : windData, angle, $"{prefix} — 7 Days", unit);
+            data7d.Count > 0 ? data7d : windData, angle, $"{prefix} — 7 Days");
 
         // 30d — last 30 days (all data)
         var data30d = windData.Where(d => d.Date >= now.AddDays(-30)).ToList();
         WindRose30d.WindRoseData = WindRoseCalculator.Calculate(
-            data30d.Count > 0 ? data30d : windData, angle, $"{prefix} — 30 Days", unit);
+            data30d.Count > 0 ? data30d : windData, angle, $"{prefix} — 30 Days");
     }
 
     private WindRoseControl? GetActiveWindRoseControl()
@@ -306,50 +286,31 @@ public partial class MainWindow : Window
             $"{vm.SelectedStation.Name}_{DateTime.Now:yyyyMMdd_HHmmss}");
         Directory.CreateDirectory(exportDir);
 
-        // Collect every chart: (label, series array, y-axes, visible flag)
-        var charts = new (string Label, ISeries[] Series, Axis[] YAxes, bool Visible)[]
-        {
-            ("Temperature",          vm.TemperatureSeries,      vm.TemperatureYAxes,    vm.HasTemperature),
-            ("Humidity",             vm.HumiditySeries,         vm.HumidityYAxes,       vm.HasHumidity),
-            ("Pressure",             vm.PressureSeries,         vm.PressureYAxes,       vm.HasPressure),
-            ("Dew Point",            vm.DewPointSeries,         vm.DewPointYAxes,       vm.HasDewPoint),
-            ("Wind Speed",           vm.WindSeries,             vm.WindYAxes,            vm.HasWind),
-            ("Wind Direction",       vm.WindDirectionSeries,    vm.WindDirectionYAxes,   vm.HasWindDirection),
-            ("Wind Power",           vm.WindPowerSeries,        vm.WindPowerYAxes,       vm.HasWindPower),
-            ("Rainfall",             vm.RainfallSeries,         vm.RainfallYAxes,       vm.HasRainfall),
-            ("Solar Radiation",      vm.SolarSeries,            vm.SolarYAxes,          vm.HasSolar),
-            ("UV Index",             vm.UvIndexSeries,          vm.UvIndexYAxes,        vm.HasUvIndex),
-            ("Evapotranspiration",   vm.EtoSeries,              vm.EtoYAxes,            vm.HasEto),
-            ("Soil",                 vm.SoilSeries,             vm.SoilYAxes,           vm.HasSoil),
-            ("Air Quality",          vm.AirQualitySeries,       vm.AirQualityYAxes,     vm.HasAirQuality),
-            ("CO2 TVOC",             vm.Co2TvocSeries,          vm.Co2TvocYAxes,        vm.HasCo2Tvoc),
-            ("Air Density",          vm.AirDensitySeries,       vm.AirDensityYAxes,     vm.HasAirDensity),
-            ("Battery Power",        vm.BatterySeries,          vm.BatteryYAxes,        vm.HasBattery),
-            ("Water Level",          vm.WaterLevelSeries,       vm.WaterLevelYAxes,     vm.HasWaterLevel),
-            ("Switches",             vm.SwitchSeries,           vm.SwitchYAxes,         vm.HasSwitch),
-            ("Lightning",            vm.LightningSeries,        vm.LightningYAxes,      vm.HasLightning),
-            ("MPPT1 Power",          vm.MpptPowerSeries,        vm.MpptPowerYAxes,      vm.HasMpptPower),
-            ("MPPT1 Voltage",        vm.MpptVoltageSeries,      vm.MpptVoltageYAxes,    vm.HasMpptVoltage),
-            ("MPPT1 Current",        vm.MpptCurrentSeries,      vm.MpptCurrentYAxes,    vm.HasMpptCurrent),
-            ("MPPT2 Power",          vm.Mppt2PowerSeries,       vm.Mppt2PowerYAxes,     vm.HasMppt2Power),
-            ("MPPT2 Voltage",        vm.Mppt2VoltageSeries,     vm.Mppt2VoltageYAxes,   vm.HasMppt2Voltage),
-        };
-
         int count = 0;
-        foreach (var (label, series, yAxes, visible) in charts)
+        foreach (var (label, (series, yAxes, visible)) in vm.ChartExportData)
         {
             if (!visible || series.Length == 0) continue;
 
             try
             {
-                // Use LiveCharts2's off-screen SkiaSharp renderer — the only way to
-                // capture SkiaSharp-drawn content (WPF RenderTargetBitmap cannot).
+                // Build a minimal X-axis for the export render
+                var xAxes = new Axis[]
+                {
+                    new Axis
+                    {
+                        Labeler = v => { try { return new DateTime((long)v).ToString("MM/dd HH:mm"); } catch { return ""; } },
+                        LabelsRotation = -45,
+                        TextSize = 11,
+                        LabelsPaint = new SolidColorPaint(new SKColor(80, 80, 80)),
+                    }
+                };
+
                 var skChart = new SKCartesianChart
                 {
-                    Width = 1200,
-                    Height = 400,
+                    Width = 2400,
+                    Height = 600,
                     Series = series,
-                    XAxes = vm.ChartXAxes,
+                    XAxes = xAxes,
                     YAxes = yAxes.Length > 0 ? yAxes : Array.Empty<LiveChartsCore.Kernel.Sketches.ICartesianAxis>(),
                     Background = SKColors.White,
                 };

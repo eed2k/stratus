@@ -162,7 +162,7 @@ public class WindRoseControl : FrameworkElement
         double gridMax = Math.Ceiling(data.MaxPercentage / 5.0) * 5.0;
         if (gridMax < 5) gridMax = 5;
 
-        var categories = WindSpeedCategories.GetCategories(data.Unit);
+        var categories = WindSpeedCategories.Categories;
 
         foreach (var sector in data.Sectors)
         {
@@ -259,14 +259,8 @@ public class WindRoseControl : FrameworkElement
 
     private void DrawLegend(DrawingContext dc, double x, double y, WindRoseResult data, double ppd)
     {
-        var categories = WindSpeedCategories.GetCategories(data.Unit);
-
-        string unitLabel = data.Unit switch
-        {
-            WindSpeedUnit.KilometresPerHour => "Wind Speed (km/h)",
-            WindSpeedUnit.Knots => "Wind Speed (kn)",
-            _ => "Wind Speed (m/s)"
-        };
+        var categories = WindSpeedCategories.Categories;
+        string unitLabel = "Wind Speed (km/h)";
 
         var titleText = MakeText(unitLabel, 11, Brushes.Black, 150, ppd);
         titleText.SetFontWeight(FontWeights.Bold);
