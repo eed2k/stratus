@@ -1,5 +1,5 @@
 # Build Stratus Desktop (WPF .NET 8)
-# Run from the workspace root
+# Run from the desktop/ folder: .\Build-Desktop.ps1 -Release
 
 param(
     [switch]$Release,
@@ -7,7 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$desktopDir = Join-Path $PSScriptRoot "desktop\Stratus.Desktop"
+$desktopDir = Join-Path $PSScriptRoot "Stratus.Desktop"
 $projectFile = Join-Path $desktopDir "Stratus.Desktop.csproj"
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -53,7 +53,7 @@ if ($Release) {
 
 # Build installer if requested
 if ($Installer) {
-    $issFile = Join-Path $PSScriptRoot "desktop\Installer\StratusSetup.iss"
+    $issFile = Join-Path $PSScriptRoot "Installer\StratusSetup.iss"
     $isccPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
     
     if (-not (Test-Path $isccPath)) {

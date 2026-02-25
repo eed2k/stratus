@@ -1,3 +1,7 @@
+# ─────────────────────────────────────────────
+# Stratus .gitignore
+# ─────────────────────────────────────────────
+
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -5,67 +9,79 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Build outputs
+# ── Web build outputs ──
 dist/
 build/
 tmp_dist/
 .next/
 out/
 output/
-# Compiled shared files (these are compiled from .ts sources)
+
+# Compiled shared files (generated from .ts sources)
 shared/*.js
 shared/*.d.ts
-# Environment variables
+
+# ── Environment / secrets ──
 .env
 .env.local
 .env.*.local
 .env.production.local
 deploy/.env.production
-# IDE
+.neon
+
+# ── IDE / editor ──
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.#*
+
+# ── OS files ──
 .DS_Store
-# Logs
+Thumbs.db
+
+# ── Logs ──
 logs/
 *.log
-# Temporary files
+
+# ── Temp / cache ──
 temp/
 tmp/
 .cache/
-# Database
+
+# ── Database files ──
 *.db
 *.sqlite
-# OS
-Thumbs.db
-# Editor backup files
-*.bak
-.#*
-# Docker
+
+# ── Docker ──
 docker-compose.override.yml
-node_modules
-# Data files (keep in demo_data/ only)
+
+# ── Data files (samples live in demo_data/ only) ──
 *.dat
 *.backup
 *.tdf
 *.xlsx
 *.emf
-# CRBasic programs (keep in examples/crbasic/ only)
+!demo_data/
+
+# ── CRBasic programs (keep in examples/crbasic/ only) ──
 *.CR300
 *.CRB
 *.cr300
-# Exclude demo_data from ignore (allow tracking)
-!demo_data/
+
+# ── Archives / build bundles ──
 *.tar.gz
 *.tar
 *.zip
-build.log
+
+# ── Images (tracked assets live in assets/) ──
 *.png
 
-# Sensitive / ad-hoc scripts
-scripts/login.json
+# ── Build logs ──
+build.log
+
+# ── Sensitive / ad-hoc root-level scripts ──
 test_neon.js
 check_timestamps.js
 del_stations.js
@@ -75,15 +91,17 @@ check_mppt_tmp.js
 check_mppt_api.py
 mppt_test.sql
 update_coords.sql
-.neon
+scripts/login.json
 
-# .NET Desktop build artifacts
+# ── .NET Desktop build artifacts ──
 desktop/Stratus.Desktop/bin/
 desktop/Stratus.Desktop/obj/
+desktop/Stratus.Desktop/*.dll
+desktop/Stratus.Desktop/*.zip
 desktop/publish/
 *.user
 *.suo
 
-# Release binaries (too large for GitHub)
+# ── Release binaries (too large for GitHub) ──
 release/
 windrose-main/
