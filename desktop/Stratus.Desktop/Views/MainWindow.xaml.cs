@@ -5,7 +5,11 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.SKCharts;
 using Microsoft.Win32;
+using SkiaSharp;
 using Stratus.Desktop.Controls;
 using Stratus.Desktop.Models;
 using Stratus.Desktop.Services;
@@ -264,11 +268,12 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Exports all visible charts as individual PNG images to a folder.
+    /// Exports all visible charts as individual PNG images using LiveCharts2’s
+    /// off-screen SkiaSharp renderer (RenderTargetBitmap cannot capture SkiaSharp content).
     /// </summary>
     private void ExportCharts_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is not ViewModels.MainViewModel vm || vm.SelectedStation == null)
+        if (DataContext is not MainViewModel vm || vm.SelectedStation == null)
         {
             MessageBox.Show("Load station data first, then export charts.", "No Data",
                 MessageBoxButton.OK, MessageBoxImage.Information);
@@ -280,24 +285,61 @@ public partial class MainWindow : Window
             $"{vm.SelectedStation.Name}_{DateTime.Now:yyyyMMdd_HHmmss}");
         Directory.CreateDirectory(exportDir);
 
-        int count = 0;
-        foreach (var child in ChartsStackPanel.Children)
+        // Collect every chart: (label, series array, visible flag)
+        var charts = new (string Label, ISeries[] Series, bool Visible)[]
         {
-            if (child is GroupBox gb && gb.Visibility == Visibility.Visible)
-            {
-                string header = gb.Header?.ToString() ?? "chart";
-                string safeName = string.Join("_", header.Split(System.IO.Path.GetInvalidFileNameChars()));
-                string filePath = System.IO.Path.Combine(exportDir, $"{safeName}.png");
+            ("Temperature",          vm.TemperatureSeries,      vm.HasTemperature),
+            ("Humidity",             vm.HumiditySeries,         vm.HasHumidity),
+            ("Pressure",             vm.PressureSeries,         vm.HasPressure),
+            ("Dew Point",            vm.DewPointSeries,         vm.HasDewPoint),
+            ("Wind Speed",           vm.WindSeries,             vm.HasWind),
+            ("Wind Direction",       vm.WindDirectionSeries,    vm.HasWindDirection),
+            ("Wind Power",           vm.WindPowerSeries,        vm.HasWindPower),
+            ("Rainfall",             vm.RainfallSeries,         vm.HasRainfall),
+            ("Solar Radiation",      vm.SolarSeries,            vm.HasSolar),
+            ("UV Index",             vm.UvIndexSeries,          vm.HasUvIndex),
+            ("Evapotranspiration",   vm.EtoSeries,              vm.HasEto),
+            ("Soil",                 vm.SoilSeries,             vm.HasSoil),
+            ("Air Quality",          vm.AirQualitySeries,       vm.HasAirQuality),
+            ("CO2 TVOC",             vm.Co2TvocSeries,          vm.HasCo2Tvoc),
+            ("Air Density",          vm.AirDensitySeries,       vm.HasAirDensity),
+            ("Battery Power",        vm.BatterySeries,          vm.HasBattery),
+            ("Water Level",          vm.WaterLevelSeries,       vm.HasWaterLevel),
+            ("Switches",             vm.SwitchSeries,           vm.HasSwitch),
+            ("Lightning",            vm.LightningSeries,        vm.HasLightning),
+            ("MPPT1 Power",          vm.MpptPowerSeries,        vm.HasMpptPower),
+            ("MPPT1 Voltage",        vm.MpptVoltageSeries,      vm.HasMpptVoltage),
+            ("MPPT1 Current",        vm.MpptCurrentSeries,      vm.HasMpptCurrent),
+            ("MPPT2 Power",          vm.Mppt2PowerSeries,       vm.HasMppt2Power),
+            ("MPPT2 Voltage",        vm.Mppt2VoltageSeries,     vm.HasMppt2Voltage),
+        };
 
-                try
+        int count = 0;
+        foreach (var (label, series, visible) in charts)
+        {
+            if (!visible || series.Length == 0) continue;
+
+            try
+            {
+                // Use LiveCharts2’s off-screen SkiaSharp renderer — the only way to
+                // capture SkiaSharp-drawn content (WPF RenderTargetBitmap cannot).
+                var skChart = new SKCartesianChart
                 {
-                    ExportFrameworkElementToPng(gb, filePath);
-                    count++;
-                }
-                catch (Exception ex)
-                {
-                    vm.AddLog($"[WARN] Failed to export chart '{header}': {ex.Message}");
-                }
+                    Width = 1200,
+                    Height = 400,
+                    Series = series,
+                    XAxes = vm.ChartXAxes,
+                    Background = SKColors.White,
+                };
+
+                string safeName = string.Join("_", label.Split(Path.GetInvalidFileNameChars()));
+                string filePath = Path.Combine(exportDir, $"{safeName}.png");
+                skChart.SaveImage(filePath);
+                count++;
+            }
+            catch (Exception ex)
+            {
+                vm.AddLog($"[WARN] Failed to export '{label}': {ex.Message}");
             }
         }
 
@@ -311,28 +353,6 @@ public partial class MainWindow : Window
             MessageBox.Show("No visible charts to export. Load data first.", "No Charts",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
-    }
-
-    /// <summary>
-    /// Renders any WPF FrameworkElement to a PNG file at 2× DPI.
-    /// </summary>
-    private static void ExportFrameworkElementToPng(FrameworkElement element, string filePath)
-    {
-        const double dpi = 192.0;
-        double w = element.ActualWidth > 0 ? element.ActualWidth : 800;
-        double h = element.ActualHeight > 0 ? element.ActualHeight : 280;
-
-        var renderBitmap = new RenderTargetBitmap(
-            (int)(w * dpi / 96.0),
-            (int)(h * dpi / 96.0),
-            dpi, dpi,
-            PixelFormats.Pbgra32);
-        renderBitmap.Render(element);
-
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
-        using var stream = File.Create(filePath);
-        encoder.Save(stream);
     }
 
     /// <summary>

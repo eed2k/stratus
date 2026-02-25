@@ -448,13 +448,25 @@ public partial class MainViewModel : ObservableObject
 
         var ordered = records.OrderBy(r => r.Timestamp).ToList();
 
-        // ── Adapt X-axis labels to the loaded time range ──
+        // ── Adapt X-axis labels & step to the loaded time range ──
         string dateFmt = SelectedTimeRange switch
         {
             "1h" or "6h" => "HH:mm",
             "24h" or "48h" => "dd/MM HH:mm",
             _ => "dd MMM"
         };
+
+        double minStep = SelectedTimeRange switch
+        {
+            "1h"  => TimeSpan.FromMinutes(5).Ticks,
+            "6h"  => TimeSpan.FromMinutes(30).Ticks,
+            "24h" => TimeSpan.FromHours(2).Ticks,
+            "48h" => TimeSpan.FromHours(4).Ticks,
+            "7d"  => TimeSpan.FromDays(1).Ticks,
+            "30d" => TimeSpan.FromDays(3).Ticks,
+            _     => TimeSpan.FromHours(2).Ticks
+        };
+
         ChartXAxes = new Axis[]
         {
             new Axis
@@ -462,6 +474,7 @@ public partial class MainViewModel : ObservableObject
                 Labeler = v => { try { return new DateTime((long)v).ToString(dateFmt); } catch { return ""; } },
                 LabelsRotation = -45,
                 TextSize = 10,
+                MinStep = minStep,
                 LabelsPaint = new SolidColorPaint(SKColors.Gray),
                 SeparatorsPaint = new SolidColorPaint(new SKColor(230, 230, 230)),
             }
