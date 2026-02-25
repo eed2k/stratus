@@ -1,6 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LiveChartsCore;
+using LiveChartsCore.Defaults;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using Serilog;
+using SkiaSharp;
 using Stratus.Desktop.Models;
 using Stratus.Desktop.Services;
 using System.Collections.ObjectModel;
@@ -30,6 +35,29 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<string> LogMessages { get; } = new();
 
     public string[] TimeRanges { get; } = { "1h", "6h", "24h", "48h", "7d", "30d" };
+
+    // ── LiveCharts2 series for the Charts tab ──
+    [ObservableProperty] private ISeries[] _temperatureSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _humiditySeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _pressureSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _windSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _solarSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _batterySeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _rainfallSeries = Array.Empty<ISeries>();
+    [ObservableProperty] private ISeries[] _waterLevelSeries = Array.Empty<ISeries>();
+
+    // Shared X-axis for all charts (time-based)
+    [ObservableProperty] private Axis[] _chartXAxes = new Axis[]
+    {
+        new Axis
+        {
+            Labeler = v => new DateTime((long)v).ToString("HH:mm"),
+            LabelsRotation = -45,
+            TextSize = 10,
+            LabelsPaint = new SolidColorPaint(SKColors.Gray),
+            SeparatorsPaint = new SolidColorPaint(new SKColor(230, 230, 230)),
+        }
+    };
 
     public MainViewModel()
     {
@@ -224,6 +252,9 @@ public partial class MainViewModel : ObservableObject
             if (records.Count > 0)
                 LatestData = records.OrderByDescending(r => r.Timestamp).First();
 
+            // Update LiveCharts series
+            UpdateCharts(records);
+
             StatusText = $"Loaded {records.Count} records for {SelectedStation.Name}";
             AddLog($"[DATA] Loaded {records.Count} records ({SelectedTimeRange})");
         }
@@ -336,5 +367,160 @@ public partial class MainViewModel : ObservableObject
             if (LogMessages.Count > 500)
                 LogMessages.RemoveAt(LogMessages.Count - 1);
         });
+    }
+
+    private void UpdateCharts(List<WeatherRecord> records)
+    {
+        if (records.Count == 0) return;
+
+        var ordered = records.OrderBy(r => r.Timestamp).ToList();
+
+        // Helper to build a point collection from a selector
+        List<DateTimePoint> BuildPoints(Func<WeatherRecord, double?> selector)
+        {
+            return ordered
+                .Where(r => selector(r).HasValue)
+                .Select(r => new DateTimePoint(r.Timestamp, selector(r)!.Value))
+                .ToList();
+        }
+
+        var tempPts = BuildPoints(r => r.Temperature);
+        var humPts  = BuildPoints(r => r.Humidity);
+        var presPts = BuildPoints(r => r.Pressure);
+        var windPts = BuildPoints(r => r.WindSpeed);
+        var gustPts = BuildPoints(r => r.WindGust);
+        var solPts  = BuildPoints(r => r.SolarRadiation);
+        var battPts = BuildPoints(r => r.BatteryVoltage);
+        var rainPts = BuildPoints(r => r.Rainfall);
+        var wlPts   = BuildPoints(r => r.WaterLevel);
+
+        // Temperature
+        if (tempPts.Count > 0)
+            TemperatureSeries = new ISeries[]
+            {
+                new LineSeries<DateTimePoint>
+                {
+                    Values = tempPts,
+                    Name = "Temperature (°C)",
+                    Stroke = new SolidColorPaint(new SKColor(0xEF, 0x44, 0x44)) { StrokeThickness = 2 },
+                    Fill = null,
+                    GeometrySize = 0,
+                    LineSmoothness = 0.3
+                }
+            };
+
+        // Humidity
+        if (humPts.Count > 0)
+            HumiditySeries = new ISeries[]
+            {
+                new LineSeries<DateTimePoint>
+                {
+                    Values = humPts,
+                    Name = "Humidity (%)",
+                    Stroke = new SolidColorPaint(new SKColor(0x3B, 0x82, 0xF6)) { StrokeThickness = 2 },
+                    Fill = null,
+                    GeometrySize = 0,
+                    LineSmoothness = 0.3
+                }
+            };
+
+        // Pressure
+        if (presPts.Count > 0)
+            PressureSeries = new ISeries[]
+            {
+                new LineSeries<DateTimePoint>
+                {
+                    Values = presPts,
+                    Name = "Pressure (hPa)",
+                    Stroke = new SolidColorPaint(new SKColor(0x64, 0x74, 0x8B)) { StrokeThickness = 2 },
+                    Fill = null,
+                    GeometrySize = 0,
+                    LineSmoothness = 0.3
+                }
+            };
+
+        // Wind Speed + Gust
+        var windSeries = new List<ISeries>();
+        if (windPts.Count > 0)
+            windSeries.Add(new LineSeries<DateTimePoint>
+            {
+                Values = windPts,
+                Name = "Wind Speed (m/s)",
+                Stroke = new SolidColorPaint(new SKColor(0x22, 0xC5, 0x5E)) { StrokeThickness = 2 },
+                Fill = null,
+                GeometrySize = 0,
+                LineSmoothness = 0.3
+            });
+        if (gustPts.Count > 0)
+            windSeries.Add(new LineSeries<DateTimePoint>
+            {
+                Values = gustPts,
+                Name = "Wind Gust (m/s)",
+                Stroke = new SolidColorPaint(new SKColor(0xF9, 0x73, 0x16)) { StrokeThickness = 2 },
+                Fill = null,
+                GeometrySize = 0,
+                LineSmoothness = 0.3
+            });
+        if (windSeries.Count > 0)
+            WindSeries = windSeries.ToArray();
+
+        // Solar Radiation
+        if (solPts.Count > 0)
+            SolarSeries = new ISeries[]
+            {
+                new LineSeries<DateTimePoint>
+                {
+                    Values = solPts,
+                    Name = "Solar Radiation (W/m²)",
+                    Stroke = new SolidColorPaint(new SKColor(0xEA, 0xB3, 0x08)) { StrokeThickness = 2 },
+                    Fill = new SolidColorPaint(new SKColor(0xEA, 0xB3, 0x08, 0x30)),
+                    GeometrySize = 0,
+                    LineSmoothness = 0.3
+                }
+            };
+
+        // Battery Voltage
+        if (battPts.Count > 0)
+            BatterySeries = new ISeries[]
+            {
+                new LineSeries<DateTimePoint>
+                {
+                    Values = battPts,
+                    Name = "Battery (V)",
+                    Stroke = new SolidColorPaint(new SKColor(0x16, 0xA3, 0x4A)) { StrokeThickness = 2 },
+                    Fill = null,
+                    GeometrySize = 0,
+                    LineSmoothness = 0.3
+                }
+            };
+
+        // Rainfall (bar chart)
+        if (rainPts.Count > 0)
+            RainfallSeries = new ISeries[]
+            {
+                new ColumnSeries<DateTimePoint>
+                {
+                    Values = rainPts,
+                    Name = "Rainfall (mm)",
+                    Fill = new SolidColorPaint(new SKColor(0x38, 0xBD, 0xF8)),
+                    Stroke = null,
+                    MaxBarWidth = 8
+                }
+            };
+
+        // Water Level
+        if (wlPts.Count > 0)
+            WaterLevelSeries = new ISeries[]
+            {
+                new LineSeries<DateTimePoint>
+                {
+                    Values = wlPts,
+                    Name = "Water Level (mm)",
+                    Stroke = new SolidColorPaint(new SKColor(0x06, 0xB6, 0xD4)) { StrokeThickness = 2 },
+                    Fill = new SolidColorPaint(new SKColor(0x06, 0xB6, 0xD4, 0x30)),
+                    GeometrySize = 0,
+                    LineSmoothness = 0.3
+                }
+            };
     }
 }

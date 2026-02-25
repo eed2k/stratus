@@ -3,6 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Stratus.Desktop.ViewModels"
         xmlns:controls="clr-namespace:Stratus.Desktop.Controls"
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+        xmlns:lvc2="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
         Title="Stratus Weather Station Manager" 
         Height="768" Width="1200"
         MinHeight="600" MinWidth="900"
@@ -242,7 +244,7 @@
                                     </StackPanel>
                                 </Border>
                                 <!-- Rainfall -->
-                                <Border Padding="12,4">
+                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
                                     <StackPanel>
                                         <TextBlock Text="Rain" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                         <StackPanel Orientation="Horizontal">
@@ -250,6 +252,36 @@
                                                        Style="{StaticResource DataValueLabel}" FontSize="20"/>
                                             <TextBlock Text="mm" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
                                         </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <!-- Battery -->
+                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Battery" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding LatestData.BatteryVoltage, StringFormat='{}{0:F2}', FallbackValue='--'}" 
+                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
+                                            <TextBlock Text="V" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <!-- Water Level -->
+                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Water Level" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding LatestData.WaterLevel, StringFormat='{}{0:F1}', FallbackValue='--'}" 
+                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
+                                            <TextBlock Text="mm" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <!-- Level Switch -->
+                                <Border Padding="12,4">
+                                    <StackPanel>
+                                        <TextBlock Text="Level Switch" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBlock Text="{Binding LatestData.LevelSwitch, StringFormat='{}{0:F0} mV', FallbackValue='--'}" 
+                                                   Style="{StaticResource DataValueLabel}" FontSize="20"/>
                                     </StackPanel>
                                 </Border>
                             </WrapPanel>
@@ -282,6 +314,117 @@
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
+                </TabItem>
+
+                <!-- Charts Tab -->
+                <TabItem Header="  Charts  " FontSize="12">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="12">
+                        <StackPanel>
+                            <!-- Temperature Chart -->
+                            <GroupBox Header="Temperature" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                                <lvc:CartesianChart Height="220"
+                                    Series="{Binding TemperatureSeries}"
+                                    XAxes="{Binding ChartXAxes}"
+                                    TooltipPosition="Top"
+                                    ZoomMode="X">
+                                    <lvc:CartesianChart.YAxes>
+                                        <lvc2:Axis Name="°C"/>
+                                    </lvc:CartesianChart.YAxes>
+                                </lvc:CartesianChart>
+                            </GroupBox>
+
+                            <!-- Humidity Chart -->
+                            <GroupBox Header="Humidity" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                                <lvc:CartesianChart Height="220"
+                                    Series="{Binding HumiditySeries}"
+                                    XAxes="{Binding ChartXAxes}"
+                                    TooltipPosition="Top"
+                                    ZoomMode="X">
+                                    <lvc:CartesianChart.YAxes>
+                                        <lvc2:Axis Name="%"/>
+                                    </lvc:CartesianChart.YAxes>
+                                </lvc:CartesianChart>
+                            </GroupBox>
+
+                            <!-- Pressure Chart -->
+                            <GroupBox Header="Barometric Pressure" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                                <lvc:CartesianChart Height="220"
+                                    Series="{Binding PressureSeries}"
+                                    XAxes="{Binding ChartXAxes}"
+                                    TooltipPosition="Top"
+                                    ZoomMode="X">
+                                    <lvc:CartesianChart.YAxes>
+                                        <lvc2:Axis Name="hPa"/>
+                                    </lvc:CartesianChart.YAxes>
+                                </lvc:CartesianChart>
+                            </GroupBox>
+
+                            <!-- Wind Speed + Gust Chart -->
+                            <GroupBox Header="Wind" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                                <lvc:CartesianChart Height="220"
+                                    Series="{Binding WindSeries}"
+                                    XAxes="{Binding ChartXAxes}"
+                                    TooltipPosition="Top"
+                                    ZoomMode="X">
+                                    <lvc:CartesianChart.YAxes>
+                                        <lvc2:Axis Name="m/s"/>
+                                    </lvc:CartesianChart.YAxes>
+                                </lvc:CartesianChart>
+                            </GroupBox>
+
+                            <!-- Solar Radiation Chart -->
+                            <GroupBox Header="Solar Radiation" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                                <lvc:CartesianChart Height="220"
+                                    Series="{Binding SolarSeries}"
+                                    XAxes="{Binding ChartXAxes}"
+                                    TooltipPosition="Top"
+                                    ZoomMode="X">
+                                    <lvc:CartesianChart.YAxes>
+                                        <lvc2:Axis Name="W/m²"/>
+                                    </lvc:CartesianChart.YAxes>
+                                </lvc:CartesianChart>
+                            </GroupBox>
+
+                            <!-- Rainfall Chart -->
+                            <GroupBox Header="Rainfall" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                                <lvc:CartesianChart Height="220"
+                                    Series="{Binding RainfallSeries}"
+                                    XAxes="{Binding ChartXAxes}"
+                                    TooltipPosition="Top"
+                                    ZoomMode="X">
+                                    <lvc:CartesianChart.YAxes>
+                                        <lvc2:Axis Name="mm"/>
+                                    </lvc:CartesianChart.YAxes>
+                                </lvc:CartesianChart>
+                            </GroupBox>
+
+                            <!-- Battery Voltage Chart -->
+                            <GroupBox Header="Battery Voltage" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                                <lvc:CartesianChart Height="220"
+                                    Series="{Binding BatterySeries}"
+                                    XAxes="{Binding ChartXAxes}"
+                                    TooltipPosition="Top"
+                                    ZoomMode="X">
+                                    <lvc:CartesianChart.YAxes>
+                                        <lvc2:Axis Name="V"/>
+                                    </lvc:CartesianChart.YAxes>
+                                </lvc:CartesianChart>
+                            </GroupBox>
+
+                            <!-- Water Level Chart -->
+                            <GroupBox Header="Water Level" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                                <lvc:CartesianChart Height="220"
+                                    Series="{Binding WaterLevelSeries}"
+                                    XAxes="{Binding ChartXAxes}"
+                                    TooltipPosition="Top"
+                                    ZoomMode="X">
+                                    <lvc:CartesianChart.YAxes>
+                                        <lvc2:Axis Name="mm"/>
+                                    </lvc:CartesianChart.YAxes>
+                                </lvc:CartesianChart>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
                 </TabItem>
 
                 <!-- Data Log Tab -->
