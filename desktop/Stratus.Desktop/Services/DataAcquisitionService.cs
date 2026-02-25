@@ -95,7 +95,8 @@ public class DataAcquisitionService
     public async Task PollAllStationsAsync()
     {
         var stations = await _apiService.GetStationsAsync();
-        
+        if (stations == null) return;
+
         foreach (var station in stations)
         {
             try

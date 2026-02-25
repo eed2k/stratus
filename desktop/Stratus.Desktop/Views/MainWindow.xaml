@@ -4,7 +4,6 @@
         xmlns:vm="clr-namespace:Stratus.Desktop.ViewModels"
         xmlns:controls="clr-namespace:Stratus.Desktop.Controls"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
-        xmlns:lvc2="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
         Title="Stratus Weather Station Manager" 
         Height="768" Width="1200"
         MinHeight="600" MinWidth="900"
@@ -321,107 +320,75 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="12">
                         <StackPanel>
                             <!-- Temperature Chart -->
-                            <GroupBox Header="Temperature" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                            <GroupBox Header="Temperature (°C)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
                                 <lvc:CartesianChart Height="220"
                                     Series="{Binding TemperatureSeries}"
                                     XAxes="{Binding ChartXAxes}"
                                     TooltipPosition="Top"
-                                    ZoomMode="X">
-                                    <lvc:CartesianChart.YAxes>
-                                        <lvc2:Axis Name="°C"/>
-                                    </lvc:CartesianChart.YAxes>
-                                </lvc:CartesianChart>
+                                    ZoomMode="X"/>
                             </GroupBox>
 
                             <!-- Humidity Chart -->
-                            <GroupBox Header="Humidity" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                            <GroupBox Header="Humidity (%)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
                                 <lvc:CartesianChart Height="220"
                                     Series="{Binding HumiditySeries}"
                                     XAxes="{Binding ChartXAxes}"
                                     TooltipPosition="Top"
-                                    ZoomMode="X">
-                                    <lvc:CartesianChart.YAxes>
-                                        <lvc2:Axis Name="%"/>
-                                    </lvc:CartesianChart.YAxes>
-                                </lvc:CartesianChart>
+                                    ZoomMode="X"/>
                             </GroupBox>
 
                             <!-- Pressure Chart -->
-                            <GroupBox Header="Barometric Pressure" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                            <GroupBox Header="Barometric Pressure (hPa)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
                                 <lvc:CartesianChart Height="220"
                                     Series="{Binding PressureSeries}"
                                     XAxes="{Binding ChartXAxes}"
                                     TooltipPosition="Top"
-                                    ZoomMode="X">
-                                    <lvc:CartesianChart.YAxes>
-                                        <lvc2:Axis Name="hPa"/>
-                                    </lvc:CartesianChart.YAxes>
-                                </lvc:CartesianChart>
+                                    ZoomMode="X"/>
                             </GroupBox>
 
                             <!-- Wind Speed + Gust Chart -->
-                            <GroupBox Header="Wind" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                            <GroupBox Header="Wind (m/s)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
                                 <lvc:CartesianChart Height="220"
                                     Series="{Binding WindSeries}"
                                     XAxes="{Binding ChartXAxes}"
                                     TooltipPosition="Top"
-                                    ZoomMode="X">
-                                    <lvc:CartesianChart.YAxes>
-                                        <lvc2:Axis Name="m/s"/>
-                                    </lvc:CartesianChart.YAxes>
-                                </lvc:CartesianChart>
+                                    ZoomMode="X"/>
                             </GroupBox>
 
                             <!-- Solar Radiation Chart -->
-                            <GroupBox Header="Solar Radiation" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                            <GroupBox Header="Solar Radiation (W/m²)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
                                 <lvc:CartesianChart Height="220"
                                     Series="{Binding SolarSeries}"
                                     XAxes="{Binding ChartXAxes}"
                                     TooltipPosition="Top"
-                                    ZoomMode="X">
-                                    <lvc:CartesianChart.YAxes>
-                                        <lvc2:Axis Name="W/m²"/>
-                                    </lvc:CartesianChart.YAxes>
-                                </lvc:CartesianChart>
+                                    ZoomMode="X"/>
                             </GroupBox>
 
                             <!-- Rainfall Chart -->
-                            <GroupBox Header="Rainfall" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                            <GroupBox Header="Rainfall (mm)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
                                 <lvc:CartesianChart Height="220"
                                     Series="{Binding RainfallSeries}"
                                     XAxes="{Binding ChartXAxes}"
                                     TooltipPosition="Top"
-                                    ZoomMode="X">
-                                    <lvc:CartesianChart.YAxes>
-                                        <lvc2:Axis Name="mm"/>
-                                    </lvc:CartesianChart.YAxes>
-                                </lvc:CartesianChart>
+                                    ZoomMode="X"/>
                             </GroupBox>
 
                             <!-- Battery Voltage Chart -->
-                            <GroupBox Header="Battery Voltage" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                            <GroupBox Header="Battery Voltage (V)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
                                 <lvc:CartesianChart Height="220"
                                     Series="{Binding BatterySeries}"
                                     XAxes="{Binding ChartXAxes}"
                                     TooltipPosition="Top"
-                                    ZoomMode="X">
-                                    <lvc:CartesianChart.YAxes>
-                                        <lvc2:Axis Name="V"/>
-                                    </lvc:CartesianChart.YAxes>
-                                </lvc:CartesianChart>
+                                    ZoomMode="X"/>
                             </GroupBox>
 
                             <!-- Water Level Chart -->
-                            <GroupBox Header="Water Level" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
+                            <GroupBox Header="Water Level (mm)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8">
                                 <lvc:CartesianChart Height="220"
                                     Series="{Binding WaterLevelSeries}"
                                     XAxes="{Binding ChartXAxes}"
                                     TooltipPosition="Top"
-                                    ZoomMode="X">
-                                    <lvc:CartesianChart.YAxes>
-                                        <lvc2:Axis Name="mm"/>
-                                    </lvc:CartesianChart.YAxes>
-                                </lvc:CartesianChart>
+                                    ZoomMode="X"/>
                             </GroupBox>
                         </StackPanel>
                     </ScrollViewer>

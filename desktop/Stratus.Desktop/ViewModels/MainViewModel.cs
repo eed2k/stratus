@@ -197,7 +197,7 @@ public partial class MainViewModel : ObservableObject
                 AddLog($"[API] Loaded {stations.Count} stations from server");
             }
 
-            foreach (var s in stations)
+            foreach (var s in stations!)
                 Stations.Add(s);
 
             StatusText = $"{stations.Count} stations loaded";
