@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -260,6 +261,78 @@ public partial class MainWindow : Window
             return null;
 
         return tab.Content as WindRoseControl;
+    }
+
+    /// <summary>
+    /// Exports all visible charts as individual PNG images to a folder.
+    /// </summary>
+    private void ExportCharts_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ViewModels.MainViewModel vm || vm.SelectedStation == null)
+        {
+            MessageBox.Show("Load station data first, then export charts.", "No Data",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var exportDir = System.IO.Path.Combine(docs, "Stratus", "Charts",
+            $"{vm.SelectedStation.Name}_{DateTime.Now:yyyyMMdd_HHmmss}");
+        Directory.CreateDirectory(exportDir);
+
+        int count = 0;
+        foreach (var child in ChartsStackPanel.Children)
+        {
+            if (child is GroupBox gb && gb.Visibility == Visibility.Visible)
+            {
+                string header = gb.Header?.ToString() ?? "chart";
+                string safeName = string.Join("_", header.Split(System.IO.Path.GetInvalidFileNameChars()));
+                string filePath = System.IO.Path.Combine(exportDir, $"{safeName}.png");
+
+                try
+                {
+                    ExportFrameworkElementToPng(gb, filePath);
+                    count++;
+                }
+                catch (Exception ex)
+                {
+                    vm.AddLog($"[WARN] Failed to export chart '{header}': {ex.Message}");
+                }
+            }
+        }
+
+        if (count > 0)
+        {
+            vm.AddLog($"[EXPORT] Saved {count} chart(s) to {exportDir}");
+            System.Diagnostics.Process.Start("explorer.exe", exportDir);
+        }
+        else
+        {
+            MessageBox.Show("No visible charts to export. Load data first.", "No Charts",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    /// <summary>
+    /// Renders any WPF FrameworkElement to a PNG file at 2× DPI.
+    /// </summary>
+    private static void ExportFrameworkElementToPng(FrameworkElement element, string filePath)
+    {
+        const double dpi = 192.0;
+        double w = element.ActualWidth > 0 ? element.ActualWidth : 800;
+        double h = element.ActualHeight > 0 ? element.ActualHeight : 280;
+
+        var renderBitmap = new RenderTargetBitmap(
+            (int)(w * dpi / 96.0),
+            (int)(h * dpi / 96.0),
+            dpi, dpi,
+            PixelFormats.Pbgra32);
+        renderBitmap.Render(element);
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+        using var stream = File.Create(filePath);
+        encoder.Save(stream);
     }
 
     /// <summary>
