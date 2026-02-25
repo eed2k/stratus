@@ -100,6 +100,32 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _hasCo2Tvoc;
     [ObservableProperty] private bool _hasAirDensity;
 
+    // ── Y-axes for each chart (unit labels & formatting) ──
+    [ObservableProperty] private Axis[] _temperatureYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _humidityYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _pressureYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _dewPointYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _windYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _windDirectionYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _windPowerYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _rainfallYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _solarYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _uvIndexYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _etoYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _soilYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _airQualityYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _co2TvocYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _airDensityYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _batteryYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _waterLevelYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _switchYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _lightningYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _mpptPowerYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _mpptVoltageYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _mpptCurrentYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _mppt2PowerYAxes = Array.Empty<Axis>();
+    [ObservableProperty] private Axis[] _mppt2VoltageYAxes = Array.Empty<Axis>();
+
     // Shared X-axis for all charts (time-based)
     [ObservableProperty] private Axis[] _chartXAxes = new Axis[]
     {
@@ -479,14 +505,43 @@ public partial class MainViewModel : ObservableObject
         {
             new Axis
             {
+                Name = "Date / Time",
+                NameTextSize = 12,
+                NamePaint = new SolidColorPaint(SKColors.DarkSlateGray),
                 Labeler = v => { try { return new DateTime((long)v).ToString(dateFmt); } catch { return ""; } },
                 LabelsRotation = -45,
-                TextSize = 10,
+                TextSize = 11,
                 MinStep = minStep,
                 LabelsPaint = new SolidColorPaint(SKColors.Gray),
                 SeparatorsPaint = new SolidColorPaint(new SKColor(230, 230, 230)),
             }
         };
+
+        // ── Set Y-axes for each chart type (unit labels) ──
+        TemperatureYAxes = MakeYAxes("Temperature (°C)");
+        HumidityYAxes = MakeYAxes("Relative Humidity (%)", "F0");
+        PressureYAxes = MakeYAxes("Pressure (hPa)", "F0");
+        DewPointYAxes = MakeYAxes("Dew Point (°C)");
+        WindYAxes = MakeYAxes("Speed (km/h)");
+        WindDirectionYAxes = MakeYAxes("Direction (°)", "F0");
+        WindPowerYAxes = MakeYAxes("Power (W/m²)");
+        RainfallYAxes = MakeYAxes("Rainfall (mm)");
+        SolarYAxes = MakeYAxes("Irradiance (W/m²)", "F0");
+        UvIndexYAxes = MakeYAxes("UV Index");
+        EtoYAxes = MakeYAxes("ETo (mm/day)", "F2");
+        SoilYAxes = MakeYAxes("Value");
+        AirQualityYAxes = MakeYAxes("Concentration (µg/m³)", "F0");
+        Co2TvocYAxes = MakeYAxes("Concentration", "F0");
+        AirDensityYAxes = MakeYAxes("Density (kg/m³)", "F3");
+        BatteryYAxes = MakeYAxes("Voltage (V) / Temp (°C)", "F2");
+        WaterLevelYAxes = MakeYAxes("Level (mm)");
+        SwitchYAxes = MakeYAxes("Value (mV)", "F0");
+        LightningYAxes = MakeYAxes("Strikes", "F0");
+        MpptPowerYAxes = MakeYAxes("Power (W)");
+        MpptVoltageYAxes = MakeYAxes("Voltage (V)", "F2");
+        MpptCurrentYAxes = MakeYAxes("Current (mA)", "F0");
+        Mppt2PowerYAxes = MakeYAxes("Power (W)");
+        Mppt2VoltageYAxes = MakeYAxes("Voltage (V)", "F2");
 
         // Helper to build points from a nullable double selector
         List<DateTimePoint> Pts(Func<WeatherRecord, double?> sel) =>
@@ -751,4 +806,22 @@ public partial class MainViewModel : ObservableObject
 
         AddLog($"[CHARTS] Updated — {chartCount} active charts for {SelectedTimeRange} range ({sampled.Count} of {ordered.Count} points)");
     }
+
+    /// <summary>
+    /// Creates a Y-axis array with a unit label and optional format string.
+    /// Used by all chart types to provide clear axis labels per WMO display standards.
+    /// </summary>
+    private static Axis[] MakeYAxes(string name, string format = "F1") => new Axis[]
+    {
+        new Axis
+        {
+            Name = name,
+            NameTextSize = 13,
+            NamePaint = new SolidColorPaint(SKColors.DarkSlateGray),
+            TextSize = 11,
+            LabelsPaint = new SolidColorPaint(SKColors.Gray),
+            SeparatorsPaint = new SolidColorPaint(new SKColor(240, 240, 240)),
+            Labeler = v => v.ToString(format),
+        }
+    };
 }

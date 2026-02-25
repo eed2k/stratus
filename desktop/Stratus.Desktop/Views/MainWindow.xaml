@@ -371,145 +371,145 @@
                                 <!-- Temperature + Dew Point + Min/Max -->
                                 <GroupBox Header="Temperature / Dew Point (°C)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasTemperature, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding TemperatureSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding TemperatureSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding TemperatureYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Humidity -->
                                 <GroupBox Header="Humidity (%)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasHumidity, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding HumiditySeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding HumiditySeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding HumidityYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Pressure + Sea Level -->
                                 <GroupBox Header="Barometric Pressure (hPa)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasPressure, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding PressureSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding PressureSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding PressureYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Dew Point standalone -->
                                 <GroupBox Header="Dew Point (°C)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasDewPoint, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding DewPointSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding DewPointSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding DewPointYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Wind Speed + Gust -->
                                 <GroupBox Header="Wind Speed / Gust (km/h)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasWind, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding WindSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding WindSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding WindYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Wind Direction -->
                                 <GroupBox Header="Wind Direction (°)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasWindDirection, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding WindDirectionSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding WindDirectionSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding WindDirectionYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Wind Power -->
                                 <GroupBox Header="Wind Power (W/m²)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasWindPower, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding WindPowerSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding WindPowerSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding WindPowerYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Rainfall + 24h -->
                                 <GroupBox Header="Rainfall (mm)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasRainfall, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding RainfallSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding RainfallSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding RainfallYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Solar Radiation + Max -->
                                 <GroupBox Header="Solar Radiation (W/m²)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasSolar, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding SolarSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding SolarSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding SolarYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- UV Index -->
                                 <GroupBox Header="UV Index" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasUvIndex, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding UvIndexSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding UvIndexSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding UvIndexYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Evapotranspiration + 24h -->
                                 <GroupBox Header="Evapotranspiration — ETo (mm/day)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasEto, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding EtoSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding EtoSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding EtoYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Soil + Leaf Wetness -->
                                 <GroupBox Header="Soil (Temperature / Moisture / Leaf Wetness)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasSoil, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding SoilSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding SoilSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding SoilYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Air Quality PM1/2.5/10 -->
                                 <GroupBox Header="Air Quality — PM1 / PM2.5 / PM10 (µg/m³)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasAirQuality, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding AirQualitySeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding AirQualitySeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding AirQualityYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- CO₂ & TVOC -->
                                 <GroupBox Header="CO₂ (ppm) / TVOC (ppb)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasCo2Tvoc, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding Co2TvocSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding Co2TvocSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding Co2TvocYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Air Density -->
                                 <GroupBox Header="Air Density (kg/m³)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasAirDensity, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding AirDensitySeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding AirDensitySeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding AirDensityYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Battery / Charger / Panel -->
                                 <GroupBox Header="Battery / Charger / Panel Temperature" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasBattery, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding BatterySeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding BatterySeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding BatteryYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Water Level -->
                                 <GroupBox Header="Water Level (mm)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasWaterLevel, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding WaterLevelSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding WaterLevelSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding WaterLevelYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Switches -->
                                 <GroupBox Header="Switches (Temp / Level)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasSwitch, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding SwitchSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding SwitchSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding SwitchYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- Lightning -->
                                 <GroupBox Header="Lightning (strikes)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasLightning, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding LightningSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding LightningSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding LightningYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- MPPT 1 Power -->
                                 <GroupBox Header="MPPT Charger 1 — Solar Power (W)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasMpptPower, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding MpptPowerSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding MpptPowerSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding MpptPowerYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- MPPT 1 Voltages -->
                                 <GroupBox Header="MPPT Charger 1 — Voltages (V)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasMpptVoltage, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding MpptVoltageSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding MpptVoltageSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding MpptVoltageYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- MPPT 1 Currents -->
                                 <GroupBox Header="MPPT Charger 1 — Currents (mA)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasMpptCurrent, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding MpptCurrentSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding MpptCurrentSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding MpptCurrentYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- MPPT 2 Power -->
                                 <GroupBox Header="MPPT Charger 2 — Solar Power (W)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasMppt2Power, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding Mppt2PowerSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding Mppt2PowerSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding Mppt2PowerYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                                 <!-- MPPT 2 Voltages -->
                                 <GroupBox Header="MPPT Charger 2 — Voltages (V)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
                                           Visibility="{Binding HasMppt2Voltage, Converter={StaticResource BoolToVis}}">
-                                    <lvc:CartesianChart Height="220" Series="{Binding Mppt2VoltageSeries}" XAxes="{Binding ChartXAxes}" TooltipPosition="Top" ZoomMode="X"/>
+                                    <lvc:CartesianChart Height="220" Series="{Binding Mppt2VoltageSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding Mppt2VoltageYAxes}" TooltipPosition="Top" ZoomMode="X"/>
                                 </GroupBox>
 
                             </StackPanel>

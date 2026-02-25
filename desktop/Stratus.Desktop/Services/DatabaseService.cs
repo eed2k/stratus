@@ -2,6 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Npgsql;
 using Serilog;
 using Stratus.Desktop.Models;
+using System.IO;
+using System.Text.Json;
 
 namespace Stratus.Desktop.Services;
 
@@ -15,6 +17,11 @@ public class DatabaseService : IDisposable
     private string? _connectionString;
     private bool _isConnected;
 
+    /// <summary>Path to the persisted DB connection file.</summary>
+    private static readonly string DbSettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Stratus", "db_connection.json");
+
     public bool IsConnected => _isConnected;
     public event EventHandler<bool>? ConnectionChanged;
 
@@ -22,7 +29,18 @@ public class DatabaseService : IDisposable
     {
         _connectionString = config["Database:ConnectionString"];
         var useDirect = bool.TryParse(config["Database:UseDirect"], out var d) && d;
-        
+
+        // Try to restore a previously-saved connection string
+        if (string.IsNullOrEmpty(_connectionString))
+        {
+            _connectionString = LoadSavedConnectionString();
+            if (!string.IsNullOrEmpty(_connectionString))
+            {
+                useDirect = true;
+                Log.Information("Restored saved database connection string");
+            }
+        }
+
         if (useDirect && !string.IsNullOrEmpty(_connectionString))
         {
             Connect(_connectionString);
@@ -37,10 +55,32 @@ public class DatabaseService : IDisposable
         try
         {
             Disconnect();
-            
-            var builder = new NpgsqlDataSourceBuilder(connectionString);
+
+            // Ensure SSL mode is set for cloud databases (Neon, Supabase, etc.)
+            var csb = new NpgsqlConnectionStringBuilder(connectionString);
+            if (csb.SslMode == SslMode.Disable || csb.SslMode == SslMode.Allow)
+            {
+                // If host contains common cloud domains, default to Require
+                var host = csb.Host ?? "";
+                if (host.Contains("neon.tech", StringComparison.OrdinalIgnoreCase) ||
+                    host.Contains("supabase", StringComparison.OrdinalIgnoreCase) ||
+                    host.Contains("railway", StringComparison.OrdinalIgnoreCase) ||
+                    host.Contains("render", StringComparison.OrdinalIgnoreCase))
+                {
+                    csb.SslMode = SslMode.Require;
+                    Log.Information("Auto-enabled SSL for cloud database host: {Host}", host);
+                }
+            }
+
+            // Set reasonable timeouts
+            if (csb.Timeout == 0 || csb.Timeout == 15)
+                csb.Timeout = 30;
+            if (csb.CommandTimeout == 0 || csb.CommandTimeout == 30)
+                csb.CommandTimeout = 60;
+
+            var builder = new NpgsqlDataSourceBuilder(csb.ToString());
             _dataSource = builder.Build();
-            _connectionString = connectionString;
+            _connectionString = csb.ToString();
 
             // Test connection
             using var cmd = _dataSource.CreateCommand("SELECT 1");
@@ -49,6 +89,10 @@ public class DatabaseService : IDisposable
             _isConnected = true;
             ConnectionChanged?.Invoke(this, true);
             Log.Information("Connected to PostgreSQL database");
+
+            // Persist connection string for next session
+            SaveConnectionString(_connectionString);
+
             return true;
         }
         catch (Exception ex)
@@ -105,25 +149,45 @@ public class DatabaseService : IDisposable
 
     /// <summary>
     /// Fetch weather data for a station within a time range.
+    /// Uses column-name-based reading for robustness against schema changes.
     /// </summary>
     public async Task<List<WeatherRecord>> GetDataAsync(
         int stationId, DateTime? startTime = null, DateTime? endTime = null, int limit = 2000)
     {
         if (_dataSource == null) return new List<WeatherRecord>();
 
-        var sql = @"SELECT id, station_id, timestamp, temperature, humidity, pressure, 
-                    dew_point, wind_speed, wind_direction, wind_gust, rainfall, 
-                    solar_radiation, uv_index, soil_temperature, soil_moisture,
-                    pm25, pm10, battery_voltage, air_density, eto,
+        // Select all columns the model supports — the query is tolerant of missing
+        // columns because we read by name and default to null.
+        var sql = @"SELECT id, station_id, timestamp,
+                    temperature, temperature_min, temperature_max,
+                    humidity, pressure, pressure_sea_level,
+                    dew_point, air_density,
+                    wind_speed, wind_direction, wind_gust, wind_gust_10min, wind_power,
+                    wind_dir_std_dev, sdi12_wind_vector,
+                    rainfall, rainfall_10min, rainfall_24h,
+                    solar_radiation, solar_radiation_max, uv_index,
+                    sun_elevation, sun_azimuth,
+                    eto, eto_24h,
+                    soil_temperature, soil_moisture, leaf_wetness,
+                    pm25, pm10, pm1, co2, tvoc,
+                    battery_voltage, panel_temperature, charger_voltage,
+                    water_level, temperature_switch, level_switch,
+                    temperature_switch_outlet, level_switch_status, lightning,
+                    pump_select_well, pump_select_bore, port_status_c1, port_status_c2,
                     mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
-                    mppt_battery_voltage, mppt_battery_current, mppt_load_current, mppt_board_temp
+                    mppt_load_voltage, mppt_load_current,
+                    mppt_battery_voltage, mppt_battery_current,
+                    mppt_charger_state, mppt_absi_avg, mppt_board_temp, mppt_mode,
+                    mppt2_solar_voltage, mppt2_solar_current, mppt2_solar_power,
+                    mppt2_load_voltage, mppt2_load_current,
+                    mppt2_battery_voltage, mppt2_charger_state, mppt2_board_temp, mppt2_mode
                     FROM weather_data WHERE station_id = @stationId";
 
         if (startTime.HasValue)
             sql += " AND timestamp >= @startTime";
         if (endTime.HasValue)
             sql += " AND timestamp <= @endTime";
-        
+
         sql += " ORDER BY timestamp DESC LIMIT @limit";
 
         var records = new List<WeatherRecord>();
@@ -140,33 +204,87 @@ public class DatabaseService : IDisposable
         {
             records.Add(new WeatherRecord
             {
-                Id = reader.GetInt64(0),
-                StationId = reader.GetInt32(1),
-                Timestamp = reader.GetDateTime(2),
-                Temperature = reader.IsDBNull(3) ? null : reader.GetDouble(3),
-                Humidity = reader.IsDBNull(4) ? null : reader.GetDouble(4),
-                Pressure = reader.IsDBNull(5) ? null : reader.GetDouble(5),
-                DewPoint = reader.IsDBNull(6) ? null : reader.GetDouble(6),
-                WindSpeed = reader.IsDBNull(7) ? null : reader.GetDouble(7),
-                WindDirection = reader.IsDBNull(8) ? null : reader.GetDouble(8),
-                WindGust = reader.IsDBNull(9) ? null : reader.GetDouble(9),
-                Rainfall = reader.IsDBNull(10) ? null : reader.GetDouble(10),
-                SolarRadiation = reader.IsDBNull(11) ? null : reader.GetDouble(11),
-                UvIndex = reader.IsDBNull(12) ? null : reader.GetDouble(12),
-                SoilTemperature = reader.IsDBNull(13) ? null : reader.GetDouble(13),
-                SoilMoisture = reader.IsDBNull(14) ? null : reader.GetDouble(14),
-                Pm25 = reader.IsDBNull(15) ? null : reader.GetDouble(15),
-                Pm10 = reader.IsDBNull(16) ? null : reader.GetDouble(16),
-                BatteryVoltage = reader.IsDBNull(17) ? null : reader.GetDouble(17),
-                AirDensity = reader.IsDBNull(18) ? null : reader.GetDouble(18),
-                Eto = reader.IsDBNull(19) ? null : reader.GetDouble(19),
-                MpptSolarVoltage = reader.IsDBNull(20) ? null : reader.GetDouble(20),
-                MpptSolarCurrent = reader.IsDBNull(21) ? null : reader.GetDouble(21),
-                MpptSolarPower = reader.IsDBNull(22) ? null : reader.GetDouble(22),
-                MpptBatteryVoltage = reader.IsDBNull(23) ? null : reader.GetDouble(23),
-                MpptBatteryCurrent = reader.IsDBNull(24) ? null : reader.GetDouble(24),
-                MpptLoadCurrent = reader.IsDBNull(25) ? null : reader.GetDouble(25),
-                MpptBoardTemp = reader.IsDBNull(26) ? null : reader.GetDouble(26),
+                Id = reader.GetInt64(reader.GetOrdinal("id")),
+                StationId = reader.GetInt32(reader.GetOrdinal("station_id")),
+                Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
+                // Atmospheric
+                Temperature = GetNullableDouble(reader, "temperature"),
+                TemperatureMin = GetNullableDouble(reader, "temperature_min"),
+                TemperatureMax = GetNullableDouble(reader, "temperature_max"),
+                Humidity = GetNullableDouble(reader, "humidity"),
+                Pressure = GetNullableDouble(reader, "pressure"),
+                PressureSeaLevel = GetNullableDouble(reader, "pressure_sea_level"),
+                DewPoint = GetNullableDouble(reader, "dew_point"),
+                AirDensity = GetNullableDouble(reader, "air_density"),
+                // Wind
+                WindSpeed = GetNullableDouble(reader, "wind_speed"),
+                WindDirection = GetNullableDouble(reader, "wind_direction"),
+                WindGust = GetNullableDouble(reader, "wind_gust"),
+                WindGust10min = GetNullableDouble(reader, "wind_gust_10min"),
+                WindPower = GetNullableDouble(reader, "wind_power"),
+                WindDirStdDev = GetNullableDouble(reader, "wind_dir_std_dev"),
+                Sdi12WindVector = GetNullableDouble(reader, "sdi12_wind_vector"),
+                // Precipitation
+                Rainfall = GetNullableDouble(reader, "rainfall"),
+                Rainfall10min = GetNullableDouble(reader, "rainfall_10min"),
+                Rainfall24h = GetNullableDouble(reader, "rainfall_24h"),
+                // Solar
+                SolarRadiation = GetNullableDouble(reader, "solar_radiation"),
+                SolarRadiationMax = GetNullableDouble(reader, "solar_radiation_max"),
+                UvIndex = GetNullableDouble(reader, "uv_index"),
+                SunElevation = GetNullableDouble(reader, "sun_elevation"),
+                SunAzimuth = GetNullableDouble(reader, "sun_azimuth"),
+                // Evapotranspiration
+                Eto = GetNullableDouble(reader, "eto"),
+                Eto24h = GetNullableDouble(reader, "eto_24h"),
+                // Soil
+                SoilTemperature = GetNullableDouble(reader, "soil_temperature"),
+                SoilMoisture = GetNullableDouble(reader, "soil_moisture"),
+                LeafWetness = GetNullableDouble(reader, "leaf_wetness"),
+                // Air Quality
+                Pm25 = GetNullableDouble(reader, "pm25"),
+                Pm10 = GetNullableDouble(reader, "pm10"),
+                Pm1 = GetNullableDouble(reader, "pm1"),
+                Co2 = GetNullableDouble(reader, "co2"),
+                Tvoc = GetNullableDouble(reader, "tvoc"),
+                // Battery / Power
+                BatteryVoltage = GetNullableDouble(reader, "battery_voltage"),
+                PanelTemperature = GetNullableDouble(reader, "panel_temperature"),
+                ChargerVoltage = GetNullableDouble(reader, "charger_voltage"),
+                // Water & Sensors
+                WaterLevel = GetNullableDouble(reader, "water_level"),
+                TemperatureSwitch = GetNullableDouble(reader, "temperature_switch"),
+                LevelSwitch = GetNullableDouble(reader, "level_switch"),
+                TemperatureSwitchOutlet = GetNullableDouble(reader, "temperature_switch_outlet"),
+                LevelSwitchStatus = GetNullableDouble(reader, "level_switch_status"),
+                Lightning = GetNullableDouble(reader, "lightning"),
+                // Pump & Port
+                PumpSelectWell = GetNullableDouble(reader, "pump_select_well"),
+                PumpSelectBore = GetNullableDouble(reader, "pump_select_bore"),
+                PortStatusC1 = GetNullableDouble(reader, "port_status_c1"),
+                PortStatusC2 = GetNullableDouble(reader, "port_status_c2"),
+                // MPPT 1
+                MpptSolarVoltage = GetNullableDouble(reader, "mppt_solar_voltage"),
+                MpptSolarCurrent = GetNullableDouble(reader, "mppt_solar_current"),
+                MpptSolarPower = GetNullableDouble(reader, "mppt_solar_power"),
+                MpptLoadVoltage = GetNullableDouble(reader, "mppt_load_voltage"),
+                MpptLoadCurrent = GetNullableDouble(reader, "mppt_load_current"),
+                MpptBatteryVoltage = GetNullableDouble(reader, "mppt_battery_voltage"),
+                MpptBatteryCurrent = GetNullableDouble(reader, "mppt_battery_current"),
+                MpptChargerState = GetNullableDouble(reader, "mppt_charger_state"),
+                MpptAbsiAvg = GetNullableDouble(reader, "mppt_absi_avg"),
+                MpptBoardTemp = GetNullableDouble(reader, "mppt_board_temp"),
+                MpptMode = GetNullableDouble(reader, "mppt_mode"),
+                // MPPT 2
+                Mppt2SolarVoltage = GetNullableDouble(reader, "mppt2_solar_voltage"),
+                Mppt2SolarCurrent = GetNullableDouble(reader, "mppt2_solar_current"),
+                Mppt2SolarPower = GetNullableDouble(reader, "mppt2_solar_power"),
+                Mppt2LoadVoltage = GetNullableDouble(reader, "mppt2_load_voltage"),
+                Mppt2LoadCurrent = GetNullableDouble(reader, "mppt2_load_current"),
+                Mppt2BatteryVoltage = GetNullableDouble(reader, "mppt2_battery_voltage"),
+                Mppt2ChargerState = GetNullableDouble(reader, "mppt2_charger_state"),
+                Mppt2BoardTemp = GetNullableDouble(reader, "mppt2_board_temp"),
+                Mppt2Mode = GetNullableDouble(reader, "mppt2_mode"),
             });
         }
 
@@ -195,7 +313,19 @@ public class DatabaseService : IDisposable
     {
         try
         {
-            var builder = new NpgsqlDataSourceBuilder(connectionString);
+            // Auto-apply SSL for cloud databases
+            var csb = new NpgsqlConnectionStringBuilder(connectionString);
+            var host = csb.Host ?? "";
+            if ((csb.SslMode == SslMode.Disable || csb.SslMode == SslMode.Allow) &&
+                (host.Contains("neon.tech", StringComparison.OrdinalIgnoreCase) ||
+                 host.Contains("supabase", StringComparison.OrdinalIgnoreCase) ||
+                 host.Contains("railway", StringComparison.OrdinalIgnoreCase) ||
+                 host.Contains("render", StringComparison.OrdinalIgnoreCase)))
+            {
+                csb.SslMode = SslMode.Require;
+            }
+
+            var builder = new NpgsqlDataSourceBuilder(csb.ToString());
             await using var ds = builder.Build();
             await using var cmd = ds.CreateCommand("SELECT version()");
             var version = await cmd.ExecuteScalarAsync();
@@ -204,6 +334,59 @@ public class DatabaseService : IDisposable
         catch (Exception ex)
         {
             return (false, ex.Message);
+        }
+    }
+
+    // ── Helpers ──
+
+    /// <summary>
+    /// Safely reads a nullable double by column name.
+    /// Returns null if the column value is DBNull.
+    /// </summary>
+    private static double? GetNullableDouble(NpgsqlDataReader reader, string column)
+    {
+        var ordinal = reader.GetOrdinal(column);
+        return reader.IsDBNull(ordinal) ? null : reader.GetDouble(ordinal);
+    }
+
+    /// <summary>
+    /// Save connection string to local app data for next session.
+    /// </summary>
+    private static void SaveConnectionString(string connectionString)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(DbSettingsPath)!;
+            Directory.CreateDirectory(dir);
+            var data = new { ConnectionString = connectionString };
+            var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(DbSettingsPath, json);
+            Log.Information("Database connection saved for next session");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to save DB connection string");
+        }
+    }
+
+    /// <summary>
+    /// Load a previously-saved connection string.
+    /// </summary>
+    private static string? LoadSavedConnectionString()
+    {
+        try
+        {
+            if (!File.Exists(DbSettingsPath)) return null;
+            var json = File.ReadAllText(DbSettingsPath);
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("ConnectionString", out var prop)
+                ? prop.GetString()
+                : null;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to load saved DB connection string");
+            return null;
         }
     }
 

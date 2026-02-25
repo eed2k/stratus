@@ -306,43 +306,43 @@ public partial class MainWindow : Window
             $"{vm.SelectedStation.Name}_{DateTime.Now:yyyyMMdd_HHmmss}");
         Directory.CreateDirectory(exportDir);
 
-        // Collect every chart: (label, series array, visible flag)
-        var charts = new (string Label, ISeries[] Series, bool Visible)[]
+        // Collect every chart: (label, series array, y-axes, visible flag)
+        var charts = new (string Label, ISeries[] Series, Axis[] YAxes, bool Visible)[]
         {
-            ("Temperature",          vm.TemperatureSeries,      vm.HasTemperature),
-            ("Humidity",             vm.HumiditySeries,         vm.HasHumidity),
-            ("Pressure",             vm.PressureSeries,         vm.HasPressure),
-            ("Dew Point",            vm.DewPointSeries,         vm.HasDewPoint),
-            ("Wind Speed",           vm.WindSeries,             vm.HasWind),
-            ("Wind Direction",       vm.WindDirectionSeries,    vm.HasWindDirection),
-            ("Wind Power",           vm.WindPowerSeries,        vm.HasWindPower),
-            ("Rainfall",             vm.RainfallSeries,         vm.HasRainfall),
-            ("Solar Radiation",      vm.SolarSeries,            vm.HasSolar),
-            ("UV Index",             vm.UvIndexSeries,          vm.HasUvIndex),
-            ("Evapotranspiration",   vm.EtoSeries,              vm.HasEto),
-            ("Soil",                 vm.SoilSeries,             vm.HasSoil),
-            ("Air Quality",          vm.AirQualitySeries,       vm.HasAirQuality),
-            ("CO2 TVOC",             vm.Co2TvocSeries,          vm.HasCo2Tvoc),
-            ("Air Density",          vm.AirDensitySeries,       vm.HasAirDensity),
-            ("Battery Power",        vm.BatterySeries,          vm.HasBattery),
-            ("Water Level",          vm.WaterLevelSeries,       vm.HasWaterLevel),
-            ("Switches",             vm.SwitchSeries,           vm.HasSwitch),
-            ("Lightning",            vm.LightningSeries,        vm.HasLightning),
-            ("MPPT1 Power",          vm.MpptPowerSeries,        vm.HasMpptPower),
-            ("MPPT1 Voltage",        vm.MpptVoltageSeries,      vm.HasMpptVoltage),
-            ("MPPT1 Current",        vm.MpptCurrentSeries,      vm.HasMpptCurrent),
-            ("MPPT2 Power",          vm.Mppt2PowerSeries,       vm.HasMppt2Power),
-            ("MPPT2 Voltage",        vm.Mppt2VoltageSeries,     vm.HasMppt2Voltage),
+            ("Temperature",          vm.TemperatureSeries,      vm.TemperatureYAxes,    vm.HasTemperature),
+            ("Humidity",             vm.HumiditySeries,         vm.HumidityYAxes,       vm.HasHumidity),
+            ("Pressure",             vm.PressureSeries,         vm.PressureYAxes,       vm.HasPressure),
+            ("Dew Point",            vm.DewPointSeries,         vm.DewPointYAxes,       vm.HasDewPoint),
+            ("Wind Speed",           vm.WindSeries,             vm.WindYAxes,            vm.HasWind),
+            ("Wind Direction",       vm.WindDirectionSeries,    vm.WindDirectionYAxes,   vm.HasWindDirection),
+            ("Wind Power",           vm.WindPowerSeries,        vm.WindPowerYAxes,       vm.HasWindPower),
+            ("Rainfall",             vm.RainfallSeries,         vm.RainfallYAxes,       vm.HasRainfall),
+            ("Solar Radiation",      vm.SolarSeries,            vm.SolarYAxes,          vm.HasSolar),
+            ("UV Index",             vm.UvIndexSeries,          vm.UvIndexYAxes,        vm.HasUvIndex),
+            ("Evapotranspiration",   vm.EtoSeries,              vm.EtoYAxes,            vm.HasEto),
+            ("Soil",                 vm.SoilSeries,             vm.SoilYAxes,           vm.HasSoil),
+            ("Air Quality",          vm.AirQualitySeries,       vm.AirQualityYAxes,     vm.HasAirQuality),
+            ("CO2 TVOC",             vm.Co2TvocSeries,          vm.Co2TvocYAxes,        vm.HasCo2Tvoc),
+            ("Air Density",          vm.AirDensitySeries,       vm.AirDensityYAxes,     vm.HasAirDensity),
+            ("Battery Power",        vm.BatterySeries,          vm.BatteryYAxes,        vm.HasBattery),
+            ("Water Level",          vm.WaterLevelSeries,       vm.WaterLevelYAxes,     vm.HasWaterLevel),
+            ("Switches",             vm.SwitchSeries,           vm.SwitchYAxes,         vm.HasSwitch),
+            ("Lightning",            vm.LightningSeries,        vm.LightningYAxes,      vm.HasLightning),
+            ("MPPT1 Power",          vm.MpptPowerSeries,        vm.MpptPowerYAxes,      vm.HasMpptPower),
+            ("MPPT1 Voltage",        vm.MpptVoltageSeries,      vm.MpptVoltageYAxes,    vm.HasMpptVoltage),
+            ("MPPT1 Current",        vm.MpptCurrentSeries,      vm.MpptCurrentYAxes,    vm.HasMpptCurrent),
+            ("MPPT2 Power",          vm.Mppt2PowerSeries,       vm.Mppt2PowerYAxes,     vm.HasMppt2Power),
+            ("MPPT2 Voltage",        vm.Mppt2VoltageSeries,     vm.Mppt2VoltageYAxes,   vm.HasMppt2Voltage),
         };
 
         int count = 0;
-        foreach (var (label, series, visible) in charts)
+        foreach (var (label, series, yAxes, visible) in charts)
         {
             if (!visible || series.Length == 0) continue;
 
             try
             {
-                // Use LiveCharts2’s off-screen SkiaSharp renderer — the only way to
+                // Use LiveCharts2's off-screen SkiaSharp renderer — the only way to
                 // capture SkiaSharp-drawn content (WPF RenderTargetBitmap cannot).
                 var skChart = new SKCartesianChart
                 {
@@ -350,6 +350,7 @@ public partial class MainWindow : Window
                     Height = 400,
                     Series = series,
                     XAxes = vm.ChartXAxes,
+                    YAxes = yAxes.Length > 0 ? yAxes : Array.Empty<LiveChartsCore.Kernel.Sketches.ICartesianAxis>(),
                     Background = SKColors.White,
                 };
 

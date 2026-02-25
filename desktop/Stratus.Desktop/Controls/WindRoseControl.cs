@@ -162,7 +162,7 @@ public class WindRoseControl : FrameworkElement
         double gridMax = Math.Ceiling(data.MaxPercentage / 5.0) * 5.0;
         if (gridMax < 5) gridMax = 5;
 
-        var categories = WindSpeedCategories.Categories;
+        var categories = WindSpeedCategories.GetCategories(data.Unit);
 
         foreach (var sector in data.Sectors)
         {
