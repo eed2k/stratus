@@ -259,6 +259,28 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
+                                <!-- Dew Point -->
+                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Dew Point" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding LatestData.DewPoint, StringFormat='{}{0:F1}', FallbackValue='--'}" 
+                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
+                                            <TextBlock Text="°C" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <!-- ETo -->
+                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
+                                    <StackPanel>
+                                        <TextBlock Text="ETo" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding LatestData.Eto, StringFormat='{}{0:F2}', FallbackValue='--'}" 
+                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
+                                            <TextBlock Text="mm" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
                                 <!-- Battery -->
                                 <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
                                     <StackPanel>
@@ -313,6 +335,8 @@
                                 <DataGridTextColumn Header="Rain" Binding="{Binding Rainfall, StringFormat='{}{0:F1}'}" Width="*" MinWidth="45" CanUserResize="True"/>
                                 <DataGridTextColumn Header="Solar" Binding="{Binding SolarRadiation, StringFormat='{}{0:F0}'}" Width="*" MinWidth="45" CanUserResize="True"/>
                                 <DataGridTextColumn Header="UV" Binding="{Binding UvIndex, StringFormat='{}{0:F1}'}" Width="0.7*" MinWidth="30" CanUserResize="True"/>
+                                <DataGridTextColumn Header="DewPt" Binding="{Binding DewPoint, StringFormat='{}{0:F1}'}" Width="*" MinWidth="40" CanUserResize="True"/>
+                                <DataGridTextColumn Header="ETo" Binding="{Binding Eto, StringFormat='{}{0:F2}'}" Width="*" MinWidth="40" CanUserResize="True"/>
                                 <DataGridTextColumn Header="SoilT" Binding="{Binding SoilTemperature, StringFormat='{}{0:F1}'}" Width="*" MinWidth="40" CanUserResize="True"/>
                                 <DataGridTextColumn Header="SoilM" Binding="{Binding SoilMoisture, StringFormat='{}{0:F1}'}" Width="*" MinWidth="40" CanUserResize="True"/>
                                 <DataGridTextColumn Header="Batt" Binding="{Binding BatteryVoltage, StringFormat='{}{0:F2}'}" Width="*" MinWidth="40" CanUserResize="True"/>
@@ -584,7 +608,15 @@
                                     <Button Content="Import TOA5/CSV..." Style="{StaticResource SecondaryButton}"
                                             Click="ImportCsvWindRose_Click" Padding="12,6" FontSize="11" Margin="0,0,8,0"/>
                                     <Button Content="Export PNG..." Style="{StaticResource SecondaryButton}"
-                                            Click="ExportWindRosePng_Click" Padding="12,6" FontSize="11"/>
+                                            Click="ExportWindRosePng_Click" Padding="12,6" FontSize="11" Margin="0,0,8,0"/>
+                                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,0"/>
+                                    <TextBlock Text="Wind Unit:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
+                                    <ComboBox x:Name="WindUnitCombo" SelectedIndex="0" Padding="8,4" FontSize="11"
+                                              VerticalAlignment="Center" SelectionChanged="WindUnitCombo_SelectionChanged">
+                                        <ComboBoxItem Content="km/h"/>
+                                        <ComboBoxItem Content="m/s"/>
+                                        <ComboBoxItem Content="knots"/>
+                                    </ComboBox>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

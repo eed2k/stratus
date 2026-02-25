@@ -448,6 +448,14 @@ public partial class MainViewModel : ObservableObject
 
         var ordered = records.OrderBy(r => r.Timestamp).ToList();
 
+        // ── Downsample large datasets to keep charts responsive ──
+        // LiveCharts2 tooltip scanning + rendering becomes sluggish above ~600 points.
+        const int maxPoints = 500;
+        int step = ordered.Count > maxPoints ? (int)Math.Ceiling((double)ordered.Count / maxPoints) : 1;
+        var sampled = step > 1
+            ? ordered.Where((_, i) => i % step == 0 || i == ordered.Count - 1).ToList()
+            : ordered;
+
         // ── Adapt X-axis labels & step to the loaded time range ──
         string dateFmt = SelectedTimeRange switch
         {
@@ -482,7 +490,7 @@ public partial class MainViewModel : ObservableObject
 
         // Helper to build points from a nullable double selector
         List<DateTimePoint> Pts(Func<WeatherRecord, double?> sel) =>
-            ordered.Where(r => sel(r).HasValue)
+            sampled.Where(r => sel(r).HasValue)
                    .Select(r => new DateTimePoint(r.Timestamp, sel(r)!.Value))
                    .ToList();
 
@@ -741,6 +749,6 @@ public partial class MainViewModel : ObservableObject
         HasMppt2Voltage = m2vList.Count > 0;
         if (HasMppt2Voltage) chartCount++;
 
-        AddLog($"[CHARTS] Updated — {chartCount} active charts for {SelectedTimeRange} range");
+        AddLog($"[CHARTS] Updated — {chartCount} active charts for {SelectedTimeRange} range ({sampled.Count} of {ordered.Count} points)");
     }
 }

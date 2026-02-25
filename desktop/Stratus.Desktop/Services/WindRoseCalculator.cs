@@ -84,42 +84,47 @@ public static class WindRoseCalculator
     /// <param name="records">Wind data points (speed in m/s).</param>
     /// <param name="sectorAngle">Sector angle in degrees. Must evenly divide 360.</param>
     /// <param name="title">Display title for the result.</param>
+    /// <param name="unit">Wind speed unit for category bins.</param>
     /// <returns>Computed wind rose result.</returns>
-    public static WindRoseResult Calculate(List<WindDataPoint> records, double sectorAngle, string title = "Wind Rose - 24h")
+    public static WindRoseResult Calculate(List<WindDataPoint> records, double sectorAngle,
+        string title = "Wind Rose - 24h", WindSpeedUnit unit = WindSpeedUnit.MetresPerSecond)
     {
-        return ComputeWindRose(records, sectorAngle, title);
+        return ComputeWindRose(records, sectorAngle, title, unit);
     }
 
     /// <summary>
     /// Calculate a wind rose using only daytime records.
     /// </summary>
-    public static WindRoseResult CalculateDaylight(List<WindDataPoint> records, double sectorAngle)
+    public static WindRoseResult CalculateDaylight(List<WindDataPoint> records, double sectorAngle,
+        WindSpeedUnit unit = WindSpeedUnit.MetresPerSecond)
     {
         var filtered = records.Where(r => r.Daylight == DaylightType.Daylight).ToList();
-        return ComputeWindRose(filtered, sectorAngle, "Wind Rose - Daylight");
+        return ComputeWindRose(filtered, sectorAngle, "Wind Rose - Daylight", unit);
     }
 
     /// <summary>
     /// Calculate a wind rose using only nighttime records.
     /// </summary>
-    public static WindRoseResult CalculateNighttime(List<WindDataPoint> records, double sectorAngle)
+    public static WindRoseResult CalculateNighttime(List<WindDataPoint> records, double sectorAngle,
+        WindSpeedUnit unit = WindSpeedUnit.MetresPerSecond)
     {
         var filtered = records.Where(r => r.Daylight == DaylightType.Nighttime).ToList();
-        return ComputeWindRose(filtered, sectorAngle, "Wind Rose - Nighttime");
+        return ComputeWindRose(filtered, sectorAngle, "Wind Rose - Nighttime", unit);
     }
 
     /// <summary>
     /// Calculate wind roses for each season. Only seasons with data are included.
     /// </summary>
     /// <returns>Dictionary keyed by <see cref="WindSeason"/> containing each seasonal wind rose.</returns>
-    public static Dictionary<WindSeason, WindRoseResult> CalculateSeasonal(List<WindDataPoint> records, double sectorAngle)
+    public static Dictionary<WindSeason, WindRoseResult> CalculateSeasonal(List<WindDataPoint> records, double sectorAngle,
+        WindSpeedUnit unit = WindSpeedUnit.MetresPerSecond)
     {
         var result = new Dictionary<WindSeason, WindRoseResult>();
         foreach (WindSeason season in Enum.GetValues<WindSeason>())
         {
             var filtered = records.Where(r => r.Season == season).ToList();
             if (filtered.Count > 0)
-                result[season] = ComputeWindRose(filtered, sectorAngle, $"Wind Rose - {season}");
+                result[season] = ComputeWindRose(filtered, sectorAngle, $"Wind Rose - {season}", unit);
         }
         return result;
     }
@@ -128,7 +133,8 @@ public static class WindRoseCalculator
     /// Core wind rose computation. Bins wind records into angular sectors and speed categories,
     /// computing percentages of total records.
     /// </summary>
-    private static WindRoseResult ComputeWindRose(List<WindDataPoint> records, double sectorAngle, string title)
+    private static WindRoseResult ComputeWindRose(List<WindDataPoint> records, double sectorAngle, string title,
+        WindSpeedUnit unit = WindSpeedUnit.MetresPerSecond)
     {
         ArgumentNullException.ThrowIfNull(records);
 
@@ -145,7 +151,7 @@ public static class WindRoseCalculator
         }
 
         int numSectors = 360 / angleInt;
-        var categories = WindSpeedCategories.Categories;
+        var categories = WindSpeedCategories.GetCategories(unit);
         int numCategories = categories.Length;
 
         int[,] bins = new int[numSectors, numCategories];
@@ -157,10 +163,13 @@ public static class WindRoseCalculator
             double adjusted = (dir + sectorAngle / 2.0) % 360.0;
             int sectorIndex = (int)(adjusted / sectorAngle) % numSectors;
 
+            // Convert wind speed from m/s to the selected display unit for binning
+            double speed = WindSpeedCategories.ConvertFromMs(record.WindSpeed, unit);
+
             int catIndex = numCategories - 1; // Default to highest bin
             for (int c = 0; c < numCategories; c++)
             {
-                if (record.WindSpeed >= categories[c].Min && record.WindSpeed < categories[c].Max)
+                if (speed >= categories[c].Min && speed < categories[c].Max)
                 {
                     catIndex = c;
                     break;
@@ -206,7 +215,8 @@ public static class WindRoseCalculator
             Sectors = sectors,
             MaxPercentage = maxPercentage,
             TotalRecords = totalCount,
-            CalmPercentage = calmPct
+            CalmPercentage = calmPct,
+            Unit = unit
         };
     }
 }

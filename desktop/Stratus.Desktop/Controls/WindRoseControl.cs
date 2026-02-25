@@ -259,9 +259,16 @@ public class WindRoseControl : FrameworkElement
 
     private void DrawLegend(DrawingContext dc, double x, double y, WindRoseResult data, double ppd)
     {
-        var categories = WindSpeedCategories.Categories;
+        var categories = WindSpeedCategories.GetCategories(data.Unit);
 
-        var titleText = MakeText("Wind Speed (m/s)", 11, Brushes.Black, 150, ppd);
+        string unitLabel = data.Unit switch
+        {
+            WindSpeedUnit.KilometresPerHour => "Wind Speed (km/h)",
+            WindSpeedUnit.Knots => "Wind Speed (kn)",
+            _ => "Wind Speed (m/s)"
+        };
+
+        var titleText = MakeText(unitLabel, 11, Brushes.Black, 150, ppd);
         titleText.SetFontWeight(FontWeights.Bold);
         dc.DrawText(titleText, new Point(x, y));
         y += 25;

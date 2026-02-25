@@ -21,6 +21,7 @@ public partial class MainWindow : Window
 {
     private List<WindDataPoint>? _currentWindData;
     private int _currentSectorAngle = 15;
+    private WindSpeedUnit _currentWindUnit = WindSpeedUnit.KilometresPerHour;
 
     public MainWindow()
     {
@@ -97,6 +98,25 @@ public partial class MainWindow : Window
 
         _currentSectorAngle = (int)e.NewValue;
         AngleLabel.Text = $"{_currentSectorAngle}\u00B0";
+
+        // Recompute if we already have data
+        if (_currentWindData != null && _currentWindData.Count > 0)
+        {
+            ComputeAndDisplayWindRoses(_currentWindData);
+        }
+    }
+
+    private void WindUnitCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (WindUnitCombo == null) return;
+
+        _currentWindUnit = WindUnitCombo.SelectedIndex switch
+        {
+            0 => WindSpeedUnit.KilometresPerHour,
+            1 => WindSpeedUnit.MetresPerSecond,
+            2 => WindSpeedUnit.Knots,
+            _ => WindSpeedUnit.KilometresPerHour
+        };
 
         // Recompute if we already have data
         if (_currentWindData != null && _currentWindData.Count > 0)
@@ -231,32 +251,33 @@ public partial class MainWindow : Window
     {
         string prefix = title ?? "Wind Rose";
         double angle = _currentSectorAngle;
+        var unit = _currentWindUnit;
         var now = windData.Count > 0 ? windData.Max(d => d.Date) : DateTime.UtcNow;
 
         // 24h — last 24 hours of data
         var data24h = windData.Where(d => d.Date >= now.AddHours(-24)).ToList();
         WindRose24h.WindRoseData = WindRoseCalculator.Calculate(
-            data24h.Count > 0 ? data24h : windData, angle, $"{prefix} — 24h");
+            data24h.Count > 0 ? data24h : windData, angle, $"{prefix} — 24h", unit);
 
         // 1d — last 1 calendar day
         var data1d = windData.Where(d => d.Date >= now.AddDays(-1)).ToList();
         WindRose1d.WindRoseData = WindRoseCalculator.Calculate(
-            data1d.Count > 0 ? data1d : windData, angle, $"{prefix} — 1 Day");
+            data1d.Count > 0 ? data1d : windData, angle, $"{prefix} — 1 Day", unit);
 
         // 3d — last 3 days
         var data3d = windData.Where(d => d.Date >= now.AddDays(-3)).ToList();
         WindRose3d.WindRoseData = WindRoseCalculator.Calculate(
-            data3d.Count > 0 ? data3d : windData, angle, $"{prefix} — 3 Days");
+            data3d.Count > 0 ? data3d : windData, angle, $"{prefix} — 3 Days", unit);
 
         // 7d — last 7 days
         var data7d = windData.Where(d => d.Date >= now.AddDays(-7)).ToList();
         WindRose7d.WindRoseData = WindRoseCalculator.Calculate(
-            data7d.Count > 0 ? data7d : windData, angle, $"{prefix} — 7 Days");
+            data7d.Count > 0 ? data7d : windData, angle, $"{prefix} — 7 Days", unit);
 
         // 30d — last 30 days (all data)
         var data30d = windData.Where(d => d.Date >= now.AddDays(-30)).ToList();
         WindRose30d.WindRoseData = WindRoseCalculator.Calculate(
-            data30d.Count > 0 ? data30d : windData, angle, $"{prefix} — 30 Days");
+            data30d.Count > 0 ? data30d : windData, angle, $"{prefix} — 30 Days", unit);
     }
 
     private WindRoseControl? GetActiveWindRoseControl()
