@@ -70,6 +70,8 @@ public class GaugeControl : FrameworkElement
         new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
     private static readonly Typeface GaugeBoldTypeface = new(
         new FontFamily("Consolas"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
+    private static readonly Typeface GaugeLabelTypeface = new(
+        new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
 
     // White theme colors
     private static readonly Brush PanelBg = Brushes.White;
@@ -112,8 +114,8 @@ public class GaugeControl : FrameworkElement
         dc.DrawRoundedRectangle(PanelBg, BorderPen, rect, 6, 6);
 
         // Layout: label at top, gauge in center, digital readout at bottom
-        double labelHeight = 24;
-        double readoutHeight = 38;
+        double labelHeight = 30;
+        double readoutHeight = 44;
         double availableForGauge = h - labelHeight - readoutHeight - 16;
         double gaugeSize = Math.Min(w - 20, availableForGauge);
         if (gaugeSize < 30) gaugeSize = 30;
@@ -122,7 +124,7 @@ public class GaugeControl : FrameworkElement
         double cx = w / 2.0;
         double cy = labelHeight + 8 + gaugeSize / 2.0;
 
-        DrawLabel(dc, cx, 4, ppd);
+        DrawLabel(dc, cx, 0, w, labelHeight, ppd);
         DrawArcBackground(dc, cx, cy, radius);
         DrawTicks(dc, cx, cy, radius, ppd);
         DrawArcFill(dc, cx, cy, radius);
@@ -131,11 +133,26 @@ public class GaugeControl : FrameworkElement
         DrawDigitalReadout(dc, cx, h - readoutHeight, w, readoutHeight, ppd);
     }
 
-    private void DrawLabel(DrawingContext dc, double cx, double y, double ppd)
+    private void DrawLabel(DrawingContext dc, double cx, double y, double width, double labelHeight, double ppd)
     {
         if (string.IsNullOrEmpty(Label)) return;
-        var text = MakeText(Label, 12, LabelBrush, ActualWidth - 8, ppd);
-        dc.DrawText(text, new Point(cx - text.Width / 2, y));
+
+        // Draw header block background
+        var headerRect = new Rect(4, y + 2, width - 8, labelHeight - 2);
+        var headerBg = new SolidColorBrush(Color.FromRgb(0xF1, 0xF5, 0xF9));
+        headerBg.Freeze();
+        dc.DrawRoundedRectangle(headerBg, null, headerRect, 3, 3);
+
+        // Bold centered label text
+        var text = new FormattedText(
+            Label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            GaugeLabelTypeface, 14, LabelBrush, ppd)
+        {
+            MaxTextWidth = width - 12,
+            TextAlignment = TextAlignment.Center
+        };
+        text.SetFontWeight(FontWeights.Bold);
+        dc.DrawText(text, new Point(6, y + (labelHeight - text.Height) / 2));
     }
 
     private void DrawArcBackground(DrawingContext dc, double cx, double cy, double radius)
@@ -280,7 +297,9 @@ public class GaugeControl : FrameworkElement
     private void DrawDigitalReadout(DrawingContext dc, double cx, double y, double width, double height, double ppd)
     {
         // Light panel for digital readout
-        var readoutRect = new Rect(cx - width * 0.4, y, width * 0.8, height - 4);
+        double readoutWidth = width * 0.8;
+        double readoutLeft = cx - readoutWidth / 2;
+        var readoutRect = new Rect(readoutLeft, y, readoutWidth, height - 4);
         var readoutBg = new SolidColorBrush(Color.FromRgb(0xF1, 0xF5, 0xF9));
         readoutBg.Freeze();
         var readoutBorder = new Pen(new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0)), 1);
@@ -290,11 +309,17 @@ public class GaugeControl : FrameworkElement
         string valueStr = Value.HasValue ? Value.Value.ToString(ValueFormat) : "--";
         string display = $"{valueStr} {Unit}";
 
-        var text = MakeText(display, 16, ValueBrush, width * 0.75, ppd);
+        // Use readout rect width for MaxTextWidth and position at readoutLeft so TextAlignment.Center works correctly
+        var text = new FormattedText(
+            display, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            GaugeBoldTypeface, 18, ValueBrush, ppd)
+        {
+            MaxTextWidth = readoutWidth,
+            TextAlignment = TextAlignment.Center
+        };
         text.SetFontWeight(FontWeights.Bold);
-        text.SetFontTypeface(GaugeBoldTypeface);
         dc.DrawText(text, new Point(
-            cx - text.Width / 2,
+            readoutLeft,
             y + (height - 4 - text.Height) / 2));
     }
 

@@ -188,7 +188,7 @@
                                     Margin="4,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
 
-                        <!-- ═══════ RTDM Gauge Panel ═══════ -->
+                        <!-- ═══════ Gauge Panel ═══════ -->
                         <Border Grid.Row="1" Background="{StaticResource BackgroundBrush}" 
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" 
                                 CornerRadius="4" Padding="8" Margin="0,0,0,12">
@@ -196,53 +196,53 @@
                                 <!-- Temperature Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Temperature}" 
                                     MinValue="-10" MaxValue="50" Unit="°C" Label="Temperature"
-                                    ValueFormat="F1" AccentColor="#FF6B6B"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F1" AccentColor="#DC2626"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- Humidity Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Humidity}" 
                                     MinValue="0" MaxValue="100" Unit="%" Label="Humidity"
-                                    ValueFormat="F0" AccentColor="#4FC3F7"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F0" AccentColor="#0284C7"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- Pressure Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Pressure}" 
                                     MinValue="950" MaxValue="1050" Unit="hPa" Label="Pressure"
-                                    ValueFormat="F1" AccentColor="#80DEEA"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F1" AccentColor="#0891B2"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- Wind Speed Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.WindSpeed}" 
                                     MinValue="0" MaxValue="120" Unit="km/h" Label="Wind Speed"
-                                    ValueFormat="F1" AccentColor="#69F0AE"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F1" AccentColor="#059669"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- Solar Radiation Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.SolarRadiation}" 
                                     MinValue="0" MaxValue="1200" Unit="W/m²" Label="Solar"
-                                    ValueFormat="F0" AccentColor="#FFD54F"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F0" AccentColor="#CA8A04"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- Rainfall Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Rainfall}" 
                                     MinValue="0" MaxValue="50" Unit="mm" Label="Rainfall"
-                                    ValueFormat="F1" AccentColor="#40C4FF"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F1" AccentColor="#2563EB"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- Dew Point Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.DewPoint}" 
                                     MinValue="-10" MaxValue="35" Unit="°C" Label="Dew Point"
-                                    ValueFormat="F1" AccentColor="#BB86FC"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F1" AccentColor="#7C3AED"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- ETo Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Eto}" 
                                     MinValue="0" MaxValue="15" Unit="mm" Label="ETo"
-                                    ValueFormat="F2" AccentColor="#26DEC8"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F2" AccentColor="#0D9488"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- Battery Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.BatteryVoltage}" 
                                     MinValue="0" MaxValue="15" Unit="V" Label="Battery"
-                                    ValueFormat="F2" AccentColor="#69F0AE"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F2" AccentColor="#059669"
+                                    Width="224" Height="224" Margin="4"/>
                                 <!-- Water Level Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.WaterLevel}" 
                                     MinValue="0" MaxValue="500" Unit="mm" Label="Water Level"
-                                    ValueFormat="F1" AccentColor="#40C4FF"
-                                    Width="160" Height="160" Margin="4"/>
+                                    ValueFormat="F1" AccentColor="#2563EB"
+                                    Width="224" Height="224" Margin="4"/>
                             </UniformGrid>
                         </Border>
 
