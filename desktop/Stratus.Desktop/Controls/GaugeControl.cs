@@ -213,7 +213,10 @@ public class GaugeControl : FrameworkElement
 
         double innerRadius = radius * 0.72;
         double outerRadius = radius * 0.84;
-        double labelRadius = radius * 0.58;
+        double labelRadius = radius * 0.55;
+
+        // Scale tick label font with gauge size for readability
+        double tickFontSize = Math.Max(9, radius * 0.12);
 
         // Draw major ticks with labels
         for (double val = MinValue; val <= MaxValue + majorStep * 0.01; val += majorStep)
@@ -230,9 +233,12 @@ public class GaugeControl : FrameworkElement
                 new Point(cx + innerRadius * cos, cy + innerRadius * sin),
                 new Point(cx + outerRadius * cos, cy + outerRadius * sin));
 
-            // Draw tick label
-            string tickLabel = val.ToString(Math.Abs(val) >= 100 ? "F0" : "F0");
-            var text = MakeText(tickLabel, 9, TickLabelBrush, 50, ppd);
+            // Draw tick label — plain FormattedText (no MaxTextWidth/TextAlignment)
+            // so that Width/Height reflect actual glyph bounds for precise centering
+            string tickLabel = val.ToString("F0");
+            var text = new FormattedText(
+                tickLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                GaugeTypeface, tickFontSize, TickLabelBrush, ppd);
             dc.DrawText(text, new Point(
                 cx + labelRadius * cos - text.Width / 2,
                 cy + labelRadius * sin - text.Height / 2));

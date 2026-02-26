@@ -471,11 +471,11 @@ public partial class MainViewModel : ObservableObject
             new Axis
             {
                 Name = "Date / Time",
-                NameTextSize = 30,
+                NameTextSize = 44,
                 NamePaint = new SolidColorPaint(new SKColor(0x1E, 0x29, 0x3B)) { SKTypeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright) },
                 Labeler = v => { try { return new DateTime((long)v).ToString(dateFmt); } catch { return ""; } },
                 LabelsRotation = -45,
-                TextSize = 26,
+                TextSize = 36,
                 MinStep = minStep,
                 LabelsPaint = new SolidColorPaint(new SKColor(0x1E, 0x29, 0x3B)),
                 SeparatorsPaint = new SolidColorPaint(new SKColor(0xE2, 0xE8, 0xF0)) { StrokeThickness = 1 },
@@ -790,7 +790,7 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            const int titleHeight = 80;
+            const int titleHeight = 100;
             int totalHeight = string.IsNullOrEmpty(title) ? height : height + titleHeight;
 
             var chart = new SKCartesianChart
@@ -802,7 +802,7 @@ public partial class MainViewModel : ObservableObject
                 YAxes = yAxes,
                 Background = ChartBg,
                 LegendPosition = LiveChartsCore.Measure.LegendPosition.Top,
-                LegendTextSize = 24,
+                LegendTextSize = 32,
                 LegendTextPaint = new SolidColorPaint(new SKColor(0x1E, 0x29, 0x3B)),
             };
 
@@ -829,11 +829,11 @@ public partial class MainViewModel : ObservableObject
                 {
                     Color = ChartTitleFg,
                     IsAntialias = true,
-                    TextSize = 44,
+                    TextSize = 60,
                     Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
                     TextAlign = SKTextAlign.Center,
                 };
-                canvas.DrawText(title, width / 2f, 54, titlePaint);
+                canvas.DrawText(title, width / 2f, 68, titlePaint);
                 canvas.DrawBitmap(SKBitmap.FromImage(chartImage), 0, titleHeight);
             }
             else
@@ -870,9 +870,9 @@ public partial class MainViewModel : ObservableObject
         new Axis
         {
             Name = name,
-            NameTextSize = 30,
+            NameTextSize = 44,
             NamePaint = new SolidColorPaint(new SKColor(0x1E, 0x29, 0x3B)) { SKTypeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright) },
-            TextSize = 26,
+            TextSize = 36,
             LabelsPaint = new SolidColorPaint(new SKColor(0x1E, 0x29, 0x3B)),
             SeparatorsPaint = new SolidColorPaint(new SKColor(0xE2, 0xE8, 0xF0)) { StrokeThickness = 1 },
             Labeler = v => v.ToString(format),

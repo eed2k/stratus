@@ -305,8 +305,8 @@ public partial class MainWindow : Window
                     {
                         Labeler = v => { try { return new DateTime((long)v).ToString("MM/dd HH:mm"); } catch { return ""; } },
                         LabelsRotation = -45,
-                        TextSize = 22,
-                        LabelsPaint = new SolidColorPaint(new SKColor(80, 80, 80)),
+                        TextSize = 36,
+                        LabelsPaint = new SolidColorPaint(new SKColor(0x1E, 0x29, 0x3B)),
                     }
                 };
 
@@ -319,7 +319,7 @@ public partial class MainWindow : Window
                     YAxes = yAxes.Length > 0 ? yAxes : Array.Empty<LiveChartsCore.Kernel.Sketches.ICartesianAxis>(),
                     Background = SKColors.White,
                     LegendPosition = LiveChartsCore.Measure.LegendPosition.Top,
-                    LegendTextSize = 24,
+                    LegendTextSize = 32,
                 };
 
                 using var chartImage = skChart.GetImage();
@@ -336,11 +336,11 @@ public partial class MainWindow : Window
                 {
                     Color = new SKColor(0x1E, 0x29, 0x3B),  // Dark title text
                     IsAntialias = true,
-                    TextSize = 52,
+                    TextSize = 60,
                     Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
                     TextAlign = SKTextAlign.Center,
                 };
-                canvas.DrawText(titleText, exportWidth / 2f, 68, titlePaint);
+                canvas.DrawText(titleText, exportWidth / 2f, 70, titlePaint);
 
                 // Accent line under title
                 using var accentPen = new SKPaint { Color = new SKColor(0x25, 0x63, 0xEB), StrokeWidth = 3, IsAntialias = true };

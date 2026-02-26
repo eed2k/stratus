@@ -303,122 +303,122 @@
 
                                 <!-- Temperature + Dew Point + Min/Max -->
                                 <Border Margin="4" Visibility="{Binding HasTemperature, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding TemperatureImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding TemperatureImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Humidity -->
                                 <Border Margin="4" Visibility="{Binding HasHumidity, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding HumidityImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding HumidityImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Pressure + Sea Level -->
                                 <Border Margin="4" Visibility="{Binding HasPressure, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding PressureImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding PressureImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Dew Point standalone -->
                                 <Border Margin="4" Visibility="{Binding HasDewPoint, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding DewPointImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding DewPointImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Wind Speed + Gust -->
                                 <Border Margin="4" Visibility="{Binding HasWind, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding WindImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding WindImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Wind Direction -->
                                 <Border Margin="4" Visibility="{Binding HasWindDirection, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding WindDirectionImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding WindDirectionImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Wind Power -->
                                 <Border Margin="4" Visibility="{Binding HasWindPower, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding WindPowerImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding WindPowerImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Rainfall + 24h -->
                                 <Border Margin="4" Visibility="{Binding HasRainfall, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding RainfallImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding RainfallImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Solar Radiation + Max -->
                                 <Border Margin="4" Visibility="{Binding HasSolar, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding SolarImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding SolarImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- UV Index -->
                                 <Border Margin="4" Visibility="{Binding HasUvIndex, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding UvIndexImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding UvIndexImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Evapotranspiration + 24h -->
                                 <Border Margin="4" Visibility="{Binding HasEto, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding EtoImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding EtoImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Soil + Leaf Wetness -->
                                 <Border Margin="4" Visibility="{Binding HasSoil, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding SoilImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding SoilImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Air Quality PM1/2.5/10 -->
                                 <Border Margin="4" Visibility="{Binding HasAirQuality, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding AirQualityImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding AirQualityImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- CO₂ & TVOC -->
                                 <Border Margin="4" Visibility="{Binding HasCo2Tvoc, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding Co2TvocImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding Co2TvocImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Air Density -->
                                 <Border Margin="4" Visibility="{Binding HasAirDensity, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding AirDensityImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding AirDensityImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Battery / Charger / Panel -->
                                 <Border Margin="4" Visibility="{Binding HasBattery, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding BatteryImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding BatteryImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Water Level -->
                                 <Border Margin="4" Visibility="{Binding HasWaterLevel, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding WaterLevelImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding WaterLevelImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Switches -->
                                 <Border Margin="4" Visibility="{Binding HasSwitch, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding SwitchImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding SwitchImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- Lightning -->
                                 <Border Margin="4" Visibility="{Binding HasLightning, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding LightningImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding LightningImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- MPPT 1 Power -->
                                 <Border Margin="4" Visibility="{Binding HasMpptPower, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding MpptPowerImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding MpptPowerImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- MPPT 1 Voltages -->
                                 <Border Margin="4" Visibility="{Binding HasMpptVoltage, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding MpptVoltageImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding MpptVoltageImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- MPPT 1 Currents -->
                                 <Border Margin="4" Visibility="{Binding HasMpptCurrent, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding MpptCurrentImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding MpptCurrentImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- MPPT 2 Power -->
                                 <Border Margin="4" Visibility="{Binding HasMppt2Power, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding Mppt2PowerImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding Mppt2PowerImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                                 <!-- MPPT 2 Voltages -->
                                 <Border Margin="4" Visibility="{Binding HasMppt2Voltage, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding Mppt2VoltageImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <Image Source="{Binding Mppt2VoltageImage}" Width="960" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </Border>
 
                             </WrapPanel>
