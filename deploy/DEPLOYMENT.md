@@ -12,7 +12,7 @@
 
 1. Go to [dynv6.com](https://dynv6.com) and log in
 2. Create a new zone or use existing: `stratus.dynv6.net` (or your chosen subdomain)
-3. Point the A record to your Vultr server IP: `YOUR_SERVER_IP`
+3. Point the A record to your Vultr server IP
 4. Note your **HTTP Token** from the Instructions page (needed for automatic updates)
 
 ### 2. Connect to Your Server

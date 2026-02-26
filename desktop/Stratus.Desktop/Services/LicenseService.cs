@@ -16,8 +16,20 @@ public class LicenseService
     private readonly string _licenseFilePath;
     private LicenseInfo? _cachedLicense;
     
-    // License validation secret (in production, this would be server-side validated)
-    private static readonly byte[] LicenseSecret = Encoding.UTF8.GetBytes("REDACTED_LICENSE_SECRET");
+    // License validation secret — loaded from embedded resource or config
+    // In production, this should be validated server-side
+    private static readonly byte[] LicenseSecret = LoadLicenseSecret();
+
+    private static byte[] LoadLicenseSecret()
+    {
+        // Try environment variable first, then fall back to a config file
+        var secret = Environment.GetEnvironmentVariable("STRATUS_LICENSE_SECRET");
+        if (!string.IsNullOrEmpty(secret))
+            return Encoding.UTF8.GetBytes(secret);
+        
+        // Default development placeholder — override for production
+        return Encoding.UTF8.GetBytes("CHANGE-ME-IN-PRODUCTION");
+    }
 
     public LicenseService(string appDataPath)
     {

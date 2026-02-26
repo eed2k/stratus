@@ -8,13 +8,16 @@ import io
 import time
 
 # Configuration - reads from environment variables for security
-SERVER_IP = os.environ.get("STRATUS_DEPLOY_HOST", "YOUR_SERVER_IP")
+SERVER_IP = os.environ.get("STRATUS_DEPLOY_HOST", "")
 USERNAME = os.environ.get("STRATUS_DEPLOY_USER", "root")
 PASSWORD = os.environ.get("STRATUS_DEPLOY_PASSWORD", "")
 SSH_KEY_PATH = os.environ.get("STRATUS_DEPLOY_KEY", "")
 APP_DIR = os.environ.get("STRATUS_DEPLOY_DIR", "/opt/stratus")
 COMPOSE_FILE = os.environ.get("STRATUS_COMPOSE_FILE", "deploy/docker-compose.prod.yml")
 
+if not SERVER_IP:
+    print("[ERROR] Set STRATUS_DEPLOY_HOST environment variable")
+    sys.exit(1)
 if not PASSWORD and not SSH_KEY_PATH:
     print("[ERROR] Set STRATUS_DEPLOY_PASSWORD or STRATUS_DEPLOY_KEY environment variable")
     sys.exit(1)

@@ -28,6 +28,7 @@ shared/*.d.ts
 .env.production.local
 deploy/.env.production
 .neon
+.mailmap
 
 # ── IDE / editor ──
 .vscode/

@@ -6,14 +6,18 @@ import sys
 import tarfile
 import io
 
-# Configuration
-SERVER_IP = "YOUR_SERVER_IP"
-USERNAME = "root"
-PASSWORD = "REDACTED_SERVER_PASSWORD"
-DOMAIN = "stratusweather1.dynv6.net"
-ADMIN_EMAIL = "esterhuizen2k@proton.me"
-ACME_EMAIL = "your-acme-email@example.com"
-APP_DIR = "/opt/stratus"
+# Configuration — set via environment variables (never hardcode credentials)
+SERVER_IP = os.environ.get("STRATUS_DEPLOY_HOST", "")
+USERNAME = os.environ.get("STRATUS_DEPLOY_USER", "root")
+PASSWORD = os.environ.get("STRATUS_DEPLOY_PASSWORD", "")
+DOMAIN = os.environ.get("STRATUS_DOMAIN", "stratusweather1.dynv6.net")
+ADMIN_EMAIL = os.environ.get("STRATUS_ADMIN_EMAIL", "")
+ACME_EMAIL = os.environ.get("STRATUS_ACME_EMAIL", "")
+APP_DIR = os.environ.get("STRATUS_DEPLOY_DIR", "/opt/stratus")
+
+if not SERVER_IP or not PASSWORD:
+    print("[ERROR] Set STRATUS_DEPLOY_HOST and STRATUS_DEPLOY_PASSWORD environment variables")
+    sys.exit(1)
 
 def ssh_connect():
     """Connect to server via SSH"""

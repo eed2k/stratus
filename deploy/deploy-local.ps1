@@ -5,7 +5,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$ServerIP = "YOUR_SERVER_IP",
+    [string]$ServerIP = "",
     
     [Parameter(Mandatory=$false)]
     [string]$Domain = "stratus.dynv6.net",

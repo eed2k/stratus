@@ -4,10 +4,14 @@ import paramiko
 import sys
 import os
 
-# Configuration
-SERVER_IP = "YOUR_SERVER_IP"
-USERNAME = "root"
-PASSWORD = "REDACTED_SERVER_PASSWORD"
+# Configuration — set via environment variables (never hardcode credentials)
+SERVER_IP = os.environ.get("STRATUS_DEPLOY_HOST", "")
+USERNAME = os.environ.get("STRATUS_DEPLOY_USER", "root")
+PASSWORD = os.environ.get("STRATUS_DEPLOY_PASSWORD", "")
+
+if not SERVER_IP or not PASSWORD:
+    print("[ERROR] Set STRATUS_DEPLOY_HOST and STRATUS_DEPLOY_PASSWORD environment variables")
+    sys.exit(1)
 
 def ssh_connect():
     """Connect to server via SSH"""
@@ -77,7 +81,7 @@ def main():
         
     finally:
         client.close()
-        print("\n✓ Done! You can now use: ssh root@YOUR_SERVER_IP")
+        print(f"\n✓ Done! You can now use: ssh {USERNAME}@{SERVER_IP}")
 
 if __name__ == "__main__":
     main()

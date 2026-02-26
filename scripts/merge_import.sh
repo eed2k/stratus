@@ -2,14 +2,21 @@
 set -e
 cd /opt/stratus
 
-NEON='postgresql://neondb_owner:REDACTED_DB_PASSWORD@your-neon-host.neon.tech/neondb?sslmode=require'
+# Usage: NEON_URL="postgresql://..." ./merge_import.sh
+if [ -z "$NEON_URL" ]; then
+    echo "ERROR: Set NEON_URL environment variable"
+    echo "  export NEON_URL='postgresql://user:password@host/db?sslmode=require'"
+    exit 1
+fi
+
+NEON="$NEON_URL"
 COLS="station_id,table_name,record_number,timestamp,data,collected_at,wind_dir_std_dev,sdi12_wind_vector,pump_select_well,pump_select_bore,port_status_c1,port_status_c2,mppt_solar_voltage,mppt_solar_current,mppt_solar_power,mppt_load_voltage,mppt_load_current,mppt_battery_voltage,mppt_charger_state,mppt_absi_avg,mppt_board_temp,mppt_mode,mppt2_solar_voltage,mppt2_solar_current,mppt2_solar_power,mppt2_load_voltage,mppt2_load_current,mppt2_battery_voltage,mppt2_charger_state,mppt2_board_temp,mppt2_mode"
 
 # Write the import SQL script into the container
 docker compose exec -T postgres sh -c "cat > /tmp/import_neon.sh << 'INNEREOF'
 #!/bin/sh
 set -e
-NEON='postgresql://neondb_owner:REDACTED_DB_PASSWORD@your-neon-host.neon.tech/neondb?sslmode=require'
+NEON="$NEON_URL"
 COLS='station_id,table_name,record_number,timestamp,data,collected_at,wind_dir_std_dev,sdi12_wind_vector,pump_select_well,pump_select_bore,port_status_c1,port_status_c2,mppt_solar_voltage,mppt_solar_current,mppt_solar_power,mppt_load_voltage,mppt_load_current,mppt_battery_voltage,mppt_charger_state,mppt_absi_avg,mppt_board_temp,mppt_mode,mppt2_solar_voltage,mppt2_solar_current,mppt2_solar_power,mppt2_load_voltage,mppt2_load_current,mppt2_battery_voltage,mppt2_charger_state,mppt2_board_temp,mppt2_mode'
 
 echo 'Importing Station 1...'
@@ -43,7 +50,7 @@ chmod +x /tmp/import_neon.sh
 "
 
 echo "Running import inside container..."
-docker compose exec -T postgres sh /tmp/import_neon.sh
+docker compose exec -e NEON_URL="$NEON" -T postgres sh /tmp/import_neon.sh
 
 echo ""
 echo "=== Update station 15 name ==="

@@ -1,8 +1,13 @@
 #!/bin/bash
 # Try to recover any missing data from Neon DB
 # Run this when Neon quota resets (usually start of billing period)
+# Usage: NEON_URL="postgresql://..." ./recover_neon.sh
 
-NEON_URL="postgresql://neondb_owner:REDACTED_DB_PASSWORD@your-neon-host.neon.tech/neondb?sslmode=require"
+if [ -z "$NEON_URL" ]; then
+    echo "ERROR: Set NEON_URL environment variable"
+    echo "  export NEON_URL='postgresql://user:password@host/db?sslmode=require'"
+    exit 1
+fi
 LOCAL_DUMP="/opt/stratus/backups/neon_recovery_$(date +%Y%m%d_%H%M%S).sql.gz"
 
 echo "=== Attempting Neon DB recovery ==="
