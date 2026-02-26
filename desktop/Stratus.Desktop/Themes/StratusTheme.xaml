@@ -2,29 +2,28 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ═══════════════════════════════════════════════════════════════
-         Stratus Color Palette — RTDM Dark Instrument Panel Theme
-         Inspired by Campbell Scientific RTDM / RTMC Pro monitoring software
+         Stratus Color Palette — Clean White Professional Theme
          ═══════════════════════════════════════════════════════════════ -->
-    <Color x:Key="PrimaryColor">#2A7FDB</Color>
-    <Color x:Key="PrimaryLightColor">#4FA8E8</Color>
-    <Color x:Key="PrimaryDarkColor">#1A5FA0</Color>
-    <Color x:Key="AccentColor">#00B4D8</Color>
-    <Color x:Key="AccentLightColor">#48CAE4</Color>
-    <Color x:Key="SuccessColor">#2ECC71</Color>
-    <Color x:Key="WarningColor">#F1C40F</Color>
-    <Color x:Key="DangerColor">#E74C3C</Color>
-    <Color x:Key="BackgroundColor">#0F1923</Color>
-    <Color x:Key="SurfaceColor">#162230</Color>
-    <Color x:Key="SurfaceLightColor">#1E2E40</Color>
-    <Color x:Key="BorderColor">#2A3E52</Color>
-    <Color x:Key="TextPrimaryColor">#E0E8F0</Color>
-    <Color x:Key="TextSecondaryColor">#8BA4BC</Color>
-    <Color x:Key="TextMutedColor">#506878</Color>
-    <Color x:Key="TabGreyColor">#1A2A3A</Color>
-    <Color x:Key="MenuBarColor">#0C1520</Color>
-    <Color x:Key="StatusBarColor">#0A1118</Color>
-    <Color x:Key="HeaderGreyColor">#1E2E40</Color>
-    <Color x:Key="ChartBgColor">#141E2A</Color>
+    <Color x:Key="PrimaryColor">#2563EB</Color>
+    <Color x:Key="PrimaryLightColor">#3B82F6</Color>
+    <Color x:Key="PrimaryDarkColor">#1D4ED8</Color>
+    <Color x:Key="AccentColor">#0EA5E9</Color>
+    <Color x:Key="AccentLightColor">#38BDF8</Color>
+    <Color x:Key="SuccessColor">#22C55E</Color>
+    <Color x:Key="WarningColor">#EAB308</Color>
+    <Color x:Key="DangerColor">#EF4444</Color>
+    <Color x:Key="BackgroundColor">#FFFFFF</Color>
+    <Color x:Key="SurfaceColor">#F8FAFC</Color>
+    <Color x:Key="SurfaceLightColor">#F1F5F9</Color>
+    <Color x:Key="BorderColor">#E2E8F0</Color>
+    <Color x:Key="TextPrimaryColor">#1E293B</Color>
+    <Color x:Key="TextSecondaryColor">#64748B</Color>
+    <Color x:Key="TextMutedColor">#94A3B8</Color>
+    <Color x:Key="TabGreyColor">#F1F5F9</Color>
+    <Color x:Key="MenuBarColor">#FFFFFF</Color>
+    <Color x:Key="StatusBarColor">#F8FAFC</Color>
+    <Color x:Key="HeaderGreyColor">#F1F5F9</Color>
+    <Color x:Key="ChartBgColor">#FFFFFF</Color>
 
     <!-- Brushes -->
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}"/>
@@ -116,7 +115,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#28384A"/>
+                            <Setter Property="Background" Value="#E2E8F0"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
@@ -127,15 +126,15 @@
         </Setter>
     </Style>
 
-    <!-- DataGrid Style — Dark instrument panel -->
+    <!-- DataGrid Style -->
     <Style x:Key="StratusDataGrid" TargetType="DataGrid">
-        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="Background" Value="White"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="GridLinesVisibility" Value="Horizontal"/>
         <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource BorderBrush}"/>
-        <Setter Property="RowBackground" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="RowBackground" Value="White"/>
         <Setter Property="AlternatingRowBackground" Value="{StaticResource SurfaceLightBrush}"/>
         <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
         <Setter Property="FontSize" Value="12"/>
@@ -147,7 +146,7 @@
         <Setter Property="CanUserSortColumns" Value="True"/>
     </Style>
 
-    <!-- DataGrid Column Header Style — Dark -->
+    <!-- DataGrid Column Header Style -->
     <Style TargetType="DataGridColumnHeader">
         <Setter Property="Background" Value="{StaticResource HeaderGreyBrush}"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
@@ -158,52 +157,52 @@
         <Setter Property="BorderThickness" Value="0,0,1,1"/>
     </Style>
 
-    <!-- DataGrid Cell Style — Dark -->
+    <!-- DataGrid Cell Style -->
     <Style TargetType="DataGridCell">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{StaticResource PrimaryDarkBrush}"/>
+                <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
                 <Setter Property="Foreground" Value="White"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- DataGrid Row Style — Dark -->
+    <!-- DataGrid Row Style -->
     <Style TargetType="DataGridRow">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{StaticResource PrimaryDarkBrush}"/>
+                <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="#1A3550"/>
+                <Setter Property="Background" Value="#EFF6FF"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- TextBox Style — Dark -->
+    <!-- TextBox Style -->
     <Style x:Key="StratusTextBox" TargetType="TextBox">
         <Setter Property="FontFamily" Value="{StaticResource DefaultFont}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="8,6"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+        <Setter Property="Background" Value="White"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="CaretBrush" Value="{StaticResource TextPrimaryBrush}"/>
     </Style>
 
-    <!-- PasswordBox Style — Dark -->
+    <!-- PasswordBox Style -->
     <Style TargetType="PasswordBox">
-        <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+        <Setter Property="Background" Value="White"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="CaretBrush" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
     </Style>
 
-    <!-- Status Bar Style — Dark -->
+    <!-- Status Bar Style -->
     <Style x:Key="StratusStatusBar" TargetType="StatusBar">
         <Setter Property="Background" Value="{StaticResource StatusBarBrush}"/>
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
@@ -211,7 +210,7 @@
         <Setter Property="FontSize" Value="11"/>
     </Style>
 
-    <!-- GroupBox Style — Dark instrument panel -->
+    <!-- GroupBox Style -->
     <Style x:Key="StratusGroupBox" TargetType="GroupBox">
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -220,7 +219,7 @@
         <Setter Property="FontFamily" Value="{StaticResource HeaderFont}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="Background" Value="White"/>
     </Style>
 
     <!-- TabControl Style -->
@@ -230,7 +229,7 @@
         <Setter Property="Padding" Value="0"/>
     </Style>
 
-    <!-- Label for data values — Bright on dark -->
+    <!-- Label for data values -->
     <Style x:Key="DataValueLabel" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
         <Setter Property="FontSize" Value="14"/>
@@ -252,52 +251,52 @@
         <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
 
-    <!-- MenuItem Style — Dark menu bar -->
+    <!-- MenuItem Style -->
     <Style TargetType="MenuItem">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Style.Triggers>
             <Trigger Property="IsHighlighted" Value="True">
                 <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
-                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- ListBox Style — Dark -->
+    <!-- ListBox Style -->
     <Style TargetType="ListBox">
-        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="Background" Value="White"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
     </Style>
 
-    <!-- ListBoxItem Style — Dark -->
+    <!-- ListBoxItem Style -->
     <Style TargetType="ListBoxItem">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{StaticResource PrimaryDarkBrush}"/>
+                <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
                 <Setter Property="Foreground" Value="White"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="#1A3550"/>
+                <Setter Property="Background" Value="#EFF6FF"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- ComboBox Style — Dark -->
+    <!-- ComboBox Style -->
     <Style TargetType="ComboBox">
-        <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+        <Setter Property="Background" Value="White"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
     </Style>
 
-    <!-- ScrollViewer/ScrollBar — Dark -->
+    <!-- ScrollBar -->
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
     </Style>
 
-    <!-- TabItem Style — Dark instrument tabs -->
+    <!-- TabItem Style -->
     <Style TargetType="TabItem">
         <Setter Property="Background" Value="{StaticResource TabGreyBrush}"/>
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
@@ -318,13 +317,13 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource SurfaceBrush}"/>
+                            <Setter TargetName="TabBorder" Property="Background" Value="White"/>
                             <Setter TargetName="TabBorder" Property="BorderThickness" Value="1,1,1,0"/>
                             <Setter TargetName="TabBorder" Property="Margin" Value="0,0,2,-1"/>
-                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+                            <Setter TargetName="TabBorder" Property="Background" Value="#EFF6FF"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -333,10 +332,10 @@
     </Style>
 
     <!-- ═══════════════════════════════════════════════════════════
-         Gauge Panel Style — RTDM-style instrument readout
+         Gauge Panel Style
          ═══════════════════════════════════════════════════════════ -->
     <Style x:Key="GaugePanel" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="Background" Value="White"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="4"/>

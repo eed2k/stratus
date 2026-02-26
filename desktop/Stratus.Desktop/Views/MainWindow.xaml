@@ -89,9 +89,7 @@
                             
                             <TextBlock Text="Password:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <PasswordBox x:Name="PasswordBox" Padding="8,6" Margin="0,2,0,6"
-                                         BorderBrush="{StaticResource BorderBrush}"
-                                         Background="{StaticResource SurfaceLightBrush}"
-                                         Foreground="{StaticResource TextPrimaryBrush}"/>
+                                         BorderBrush="{StaticResource BorderBrush}"/>
                             
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Content="Connect" Style="{StaticResource PrimaryButton}" 
@@ -439,13 +437,11 @@
                                    Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
                         <ListBox Grid.Row="1" ItemsSource="{Binding LogMessages}" 
                                  BorderBrush="{StaticResource BorderBrush}" 
-                                 Background="{StaticResource SurfaceLightBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 Background="White"
                                  FontFamily="{StaticResource MonoFont}" FontSize="11">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding}" TextWrapping="NoWrap" 
-                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding}" TextWrapping="NoWrap"/>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -530,7 +526,7 @@
                         <!-- Wind Rose Display -->
                         <TabControl Grid.Row="1" x:Name="WindRoseTabControl" BorderThickness="1"
                                     BorderBrush="{StaticResource BorderBrush}" 
-                                    Background="{StaticResource SurfaceBrush}">
+                                    Background="White">
                             <TabItem Header="  24h  " FontSize="11">
                                 <controls:WindRoseControl x:Name="WindRose24h" Margin="4"/>
                             </TabItem>

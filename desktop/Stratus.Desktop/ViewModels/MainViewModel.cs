@@ -465,20 +465,20 @@ public partial class MainViewModel : ObservableObject
             _     => TimeSpan.FromHours(2).Ticks
         };
 
-        // ═══ RTDM Dark Theme: light text/grid on dark chart background ═══
+        // ═══ White Theme: dark text/grid on white chart background ═══
         var xAxes = new Axis[]
         {
             new Axis
             {
                 Name = "Date / Time",
                 NameTextSize = 26,
-                NamePaint = new SolidColorPaint(new SKColor(0x8B, 0xA4, 0xBC)),
+                NamePaint = new SolidColorPaint(new SKColor(0x47, 0x55, 0x69)),
                 Labeler = v => { try { return new DateTime((long)v).ToString(dateFmt); } catch { return ""; } },
                 LabelsRotation = -45,
                 TextSize = 22,
                 MinStep = minStep,
-                LabelsPaint = new SolidColorPaint(new SKColor(0x70, 0x90, 0xA8)),
-                SeparatorsPaint = new SolidColorPaint(new SKColor(0x28, 0x3A, 0x4C)) { StrokeThickness = 1 },
+                LabelsPaint = new SolidColorPaint(new SKColor(0x64, 0x74, 0x8B)),
+                SeparatorsPaint = new SolidColorPaint(new SKColor(0xE2, 0xE8, 0xF0)) { StrokeThickness = 1 },
             }
         };
 
@@ -772,15 +772,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // RTDM Dark Theme Chart Background
-    // ═══════════════════════════════════════════════════════════════
-    private static readonly SKColor ChartDarkBg = new(0x14, 0x1E, 0x2A);     // Deep navy
-    private static readonly SKColor ChartTitleBg = new(0x0F, 0x19, 0x23);    // Darker navy title strip
-    private static readonly SKColor ChartTitleFg = new(0xE0, 0xE8, 0xF0);    // Light text
+    // White Chart Theme
+    // ═════════════════════════════════════════════════════════════
+    private static readonly SKColor ChartBg = SKColors.White;
+    private static readonly SKColor ChartTitleBg = new(0xF8, 0xFA, 0xFC);    // Light grey title strip
+    private static readonly SKColor ChartTitleFg = new(0x1E, 0x29, 0x3B);    // Dark text
 
     /// <summary>
     /// Renders a chart as a static PNG image using LiveCharts2 off-screen SkiaSharp renderer.
-    /// RTDM dark theme: dark navy background with bright traces, light axis text.
+    /// White background with dark text, professional clean look.
     /// Returns a frozen BitmapImage for WPF.
     /// </summary>
     private static ImageSource? RenderChartImage(ISeries[] series, Axis[] xAxes, Axis[] yAxes,
@@ -800,10 +800,10 @@ public partial class MainViewModel : ObservableObject
                 Series = series,
                 XAxes = xAxes,
                 YAxes = yAxes,
-                Background = ChartDarkBg,
+                Background = ChartBg,
                 LegendPosition = LiveChartsCore.Measure.LegendPosition.Top,
                 LegendTextSize = 24,
-                LegendTextPaint = new SolidColorPaint(new SKColor(0xC0, 0xD0, 0xE0)),
+                LegendTextPaint = new SolidColorPaint(new SKColor(0x1E, 0x29, 0x3B)),
             };
 
             using var chartImage = chart.GetImage();
@@ -819,7 +819,7 @@ public partial class MainViewModel : ObservableObject
                 // Draw accent line under title
                 using var accentPaint = new SKPaint
                 {
-                    Color = new SKColor(0x2A, 0x7F, 0xDB),
+                    Color = new SKColor(0x25, 0x63, 0xEB),
                     StrokeWidth = 2,
                     IsAntialias = true,
                 };
@@ -861,8 +861,8 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Creates a Y-axis array with RTDM dark theme styling.
-    /// Light text and subtle grid on dark background for instrument-panel aesthetics.
+    /// Creates a Y-axis array with clean white theme styling.
+    /// Dark text and light grid for professional aesthetics.
     /// </summary>
     private static Axis[] MakeYAxes(string name, string format = "F1",
         double? minLimit = null, double? maxLimit = null) => new Axis[]
@@ -871,10 +871,10 @@ public partial class MainViewModel : ObservableObject
         {
             Name = name,
             NameTextSize = 28,
-            NamePaint = new SolidColorPaint(new SKColor(0x8B, 0xA4, 0xBC)),
+            NamePaint = new SolidColorPaint(new SKColor(0x47, 0x55, 0x69)),
             TextSize = 22,
-            LabelsPaint = new SolidColorPaint(new SKColor(0x70, 0x90, 0xA8)),
-            SeparatorsPaint = new SolidColorPaint(new SKColor(0x28, 0x3A, 0x4C)) { StrokeThickness = 1 },
+            LabelsPaint = new SolidColorPaint(new SKColor(0x64, 0x74, 0x8B)),
+            SeparatorsPaint = new SolidColorPaint(new SKColor(0xE2, 0xE8, 0xF0)) { StrokeThickness = 1 },
             Labeler = v => v.ToString(format),
             MinLimit = minLimit,
             MaxLimit = maxLimit,

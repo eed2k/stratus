@@ -42,25 +42,17 @@ public class WindRoseControl : FrameworkElement
         set => SetValue(WindRoseDataProperty, value);
     }
 
-    // Cached brushes and pens (frozen for thread safety and performance) — RTDM dark theme
+    // Cached brushes and pens (frozen for thread safety and performance)
     private static readonly Brush[] SpeedBrushes;
-    private static readonly Brush DarkBg = new SolidColorBrush(Color.FromRgb(0x14, 0x1E, 0x2A));       // #141E2A
-    private static readonly Brush LightText = new SolidColorBrush(Color.FromRgb(0xE0, 0xE8, 0xF0));    // #E0E8F0
-    private static readonly Brush SecondaryText = new SolidColorBrush(Color.FromRgb(0x8B, 0xA4, 0xBC)); // #8BA4BC
-    private static readonly Brush MutedText = new SolidColorBrush(Color.FromRgb(0x70, 0x90, 0xA8));     // #7090A8
-    private static readonly Pen OutlinePen = new(new SolidColorBrush(Color.FromRgb(0x1E, 0x2E, 0x40)), 0.5);
-    private static readonly Pen GridPen = new(new SolidColorBrush(Color.FromArgb(80, 0x40, 0x60, 0x80)), 0.5);
-    private static readonly Pen AxisPen = new(new SolidColorBrush(Color.FromArgb(100, 0x40, 0x60, 0x80)), 0.5);
-    private static readonly Pen LegendBoxPen = new(new SolidColorBrush(Color.FromRgb(0x40, 0x60, 0x80)), 0.5);
+    private static readonly Pen OutlinePen = new(Brushes.White, 0.5);
+    private static readonly Pen GridPen = new(new SolidColorBrush(Color.FromArgb(80, 120, 120, 120)), 0.5);
+    private static readonly Pen AxisPen = new(new SolidColorBrush(Color.FromArgb(100, 80, 80, 80)), 0.5);
+    private static readonly Pen LegendBoxPen = new(Brushes.Gray, 0.5);
     private static readonly Typeface ChartTypeface = new(
         new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
 
     static WindRoseControl()
     {
-        DarkBg.Freeze();
-        LightText.Freeze();
-        SecondaryText.Freeze();
-        MutedText.Freeze();
         OutlinePen.Freeze();
         GridPen.Freeze();
         AxisPen.Freeze();
@@ -107,7 +99,7 @@ public class WindRoseControl : FrameworkElement
         // Cache DPI for this render pass
         double pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
 
-        dc.DrawRectangle(DarkBg, null, new Rect(0, 0, width, height));
+        dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
         DrawTitle(dc, data.Title, width - legendWidth, titleHeight, pixelsPerDip);
         DrawGrid(dc, centerX, centerY, radius, data.MaxPercentage, pixelsPerDip);
         DrawSectors(dc, centerX, centerY, radius, data);
@@ -118,16 +110,16 @@ public class WindRoseControl : FrameworkElement
 
     private void DrawNoDataMessage(DrawingContext dc, double width, double height)
     {
-        dc.DrawRectangle(DarkBg, null, new Rect(0, 0, width, height));
+        dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
         double ppd = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         var text = MakeText("No wind data available.\nSelect a station and load data to generate a wind rose.",
-            14, MutedText, Math.Max(width - 40, 200), ppd);
+            14, Brushes.Gray, Math.Max(width - 40, 200), ppd);
         dc.DrawText(text, new Point((width - text.Width) / 2, (height - text.Height) / 2));
     }
 
     private void DrawTitle(DrawingContext dc, string title, double availableWidth, double titleHeight, double ppd)
     {
-        var text = MakeText(title, 18, LightText, availableWidth, ppd);
+        var text = MakeText(title, 18, Brushes.Black, availableWidth, ppd);
         text.SetFontWeight(FontWeights.Bold);
         dc.DrawText(text, new Point(
             (availableWidth - text.Width) / 2,
@@ -151,7 +143,7 @@ public class WindRoseControl : FrameworkElement
             double r = (pct / gridMax) * radius;
             dc.DrawEllipse(null, GridPen, new Point(cx, cy), r, r);
 
-            var text = MakeText($"{pct:F0}%", 9, MutedText, 60, ppd);
+            var text = MakeText($"{pct:F0}%", 9, Brushes.Gray, 60, ppd);
             dc.DrawText(text, new Point(cx + 3, cy - r - text.Height));
         }
 
@@ -259,7 +251,7 @@ public class WindRoseControl : FrameworkElement
             double x = cx + labelOffset * Math.Cos(rad);
             double y = cy + labelOffset * Math.Sin(rad);
 
-            var text = MakeText(label, 12, LightText, 40, ppd);
+            var text = MakeText(label, 12, Brushes.Black, 40, ppd);
             text.SetFontWeight(FontWeights.SemiBold);
             dc.DrawText(text, new Point(x - text.Width / 2, y - text.Height / 2));
         }
@@ -270,7 +262,7 @@ public class WindRoseControl : FrameworkElement
         var categories = WindSpeedCategories.Categories;
         string unitLabel = "Wind Speed (km/h)";
 
-        var titleText = MakeText(unitLabel, 11, LightText, 150, ppd);
+        var titleText = MakeText(unitLabel, 11, Brushes.Black, 150, ppd);
         titleText.SetFontWeight(FontWeights.Bold);
         dc.DrawText(titleText, new Point(x, y));
         y += 25;
@@ -284,19 +276,19 @@ public class WindRoseControl : FrameworkElement
             dc.DrawRectangle(SpeedBrushes[i], LegendBoxPen,
                 new Rect(x, y, boxSize, boxSize));
 
-            var text = MakeText(categories[i].Label, 10, SecondaryText, 130, ppd);
+            var text = MakeText(categories[i].Label, 10, Brushes.Black, 130, ppd);
             dc.DrawText(text, new Point(x + boxSize + 6, y + 1));
             y += spacing;
         }
 
         y += 10;
-        var countText = MakeText($"n = {data.TotalRecords:N0}", 10, MutedText, 150, ppd);
+        var countText = MakeText($"n = {data.TotalRecords:N0}", 10, Brushes.Gray, 150, ppd);
         dc.DrawText(countText, new Point(x, y));
     }
 
     private void DrawCalmInfo(DrawingContext dc, double cx, double cy, double calmPct, double ppd)
     {
-        var text = MakeText($"Calm: {calmPct:F1}%", 10, SecondaryText, 100, ppd);
+        var text = MakeText($"Calm: {calmPct:F1}%", 10, Brushes.DarkSlateGray, 100, ppd);
         dc.DrawText(text, new Point(cx - text.Width / 2, cy - text.Height / 2));
     }
 

@@ -71,23 +71,23 @@ public class GaugeControl : FrameworkElement
     private static readonly Typeface GaugeBoldTypeface = new(
         new FontFamily("Consolas"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
 
-    // Dark theme colors
-    private static readonly Brush PanelBg = new SolidColorBrush(Color.FromRgb(0x16, 0x22, 0x30));
-    private static readonly Brush PanelBorder = new SolidColorBrush(Color.FromRgb(0x2A, 0x3E, 0x52));
-    private static readonly Brush TickBrush = new SolidColorBrush(Color.FromRgb(0x50, 0x68, 0x78));
-    private static readonly Brush TickLabelBrush = new SolidColorBrush(Color.FromRgb(0x70, 0x90, 0xA8));
-    private static readonly Brush LabelBrush = new SolidColorBrush(Color.FromRgb(0x8B, 0xA4, 0xBC));
-    private static readonly Brush ValueBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0xE8, 0xF0));
-    private static readonly Brush NeedleBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0xE8, 0xF0));
-    private static readonly Brush NeedleCenter = new SolidColorBrush(Color.FromRgb(0x40, 0x58, 0x68));
-    private static readonly Brush DimBrush = new SolidColorBrush(Color.FromRgb(0x50, 0x68, 0x78));
+    // White theme colors
+    private static readonly Brush PanelBg = Brushes.White;
+    private static readonly Brush PanelBorder = new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0));
+    private static readonly Brush TickBrush = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8));
+    private static readonly Brush TickLabelBrush = new SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B));
+    private static readonly Brush LabelBrush = new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69));
+    private static readonly Brush ValueBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
+    private static readonly Brush NeedleBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
+    private static readonly Brush NeedleCenter = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8));
+    private static readonly Brush DimBrush = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8));
     private static readonly Pen BorderPen;
     private static readonly Pen TickPen;
     private static readonly Pen MajorTickPen;
 
     static GaugeControl()
     {
-        PanelBg.Freeze(); PanelBorder.Freeze(); TickBrush.Freeze();
+        PanelBorder.Freeze(); TickBrush.Freeze();
         TickLabelBrush.Freeze(); LabelBrush.Freeze(); ValueBrush.Freeze();
         NeedleBrush.Freeze(); NeedleCenter.Freeze(); DimBrush.Freeze();
 
@@ -142,7 +142,7 @@ public class GaugeControl : FrameworkElement
     {
         // Draw the full 270° grey arc track
         double arcWidth = Math.Max(radius * 0.12, 4);
-        var trackPen = new Pen(new SolidColorBrush(Color.FromRgb(0x1E, 0x2E, 0x40)), arcWidth);
+        var trackPen = new Pen(new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0)), arcWidth);
         trackPen.StartLineCap = PenLineCap.Round;
         trackPen.EndLineCap = PenLineCap.Round;
         trackPen.Freeze();
@@ -279,11 +279,11 @@ public class GaugeControl : FrameworkElement
 
     private void DrawDigitalReadout(DrawingContext dc, double cx, double y, double width, double height, double ppd)
     {
-        // Dark panel for digital readout
+        // Light panel for digital readout
         var readoutRect = new Rect(cx - width * 0.4, y, width * 0.8, height - 4);
-        var readoutBg = new SolidColorBrush(Color.FromRgb(0x0F, 0x19, 0x23));
+        var readoutBg = new SolidColorBrush(Color.FromRgb(0xF1, 0xF5, 0xF9));
         readoutBg.Freeze();
-        var readoutBorder = new Pen(new SolidColorBrush(Color.FromRgb(0x2A, 0x3E, 0x52)), 1);
+        var readoutBorder = new Pen(new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0)), 1);
         readoutBorder.Freeze();
         dc.DrawRoundedRectangle(readoutBg, readoutBorder, readoutRect, 3, 3);
 

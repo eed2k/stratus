@@ -317,7 +317,7 @@ public partial class MainWindow : Window
                     Series = series,
                     XAxes = xAxes,
                     YAxes = yAxes.Length > 0 ? yAxes : Array.Empty<LiveChartsCore.Kernel.Sketches.ICartesianAxis>(),
-                    Background = new SKColor(0x14, 0x1E, 0x2A),  // RTDM dark background
+                    Background = SKColors.White,
                     LegendPosition = LiveChartsCore.Measure.LegendPosition.Top,
                     LegendTextSize = 24,
                 };
@@ -328,13 +328,13 @@ public partial class MainWindow : Window
                 var info = new SKImageInfo(exportWidth, totalHeight);
                 using var surface = SKSurface.Create(info);
                 var canvas = surface.Canvas;
-                canvas.Clear(new SKColor(0x0F, 0x19, 0x23));  // RTDM title bar bg
+                canvas.Clear(new SKColor(0xF8, 0xFA, 0xFC));  // Light title bar bg
 
                 // Draw title
                 string titleText = $"{label}  —  {vm.SelectedStation.Name}";
                 using var titlePaint = new SKPaint
                 {
-                    Color = new SKColor(0xE0, 0xE8, 0xF0),  // RTDM light title text
+                    Color = new SKColor(0x1E, 0x29, 0x3B),  // Dark title text
                     IsAntialias = true,
                     TextSize = 52,
                     Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
@@ -343,7 +343,7 @@ public partial class MainWindow : Window
                 canvas.DrawText(titleText, exportWidth / 2f, 68, titlePaint);
 
                 // Accent line under title
-                using var accentPen = new SKPaint { Color = new SKColor(0x2A, 0x7F, 0xDB), StrokeWidth = 3, IsAntialias = true };
+                using var accentPen = new SKPaint { Color = new SKColor(0x25, 0x63, 0xEB), StrokeWidth = 3, IsAntialias = true };
                 canvas.DrawLine(0, titleHeight - 2, exportWidth, titleHeight - 2, accentPen);
                 canvas.DrawBitmap(SKBitmap.FromImage(chartImage), 0, titleHeight);
 
