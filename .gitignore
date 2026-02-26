@@ -97,6 +97,7 @@ scripts/login.json
 # ── .NET Desktop build artifacts ──
 desktop/Stratus.Desktop/bin/
 desktop/Stratus.Desktop/obj/
+desktop/Stratus.Desktop/publish/
 desktop/Stratus.Desktop/*.dll
 desktop/Stratus.Desktop/*.zip
 desktop/publish/
@@ -105,4 +106,7 @@ desktop/publish/
 
 # ── Release binaries (too large for GitHub) ──
 release/
+*.exe
+*.blockmap
+*.nupkg
 windrose-main/
