@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Npgsql;
 using Serilog;
 using Stratus.Desktop.Models;
+using System;
 using System.IO;
 using System.Text.Json;
 
@@ -49,6 +50,7 @@ public class DatabaseService : IDisposable
 
     /// <summary>
     /// Connect to a PostgreSQL database.
+    /// Handles both key-value and URI-style (postgresql://...) connection strings.
     /// </summary>
     public bool Connect(string connectionString)
     {
@@ -56,16 +58,20 @@ public class DatabaseService : IDisposable
         {
             Disconnect();
 
+            // Normalize: convert postgresql:// URI format to key-value format
+            var normalizedCs = NormalizeConnectionString(connectionString);
+            var csb = new NpgsqlConnectionStringBuilder(normalizedCs);
+
             // Ensure SSL mode is set for cloud databases (Neon, Supabase, etc.)
-            var csb = new NpgsqlConnectionStringBuilder(connectionString);
-            if (csb.SslMode == SslMode.Disable || csb.SslMode == SslMode.Allow)
+            var host = csb.Host ?? "";
+            bool isCloud = host.Contains("neon.tech", StringComparison.OrdinalIgnoreCase) ||
+                           host.Contains("supabase", StringComparison.OrdinalIgnoreCase) ||
+                           host.Contains("railway", StringComparison.OrdinalIgnoreCase) ||
+                           host.Contains("render", StringComparison.OrdinalIgnoreCase);
+
+            if (isCloud)
             {
-                // If host contains common cloud domains, default to Require
-                var host = csb.Host ?? "";
-                if (host.Contains("neon.tech", StringComparison.OrdinalIgnoreCase) ||
-                    host.Contains("supabase", StringComparison.OrdinalIgnoreCase) ||
-                    host.Contains("railway", StringComparison.OrdinalIgnoreCase) ||
-                    host.Contains("render", StringComparison.OrdinalIgnoreCase))
+                if (csb.SslMode == SslMode.Disable || csb.SslMode == SslMode.Allow || csb.SslMode == SslMode.Prefer)
                 {
                     csb.SslMode = SslMode.Require;
                     Log.Information("Auto-enabled SSL for cloud database host: {Host}", host);
@@ -88,7 +94,7 @@ public class DatabaseService : IDisposable
 
             _isConnected = true;
             ConnectionChanged?.Invoke(this, true);
-            Log.Information("Connected to PostgreSQL database");
+            Log.Information("Connected to PostgreSQL database at {Host}", host);
 
             // Persist connection string for next session
             SaveConnectionString(_connectionString);
@@ -290,21 +296,26 @@ public class DatabaseService : IDisposable
 
     /// <summary>
     /// Test a database connection string.
+    /// Handles both key-value and URI-style (postgresql://...) connection strings.
     /// </summary>
     public static async Task<(bool success, string message)> TestConnectionAsync(string connectionString)
     {
         try
         {
-            // Auto-apply SSL for cloud databases
-            var csb = new NpgsqlConnectionStringBuilder(connectionString);
+            // Normalize: convert postgresql:// URI format to key-value format
+            var normalizedCs = NormalizeConnectionString(connectionString);
+            var csb = new NpgsqlConnectionStringBuilder(normalizedCs);
+
             var host = csb.Host ?? "";
-            if ((csb.SslMode == SslMode.Disable || csb.SslMode == SslMode.Allow) &&
-                (host.Contains("neon.tech", StringComparison.OrdinalIgnoreCase) ||
-                 host.Contains("supabase", StringComparison.OrdinalIgnoreCase) ||
-                 host.Contains("railway", StringComparison.OrdinalIgnoreCase) ||
-                 host.Contains("render", StringComparison.OrdinalIgnoreCase)))
+            bool isCloud = host.Contains("neon.tech", StringComparison.OrdinalIgnoreCase) ||
+                           host.Contains("supabase", StringComparison.OrdinalIgnoreCase) ||
+                           host.Contains("railway", StringComparison.OrdinalIgnoreCase) ||
+                           host.Contains("render", StringComparison.OrdinalIgnoreCase);
+
+            if (isCloud)
             {
-                csb.SslMode = SslMode.Require;
+                if (csb.SslMode == SslMode.Disable || csb.SslMode == SslMode.Allow || csb.SslMode == SslMode.Prefer)
+                    csb.SslMode = SslMode.Require;
             }
 
             var builder = new NpgsqlDataSourceBuilder(csb.ToString());
@@ -380,6 +391,81 @@ public class DatabaseService : IDisposable
         {
             Log.Warning(ex, "Failed to load saved DB connection string");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Converts a PostgreSQL URI (postgresql://user:pass@host:port/db?sslmode=require)
+    /// to Npgsql key-value format (Host=...;Port=...;Database=...;Username=...;Password=...).
+    /// If the input is already in key-value format, returns it unchanged.
+    /// </summary>
+    private static string NormalizeConnectionString(string connectionString)
+    {
+        var cs = connectionString.Trim();
+        if (!cs.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) &&
+            !cs.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
+        {
+            return cs; // Already key-value format
+        }
+
+        try
+        {
+            var uri = new Uri(cs);
+            var csb = new NpgsqlConnectionStringBuilder();
+
+            csb.Host = uri.Host;
+            if (uri.Port > 0)
+                csb.Port = uri.Port;
+
+            // Parse user:password from URI
+            if (!string.IsNullOrEmpty(uri.UserInfo))
+            {
+                var parts = uri.UserInfo.Split(':', 2);
+                csb.Username = Uri.UnescapeDataString(parts[0]);
+                if (parts.Length > 1)
+                    csb.Password = Uri.UnescapeDataString(parts[1]);
+            }
+
+            // Database name from path
+            if (uri.AbsolutePath.Length > 1)
+                csb.Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
+
+            // Parse query string parameters (sslmode, etc.)
+            if (!string.IsNullOrEmpty(uri.Query))
+            {
+                foreach (var param in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var kv = param.Split('=', 2);
+                    if (kv.Length != 2) continue;
+
+                    var key = Uri.UnescapeDataString(kv[0]).ToLowerInvariant();
+                    var val = Uri.UnescapeDataString(kv[1]);
+
+                    switch (key)
+                    {
+                        case "sslmode":
+                            if (Enum.TryParse<SslMode>(val.Replace("-", ""), true, out var mode))
+                                csb.SslMode = mode;
+                            break;
+                        case "connect_timeout":
+                            if (int.TryParse(val, out var to))
+                                csb.Timeout = to;
+                            break;
+                        case "application_name":
+                            csb.ApplicationName = val;
+                            break;
+                    }
+                }
+            }
+
+            var result = csb.ToString();
+            Log.Information("Converted PostgreSQL URI to connection string (host={Host})", csb.Host);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to parse PostgreSQL URI, using as-is");
+            return cs;
         }
     }
 
