@@ -26,8 +26,8 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Menu Bar -->
-        <Menu Grid.Row="0" Background="{StaticResource MenuBarBrush}" Foreground="Black" FontSize="12" Padding="2">
+        <!-- Menu Bar — Dark RTDM Instrument Panel -->
+        <Menu Grid.Row="0" Background="{StaticResource MenuBarBrush}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" Padding="2">
             <MenuItem Header="_File">
                 <MenuItem Header="_Connect to Server..." Command="{Binding ConnectCommand}"/>
                 <MenuItem Header="_Export Data..." Command="{Binding ExportDataCommand}"/>
@@ -67,7 +67,7 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left Panel: Connection & Station List -->
+            <!-- Left Panel: Connection & Station List — Dark -->
             <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
                 <DockPanel>
                     <!-- Connection Controls -->
@@ -89,7 +89,9 @@
                             
                             <TextBlock Text="Password:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <PasswordBox x:Name="PasswordBox" Padding="8,6" Margin="0,2,0,6"
-                                         BorderBrush="{StaticResource BorderBrush}"/>
+                                         BorderBrush="{StaticResource BorderBrush}"
+                                         Background="{StaticResource SurfaceLightBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"/>
                             
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Content="Connect" Style="{StaticResource PrimaryButton}" 
@@ -101,7 +103,7 @@
                         </StackPanel>
                     </GroupBox>
 
-                    <!-- Station List -->
+                    <!-- Station List — Dark -->
                     <GroupBox Style="{StaticResource StratusGroupBox}" Header="Weather Stations" Margin="8,4,8,8">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
@@ -114,11 +116,12 @@
                             <ListBox ItemsSource="{Binding Stations}" 
                                      SelectedItem="{Binding SelectedStation}"
                                      BorderThickness="1" BorderBrush="{StaticResource BorderBrush}"
-                                     Background="White">
+                                     Background="{StaticResource SurfaceLightBrush}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="4,4">
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"/>
                                             <StackPanel Orientation="Horizontal">
                                                 <Ellipse Width="8" Height="8" Margin="0,0,4,0">
                                                     <Ellipse.Style>
@@ -162,7 +165,7 @@
             <TabControl Grid.Column="2" Background="{StaticResource BackgroundBrush}" 
                         BorderThickness="0" Padding="0" Margin="0">
                 
-                <!-- Station Monitor Tab -->
+                <!-- Station Monitor Tab — RTDM Instrument Panel -->
                 <TabItem Header="  Monitor  " FontSize="12">
                     <Grid Margin="12">
                         <Grid.RowDefinitions>
@@ -171,7 +174,7 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Station Header -->
+                        <!-- Station Header — Dark -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
                             <TextBlock Text="{Binding SelectedStation.Name, FallbackValue='No Station Selected'}" 
                                        Style="{StaticResource SectionHeader}" FontSize="18" Margin="0,0,12,0"/>
@@ -187,130 +190,62 @@
                                     Margin="4,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
 
-                        <!-- Current Values Panel -->
-                        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" 
+                        <!-- ═══════ RTDM Gauge Panel ═══════ -->
+                        <Border Grid.Row="1" Background="{StaticResource BackgroundBrush}" 
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" 
-                                CornerRadius="4" Padding="12" Margin="0,0,0,12">
-                            <WrapPanel>
-                                <!-- Temperature -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Temperature" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.Temperature, StringFormat='{}{0:F1}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="°C" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Humidity -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Humidity" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.Humidity, StringFormat='{}{0:F0}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="%" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Pressure -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Pressure" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.Pressure, StringFormat='{}{0:F1}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="hPa" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Wind -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Wind" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.WindSpeed, StringFormat='{}{0:F1}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="km/h" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Solar -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Solar" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.SolarRadiation, StringFormat='{}{0:F0}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="W/m²" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Rainfall -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Rain" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.Rainfall, StringFormat='{}{0:F1}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="mm" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Dew Point -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Dew Point" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.DewPoint, StringFormat='{}{0:F1}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="°C" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- ETo -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="ETo" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.Eto, StringFormat='{}{0:F2}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="mm" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Battery -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Battery" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.BatteryVoltage, StringFormat='{}{0:F2}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="V" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Water Level -->
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Padding="12,4" Margin="0,0,8,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Water Level" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding LatestData.WaterLevel, StringFormat='{}{0:F1}', FallbackValue='--'}" 
-                                                       Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                            <TextBlock Text="mm" Style="{StaticResource DataUnitLabel}" FontSize="13"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <!-- Level Switch -->
-                                <Border Padding="12,4">
-                                    <StackPanel>
-                                        <TextBlock Text="Level Switch" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <TextBlock Text="{Binding LatestData.LevelSwitch, StringFormat='{}{0:F0} mV', FallbackValue='--'}" 
-                                                   Style="{StaticResource DataValueLabel}" FontSize="20"/>
-                                    </StackPanel>
-                                </Border>
-                            </WrapPanel>
+                                CornerRadius="4" Padding="8" Margin="0,0,0,12">
+                            <UniformGrid Rows="2" Columns="5">
+                                <!-- Temperature Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.Temperature}" 
+                                    MinValue="-10" MaxValue="50" Unit="°C" Label="Temperature"
+                                    ValueFormat="F1" AccentColor="#FF6B6B"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- Humidity Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.Humidity}" 
+                                    MinValue="0" MaxValue="100" Unit="%" Label="Humidity"
+                                    ValueFormat="F0" AccentColor="#4FC3F7"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- Pressure Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.Pressure}" 
+                                    MinValue="950" MaxValue="1050" Unit="hPa" Label="Pressure"
+                                    ValueFormat="F1" AccentColor="#80DEEA"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- Wind Speed Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.WindSpeed}" 
+                                    MinValue="0" MaxValue="120" Unit="km/h" Label="Wind Speed"
+                                    ValueFormat="F1" AccentColor="#69F0AE"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- Solar Radiation Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.SolarRadiation}" 
+                                    MinValue="0" MaxValue="1200" Unit="W/m²" Label="Solar"
+                                    ValueFormat="F0" AccentColor="#FFD54F"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- Rainfall Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.Rainfall}" 
+                                    MinValue="0" MaxValue="50" Unit="mm" Label="Rainfall"
+                                    ValueFormat="F1" AccentColor="#40C4FF"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- Dew Point Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.DewPoint}" 
+                                    MinValue="-10" MaxValue="35" Unit="°C" Label="Dew Point"
+                                    ValueFormat="F1" AccentColor="#BB86FC"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- ETo Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.Eto}" 
+                                    MinValue="0" MaxValue="15" Unit="mm" Label="ETo"
+                                    ValueFormat="F2" AccentColor="#26DEC8"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- Battery Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.BatteryVoltage}" 
+                                    MinValue="0" MaxValue="15" Unit="V" Label="Battery"
+                                    ValueFormat="F2" AccentColor="#69F0AE"
+                                    Width="160" Height="160" Margin="4"/>
+                                <!-- Water Level Gauge -->
+                                <controls:GaugeControl Value="{Binding LatestData.WaterLevel}" 
+                                    MinValue="0" MaxValue="500" Unit="mm" Label="Water Level"
+                                    ValueFormat="F1" AccentColor="#40C4FF"
+                                    Width="160" Height="160" Margin="4"/>
+                            </UniformGrid>
                         </Border>
 
                         <!-- Data Grid -->
@@ -364,154 +299,131 @@
                             </StackPanel>
                         </Border>
 
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="12">
-                            <StackPanel x:Name="ChartsStackPanel">
+                        <!-- ═══════ RTDM 2-Column Chart Grid ═══════ -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="8">
+                            <WrapPanel x:Name="ChartsStackPanel" Orientation="Horizontal">
 
                                 <!-- Temperature + Dew Point + Min/Max -->
-                                <GroupBox Header="Temperature / Dew Point (°C)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasTemperature, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding TemperatureImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasTemperature, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding TemperatureImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Humidity -->
-                                <GroupBox Header="Humidity (%)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasHumidity, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding HumidityImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasHumidity, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding HumidityImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Pressure + Sea Level -->
-                                <GroupBox Header="Barometric Pressure (hPa)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasPressure, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding PressureImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasPressure, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding PressureImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Dew Point standalone -->
-                                <GroupBox Header="Dew Point (°C)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasDewPoint, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding DewPointImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasDewPoint, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding DewPointImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Wind Speed + Gust -->
-                                <GroupBox Header="Wind Speed / Gust (km/h)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasWind, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding WindImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasWind, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding WindImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Wind Direction -->
-                                <GroupBox Header="Wind Direction (°)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasWindDirection, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding WindDirectionImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasWindDirection, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding WindDirectionImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Wind Power -->
-                                <GroupBox Header="Wind Power (W/m²)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasWindPower, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding WindPowerImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasWindPower, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding WindPowerImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Rainfall + 24h -->
-                                <GroupBox Header="Rainfall (mm)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasRainfall, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding RainfallImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasRainfall, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding RainfallImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Solar Radiation + Max -->
-                                <GroupBox Header="Solar Radiation (W/m²)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasSolar, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding SolarImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasSolar, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding SolarImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- UV Index -->
-                                <GroupBox Header="UV Index" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasUvIndex, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding UvIndexImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasUvIndex, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding UvIndexImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Evapotranspiration + 24h -->
-                                <GroupBox Header="Evapotranspiration — ETo (mm/day)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasEto, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding EtoImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasEto, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding EtoImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Soil + Leaf Wetness -->
-                                <GroupBox Header="Soil (Temperature / Moisture / Leaf Wetness)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasSoil, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding SoilImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasSoil, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding SoilImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Air Quality PM1/2.5/10 -->
-                                <GroupBox Header="Air Quality — PM1 / PM2.5 / PM10 (µg/m³)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasAirQuality, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding AirQualityImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasAirQuality, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding AirQualityImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- CO₂ & TVOC -->
-                                <GroupBox Header="CO₂ (ppm) / TVOC (ppb)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasCo2Tvoc, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding Co2TvocImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasCo2Tvoc, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding Co2TvocImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Air Density -->
-                                <GroupBox Header="Air Density (kg/m³)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasAirDensity, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding AirDensityImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasAirDensity, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding AirDensityImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Battery / Charger / Panel -->
-                                <GroupBox Header="Battery / Charger / Panel Temperature" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasBattery, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding BatteryImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasBattery, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding BatteryImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Water Level -->
-                                <GroupBox Header="Water Level (mm)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasWaterLevel, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding WaterLevelImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasWaterLevel, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding WaterLevelImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Switches -->
-                                <GroupBox Header="Switches (Temp / Level)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasSwitch, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding SwitchImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasSwitch, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding SwitchImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- Lightning -->
-                                <GroupBox Header="Lightning (strikes)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasLightning, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding LightningImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasLightning, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding LightningImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- MPPT 1 Power -->
-                                <GroupBox Header="MPPT Charger 1 — Solar Power (W)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasMpptPower, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding MpptPowerImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasMpptPower, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding MpptPowerImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- MPPT 1 Voltages -->
-                                <GroupBox Header="MPPT Charger 1 — Voltages (V)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasMpptVoltage, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding MpptVoltageImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasMpptVoltage, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding MpptVoltageImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- MPPT 1 Currents -->
-                                <GroupBox Header="MPPT Charger 1 — Currents (mA)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasMpptCurrent, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding MpptCurrentImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasMpptCurrent, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding MpptCurrentImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- MPPT 2 Power -->
-                                <GroupBox Header="MPPT Charger 2 — Solar Power (W)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasMppt2Power, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding Mppt2PowerImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasMppt2Power, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding Mppt2PowerImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
                                 <!-- MPPT 2 Voltages -->
-                                <GroupBox Header="MPPT Charger 2 — Voltages (V)" Style="{StaticResource StratusGroupBox}" Margin="0,0,0,8"
-                                          Visibility="{Binding HasMppt2Voltage, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding Mppt2VoltageImage}" Height="320" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </GroupBox>
+                                <Border Margin="4" Visibility="{Binding HasMppt2Voltage, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding Mppt2VoltageImage}" Width="780" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
 
-                            </StackPanel>
+                            </WrapPanel>
                         </ScrollViewer>
                     </Grid>
                 </TabItem>
@@ -526,11 +438,14 @@
                         <TextBlock Grid.Row="0" Text="System Activity Log" 
                                    Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
                         <ListBox Grid.Row="1" ItemsSource="{Binding LogMessages}" 
-                                 BorderBrush="{StaticResource BorderBrush}" Background="White"
+                                 BorderBrush="{StaticResource BorderBrush}" 
+                                 Background="{StaticResource SurfaceLightBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
                                  FontFamily="{StaticResource MonoFont}" FontSize="11">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding}" TextWrapping="NoWrap"/>
+                                    <TextBlock Text="{Binding}" TextWrapping="NoWrap" 
+                                               Foreground="{StaticResource TextSecondaryBrush}"/>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -614,7 +529,8 @@
 
                         <!-- Wind Rose Display -->
                         <TabControl Grid.Row="1" x:Name="WindRoseTabControl" BorderThickness="1"
-                                    BorderBrush="{StaticResource BorderBrush}" Background="White">
+                                    BorderBrush="{StaticResource BorderBrush}" 
+                                    Background="{StaticResource SurfaceBrush}">
                             <TabItem Header="  24h  " FontSize="11">
                                 <controls:WindRoseControl x:Name="WindRose24h" Margin="4"/>
                             </TabItem>
@@ -639,9 +555,9 @@
         <!-- Status Bar -->
         <StatusBar Grid.Row="2" Style="{StaticResource StratusStatusBar}" Padding="8,4">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}" Foreground="Black"/>
+                <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource TextPrimaryBrush}"/>
             </StatusBarItem>
-            <Separator Background="#CCCCCC"/>
+            <Separator Background="{StaticResource BorderBrush}"/>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <Ellipse Width="8" Height="8" Margin="0,0,4,0">
@@ -656,18 +572,18 @@
                             </Style>
                         </Ellipse.Style>
                     </Ellipse>
-                    <TextBlock Text="{Binding ConnectionStatus}" Foreground="Black"/>
+                    <TextBlock Text="{Binding ConnectionStatus}" Foreground="{StaticResource TextPrimaryBrush}"/>
                 </StackPanel>
             </StatusBarItem>
-            <Separator Background="#CCCCCC"/>
+            <Separator Background="{StaticResource BorderBrush}"/>
             <StatusBarItem>
-                <TextBlock Foreground="Black">
+                <TextBlock Foreground="{StaticResource TextSecondaryBrush}">
                     <Run Text="Licence: "/>
                     <Run Text="{Binding LicenseStatus, Mode=OneWay}"/>
                 </TextBlock>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="Stratus Desktop v1.1.0 | Lukas Esterhuizen" Foreground="#777777" FontSize="10"/>
+                <TextBlock Text="Stratus Desktop v1.1.0 | Lukas Esterhuizen" Foreground="{StaticResource TextMutedBrush}" FontSize="10"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

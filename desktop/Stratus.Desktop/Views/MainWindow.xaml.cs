@@ -293,6 +293,11 @@ public partial class MainWindow : Window
 
             try
             {
+                const int exportWidth = 3200;
+                const int exportChartHeight = 800;
+                const int titleHeight = 100;
+                int totalHeight = exportChartHeight + titleHeight;
+
                 // Build a minimal X-axis for the export render
                 var xAxes = new Axis[]
                 {
@@ -300,24 +305,55 @@ public partial class MainWindow : Window
                     {
                         Labeler = v => { try { return new DateTime((long)v).ToString("MM/dd HH:mm"); } catch { return ""; } },
                         LabelsRotation = -45,
-                        TextSize = 11,
+                        TextSize = 22,
                         LabelsPaint = new SolidColorPaint(new SKColor(80, 80, 80)),
                     }
                 };
 
                 var skChart = new SKCartesianChart
                 {
-                    Width = 2400,
-                    Height = 600,
+                    Width = exportWidth,
+                    Height = exportChartHeight,
                     Series = series,
                     XAxes = xAxes,
                     YAxes = yAxes.Length > 0 ? yAxes : Array.Empty<LiveChartsCore.Kernel.Sketches.ICartesianAxis>(),
-                    Background = SKColors.White,
+                    Background = new SKColor(0x14, 0x1E, 0x2A),  // RTDM dark background
+                    LegendPosition = LiveChartsCore.Measure.LegendPosition.Top,
+                    LegendTextSize = 24,
                 };
+
+                using var chartImage = skChart.GetImage();
+
+                // Composite: title bar + chart
+                var info = new SKImageInfo(exportWidth, totalHeight);
+                using var surface = SKSurface.Create(info);
+                var canvas = surface.Canvas;
+                canvas.Clear(new SKColor(0x0F, 0x19, 0x23));  // RTDM title bar bg
+
+                // Draw title
+                string titleText = $"{label}  —  {vm.SelectedStation.Name}";
+                using var titlePaint = new SKPaint
+                {
+                    Color = new SKColor(0xE0, 0xE8, 0xF0),  // RTDM light title text
+                    IsAntialias = true,
+                    TextSize = 52,
+                    Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
+                    TextAlign = SKTextAlign.Center,
+                };
+                canvas.DrawText(titleText, exportWidth / 2f, 68, titlePaint);
+
+                // Accent line under title
+                using var accentPen = new SKPaint { Color = new SKColor(0x2A, 0x7F, 0xDB), StrokeWidth = 3, IsAntialias = true };
+                canvas.DrawLine(0, titleHeight - 2, exportWidth, titleHeight - 2, accentPen);
+                canvas.DrawBitmap(SKBitmap.FromImage(chartImage), 0, titleHeight);
+
+                using var finalImage = surface.Snapshot();
+                using var encoded = finalImage.Encode(SKEncodedImageFormat.Png, 100);
 
                 string safeName = string.Join("_", label.Split(Path.GetInvalidFileNameChars()));
                 string filePath = Path.Combine(exportDir, $"{safeName}.png");
-                skChart.SaveImage(filePath);
+                using var fs = File.Create(filePath);
+                encoded.SaveTo(fs);
                 count++;
             }
             catch (Exception ex)
