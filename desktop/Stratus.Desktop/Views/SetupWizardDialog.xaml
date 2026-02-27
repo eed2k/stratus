@@ -20,7 +20,7 @@
                 <TextBlock Text="Welcome to Stratus" FontSize="22" FontWeight="SemiBold" 
                            Foreground="Black" FontFamily="{StaticResource HeaderFont}"/>
                 <TextBlock Text="Weather Station Manager - First-Time Setup" 
-                           FontSize="12" Foreground="#777777" Margin="0,4,0,0"/>
+                           FontSize="12" Foreground="#1E293B" Margin="0,4,0,0"/>
             </StackPanel>
         </Border>
 

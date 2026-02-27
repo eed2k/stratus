@@ -46,11 +46,7 @@ public partial class DataGapDialog : Window
 
         // Color code coverage
         CoverageText.Foreground = new System.Windows.Media.SolidColorBrush(
-            _report.CoveragePercent >= 95
-                ? System.Windows.Media.Color.FromRgb(0x05, 0x96, 0x69)
-                : _report.CoveragePercent >= 80
-                    ? System.Windows.Media.Color.FromRgb(0xD9, 0x73, 0x06)
-                    : System.Windows.Media.Color.FromRgb(0xDC, 0x26, 0x26));
+            System.Windows.Media.Color.FromRgb(0x1D, 0x4E, 0xD8));
 
         BackfillBtn.IsEnabled = _report.Gaps.Count > 0;
 

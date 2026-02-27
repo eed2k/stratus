@@ -43,7 +43,8 @@ public class ApiService : IDisposable
         {
             CookieContainer = _cookies,
             UseCookies = true,
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true // Accept self-signed certs
         };
         _httpClient = new HttpClient(_handler)
         {
@@ -75,7 +76,8 @@ public class ApiService : IDisposable
         {
             CookieContainer = _cookies,
             UseCookies = true,
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
         };
         _httpClient = new HttpClient(_handler)
         {
@@ -167,37 +169,73 @@ public class ApiService : IDisposable
     /// </summary>
     public async Task<List<WeatherStation>?> GetStationsAsync()
     {
-        try
+        const int maxRetries = 2;
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            Log.Information("Fetching stations from {Url}api/stations (auth header present: {HasAuth})",
-                _baseUrl + "/", _httpClient.DefaultRequestHeaders.Contains("X-User-Email"));
-
-            var response = await _httpClient.GetAsync("api/stations");
-
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                var errorBody = await response.Content.ReadAsStringAsync();
-                Log.Error("GET /api/stations failed: {StatusCode} {Reason} — {Body}",
-                    (int)response.StatusCode, response.ReasonPhrase, errorBody);
-                ErrorOccurred?.Invoke(this,
-                    $"Failed to fetch stations: {(int)response.StatusCode} {response.ReasonPhrase}");
+                Log.Information("Fetching stations from {Url}api/stations (attempt {Attempt}, auth: {HasAuth})",
+                    _baseUrl + "/", attempt + 1, _httpClient.DefaultRequestHeaders.Contains("X-User-Email"));
+
+                var response = await _httpClient.GetAsync("api/stations");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    Log.Error("GET /api/stations failed: {StatusCode} {Reason} — {Body}",
+                        (int)response.StatusCode, response.ReasonPhrase, errorBody);
+
+                    // On 401, re-login might help
+                    if ((int)response.StatusCode == 401 && attempt < maxRetries)
+                    {
+                        Log.Warning("Station fetch got 401 — will retry after short delay");
+                        await Task.Delay(1000);
+                        continue;
+                    }
+
+                    ErrorOccurred?.Invoke(this,
+                        $"Failed to fetch stations: {(int)response.StatusCode} {response.ReasonPhrase}");
+                    return null;
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                Log.Debug("Stations response ({Length} chars): {Preview}",
+                    json.Length, json.Length > 500 ? json[..500] + "…" : json);
+
+                var stations = JsonSerializer.Deserialize<List<WeatherStation>>(json, _jsonOptions);
+                Log.Information("Deserialized {Count} stations", stations?.Count ?? 0);
+                return stations ?? new List<WeatherStation>();
+            }
+            catch (HttpRequestException ex)
+            {
+                Log.Error(ex, "HTTP request error fetching stations (attempt {Attempt})", attempt + 1);
+                if (attempt < maxRetries)
+                {
+                    await Task.Delay(1500);
+                    continue;
+                }
+                ErrorOccurred?.Invoke(this, $"Connection error: {ex.Message}");
                 return null;
             }
-
-            var json = await response.Content.ReadAsStringAsync();
-            Log.Debug("Stations response ({Length} chars): {Preview}",
-                json.Length, json.Length > 500 ? json[..500] + "…" : json);
-
-            var stations = JsonSerializer.Deserialize<List<WeatherStation>>(json, _jsonOptions);
-            Log.Information("Deserialized {Count} stations", stations?.Count ?? 0);
-            return stations ?? new List<WeatherStation>();
+            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+            {
+                Log.Error(ex, "Timeout fetching stations (attempt {Attempt})", attempt + 1);
+                if (attempt < maxRetries)
+                {
+                    await Task.Delay(1000);
+                    continue;
+                }
+                ErrorOccurred?.Invoke(this, "Request timed out — server may be slow or unreachable");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to fetch stations");
+                ErrorOccurred?.Invoke(this, $"Failed to fetch stations: {ex.Message}");
+                return null;
+            }
         }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to fetch stations");
-            ErrorOccurred?.Invoke(this, $"Failed to fetch stations: {ex.Message}");
-            return null;
-        }
+        return null;
     }
 
     /// <summary>

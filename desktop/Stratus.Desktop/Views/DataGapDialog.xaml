@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Data Gap Analysis" Height="560" Width="750"
         WindowStartupLocation="CenterOwner"
-        Background="#F0F4F8">
+        Background="#FFFFFF">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -17,7 +17,7 @@
         <StackPanel Grid.Row="0">
             <TextBlock Text="Data Gap Analysis &amp; Backfill" FontSize="20" FontWeight="Bold" Foreground="#1E293B"/>
             <TextBlock Text="Detect temporal gaps in collected data and attempt to recover missing records."
-                       Foreground="#64748B" Margin="0,2,0,8"/>
+                       Foreground="#1E293B" Margin="0,2,0,8"/>
             <Rectangle Height="2" Fill="#2563EB"/>
         </StackPanel>
 
@@ -38,17 +38,17 @@
                 <ComboBoxItem Content="30 minutes" Tag="30"/>
                 <ComboBoxItem Content="1 hour" Tag="60"/>
             </ComboBox>
-            <TextBlock Grid.Column="2" x:Name="StationText" Foreground="#64748B" FontSize="11" 
+            <TextBlock Grid.Column="2" x:Name="StationText" Foreground="#1E293B" FontSize="11" 
                        VerticalAlignment="Center" Margin="12,0,0,0"/>
             <Button Grid.Column="3" Content="Analyse" Padding="14,6" Click="Analyse_Click"
-                    Background="#2563EB" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
+                    Background="#1D4ED8" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
         </Grid>
 
         <!-- Gap Grid -->
         <DataGrid Grid.Row="2" x:Name="GapGrid" Margin="0,10,0,0"
                   AutoGenerateColumns="False" IsReadOnly="True"
                   SelectionMode="Single" GridLinesVisibility="Horizontal"
-                  Background="White" BorderBrush="#CBD5E1" BorderThickness="1"
+                  Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
                   RowHeight="28" ColumnHeaderHeight="32">
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
@@ -69,7 +69,7 @@
         </DataGrid>
 
         <!-- Summary -->
-        <Border Grid.Row="3" x:Name="SummaryPanel" Background="White" BorderBrush="#CBD5E1" 
+        <Border Grid.Row="3" x:Name="SummaryPanel" Background="White" BorderBrush="#E2E8F0" 
                 BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,8,0,0" Visibility="Collapsed">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -79,19 +79,19 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="Total Records" FontSize="9" Foreground="#64748B"/>
+                    <TextBlock Text="Total Records" FontSize="9" Foreground="#1E293B"/>
                     <TextBlock x:Name="TotalRecordsText" FontSize="16" FontWeight="Bold" Foreground="#1E293B"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1">
-                    <TextBlock Text="Gaps Found" FontSize="9" Foreground="#64748B"/>
-                    <TextBlock x:Name="GapCountText" FontSize="16" FontWeight="Bold" Foreground="#DC2626"/>
+                    <TextBlock Text="Gaps Found" FontSize="9" Foreground="#1E293B"/>
+                    <TextBlock x:Name="GapCountText" FontSize="16" FontWeight="Bold" Foreground="#1E293B"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="Coverage" FontSize="9" Foreground="#64748B"/>
-                    <TextBlock x:Name="CoverageText" FontSize="16" FontWeight="Bold" Foreground="#059669"/>
+                    <TextBlock Text="Coverage" FontSize="9" Foreground="#1E293B"/>
+                    <TextBlock x:Name="CoverageText" FontSize="16" FontWeight="Bold" Foreground="#1D4ED8"/>
                 </StackPanel>
                 <StackPanel Grid.Column="3">
-                    <TextBlock Text="Status" FontSize="9" Foreground="#64748B"/>
+                    <TextBlock Text="Status" FontSize="9" Foreground="#1E293B"/>
                     <TextBlock x:Name="StatusText" FontSize="11" Foreground="#1E293B" TextWrapping="Wrap"/>
                 </StackPanel>
             </Grid>
@@ -101,7 +101,7 @@
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button x:Name="BackfillBtn" Content="Backfill from API" Padding="14,6" Margin="0,0,6,0" 
                     Click="Backfill_Click" IsEnabled="False"
-                    Background="#059669" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
+                    Background="#1D4ED8" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
             <Button Content="Close" Padding="14,6" Click="Close_Click"
                     Background="#E2E8F0" BorderThickness="0" Cursor="Hand"/>
         </StackPanel>

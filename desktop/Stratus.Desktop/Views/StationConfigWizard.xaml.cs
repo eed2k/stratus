@@ -90,8 +90,8 @@ public partial class StationConfigWizard : Window
                 ClockDriftText.Text = $"Clock drift: {drift.TotalSeconds:F1} seconds " +
                     (Math.Abs(drift.TotalSeconds) < 2 ? "(✓ acceptable)" : "(⚠ consider syncing)");
                 ClockDriftText.Foreground = Math.Abs(drift.TotalSeconds) < 2
-                    ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x05, 0x96, 0x69))
-                    : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xD9, 0x73, 0x06));
+                    ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1D, 0x4E, 0xD8))
+                    : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x29, 0x3B));
             }
             else
             {
@@ -206,7 +206,7 @@ public partial class StationConfigWizard : Window
             // Note: ConnectAsync is the proper way — simplified here for the wizard
             ConnectionStatusText.Text = $"Connected to {port} at {baud} baud";
             ConnectionStatus.Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(0xDC, 0xFC, 0xE7));
+                System.Windows.Media.Color.FromRgb(0xF1, 0xF5, 0xF9));
             
             App.AuditService?.Log(AuditCategory.Logger, "Logger Connected",
                 $"Port: {port}, Baud: {baud}, Address: {address}");

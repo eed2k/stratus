@@ -14,7 +14,7 @@
         </Grid.RowDefinitions>
 
         <!-- ── Toolbar ── -->
-        <Border Grid.Row="0" Background="#F0F0F0" CornerRadius="4" Padding="8" Margin="0,0,0,8">
+        <Border Grid.Row="0" Background="#F8FAFC" CornerRadius="4" Padding="8" Margin="0,0,0,8">
             <WrapPanel>
                 <!-- Port Selection -->
                 <TextBlock Text="Port:" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="SemiBold"/>
@@ -79,14 +79,14 @@
                 <TextBox x:Name="MonitorOutput" Grid.Column="0" 
                          IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                         FontFamily="Consolas" FontSize="11" Background="#1E1E1E" Foreground="#D4D4D4"
+                         FontFamily="Consolas" FontSize="11" Background="#1E293B" Foreground="#FFFFFF"
                          BorderThickness="0" Padding="8"/>
 
                 <!-- Latest Values Panel -->
                 <Border Grid.Column="1" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="Live Values" FontWeight="Bold" FontSize="13"
-                                   Background="#F0F0F0" Padding="8,6"/>
+                                   Background="#F8FAFC" Padding="8,6"/>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel x:Name="LiveValuesPanel" Margin="8">
                                 <TextBlock x:Name="LiveTimestamp" Text="—" FontFamily="Consolas" FontSize="11" 
@@ -123,9 +123,9 @@
         </Border>
 
         <!-- ── Status Bar ── -->
-        <Border Grid.Row="2" Background="#F0F0F0" Padding="8,4" Margin="0,4,0,0" CornerRadius="2">
+        <Border Grid.Row="2" Background="#F8FAFC" Padding="8,4" Margin="0,4,0,0" CornerRadius="2">
             <DockPanel>
-                <Ellipse x:Name="StatusIndicator" Width="10" Height="10" Fill="Gray" 
+                <Ellipse x:Name="StatusIndicator" Width="10" Height="10" Fill="#E2E8F0" 
                          DockPanel.Dock="Left" Margin="0,0,8,0" VerticalAlignment="Center"/>
                 <TextBlock x:Name="StatusText" Text="Not connected" FontSize="11" VerticalAlignment="Center"/>
                 <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">

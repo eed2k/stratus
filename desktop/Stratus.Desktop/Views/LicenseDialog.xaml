@@ -11,7 +11,7 @@
         <StackPanel x:Name="ActiveLicensePanel" Visibility="Collapsed">
             <TextBlock Text="Licence Information" Style="{StaticResource SectionHeader}" Margin="0,0,0,16"/>
 
-            <Border Background="#F5F5F5" BorderBrush="{StaticResource BorderBrush}" 
+            <Border Background="#F8FAFC" BorderBrush="{StaticResource BorderBrush}" 
                     BorderThickness="1" CornerRadius="6" Padding="20" Margin="0,0,0,16">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -73,7 +73,7 @@
             <TextBlock Grid.Row="0" Text="Licence Activation" Style="{StaticResource SectionHeader}"/>
 
             <!-- Current Licence Info -->
-            <Border Grid.Row="1" Background="#F5F5F5" BorderBrush="{StaticResource BorderBrush}" 
+            <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrush}" 
                     BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="Current Licence" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4"/>

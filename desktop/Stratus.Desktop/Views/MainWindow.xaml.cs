@@ -359,7 +359,7 @@ public partial class MainWindow : Window
                 canvas.DrawText(titleText, exportWidth / 2f, 70, titlePaint);
 
                 // Accent line under title
-                using var accentPen = new SKPaint { Color = new SKColor(0x25, 0x63, 0xEB), StrokeWidth = 3, IsAntialias = true };
+                using var accentPen = new SKPaint { Color = new SKColor(0x1D, 0x4E, 0xD8), StrokeWidth = 3, IsAntialias = true };
                 canvas.DrawLine(0, titleHeight - 2, exportWidth, titleHeight - 2, accentPen);
                 canvas.DrawBitmap(SKBitmap.FromImage(chartImage), 0, titleHeight);
 
@@ -522,7 +522,7 @@ public partial class MainWindow : Window
 }
 
 /// <summary>
-/// Converts bool to color (green for connected, red for disconnected).
+/// Converts bool to color (dark blue for connected, black for disconnected).
 /// </summary>
 public class BoolToColorConverter : IValueConverter
 {
@@ -531,9 +531,9 @@ public class BoolToColorConverter : IValueConverter
 
     static BoolToColorConverter()
     {
-        ConnectedBrush = new SolidColorBrush(Color.FromRgb(0x27, 0xAE, 0x60));
+        ConnectedBrush = new SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8));
         ConnectedBrush.Freeze();
-        DisconnectedBrush = new SolidColorBrush(Color.FromRgb(0xE7, 0x4C, 0x3C));
+        DisconnectedBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
         DisconnectedBrush.Freeze();
     }
 

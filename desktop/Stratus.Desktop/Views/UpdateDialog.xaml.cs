@@ -56,7 +56,7 @@ public partial class UpdateDialog : Window
             {
                 StatusText.Text = "You are running the latest version!";
                 StatusText.Foreground = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0x05, 0x96, 0x69));
+                    System.Windows.Media.Color.FromRgb(0x1D, 0x4E, 0xD8));
                 VersionText.Text = $"v{_updateInfo.Version} is current";
             }
         }

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Stratus Help &amp; Documentation" Height="650" Width="850"
         WindowStartupLocation="CenterOwner"
-        Background="#F0F4F8">
+        Background="#FFFFFF">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220"/>
@@ -15,23 +15,23 @@
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="16,16,16,8">
                     <TextBlock Text="STRATUS" FontSize="18" FontWeight="Bold" Foreground="White"/>
-                    <TextBlock Text="User Guide" FontSize="11" Foreground="#94A3B8"/>
+                    <TextBlock Text="User Guide" FontSize="11" Foreground="#FFFFFF"/>
                 </StackPanel>
                 <ListBox x:Name="TopicList" Background="Transparent" BorderThickness="0"
                          SelectionChanged="TopicList_SelectionChanged" Padding="0,4">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
-                            <Setter Property="Foreground" Value="#CBD5E1"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
                             <Setter Property="Padding" Value="16,8"/>
                             <Setter Property="FontSize" Value="12"/>
                             <Setter Property="Cursor" Value="Hand"/>
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#2563EB"/>
+                                    <Setter Property="Background" Value="#1D4ED8"/>
                                     <Setter Property="Foreground" Value="White"/>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="#334155"/>
+                                    <Setter Property="Background" Value="#1E40AF"/>
                                 </Trigger>
                             </Style.Triggers>
                         </Style>

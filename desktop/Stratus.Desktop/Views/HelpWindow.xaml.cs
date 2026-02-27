@@ -8,9 +8,9 @@ namespace Stratus.Desktop.Views;
 public partial class HelpWindow : Window
 {
     private static readonly SolidColorBrush HeadingBrush = new(Color.FromRgb(0x1E, 0x29, 0x3B));
-    private static readonly SolidColorBrush SubheadingBrush = new(Color.FromRgb(0x25, 0x63, 0xEB));
-    private static readonly SolidColorBrush TextBrush = new(Color.FromRgb(0x33, 0x40, 0x55));
-    private static readonly SolidColorBrush CodeBrush = new(Color.FromRgb(0x64, 0x74, 0x8B));
+    private static readonly SolidColorBrush SubheadingBrush = new(Color.FromRgb(0x1D, 0x4E, 0xD8));
+    private static readonly SolidColorBrush TextBrush = new(Color.FromRgb(0x1E, 0x29, 0x3B));
+    private static readonly SolidColorBrush CodeBrush = new(Color.FromRgb(0x1E, 0x29, 0x3B));
     private static readonly FontFamily MonoFont = new("Consolas");
 
     public HelpWindow()

@@ -111,7 +111,7 @@
                                 <Button Content="Connect" Style="{StaticResource PrimaryButton}" 
                                         Margin="0,0,4,0" Click="Login_Click"/>
                                 <Ellipse Width="10" Height="10" 
-                                         Fill="{Binding IsConnected, Converter={StaticResource BoolToColorConverter}, FallbackValue=Gray}"
+                                         Fill="{Binding IsConnected, Converter={StaticResource BoolToColorConverter}, FallbackValue=#E2E8F0}"
                                          VerticalAlignment="Center" Margin="4,0,0,0"/>
                             </StackPanel>
                         </StackPanel>
@@ -140,16 +140,16 @@
                                                 <Ellipse Width="8" Height="8" Margin="0,0,4,0">
                                                     <Ellipse.Style>
                                                         <Style TargetType="Ellipse">
-                                                            <Setter Property="Fill" Value="Gray"/>
+                                                            <Setter Property="Fill" Value="#E2E8F0"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding Status}" Value="Online">
-                                                                    <Setter Property="Fill" Value="#27AE60"/>
+                                                                    <Setter Property="Fill" Value="#1D4ED8"/>
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding Status}" Value="Delayed">
-                                                                    <Setter Property="Fill" Value="#F39C12"/>
+                                                                    <Setter Property="Fill" Value="#1E293B"/>
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding Status}" Value="Offline">
-                                                                    <Setter Property="Fill" Value="#E74C3C"/>
+                                                                    <Setter Property="Fill" Value="#1E293B"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -212,52 +212,52 @@
                                 <!-- Temperature Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Temperature}" 
                                     MinValue="-10" MaxValue="50" Unit="°C" Label="Temperature"
-                                    ValueFormat="F1" AccentColor="#DC2626"
+                                    ValueFormat="F1" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- Humidity Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Humidity}" 
                                     MinValue="0" MaxValue="100" Unit="%" Label="Humidity"
-                                    ValueFormat="F0" AccentColor="#0284C7"
+                                    ValueFormat="F0" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- Pressure Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Pressure}" 
                                     MinValue="950" MaxValue="1050" Unit="hPa" Label="Pressure"
-                                    ValueFormat="F1" AccentColor="#0891B2"
+                                    ValueFormat="F1" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- Wind Speed Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.WindSpeed}" 
                                     MinValue="0" MaxValue="120" Unit="km/h" Label="Wind Speed"
-                                    ValueFormat="F1" AccentColor="#059669"
+                                    ValueFormat="F1" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- Solar Radiation Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.SolarRadiation}" 
                                     MinValue="0" MaxValue="1200" Unit="W/m²" Label="Solar"
-                                    ValueFormat="F0" AccentColor="#CA8A04"
+                                    ValueFormat="F0" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- Rainfall Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Rainfall}" 
                                     MinValue="0" MaxValue="50" Unit="mm" Label="Rainfall"
-                                    ValueFormat="F1" AccentColor="#2563EB"
+                                    ValueFormat="F1" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- Dew Point Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.DewPoint}" 
                                     MinValue="-10" MaxValue="35" Unit="°C" Label="Dew Point"
-                                    ValueFormat="F1" AccentColor="#7C3AED"
+                                    ValueFormat="F1" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- ETo Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.Eto}" 
                                     MinValue="0" MaxValue="15" Unit="mm" Label="ETo"
-                                    ValueFormat="F2" AccentColor="#0D9488"
+                                    ValueFormat="F2" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- Battery Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.BatteryVoltage}" 
                                     MinValue="0" MaxValue="15" Unit="V" Label="Battery"
-                                    ValueFormat="F2" AccentColor="#059669"
+                                    ValueFormat="F2" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                                 <!-- Water Level Gauge -->
                                 <controls:GaugeControl Value="{Binding LatestData.WaterLevel}" 
                                     MinValue="0" MaxValue="500" Unit="mm" Label="Water Level"
-                                    ValueFormat="F1" AccentColor="#2563EB"
+                                    ValueFormat="F1" AccentColor="#1D4ED8"
                                     Width="224" Height="224" Margin="4"/>
                             </UniformGrid>
                         </Border>
@@ -280,16 +280,16 @@
                                             <TextBlock Text="{Binding QcFlagText}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" ToolTip="{Binding QcSummary}">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="#22C55E"/>
+                                                        <Setter Property="Foreground" Value="#1D4ED8"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding QcFlag}" Value="1">
-                                                                <Setter Property="Foreground" Value="#EAB308"/>
+                                                                <Setter Property="Foreground" Value="#1E293B"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding QcFlag}" Value="2">
-                                                                <Setter Property="Foreground" Value="#EF4444"/>
+                                                                <Setter Property="Foreground" Value="#1E293B"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding QcFlag}" Value="3">
-                                                                <Setter Property="Foreground" Value="#94A3B8"/>
+                                                                <Setter Property="Foreground" Value="#1E293B"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -599,10 +599,10 @@
                     <Ellipse Width="8" Height="8" Margin="0,0,4,0">
                         <Ellipse.Style>
                             <Style TargetType="Ellipse">
-                                <Setter Property="Fill" Value="#E74C3C"/>
+                                <Setter Property="Fill" Value="#1E293B"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                        <Setter Property="Fill" Value="#27AE60"/>
+                                        <Setter Property="Fill" Value="#1D4ED8"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

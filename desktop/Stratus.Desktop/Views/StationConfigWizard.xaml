@@ -4,7 +4,7 @@
         Title="Station Configuration Wizard" Height="580" Width="680"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="#F0F4F8">
+        Background="#FFFFFF">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -17,7 +17,7 @@
             <StackPanel>
                 <TextBlock Text="Station Configuration Wizard" FontSize="20" FontWeight="Bold" Foreground="White"/>
                 <TextBlock x:Name="StepIndicator" Text="Step 1 of 4 — Logger Connection" 
-                           Foreground="#94A3B8" FontSize="12" Margin="0,4,0,0"/>
+                           Foreground="#FFFFFF" FontSize="12" Margin="0,4,0,0"/>
             </StackPanel>
         </Border>
 
@@ -36,7 +36,7 @@
                     <StackPanel>
                         <TextBlock Text="Logger Connection" FontSize="16" FontWeight="Bold" Foreground="#1E293B"/>
                         <TextBlock Text="Configure the communication parameters for your Campbell Scientific datalogger."
-                                   Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,16"/>
+                                   Foreground="#1E293B" TextWrapping="Wrap" Margin="0,4,0,16"/>
 
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -83,9 +83,9 @@
                                 Background="#E2E8F0" BorderThickness="0" Cursor="Hand" Margin="0,8,0,0"
                                 HorizontalAlignment="Left"/>
 
-                        <Border x:Name="ConnectionStatus" Background="#F1F5F9" BorderBrush="#CBD5E1" 
+                        <Border x:Name="ConnectionStatus" Background="#F1F5F9" BorderBrush="#E2E8F0" 
                                 BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,16,0,0">
-                            <TextBlock x:Name="ConnectionStatusText" Text="Not connected" Foreground="#64748B"/>
+                            <TextBlock x:Name="ConnectionStatusText" Text="Not connected" Foreground="#1E293B"/>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
@@ -97,33 +97,33 @@
                     <StackPanel>
                         <TextBlock Text="Clock Synchronization" FontSize="16" FontWeight="Bold" Foreground="#1E293B"/>
                         <TextBlock Text="Compare and synchronize the datalogger's internal clock with your PC."
-                                   Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,16"/>
+                                   Foreground="#1E293B" TextWrapping="Wrap" Margin="0,4,0,16"/>
 
-                        <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Padding="16">
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="PC Time (UTC):" FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock Text="PC Time (UTC):" FontSize="11" Foreground="#1E293B"/>
                                     <TextBlock x:Name="PcTimeText" FontSize="18" FontWeight="Bold" Foreground="#1E293B"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Text="Logger Time:" FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock Text="Logger Time:" FontSize="11" Foreground="#1E293B"/>
                                     <TextBlock x:Name="LoggerTimeText" Text="—" FontSize="18" FontWeight="Bold" Foreground="#1E293B"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
 
-                        <TextBlock x:Name="ClockDriftText" Text="" FontSize="13" Foreground="#D97306" 
+                        <TextBlock x:Name="ClockDriftText" Text="" FontSize="13" Foreground="#1E293B" 
                                    Margin="0,10,0,0" FontWeight="SemiBold"/>
 
                         <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                             <Button Content="Read Logger Clock" Padding="14,6" Margin="0,0,8,0" Click="ReadClock_Click"
-                                    Background="#2563EB" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
+                                    Background="#1D4ED8" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
                             <Button Content="Sync Clock to PC" Padding="14,6" Click="SyncClock_Click"
-                                    Background="#059669" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
+                                    Background="#1D4ED8" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
@@ -135,14 +135,14 @@
                     <StackPanel>
                         <TextBlock Text="Data Table Configuration" FontSize="16" FontWeight="Bold" Foreground="#1E293B"/>
                         <TextBlock Text="Discover and configure data tables on the connected datalogger."
-                                   Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,16"/>
+                                   Foreground="#1E293B" TextWrapping="Wrap" Margin="0,4,0,16"/>
 
                         <Button Content="Discover Tables" Padding="14,6" Click="DiscoverTables_Click"
-                                Background="#2563EB" Foreground="White" BorderThickness="0" 
+                                Background="#1D4ED8" Foreground="White" BorderThickness="0" 
                                 FontWeight="SemiBold" Cursor="Hand" Margin="0,0,0,10" HorizontalAlignment="Left"/>
 
                         <DataGrid x:Name="TablesGrid" AutoGenerateColumns="False" IsReadOnly="True"
-                                  Background="White" BorderBrush="#CBD5E1" BorderThickness="1"
+                                  Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
                                   RowHeight="28" ColumnHeaderHeight="32" MaxHeight="280">
                             <DataGrid.ColumnHeaderStyle>
                                 <Style TargetType="DataGridColumnHeader">
@@ -170,7 +170,7 @@
                     <StackPanel>
                         <TextBlock Text="Program Upload" FontSize="16" FontWeight="Bold" Foreground="#1E293B"/>
                         <TextBlock Text="Upload a CRBasic program to the datalogger. Warning: this will stop the currently running program."
-                                   Foreground="#DC2626" TextWrapping="Wrap" Margin="0,4,0,16"/>
+                                   Foreground="#1E293B" TextWrapping="Wrap" Margin="0,4,0,16"/>
 
                         <TextBlock Text="CRBasic Program File:" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,0,0,4"/>
                         <Grid>
@@ -188,12 +188,12 @@
                         <Border Background="#1E293B" CornerRadius="4" Padding="8" MaxHeight="200">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <TextBlock x:Name="ProgramPreview" FontFamily="Consolas" FontSize="11" 
-                                           Foreground="#A5F3FC" TextWrapping="Wrap"/>
+                                           Foreground="#FFFFFF" TextWrapping="Wrap"/>
                             </ScrollViewer>
                         </Border>
 
                         <TextBlock Text="⚠ Program upload via PakBus is not yet supported in this version. Use Campbell LoggerNet for program uploads."
-                                   Foreground="#D97306" TextWrapping="Wrap" Margin="0,12,0,0" FontStyle="Italic"/>
+                                   Foreground="#1E293B" TextWrapping="Wrap" Margin="0,12,0,0" FontStyle="Italic"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -211,7 +211,7 @@
                 <Button Grid.Column="0" x:Name="BackBtn" Content="← Back" Padding="16,8" Click="Back_Click"
                         Background="#E2E8F0" BorderThickness="0" Cursor="Hand" IsEnabled="False"/>
                 <Button Grid.Column="2" x:Name="NextBtn" Content="Next →" Padding="16,8" Margin="0,0,8,0" Click="Next_Click"
-                        Background="#2563EB" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
+                        Background="#1D4ED8" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
                 <Button Grid.Column="3" Content="Close" Padding="16,8" Click="Close_Click"
                         Background="#E2E8F0" BorderThickness="0" Cursor="Hand"/>
             </Grid>

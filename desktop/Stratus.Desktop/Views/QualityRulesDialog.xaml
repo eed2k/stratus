@@ -106,7 +106,7 @@
                     <Button Content="Add New Rule..." Padding="12,6" Click="AddRule_Click"/>
                 </StackPanel>
                 <StackPanel Grid.Row="2" Grid.Column="3" VerticalAlignment="Bottom">
-                    <Button Content="Remove Selected" Padding="12,6" Foreground="#E74C3C" Click="RemoveRule_Click"/>
+                    <Button Content="Remove Selected" Padding="12,6" Foreground="#1E293B" Click="RemoveRule_Click"/>
                 </StackPanel>
             </Grid>
         </GroupBox>

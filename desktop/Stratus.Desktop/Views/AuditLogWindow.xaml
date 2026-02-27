@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Audit Trail" Height="580" Width="900"
         WindowStartupLocation="CenterOwner"
-        Background="#F0F4F8">
+        Background="#FFFFFF">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -16,7 +16,7 @@
         <StackPanel Grid.Row="0">
             <TextBlock Text="Audit Trail" FontSize="20" FontWeight="Bold" Foreground="#1E293B"/>
             <TextBlock Text="Complete record of user actions for compliance and traceability."
-                       Foreground="#64748B" Margin="0,2,0,8"/>
+                       Foreground="#1E293B" Margin="0,2,0,8"/>
             <Rectangle Height="2" Fill="#2563EB"/>
         </StackPanel>
 
@@ -39,7 +39,7 @@
             <ComboBox Grid.Column="5" x:Name="CategoryFilter" Width="120" Margin="0,0,10,0"
                       SelectionChanged="CategoryFilter_Changed"/>
             <Button Grid.Column="6" Content="Refresh" Padding="14,6" Click="Refresh_Click"
-                    Background="#2563EB" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
+                    Background="#1D4ED8" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
         </Grid>
 
         <!-- Audit Log Grid -->
@@ -47,7 +47,7 @@
                   AutoGenerateColumns="False" IsReadOnly="True"
                   SelectionMode="Single" GridLinesVisibility="Horizontal"
                   HeadersVisibility="Column" CanUserSortColumns="True"
-                  Background="White" BorderBrush="#CBD5E1" BorderThickness="1"
+                  Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
                   RowHeight="28" ColumnHeaderHeight="32">
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
@@ -74,7 +74,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="EntryCountText" Foreground="#64748B" FontSize="11" VerticalAlignment="Center"/>
+            <TextBlock x:Name="EntryCountText" Foreground="#1E293B" FontSize="11" VerticalAlignment="Center"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Content="Export CSV" Padding="14,6" Margin="0,0,6,0" Click="ExportCsv_Click"
                         Background="#E2E8F0" BorderThickness="0" Cursor="Hand"/>

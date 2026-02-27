@@ -84,9 +84,7 @@ public partial class QualityDashboardWindow : Window
     {
         var dqi = _summary.DataQualityIndex;
         TxtDqi.Text = $"{dqi:F1}";
-        TxtDqi.Foreground = dqi >= 95 ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x22, 0xC5, 0x5E))
-            : dqi >= 80 ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xEA, 0xB3, 0x08))
-            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xEF, 0x44, 0x44));
+        TxtDqi.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1D, 0x4E, 0xD8));
 
         TxtGood.Text = _summary.GoodRecords.ToString("N0");
         TxtGoodPct.Text = $"{_summary.GoodPercent:F1}%";

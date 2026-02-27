@@ -31,12 +31,12 @@ public static class WindSpeedCategories
     /// </summary>
     public static readonly (double Min, double Max, string Label, string Color)[] Categories =
     {
-        (0.0,    6.0, "Calm / Light (0–6 km/h)",          "#bae6fd"),  // Beaufort 0-1
-        (6.0,   20.0, "Light / Gentle (6–20 km/h)",        "#38bdf8"),  // Beaufort 2-3
-        (20.0,  39.0, "Moderate / Fresh (20–39 km/h)",     "#22c55e"),  // Beaufort 4-5
-        (39.0,  62.0, "Strong / Near Gale (39–62 km/h)",   "#eab308"),  // Beaufort 6-7
-        (62.0,  89.0, "Gale / Strong Gale (62–89 km/h)",   "#f97316"),  // Beaufort 8-9
-        (89.0, 999.0, "Storm+ (>89 km/h)",                  "#dc2626"),  // Beaufort 10+
+        (0.0,    6.0, "Calm / Light (0–6 km/h)",          "#E2E8F0"),  // Beaufort 0-1
+        (6.0,   20.0, "Light / Gentle (6–20 km/h)",        "#F1F5F9"),  // Beaufort 2-3
+        (20.0,  39.0, "Moderate / Fresh (20–39 km/h)",     "#1D4ED8"),  // Beaufort 4-5
+        (39.0,  62.0, "Strong / Near Gale (39–62 km/h)",   "#1E40AF"),  // Beaufort 6-7
+        (62.0,  89.0, "Gale / Strong Gale (62–89 km/h)",   "#1E293B"),  // Beaufort 8-9
+        (89.0, 999.0, "Storm+ (>89 km/h)",                  "#000000"),  // Beaufort 10+
     };
 }
 

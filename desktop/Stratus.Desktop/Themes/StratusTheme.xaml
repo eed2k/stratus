@@ -2,23 +2,23 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ═══════════════════════════════════════════════════════════════
-         Stratus Color Palette — Clean White Professional Theme
+         Stratus Color Palette — Dark Blue / White / Black Only
          ═══════════════════════════════════════════════════════════════ -->
-    <Color x:Key="PrimaryColor">#2563EB</Color>
-    <Color x:Key="PrimaryLightColor">#3B82F6</Color>
-    <Color x:Key="PrimaryDarkColor">#1D4ED8</Color>
-    <Color x:Key="AccentColor">#0EA5E9</Color>
-    <Color x:Key="AccentLightColor">#38BDF8</Color>
-    <Color x:Key="SuccessColor">#22C55E</Color>
-    <Color x:Key="WarningColor">#EAB308</Color>
-    <Color x:Key="DangerColor">#EF4444</Color>
+    <Color x:Key="PrimaryColor">#1D4ED8</Color>
+    <Color x:Key="PrimaryLightColor">#1D4ED8</Color>
+    <Color x:Key="PrimaryDarkColor">#1E40AF</Color>
+    <Color x:Key="AccentColor">#1D4ED8</Color>
+    <Color x:Key="AccentLightColor">#1D4ED8</Color>
+    <Color x:Key="SuccessColor">#1D4ED8</Color>
+    <Color x:Key="WarningColor">#1D4ED8</Color>
+    <Color x:Key="DangerColor">#1D4ED8</Color>
     <Color x:Key="BackgroundColor">#FFFFFF</Color>
     <Color x:Key="SurfaceColor">#F8FAFC</Color>
     <Color x:Key="SurfaceLightColor">#F1F5F9</Color>
     <Color x:Key="BorderColor">#E2E8F0</Color>
     <Color x:Key="TextPrimaryColor">#1E293B</Color>
-    <Color x:Key="TextSecondaryColor">#64748B</Color>
-    <Color x:Key="TextMutedColor">#94A3B8</Color>
+    <Color x:Key="TextSecondaryColor">#1E293B</Color>
+    <Color x:Key="TextMutedColor">#1E293B</Color>
     <Color x:Key="TabGreyColor">#F1F5F9</Color>
     <Color x:Key="MenuBarColor">#FFFFFF</Color>
     <Color x:Key="StatusBarColor">#F8FAFC</Color>
@@ -177,7 +177,7 @@
                 <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="#EFF6FF"/>
+                <Setter Property="Background" Value="#F1F5F9"/>
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -279,7 +279,7 @@
                 <Setter Property="Foreground" Value="White"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="#EFF6FF"/>
+                <Setter Property="Background" Value="#F1F5F9"/>
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -323,7 +323,7 @@
                             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="TabBorder" Property="Background" Value="#EFF6FF"/>
+                            <Setter TargetName="TabBorder" Property="Background" Value="#F1F5F9"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

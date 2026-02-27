@@ -4,7 +4,7 @@
         Title="Software Update" Height="400" Width="500"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="#F0F4F8">
+        Background="#FFFFFF">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -16,32 +16,32 @@
         <!-- Header -->
         <StackPanel Grid.Row="0">
             <TextBlock Text="Software Update" FontSize="20" FontWeight="Bold" Foreground="#1E293B"/>
-            <TextBlock x:Name="CurrentVersionText" Foreground="#64748B" Margin="0,2,0,8"/>
+            <TextBlock x:Name="CurrentVersionText" Foreground="#1E293B" Margin="0,2,0,8"/>
             <Rectangle Height="2" Fill="#2563EB"/>
         </StackPanel>
 
         <!-- Update Info -->
-        <Border Grid.Row="1" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" 
+        <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" 
                 CornerRadius="4" Padding="16" Margin="0,12,0,0">
             <StackPanel>
                 <TextBlock x:Name="StatusText" Text="Checking for updates..." FontSize="14" 
                            FontWeight="SemiBold" Foreground="#1E293B"/>
-                <TextBlock x:Name="VersionText" Text="" Foreground="#2563EB" FontSize="13" Margin="0,4,0,0"/>
-                <TextBlock x:Name="PublishedText" Text="" Foreground="#64748B" FontSize="11" Margin="0,2,0,0"/>
+                <TextBlock x:Name="VersionText" Text="" Foreground="#1D4ED8" FontSize="13" Margin="0,4,0,0"/>
+                <TextBlock x:Name="PublishedText" Text="" Foreground="#1E293B" FontSize="11" Margin="0,2,0,0"/>
                 
                 <TextBlock Text="Release Notes:" FontWeight="SemiBold" Foreground="#1E293B" 
                            Margin="0,12,0,4" x:Name="NotesLabel" Visibility="Collapsed"/>
                 <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto" x:Name="NotesScroller" Visibility="Collapsed">
-                    <TextBlock x:Name="ReleaseNotes" TextWrapping="Wrap" Foreground="#334155" FontSize="12"/>
+                    <TextBlock x:Name="ReleaseNotes" TextWrapping="Wrap" Foreground="#1E293B" FontSize="12"/>
                 </ScrollViewer>
             </StackPanel>
         </Border>
 
         <!-- Progress -->
         <StackPanel Grid.Row="2" Margin="0,10,0,0">
-            <ProgressBar x:Name="ProgressBar" Height="6" Foreground="#2563EB" Minimum="0" Maximum="100"
+            <ProgressBar x:Name="ProgressBar" Height="6" Foreground="#1D4ED8" Minimum="0" Maximum="100"
                          Visibility="Collapsed"/>
-            <TextBlock x:Name="ProgressText" Foreground="#64748B" FontSize="11" Margin="0,4,0,0"
+            <TextBlock x:Name="ProgressText" Foreground="#1E293B" FontSize="11" Margin="0,4,0,0"
                        HorizontalAlignment="Center"/>
         </StackPanel>
 
@@ -50,7 +50,7 @@
             <Button Content="Close" Padding="16,8" Margin="0,0,8,0" Click="Close_Click"
                     Background="#E2E8F0" BorderThickness="0" Cursor="Hand"/>
             <Button x:Name="DownloadBtn" Content="Download &amp; Install" Padding="16,8" Click="Download_Click"
-                    Background="#2563EB" Foreground="White" BorderThickness="0" FontWeight="SemiBold" 
+                    Background="#1D4ED8" Foreground="White" BorderThickness="0" FontWeight="SemiBold" 
                     Cursor="Hand" Visibility="Collapsed"/>
         </StackPanel>
     </Grid>

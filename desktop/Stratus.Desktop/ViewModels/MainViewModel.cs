@@ -579,10 +579,10 @@ public partial class MainViewModel : ObservableObject
         var tMaxPts = Pts(x => x.TemperatureMax);
         if (tempPts.Count > 0)
         {
-            var s = new List<ISeries> { Line(tempPts, "Temperature (°C)", 0xDC, 0x26, 0x26) };
-            if (dewPts.Count > 0) s.Add(Line(dewPts, "Dew Point (°C)", 0x7C, 0x3A, 0xED));
-            if (tMinPts.Count > 0) s.Add(Dash(tMinPts, "Temp Min (°C)", 0x25, 0x63, 0xEB));
-            if (tMaxPts.Count > 0) s.Add(Dash(tMaxPts, "Temp Max (°C)", 0xD9, 0x77, 0x06));
+            var s = new List<ISeries> { Line(tempPts, "Temperature (°C)", 0x1D, 0x4E, 0xD8) };
+            if (dewPts.Count > 0) s.Add(Line(dewPts, "Dew Point (°C)", 0x1E, 0x40, 0xAF));
+            if (tMinPts.Count > 0) s.Add(Dash(tMinPts, "Temp Min (°C)", 0x1E, 0x29, 0x3B));
+            if (tMaxPts.Count > 0) s.Add(Dash(tMaxPts, "Temp Max (°C)", 0x00, 0x00, 0x00));
             TemperatureImage = Render("Temperature", s.ToArray(), MakeYAxes("Temperature (°C)"));
             HasTemperature = true; chartCount++;
         } else { HasTemperature = false; TemperatureImage = null; }
@@ -591,7 +591,7 @@ public partial class MainViewModel : ObservableObject
         var humPts = Pts(x => x.Humidity);
         HasHumidity = humPts.Count > 0;
         HumidityImage = HasHumidity
-            ? Render("Humidity", new ISeries[] { Line(humPts, "Humidity (%)", 0x02, 0x84, 0xC7) }, MakeYAxes("Relative Humidity (%)", "F0", 0, 100))
+            ? Render("Humidity", new ISeries[] { Line(humPts, "Humidity (%)", 0x1D, 0x4E, 0xD8) }, MakeYAxes("Relative Humidity (%)", "F0", 0, 100))
             : null;
         if (HasHumidity) chartCount++;
 
@@ -599,8 +599,8 @@ public partial class MainViewModel : ObservableObject
         var presPts = Pts(x => x.Pressure);
         var presSL = Pts(x => x.PressureSeaLevel);
         var presList = new List<ISeries>();
-        if (presPts.Count > 0) presList.Add(Line(presPts, "Pressure (hPa)", 0x08, 0x91, 0xB2));
-        if (presSL.Count > 0) presList.Add(Line(presSL, "Sea-Level Pressure (hPa)", 0x02, 0x84, 0xC7));
+        if (presPts.Count > 0) presList.Add(Line(presPts, "Pressure (hPa)", 0x1D, 0x4E, 0xD8));
+        if (presSL.Count > 0) presList.Add(Line(presSL, "Sea-Level Pressure (hPa)", 0x1E, 0x29, 0x3B));
         HasPressure = presList.Count > 0;
         PressureImage = HasPressure ? Render("Pressure", presList.ToArray(), MakeYAxes("Pressure (hPa)", "F0")) : null;
         if (HasPressure) chartCount++;
@@ -608,7 +608,7 @@ public partial class MainViewModel : ObservableObject
         // ── Dew Point (standalone — only if no temperature chart) ──
         HasDewPoint = dewPts.Count > 0 && tempPts.Count == 0;
         DewPointImage = HasDewPoint
-            ? Render("Dew Point", new ISeries[] { Line(dewPts, "Dew Point (°C)", 0x7C, 0x3A, 0xED) }, MakeYAxes("Dew Point (°C)"))
+            ? Render("Dew Point", new ISeries[] { Line(dewPts, "Dew Point (°C)", 0x1D, 0x4E, 0xD8) }, MakeYAxes("Dew Point (°C)"))
             : null;
         if (HasDewPoint) chartCount++;
 
@@ -616,8 +616,8 @@ public partial class MainViewModel : ObservableObject
         var windPts = Pts(x => x.WindSpeed);
         var gustPts = Pts(x => x.WindGust);
         var windList = new List<ISeries>();
-        if (windPts.Count > 0) windList.Add(Line(windPts, "Wind Speed (km/h)", 0x05, 0x96, 0x69));
-        if (gustPts.Count > 0) windList.Add(Line(gustPts, "Wind Gust (km/h)", 0xD9, 0x77, 0x06));
+        if (windPts.Count > 0) windList.Add(Line(windPts, "Wind Speed (km/h)", 0x1D, 0x4E, 0xD8));
+        if (gustPts.Count > 0) windList.Add(Line(gustPts, "Wind Gust (km/h)", 0x1E, 0x29, 0x3B));
         HasWind = windList.Count > 0;
         WindImage = HasWind ? Render("Wind Speed", windList.ToArray(), MakeYAxes("Speed (km/h)", "F0", minLimit: 0)) : null;
         if (HasWind) chartCount++;
@@ -628,7 +628,7 @@ public partial class MainViewModel : ObservableObject
         WindDirectionImage = HasWindDirection
             ? Render("Wind Direction", new ISeries[] { new ScatterSeries<DateTimePoint> {
                 Values = wdirPts, Name = "Wind Direction (°)", Stroke = null,
-                Fill = new SolidColorPaint(new SKColor(0x25, 0x63, 0xEB)), GeometrySize = 6
+                Fill = new SolidColorPaint(new SKColor(0x1D, 0x4E, 0xD8)), GeometrySize = 6
             } }, MakeYAxes("Direction (°)", "F0", 0, 360))
             : null;
         if (HasWindDirection) chartCount++;
@@ -637,7 +637,7 @@ public partial class MainViewModel : ObservableObject
         var wpPts = Pts(x => x.WindPower);
         HasWindPower = wpPts.Count > 0;
         WindPowerImage = HasWindPower
-            ? Render("Wind Power", new ISeries[] { Line(wpPts, "Wind Power (W/m²)", 0x0D, 0x94, 0x88, true) }, MakeYAxes("Power (W/m²)", "F0", minLimit: 0))
+            ? Render("Wind Power", new ISeries[] { Line(wpPts, "Wind Power (W/m²)", 0x1D, 0x4E, 0xD8, true) }, MakeYAxes("Power (W/m²)", "F0", minLimit: 0))
             : null;
         if (HasWindPower) chartCount++;
 
@@ -647,9 +647,9 @@ public partial class MainViewModel : ObservableObject
         var rainList = new List<ISeries>();
         if (rainPts.Count > 0) rainList.Add(new ColumnSeries<DateTimePoint> {
             Values = rainPts, Name = "Rainfall (mm)",
-            Fill = new SolidColorPaint(new SKColor(0x25, 0x63, 0xEB)), Stroke = null, MaxBarWidth = 8
+            Fill = new SolidColorPaint(new SKColor(0x1D, 0x4E, 0xD8)), Stroke = null, MaxBarWidth = 8
         });
-        if (rain24.Count > 0) rainList.Add(Line(rain24, "Rainfall 24h (mm)", 0x05, 0x72, 0xA5));
+        if (rain24.Count > 0) rainList.Add(Line(rain24, "Rainfall 24h (mm)", 0x1E, 0x29, 0x3B));
         HasRainfall = rainList.Count > 0;
         RainfallImage = HasRainfall ? Render("Rainfall", rainList.ToArray(), MakeYAxes("Rainfall (mm)", "F1", minLimit: 0)) : null;
         if (HasRainfall) chartCount++;
@@ -658,8 +658,8 @@ public partial class MainViewModel : ObservableObject
         var solPts = Pts(x => x.SolarRadiation);
         var solMax = Pts(x => x.SolarRadiationMax);
         var solList = new List<ISeries>();
-        if (solPts.Count > 0) solList.Add(Line(solPts, "Solar Radiation (W/m²)", 0xCA, 0x8A, 0x04, true));
-        if (solMax.Count > 0) solList.Add(Dash(solMax, "Solar Max (W/m²)", 0xD9, 0x77, 0x06));
+        if (solPts.Count > 0) solList.Add(Line(solPts, "Solar Radiation (W/m²)", 0x1D, 0x4E, 0xD8, true));
+        if (solMax.Count > 0) solList.Add(Dash(solMax, "Solar Max (W/m²)", 0x1E, 0x29, 0x3B));
         HasSolar = solList.Count > 0;
         SolarImage = HasSolar ? Render("Solar Radiation", solList.ToArray(), MakeYAxes("Irradiance (W/m²)", "F0", minLimit: 0)) : null;
         if (HasSolar) chartCount++;
@@ -668,7 +668,7 @@ public partial class MainViewModel : ObservableObject
         var uvPts = Pts(x => x.UvIndex);
         HasUvIndex = uvPts.Count > 0;
         UvIndexImage = HasUvIndex
-            ? Render("UV Index", new ISeries[] { Line(uvPts, "UV Index", 0x93, 0x33, 0xEA) }, MakeYAxes("UV Index", "F1", minLimit: 0))
+            ? Render("UV Index", new ISeries[] { Line(uvPts, "UV Index", 0x1D, 0x4E, 0xD8) }, MakeYAxes("UV Index", "F1", minLimit: 0))
             : null;
         if (HasUvIndex) chartCount++;
 
@@ -676,8 +676,8 @@ public partial class MainViewModel : ObservableObject
         var etoPts = Pts(x => x.Eto);
         var eto24 = Pts(x => x.Eto24h);
         var etoList = new List<ISeries>();
-        if (etoPts.Count > 0) etoList.Add(Line(etoPts, "ETo (mm/day)", 0x0D, 0x94, 0x88, true));
-        if (eto24.Count > 0) etoList.Add(Line(eto24, "ETo 24h (mm)", 0x25, 0x63, 0xEB));
+        if (etoPts.Count > 0) etoList.Add(Line(etoPts, "ETo (mm/day)", 0x1D, 0x4E, 0xD8, true));
+        if (eto24.Count > 0) etoList.Add(Line(eto24, "ETo 24h (mm)", 0x1E, 0x29, 0x3B));
         HasEto = etoList.Count > 0;
         EtoImage = HasEto ? Render("Evapotranspiration", etoList.ToArray(), MakeYAxes("ETo (mm/day)", "F2", minLimit: 0)) : null;
         if (HasEto) chartCount++;
@@ -687,9 +687,9 @@ public partial class MainViewModel : ObservableObject
         var smPts = Pts(x => x.SoilMoisture);
         var lwPts = Pts(x => x.LeafWetness);
         var soilList = new List<ISeries>();
-        if (stPts.Count > 0) soilList.Add(Line(stPts, "Soil Temp (°C)", 0x92, 0x40, 0x0E));
-        if (smPts.Count > 0) soilList.Add(Line(smPts, "Soil Moisture (%)", 0x05, 0x96, 0x69));
-        if (lwPts.Count > 0) soilList.Add(Line(lwPts, "Leaf Wetness", 0x25, 0x63, 0xEB));
+        if (stPts.Count > 0) soilList.Add(Line(stPts, "Soil Temp (°C)", 0x1D, 0x4E, 0xD8));
+        if (smPts.Count > 0) soilList.Add(Line(smPts, "Soil Moisture (%)", 0x1E, 0x29, 0x3B));
+        if (lwPts.Count > 0) soilList.Add(Line(lwPts, "Leaf Wetness", 0x00, 0x00, 0x00));
         HasSoil = soilList.Count > 0;
         SoilImage = HasSoil ? Render("Soil", soilList.ToArray(), MakeYAxes("Value")) : null;
         if (HasSoil) chartCount++;
@@ -699,9 +699,9 @@ public partial class MainViewModel : ObservableObject
         var pm25Pts = Pts(x => x.Pm25);
         var pm10Pts = Pts(x => x.Pm10);
         var aqList = new List<ISeries>();
-        if (pm1Pts.Count > 0) aqList.Add(Line(pm1Pts, "PM1 (µg/m³)", 0x0D, 0x94, 0x88));
-        if (pm25Pts.Count > 0) aqList.Add(Line(pm25Pts, "PM2.5 (µg/m³)", 0xCA, 0x8A, 0x04));
-        if (pm10Pts.Count > 0) aqList.Add(Line(pm10Pts, "PM10 (µg/m³)", 0xDC, 0x26, 0x26));
+        if (pm1Pts.Count > 0) aqList.Add(Line(pm1Pts, "PM1 (µg/m³)", 0x1D, 0x4E, 0xD8));
+        if (pm25Pts.Count > 0) aqList.Add(Line(pm25Pts, "PM2.5 (µg/m³)", 0x1E, 0x29, 0x3B));
+        if (pm10Pts.Count > 0) aqList.Add(Line(pm10Pts, "PM10 (µg/m³)", 0x00, 0x00, 0x00));
         HasAirQuality = aqList.Count > 0;
         AirQualityImage = HasAirQuality ? Render("Air Quality", aqList.ToArray(), MakeYAxes("Concentration (µg/m³)", "F0", minLimit: 0)) : null;
         if (HasAirQuality) chartCount++;
@@ -710,8 +710,8 @@ public partial class MainViewModel : ObservableObject
         var co2Pts = Pts(x => x.Co2);
         var tvocPts = Pts(x => x.Tvoc);
         var ctList = new List<ISeries>();
-        if (co2Pts.Count > 0) ctList.Add(Line(co2Pts, "CO₂ (ppm)", 0x08, 0x91, 0xB2));
-        if (tvocPts.Count > 0) ctList.Add(Line(tvocPts, "TVOC (ppb)", 0x93, 0x33, 0xEA));
+        if (co2Pts.Count > 0) ctList.Add(Line(co2Pts, "CO₂ (ppm)", 0x1D, 0x4E, 0xD8));
+        if (tvocPts.Count > 0) ctList.Add(Line(tvocPts, "TVOC (ppb)", 0x1E, 0x29, 0x3B));
         HasCo2Tvoc = ctList.Count > 0;
         Co2TvocImage = HasCo2Tvoc ? Render("CO2 TVOC", ctList.ToArray(), MakeYAxes("Concentration", "F0", minLimit: 0)) : null;
         if (HasCo2Tvoc) chartCount++;
@@ -720,7 +720,7 @@ public partial class MainViewModel : ObservableObject
         var adPts = Pts(x => x.AirDensity);
         HasAirDensity = adPts.Count > 0;
         AirDensityImage = HasAirDensity
-            ? Render("Air Density", new ISeries[] { Line(adPts, "Air Density (kg/m³)", 0x08, 0x91, 0xB2) }, MakeYAxes("Density (kg/m³)", "F3"))
+            ? Render("Air Density", new ISeries[] { Line(adPts, "Air Density (kg/m³)", 0x1D, 0x4E, 0xD8) }, MakeYAxes("Density (kg/m³)", "F3"))
             : null;
         if (HasAirDensity) chartCount++;
 
@@ -729,9 +729,9 @@ public partial class MainViewModel : ObservableObject
         var chgPts = Pts(x => x.ChargerVoltage);
         var pnlPts = Pts(x => x.PanelTemperature);
         var battList = new List<ISeries>();
-        if (battPts.Count > 0) battList.Add(Line(battPts, "Battery (V)", 0x05, 0x96, 0x69));
-        if (chgPts.Count > 0) battList.Add(Line(chgPts, "Charger (V)", 0xCA, 0x8A, 0x04));
-        if (pnlPts.Count > 0) battList.Add(Line(pnlPts, "Panel Temp (°C)", 0xDC, 0x26, 0x26));
+        if (battPts.Count > 0) battList.Add(Line(battPts, "Battery (V)", 0x1D, 0x4E, 0xD8));
+        if (chgPts.Count > 0) battList.Add(Line(chgPts, "Charger (V)", 0x1E, 0x29, 0x3B));
+        if (pnlPts.Count > 0) battList.Add(Line(pnlPts, "Panel Temp (°C)", 0x00, 0x00, 0x00));
         HasBattery = battList.Count > 0;
         BatteryImage = HasBattery ? Render("Battery Power", battList.ToArray(), MakeYAxes("Voltage (V) / Temp (°C)", "F2")) : null;
         if (HasBattery) chartCount++;
@@ -740,7 +740,7 @@ public partial class MainViewModel : ObservableObject
         var wlPts = Pts(x => x.WaterLevel);
         HasWaterLevel = wlPts.Count > 0;
         WaterLevelImage = HasWaterLevel
-            ? Render("Water Level", new ISeries[] { Line(wlPts, "Water Level (mm)", 0x25, 0x63, 0xEB, true) }, MakeYAxes("Level (mm)", "F0", minLimit: 0))
+            ? Render("Water Level", new ISeries[] { Line(wlPts, "Water Level (mm)", 0x1D, 0x4E, 0xD8, true) }, MakeYAxes("Level (mm)", "F0", minLimit: 0))
             : null;
         if (HasWaterLevel) chartCount++;
 
@@ -749,9 +749,9 @@ public partial class MainViewModel : ObservableObject
         var lswPts = Pts(x => x.LevelSwitch);
         var tsoPts = Pts(x => x.TemperatureSwitchOutlet);
         var swList = new List<ISeries>();
-        if (tswPts.Count > 0) swList.Add(Line(tswPts, "Temp Switch (mV)", 0xDC, 0x26, 0x26));
-        if (lswPts.Count > 0) swList.Add(Line(lswPts, "Level Switch (mV)", 0x02, 0x84, 0xC7));
-        if (tsoPts.Count > 0) swList.Add(Line(tsoPts, "Temp Switch Outlet (mV)", 0xD9, 0x77, 0x06));
+        if (tswPts.Count > 0) swList.Add(Line(tswPts, "Temp Switch (mV)", 0x1D, 0x4E, 0xD8));
+        if (lswPts.Count > 0) swList.Add(Line(lswPts, "Level Switch (mV)", 0x1E, 0x29, 0x3B));
+        if (tsoPts.Count > 0) swList.Add(Line(tsoPts, "Temp Switch Outlet (mV)", 0x00, 0x00, 0x00));
         HasSwitch = swList.Count > 0;
         SwitchImage = HasSwitch ? Render("Switches", swList.ToArray(), MakeYAxes("Value (mV)", "F0")) : null;
         if (HasSwitch) chartCount++;
@@ -762,7 +762,7 @@ public partial class MainViewModel : ObservableObject
         LightningImage = HasLightning
             ? Render("Lightning", new ISeries[] { new ColumnSeries<DateTimePoint> {
                 Values = ltPts, Name = "Lightning (strikes)",
-                Fill = new SolidColorPaint(new SKColor(0xCA, 0x8A, 0x04)), Stroke = null, MaxBarWidth = 6
+                Fill = new SolidColorPaint(new SKColor(0x1D, 0x4E, 0xD8)), Stroke = null, MaxBarWidth = 6
             } }, MakeYAxes("Strikes", "F0", minLimit: 0))
             : null;
         if (HasLightning) chartCount++;
@@ -771,7 +771,7 @@ public partial class MainViewModel : ObservableObject
         var mp1Pts = Pts(x => x.MpptSolarPower);
         HasMpptPower = mp1Pts.Count > 0;
         MpptPowerImage = HasMpptPower
-            ? Render("MPPT1 Power", new ISeries[] { Line(mp1Pts, "MPPT Solar Power (W)", 0xCA, 0x8A, 0x04, true) }, MakeYAxes("Power (W)", "F1", minLimit: 0))
+            ? Render("MPPT1 Power", new ISeries[] { Line(mp1Pts, "MPPT Solar Power (W)", 0x1D, 0x4E, 0xD8, true) }, MakeYAxes("Power (W)", "F1", minLimit: 0))
             : null;
         if (HasMpptPower) chartCount++;
 
@@ -780,9 +780,9 @@ public partial class MainViewModel : ObservableObject
         var mbv = Pts(x => x.MpptBatteryVoltage);
         var mlv = Pts(x => x.MpptLoadVoltage);
         var mvList = new List<ISeries>();
-        if (msv.Count > 0) mvList.Add(Line(msv, "Solar V", 0xCA, 0x8A, 0x04));
-        if (mbv.Count > 0) mvList.Add(Line(mbv, "Battery V", 0x05, 0x96, 0x69));
-        if (mlv.Count > 0) mvList.Add(Line(mlv, "Load V", 0x02, 0x84, 0xC7));
+        if (msv.Count > 0) mvList.Add(Line(msv, "Solar V", 0x1D, 0x4E, 0xD8));
+        if (mbv.Count > 0) mvList.Add(Line(mbv, "Battery V", 0x1E, 0x29, 0x3B));
+        if (mlv.Count > 0) mvList.Add(Line(mlv, "Load V", 0x00, 0x00, 0x00));
         HasMpptVoltage = mvList.Count > 0;
         MpptVoltageImage = HasMpptVoltage ? Render("MPPT1 Voltage", mvList.ToArray(), MakeYAxes("Voltage (V)", "F2")) : null;
         if (HasMpptVoltage) chartCount++;
@@ -792,9 +792,9 @@ public partial class MainViewModel : ObservableObject
         var mbc = Pts(x => x.MpptBatteryCurrent);
         var mlc = Pts(x => x.MpptLoadCurrent);
         var mcList = new List<ISeries>();
-        if (msc.Count > 0) mcList.Add(Line(msc, "Solar mA", 0xCA, 0x8A, 0x04));
-        if (mbc.Count > 0) mcList.Add(Line(mbc, "Battery mA", 0x05, 0x96, 0x69));
-        if (mlc.Count > 0) mcList.Add(Line(mlc, "Load mA", 0x02, 0x84, 0xC7));
+        if (msc.Count > 0) mcList.Add(Line(msc, "Solar mA", 0x1D, 0x4E, 0xD8));
+        if (mbc.Count > 0) mcList.Add(Line(mbc, "Battery mA", 0x1E, 0x29, 0x3B));
+        if (mlc.Count > 0) mcList.Add(Line(mlc, "Load mA", 0x00, 0x00, 0x00));
         HasMpptCurrent = mcList.Count > 0;
         MpptCurrentImage = HasMpptCurrent ? Render("MPPT1 Current", mcList.ToArray(), MakeYAxes("Current (mA)", "F0")) : null;
         if (HasMpptCurrent) chartCount++;
@@ -803,7 +803,7 @@ public partial class MainViewModel : ObservableObject
         var m2pPts = Pts(x => x.Mppt2SolarPower);
         HasMppt2Power = m2pPts.Count > 0;
         Mppt2PowerImage = HasMppt2Power
-            ? Render("MPPT2 Power", new ISeries[] { Line(m2pPts, "MPPT2 Solar Power (W)", 0xD9, 0x77, 0x06, true) }, MakeYAxes("Power (W)", "F1", minLimit: 0))
+            ? Render("MPPT2 Power", new ISeries[] { Line(m2pPts, "MPPT2 Solar Power (W)", 0x1D, 0x4E, 0xD8, true) }, MakeYAxes("Power (W)", "F1", minLimit: 0))
             : null;
         if (HasMppt2Power) chartCount++;
 
@@ -812,9 +812,9 @@ public partial class MainViewModel : ObservableObject
         var m2bv = Pts(x => x.Mppt2BatteryVoltage);
         var m2lv = Pts(x => x.Mppt2LoadVoltage);
         var m2vList = new List<ISeries>();
-        if (m2sv.Count > 0) m2vList.Add(Line(m2sv, "Solar V", 0xD9, 0x77, 0x06));
-        if (m2bv.Count > 0) m2vList.Add(Line(m2bv, "Battery V", 0x05, 0x96, 0x69));
-        if (m2lv.Count > 0) m2vList.Add(Line(m2lv, "Load V", 0x02, 0x84, 0xC7));
+        if (m2sv.Count > 0) m2vList.Add(Line(m2sv, "Solar V", 0x1D, 0x4E, 0xD8));
+        if (m2bv.Count > 0) m2vList.Add(Line(m2bv, "Battery V", 0x1E, 0x29, 0x3B));
+        if (m2lv.Count > 0) m2vList.Add(Line(m2lv, "Load V", 0x00, 0x00, 0x00));
         HasMppt2Voltage = m2vList.Count > 0;
         Mppt2VoltageImage = HasMppt2Voltage ? Render("MPPT2 Voltage", m2vList.ToArray(), MakeYAxes("Voltage (V)", "F2")) : null;
         if (HasMppt2Voltage) chartCount++;
@@ -870,7 +870,7 @@ public partial class MainViewModel : ObservableObject
                 // Draw accent line under title
                 using var accentPaint = new SKPaint
                 {
-                    Color = new SKColor(0x25, 0x63, 0xEB),
+                    Color = new SKColor(0x1D, 0x4E, 0xD8),
                     StrokeWidth = 2,
                     IsAntialias = true,
                 };

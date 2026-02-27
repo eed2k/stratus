@@ -49,7 +49,7 @@ public class GaugeControl : FrameworkElement
 
     public static readonly DependencyProperty AccentColorProperty =
         DependencyProperty.Register(nameof(AccentColor), typeof(Color), typeof(GaugeControl),
-            new FrameworkPropertyMetadata(Color.FromRgb(0x00, 0xB4, 0xD8), FrameworkPropertyMetadataOptions.AffectsRender));
+            new FrameworkPropertyMetadata(Color.FromRgb(0x1D, 0x4E, 0xD8), FrameworkPropertyMetadataOptions.AffectsRender));
 
     // ═══════════════ Properties ═══════════════
 
@@ -76,13 +76,13 @@ public class GaugeControl : FrameworkElement
     // White theme colors
     private static readonly Brush PanelBg = Brushes.White;
     private static readonly Brush PanelBorder = new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0));
-    private static readonly Brush TickBrush = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8));
-    private static readonly Brush TickLabelBrush = new SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B));
-    private static readonly Brush LabelBrush = new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69));
+    private static readonly Brush TickBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
+    private static readonly Brush TickLabelBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
+    private static readonly Brush LabelBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
     private static readonly Brush ValueBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
     private static readonly Brush NeedleBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
-    private static readonly Brush NeedleCenter = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8));
-    private static readonly Brush DimBrush = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8));
+    private static readonly Brush NeedleCenter = new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0));
+    private static readonly Brush DimBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
     private static readonly Pen BorderPen;
     private static readonly Pen TickPen;
     private static readonly Pen MajorTickPen;
