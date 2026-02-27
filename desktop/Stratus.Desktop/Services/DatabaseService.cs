@@ -128,12 +128,29 @@ public class DatabaseService : IDisposable
         var stations = new List<WeatherStation>();
         await using var cmd = _dataSource.CreateCommand(
             "SELECT id, name, location, latitude, longitude, altitude, station_type, " +
-            "api_endpoint, is_active, last_connected, site_description " +
+            "connection_config, is_active, last_connected, site_description, " +
+            "protocol, station_image, ingest_id, notes, " +
+            "datalogger_model, datalogger_serial_number, program_name, " +
+            "modem_model, modem_serial_number " +
             "FROM stations ORDER BY id");
 
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
+            // Parse connection_config JSONB to extract apiEndpoint
+            string? apiEndpoint = null;
+            string? connConfigRaw = reader.IsDBNull(7) ? null : reader.GetString(7);
+            if (!string.IsNullOrEmpty(connConfigRaw))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(connConfigRaw);
+                    if (doc.RootElement.TryGetProperty("apiEndpoint", out var ep))
+                        apiEndpoint = ep.GetString();
+                }
+                catch { /* ignore parse errors */ }
+            }
+
             stations.Add(new WeatherStation
             {
                 Id = reader.GetInt32(0),
@@ -143,10 +160,18 @@ public class DatabaseService : IDisposable
                 Longitude = reader.IsDBNull(4) ? null : reader.GetDouble(4),
                 Elevation = reader.IsDBNull(5) ? null : reader.GetDouble(5),
                 StationType = reader.IsDBNull(6) ? null : reader.GetString(6),
-                Endpoint = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Endpoint = apiEndpoint,
                 IsActive = !reader.IsDBNull(8) && reader.GetBoolean(8),
                 LastConnected = reader.IsDBNull(9) ? null : reader.GetDateTime(9),
                 Description = reader.IsDBNull(10) ? null : reader.GetString(10),
+                Protocol = reader.IsDBNull(11) ? null : reader.GetString(11),
+                ImageUrl = reader.IsDBNull(12) ? null : reader.GetString(12),
+                IngestId = reader.IsDBNull(13) ? null : reader.GetString(13),
+                Notes = reader.IsDBNull(14) ? null : reader.GetString(14),
+                DataloggerModel = reader.IsDBNull(15) ? null : reader.GetString(15),
+                DataloggerProgramName = reader.IsDBNull(17) ? null : reader.GetString(17),
+                ModemModel = reader.IsDBNull(18) ? null : reader.GetString(18),
+                ModemSerialNumber = reader.IsDBNull(19) ? null : reader.GetString(19),
             });
         }
 
