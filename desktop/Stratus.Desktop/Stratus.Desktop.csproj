@@ -22,7 +22,11 @@
 
   <ItemGroup>
     <!-- PostgreSQL / Neon DB connectivity -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
     <PackageReference Include="Npgsql" Version="8.0.6" />
+    <PackageReference Include="QuestPDF" Version="2024.12.2" />
+    <!-- Serial port communication for PakBus/LoggerNet -->
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
     <!-- HTTP client for VPS API -->
     <PackageReference Include="System.Net.Http.Json" Version="8.0.1" />
     <!-- JSON serialization -->

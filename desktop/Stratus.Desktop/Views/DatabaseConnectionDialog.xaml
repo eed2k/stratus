@@ -24,7 +24,7 @@
         <TextBlock Grid.Row="2" Text="Connection String:" FontSize="11" Margin="0,0,0,4"/>
         <TextBox Grid.Row="3" x:Name="ConnectionStringBox" 
                  Style="{StaticResource StratusTextBox}" 
-                 Text="postgresql://user:password@host:5432/dbname?sslmode=require"
+                 Text="postgresql://neondb_owner:npg_Td6bZPiln4SI@ep-delicate-surf-aguhl3up.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require"
                  Height="60" TextWrapping="Wrap" AcceptsReturn="False"
                  VerticalScrollBarVisibility="Auto"/>
 

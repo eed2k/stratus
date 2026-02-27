@@ -4,6 +4,7 @@ using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Stratus.Desktop.Services;
+using Stratus.Desktop.Services.PakBus;
 using Stratus.Desktop.Views;
 
 namespace Stratus.Desktop;
@@ -18,6 +19,12 @@ public partial class App : Application
     public static ApiService ApiService { get; private set; } = null!;
     public static DatabaseService DatabaseService { get; private set; } = null!;
     public static DataAcquisitionService DataAcquisitionService { get; private set; } = null!;
+    public static LoggerConnectionService LoggerService { get; private set; } = null!;
+    public static AuditService AuditService { get; private set; } = null!;
+    public static CalibrationService CalibrationService { get; private set; } = null!;
+    public static OfflineBufferService OfflineBufferService { get; private set; } = null!;
+    public static UpdateService UpdateService { get; private set; } = null!;
+    public static QualityFlagService QualityFlagService { get; private set; } = null!;
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
@@ -29,6 +36,7 @@ public partial class App : Application
         Directory.CreateDirectory(Path.Combine(appData, "Logs"));
         Directory.CreateDirectory(Path.Combine(appData, "Data"));
         Directory.CreateDirectory(Path.Combine(appData, "Export"));
+        Directory.CreateDirectory(Path.Combine(appData, "Audit"));
 
         // Configure Serilog
         Log.Logger = new LoggerConfiguration()
@@ -61,6 +69,14 @@ public partial class App : Application
         ApiService = new ApiService(Configuration);
         DatabaseService = new DatabaseService(Configuration);
         DataAcquisitionService = new DataAcquisitionService(ApiService, DatabaseService);
+        LoggerService = new LoggerConnectionService();
+        AuditService = new AuditService(Path.Combine(appData, "Audit"));
+        CalibrationService = new CalibrationService(appData);
+        OfflineBufferService = new OfflineBufferService(Path.Combine(appData, "Data", "offline_buffer.db"));
+        UpdateService = new UpdateService(appData);
+        QualityFlagService = new QualityFlagService(appData);
+
+        AuditService.LogSystem("Application started");
 
         // Check for first-run setup
         var setupMarker = Path.Combine(appData, ".setup-complete");
@@ -139,7 +155,10 @@ public partial class App : Application
     private void Application_Exit(object sender, ExitEventArgs e)
     {
         Log.Information("Stratus Desktop shutting down");
+        AuditService?.LogSystem("Application shutdown");
         DataAcquisitionService?.StopCollection();
+        LoggerService?.Dispose();
+        OfflineBufferService?.Dispose();
         DatabaseService?.Dispose();
         Log.CloseAndFlush();
     }

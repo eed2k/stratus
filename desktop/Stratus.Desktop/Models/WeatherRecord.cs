@@ -231,6 +231,27 @@ public class WeatherRecord
     /// </summary>
     [JsonPropertyName("data")]
     public string? RawData { get; set; }
+
+    // ── QC Flag Properties (non-persisted, set by QualityFlagService) ──
+
+    /// <summary>Overall quality flag (0=Good, 1=Suspect, 2=Bad, 3=Missing).</summary>
+    [JsonIgnore]
+    public int QcFlag { get; set; } = -1;
+
+    /// <summary>Unicode symbol for the QC flag.</summary>
+    [JsonIgnore]
+    public string QcFlagText => QcFlag switch
+    {
+        0 => "✓",
+        1 => "⚠",
+        2 => "✗",
+        3 => "–",
+        _ => ""
+    };
+
+    /// <summary>Tooltip with comma-delimited issue descriptions.</summary>
+    [JsonIgnore]
+    public string QcSummary { get; set; } = "";
 }
 
 /// <summary>

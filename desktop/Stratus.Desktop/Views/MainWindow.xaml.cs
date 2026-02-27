@@ -88,6 +88,22 @@ public partial class MainWindow : Window
             "About Stratus", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    private SerialMonitorWindow? _serialMonitor;
+
+    private void SerialMonitor_Click(object sender, RoutedEventArgs e)
+    {
+        if (_serialMonitor == null || !_serialMonitor.IsLoaded)
+        {
+            _serialMonitor = new SerialMonitorWindow { Owner = this };
+            _serialMonitor.Closed += (_, _) => _serialMonitor = null;
+            _serialMonitor.Show();
+        }
+        else
+        {
+            _serialMonitor.Activate();
+        }
+    }
+
     #region Wind Rose
 
     private void AngleSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -409,6 +425,97 @@ public partial class MainWindow : Window
 
         using var stream = File.Create(filePath);
         encoder.Save(stream);
+    }
+
+    #endregion
+
+    #region Professional Features — Reports, Calibration, Audit, Gaps, Config, Help, Updates
+
+    private void Report_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var dialog = new ReportDialog(vm.SelectedStation, vm.DataRecords.ToList())
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+    }
+
+    private void Calibration_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var stationId = vm.SelectedStation?.Id ?? 0;
+        var dialog = new CalibrationDialog(stationId)
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+    }
+
+    private void AuditTrail_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new AuditLogWindow
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    private void DataGap_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var station = vm.SelectedStation;
+        var dialog = new DataGapDialog(station?.Id ?? 0, vm.DataRecords.ToList(), station?.Name)
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+    }
+
+    private void StationConfig_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new StationConfigWizard
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+    }
+
+    private void Help_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new HelpWindow
+        {
+            Owner = this
+        };
+        window.Show();
+    }
+
+    private void CheckUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new UpdateDialog
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+    }
+
+    private void QcDashboard_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var window = new QualityDashboardWindow(vm.DataRecords.ToList(), vm.SelectedStation?.Name)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    private void QcRules_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new QualityRulesDialog
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
     }
 
     #endregion

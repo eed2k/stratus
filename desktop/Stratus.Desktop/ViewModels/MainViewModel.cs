@@ -301,6 +301,9 @@ public partial class MainViewModel : ObservableObject
             if (records.Count > 0)
                 LatestData = records.OrderByDescending(r => r.Timestamp).First();
 
+            // Apply QC/QA flags to loaded records
+            ApplyQualityFlags(records);
+
             // Update LiveCharts series
             UpdateCharts(records);
 
@@ -426,6 +429,21 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Called by the Serial Monitor when a new WeatherRecord arrives from PakBus.
+    /// Updates the dashboard gauges with live logger data.
+    /// </summary>
+    public void UpdateFromLogger(WeatherRecord record)
+    {
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            LatestData = record;
+            StatusText = $"Logger data: {record.Timestamp:HH:mm:ss}";
+            AddLog($"[LOGGER] T={record.Temperature:F1}°C RH={record.Humidity:F0}% " +
+                   $"P={record.Pressure:F1}hPa WS={record.WindSpeed:F1}km/h Batt={record.BatteryVoltage:F2}V");
+        });
+    }
+
     public void AddLog(string message)
     {
         var entry = $"[{DateTime.Now:HH:mm:ss}] {message}";
@@ -436,6 +454,39 @@ public partial class MainViewModel : ObservableObject
                 LogMessages.RemoveAt(LogMessages.Count - 1);
         });
     }
+
+    /// <summary>
+    /// Runs QualityFlagService on the loaded records and stamps each WeatherRecord
+    /// with its QcFlag / QcSummary for the DataGrid template column.
+    /// </summary>
+    private void ApplyQualityFlags(List<WeatherRecord> records)
+    {
+        try
+        {
+            var qcService = App.QualityFlagService;
+            var results = qcService.EvaluateDataset(records);
+
+            // Map results back to records (both are ordered ascending by timestamp)
+            var ordered = records.OrderBy(r => r.Timestamp).ToList();
+            for (int i = 0; i < ordered.Count && i < results.Count; i++)
+            {
+                ordered[i].QcFlag = (int)results[i].OverallFlag;
+                ordered[i].QcSummary = string.Join("; ", results[i].SensorFlags
+                    .Where(f => f.Flag is Models.QualityFlag.Suspect or Models.QualityFlag.Bad)
+                    .Select(f => $"{f.SensorField}: {f.Reason}"));
+            }
+
+            var summary = qcService.Summarise(records, results);
+            QcStatusText = $"QC: {summary.DataQualityIndex:F0}% DQI • {summary.GoodRecords}✓ {summary.SuspectRecords}⚠ {summary.BadRecords}✗";
+            AddLog($"[QC] Dataset quality index: {summary.DataQualityIndex:F1}% — Good:{summary.GoodRecords} Suspect:{summary.SuspectRecords} Bad:{summary.BadRecords}");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"[QC] Flag evaluation failed: {ex.Message}");
+        }
+    }
+
+    [ObservableProperty] private string _qcStatusText = "QC: –";
 
     private void UpdateCharts(List<WeatherRecord> records)
     {

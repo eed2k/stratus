@@ -14,22 +14,63 @@ public partial class LicenseDialog : Window
     private void LoadCurrentLicense()
     {
         var license = App.LicenseService.GetLicense();
+        if (license != null && license.IsValid && license.Key != "TRIAL")
+        {
+            // Show read-only active licence view
+            ActiveLicensePanel.Visibility = Visibility.Visible;
+            ActivationPanel.Visibility = Visibility.Collapsed;
+
+            ActiveKeyText.Text = license.Key;
+            ActiveTypeText.Text = license.Type.ToString();
+            ActiveHolderText.Text = license.LicenseHolder ?? "—";
+            ActiveOrgText.Text = license.Organization ?? "—";
+            ActiveStationsText.Text = license.MaxStations.ToString();
+            ActiveExpiryText.Text = license.ExpiryDate.HasValue
+                ? license.ExpiryDate.Value.ToString("yyyy-MM-dd")
+                : "Lifetime";
+        }
+        else
+        {
+            // Show activation form
+            ActiveLicensePanel.Visibility = Visibility.Collapsed;
+            ActivationPanel.Visibility = Visibility.Visible;
+
+            if (license != null)
+            {
+                LicenseTypeText.Text = $"Type: {license.Type} | Max Stations: {license.MaxStations}";
+                LicenseExpiryText.Text = license.ExpiryDate.HasValue
+                    ? $"Expires: {license.ExpiryDate.Value:yyyy-MM-dd}"
+                    : "No expiry";
+
+                if (license.LicenseHolder != null)
+                    HolderNameBox.Text = license.LicenseHolder;
+                if (license.Organization != null)
+                    OrganizationBox.Text = license.Organization;
+            }
+            else
+            {
+                LicenseTypeText.Text = "No licence activated";
+                LicenseExpiryText.Text = "";
+            }
+        }
+    }
+
+    private void ChangeLicense_Click(object sender, RoutedEventArgs e)
+    {
+        // Switch to activation view so user can enter a new key
+        ActiveLicensePanel.Visibility = Visibility.Collapsed;
+        ActivationPanel.Visibility = Visibility.Visible;
+
+        var license = App.LicenseService.GetLicense();
         if (license != null)
         {
+            LicenseKeyBox.Text = "";
+            HolderNameBox.Text = license.LicenseHolder ?? "";
+            OrganizationBox.Text = license.Organization ?? "";
             LicenseTypeText.Text = $"Type: {license.Type} | Max Stations: {license.MaxStations}";
             LicenseExpiryText.Text = license.ExpiryDate.HasValue
                 ? $"Expires: {license.ExpiryDate.Value:yyyy-MM-dd}"
                 : "No expiry";
-            
-            if (license.LicenseHolder != null)
-                HolderNameBox.Text = license.LicenseHolder;
-            if (license.Organization != null)
-                OrganizationBox.Text = license.Organization;
-        }
-        else
-        {
-            LicenseTypeText.Text = "No licence activated";
-            LicenseExpiryText.Text = "";
         }
     }
 

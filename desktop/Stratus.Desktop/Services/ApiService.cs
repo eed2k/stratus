@@ -255,6 +255,31 @@ public class ApiService : IDisposable
     }
 
     /// <summary>
+    /// Fetch weather data for a station within a specific date range.
+    /// Used for gap backfill operations.
+    /// </summary>
+    public async Task<List<WeatherRecord>> GetDataRangeAsync(int stationId, DateTime start, DateTime end)
+    {
+        try
+        {
+            var query = $"api/stations/{stationId}/data?startTime={start:O}&endTime={end:O}&limit=10000";
+            var response = await _httpClient.GetAsync(query);
+            if (!response.IsSuccessStatusCode)
+            {
+                Log.Warning("GET data range for station {Id} failed: {Status}", stationId, (int)response.StatusCode);
+                return new List<WeatherRecord>();
+            }
+            var data = await response.Content.ReadFromJsonAsync<List<WeatherRecord>>(_jsonOptions);
+            return data ?? new List<WeatherRecord>();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to fetch data range for station {Id}", stationId);
+            return new List<WeatherRecord>();
+        }
+    }
+
+    /// <summary>
     /// Check server health / connectivity.
     /// </summary>
     public async Task<bool> CheckHealthAsync()

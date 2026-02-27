@@ -1,0 +1,201 @@
+<Window x:Class="Stratus.Desktop.Views.QualityDashboardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Data Quality Dashboard" Height="750" Width="1060"
+        WindowStartupLocation="CenterOwner"
+        Style="{StaticResource StratusWindow}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Data Quality Dashboard — QC/QA Analysis" FontSize="18" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock x:Name="TxtSubtitle" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- Summary Scorecards -->
+        <UniformGrid Grid.Row="1" Columns="5" Margin="0,0,0,12">
+            <!-- DQI -->
+            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,6,0">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="Quality Index" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="TxtDqi" Text="—" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock Text="DQI %" FontSize="10" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            <!-- Good -->
+            <Border Background="#F0FFF4" BorderBrush="#C6F6D5" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,6,0">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="Good ✓" FontSize="10" Foreground="#276749" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="TxtGood" Text="—" FontSize="24" FontWeight="SemiBold" Foreground="#22C55E" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="TxtGoodPct" Text="" FontSize="10" Foreground="#276749" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            <!-- Suspect -->
+            <Border Background="#FFFFF0" BorderBrush="#FEFCBF" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,6,0">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="Suspect ⚠" FontSize="10" Foreground="#975A16" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="TxtSuspect" Text="—" FontSize="24" FontWeight="SemiBold" Foreground="#EAB308" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="TxtSuspectPct" Text="" FontSize="10" Foreground="#975A16" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            <!-- Bad -->
+            <Border Background="#FFF5F5" BorderBrush="#FED7D7" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,6,0">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="Bad ✗" FontSize="10" Foreground="#9B2C2C" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="TxtBad" Text="—" FontSize="24" FontWeight="SemiBold" Foreground="#EF4444" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="TxtBadPct" Text="" FontSize="10" Foreground="#9B2C2C" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            <!-- Missing -->
+            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="Missing –" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="TxtMissing" Text="—" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="TxtMissingPct" Text="" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Quality bar -->
+        <Grid Grid.Row="2" Height="18" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="ColGood" Width="*"/>
+                <ColumnDefinition x:Name="ColSuspect" Width="0"/>
+                <ColumnDefinition x:Name="ColBad" Width="0"/>
+                <ColumnDefinition x:Name="ColMissing" Width="0"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="#22C55E" CornerRadius="4,0,0,4"/>
+            <Border Grid.Column="1" Background="#EAB308"/>
+            <Border Grid.Column="2" Background="#EF4444"/>
+            <Border Grid.Column="3" Background="#94A3B8" CornerRadius="0,4,4,0"/>
+        </Grid>
+
+        <!-- Tabs: Per-Sensor breakdown + Flagged Records -->
+        <TabControl Grid.Row="3" Background="Transparent" BorderThickness="0" Padding="0">
+            <TabItem Header="  Per-Sensor Breakdown  " FontSize="12">
+                <DataGrid x:Name="SensorGrid"
+                          Style="{StaticResource StratusDataGrid}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          IsReadOnly="True"
+                          VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Sensor" Binding="{Binding DisplayName}" Width="150"/>
+                        <DataGridTextColumn Header="Checked" Binding="{Binding TotalChecked}" Width="70"/>
+                        <DataGridTextColumn Header="Good" Binding="{Binding GoodCount}" Width="60">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#22C55E"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Good %" Binding="{Binding GoodPercent, StringFormat='{}{0:F1}%'}" Width="65"/>
+                        <DataGridTextColumn Header="Suspect" Binding="{Binding SuspectCount}" Width="65">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#EAB308"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Bad" Binding="{Binding BadCount}" Width="50">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#EF4444"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Missing" Binding="{Binding MissingCount}" Width="65"/>
+                        <DataGridTextColumn Header="Most Common Issue" Binding="{Binding MostCommonIssue}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="  Flagged Records  " FontSize="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Filter -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,4,0,4">
+                        <TextBlock Text="Show:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                        <CheckBox x:Name="ChkShowSuspect" Content="Suspect" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,0" Checked="FilterChanged" Unchecked="FilterChanged"/>
+                        <CheckBox x:Name="ChkShowBad" Content="Bad" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,0" Checked="FilterChanged" Unchecked="FilterChanged"/>
+                        <CheckBox x:Name="ChkShowMissing" Content="Missing" IsChecked="False" VerticalAlignment="Center" Margin="0,0,12,0" Checked="FilterChanged" Unchecked="FilterChanged"/>
+                        <TextBlock x:Name="TxtFlaggedCount" Text="" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </StackPanel>
+
+                    <DataGrid x:Name="FlaggedGrid" Grid.Row="1"
+                              Style="{StaticResource StratusDataGrid}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              VerticalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="150"/>
+                            <DataGridTemplateColumn Header="Flag" Width="45">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding FlagText}" FontSize="16" HorizontalAlignment="Center" FontWeight="Bold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding OverallFlag}" Value="0">
+                                                            <Setter Property="Foreground" Value="#22C55E"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding OverallFlag}" Value="1">
+                                                            <Setter Property="Foreground" Value="#EAB308"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding OverallFlag}" Value="2">
+                                                            <Setter Property="Foreground" Value="#EF4444"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding OverallFlag}" Value="3">
+                                                            <Setter Property="Foreground" Value="#94A3B8"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Issues" Binding="{Binding IssueCount}" Width="55"/>
+                            <DataGridTextColumn Header="Temp" Binding="{Binding Temperature, StringFormat='{}{0:F1}'}" Width="55"/>
+                            <DataGridTextColumn Header="RH%" Binding="{Binding Humidity, StringFormat='{}{0:F0}'}" Width="45"/>
+                            <DataGridTextColumn Header="Wind" Binding="{Binding WindSpeed, StringFormat='{}{0:F1}'}" Width="50"/>
+                            <DataGridTextColumn Header="Rain" Binding="{Binding Rainfall, StringFormat='{}{0:F1}'}" Width="50"/>
+                            <DataGridTextColumn Header="Solar" Binding="{Binding SolarRadiation, StringFormat='{}{0:F0}'}" Width="55"/>
+                            <DataGridTextColumn Header="Batt" Binding="{Binding BatteryVoltage, StringFormat='{}{0:F2}'}" Width="50"/>
+                            <DataGridTextColumn Header="Details" Binding="{Binding IssueList}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Footer -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Export CSV" Padding="14,8" Margin="0,0,8,0" Click="ExportCsv_Click"/>
+            <Button Content="Configure Rules..." Padding="14,8" Margin="0,0,8,0" Click="ConfigureRules_Click"/>
+            <Button Content="Re-Analyse" Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="0,0,8,0" Click="ReAnalyse_Click"/>
+            <Button Content="Close" Padding="14,8" Click="Close_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

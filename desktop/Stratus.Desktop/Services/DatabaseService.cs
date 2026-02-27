@@ -280,6 +280,58 @@ public class DatabaseService : IDisposable
     }
 
     /// <summary>
+    /// Inserts a single weather record into the database.
+    /// Used by the offline buffer service for syncing buffered records.
+    /// </summary>
+    public async Task<bool> InsertWeatherRecordAsync(WeatherRecord record)
+    {
+        if (_dataSource == null) return false;
+
+        try
+        {
+            await using var cmd = _dataSource.CreateCommand(@"
+                INSERT INTO weather_data (station_id, timestamp, temperature, humidity, pressure, 
+                    dew_point, wind_speed, wind_direction, wind_gust, rainfall, solar_radiation, 
+                    uv_index, soil_temperature, soil_moisture, battery_voltage, pm25, pm10, co2)
+                VALUES (@sid, @ts, @temp, @hum, @pres, @dew, @ws, @wd, @wg, @rain, @sol, 
+                    @uv, @st, @sm, @bv, @pm25, @pm10, @co2)
+                ON CONFLICT (station_id, timestamp) DO NOTHING");
+
+            cmd.Parameters.AddWithValue("sid", record.StationId);
+            cmd.Parameters.AddWithValue("ts", record.Timestamp);
+            AddNullableParam(cmd, "temp", record.Temperature);
+            AddNullableParam(cmd, "hum", record.Humidity);
+            AddNullableParam(cmd, "pres", record.Pressure);
+            AddNullableParam(cmd, "dew", record.DewPoint);
+            AddNullableParam(cmd, "ws", record.WindSpeed);
+            AddNullableParam(cmd, "wd", record.WindDirection);
+            AddNullableParam(cmd, "wg", record.WindGust);
+            AddNullableParam(cmd, "rain", record.Rainfall);
+            AddNullableParam(cmd, "sol", record.SolarRadiation);
+            AddNullableParam(cmd, "uv", record.UvIndex);
+            AddNullableParam(cmd, "st", record.SoilTemperature);
+            AddNullableParam(cmd, "sm", record.SoilMoisture);
+            AddNullableParam(cmd, "bv", record.BatteryVoltage);
+            AddNullableParam(cmd, "pm25", record.Pm25);
+            AddNullableParam(cmd, "pm10", record.Pm10);
+            AddNullableParam(cmd, "co2", record.Co2);
+
+            await cmd.ExecuteNonQueryAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to insert weather record for station {Id}", record.StationId);
+            return false;
+        }
+    }
+
+    private static void AddNullableParam(NpgsqlCommand cmd, string name, double? value)
+    {
+        cmd.Parameters.AddWithValue(name, (object?)value ?? DBNull.Value);
+    }
+
+    /// <summary>
     /// Get the record count for a station.
     /// </summary>
     public async Task<long> GetRecordCountAsync(int stationId)

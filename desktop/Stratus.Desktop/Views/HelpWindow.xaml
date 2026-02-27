@@ -1,0 +1,69 @@
+<Window x:Class="Stratus.Desktop.Views.HelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Stratus Help &amp; Documentation" Height="650" Width="850"
+        WindowStartupLocation="CenterOwner"
+        Background="#F0F4F8">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Navigation sidebar -->
+        <Border Grid.Column="0" Background="#1E293B">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="16,16,16,8">
+                    <TextBlock Text="STRATUS" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="User Guide" FontSize="11" Foreground="#94A3B8"/>
+                </StackPanel>
+                <ListBox x:Name="TopicList" Background="Transparent" BorderThickness="0"
+                         SelectionChanged="TopicList_SelectionChanged" Padding="0,4">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Foreground" Value="#CBD5E1"/>
+                            <Setter Property="Padding" Value="16,8"/>
+                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#2563EB"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#334155"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBoxItem Content="Getting Started" Tag="start"/>
+                    <ListBoxItem Content="Server Connection" Tag="server"/>
+                    <ListBoxItem Content="Database Setup" Tag="database"/>
+                    <ListBoxItem Content="Data Collection" Tag="collection"/>
+                    <ListBoxItem Content="PakBus / Serial Monitor" Tag="pakbus"/>
+                    <ListBoxItem Content="Charts &amp; Visualization" Tag="charts"/>
+                    <ListBoxItem Content="Wind Rose Analysis" Tag="windrose"/>
+                    <ListBoxItem Content="PDF Reports" Tag="reports"/>
+                    <ListBoxItem Content="Calibration" Tag="calibration"/>
+                    <ListBoxItem Content="Data Export" Tag="export"/>
+                    <ListBoxItem Content="Audit Trail" Tag="audit"/>
+                    <ListBoxItem Content="Offline Buffering" Tag="offline"/>
+                    <ListBoxItem Content="Data Gap Detection" Tag="gaps"/>
+                    <ListBoxItem Content="Auto-Update" Tag="update"/>
+                    <ListBoxItem Content="Licence Management" Tag="licence"/>
+                    <ListBoxItem Content="Keyboard Shortcuts" Tag="shortcuts"/>
+                    <ListBoxItem Content="Troubleshooting" Tag="trouble"/>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Content area -->
+        <Border Grid.Column="1" Margin="0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,16">
+                <RichTextBox x:Name="HelpContent" IsReadOnly="True" BorderThickness="0"
+                             Background="Transparent" FontSize="13" FontFamily="Segoe UI"
+                             Padding="0"/>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>

@@ -44,17 +44,33 @@
                 <MenuItem Header="_Connect to PostgreSQL..." Click="ConnectDb_Click"/>
                 <MenuItem Header="_Disconnect" Click="DisconnectDb_Click"/>
             </MenuItem>
+            <MenuItem Header="_Logger">
+                <MenuItem Header="_Serial Monitor..." Click="SerialMonitor_Click"/>
+            </MenuItem>
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Generate Wind Rose" Click="GenerateWindRose_Click"/>
                 <MenuItem Header="_Import TOA5/CSV for Wind Rose..." Click="ImportCsvWindRose_Click"/>
                 <MenuItem Header="_Export Wind Rose PNG..." Click="ExportWindRosePng_Click"/>
                 <Separator/>
                 <MenuItem Header="Export All _Charts as PNG..." Click="ExportCharts_Click"/>
+                <MenuItem Header="Generate PDF _Report..." Click="Report_Click" InputGestureText="Ctrl+P"/>
+                <Separator/>
+                <MenuItem Header="_Calibration Manager..." Click="Calibration_Click"/>
+                <MenuItem Header="_Audit Trail..." Click="AuditTrail_Click"/>
+                <MenuItem Header="Data _Gap Analysis..." Click="DataGap_Click"/>
+                <Separator/>
+                <MenuItem Header="_QC/QA Dashboard..." Click="QcDashboard_Click" InputGestureText="Ctrl+Q"/>
+                <MenuItem Header="QC _Rule Configuration..." Click="QcRules_Click"/>
+                <Separator/>
+                <MenuItem Header="Station Con_figuration..." Click="StationConfig_Click"/>
                 <Separator/>
                 <MenuItem Header="_Licence Activation..." Click="License_Click"/>
                 <MenuItem Header="_Settings" Click="Settings_Click"/>
             </MenuItem>
             <MenuItem Header="_Help">
+                <MenuItem Header="_Documentation" Click="Help_Click" InputGestureText="F1"/>
+                <MenuItem Header="Check for _Updates..." Click="CheckUpdate_Click"/>
+                <Separator/>
                 <MenuItem Header="_About Stratus" Click="About_Click"/>
             </MenuItem>
         </Menu>
@@ -258,6 +274,30 @@
                                   FrozenColumnCount="1">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="1.5*" MinWidth="120" CanUserResize="True"/>
+                                <DataGridTemplateColumn Header="QC" Width="35" MinWidth="30" CanUserResize="False" SortMemberPath="QcFlag">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding QcFlagText}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" ToolTip="{Binding QcSummary}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#22C55E"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding QcFlag}" Value="1">
+                                                                <Setter Property="Foreground" Value="#EAB308"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding QcFlag}" Value="2">
+                                                                <Setter Property="Foreground" Value="#EF4444"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding QcFlag}" Value="3">
+                                                                <Setter Property="Foreground" Value="#94A3B8"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Temp" Binding="{Binding Temperature, StringFormat='{}{0:F1}'}" Width="*" MinWidth="50" CanUserResize="True"/>
                                 <DataGridTextColumn Header="RH%" Binding="{Binding Humidity, StringFormat='{}{0:F0}'}" Width="*" MinWidth="40" CanUserResize="True"/>
                                 <DataGridTextColumn Header="Press" Binding="{Binding Pressure, StringFormat='{}{0:F1}'}" Width="*" MinWidth="50" CanUserResize="True"/>
@@ -577,6 +617,12 @@
                     <Run Text="Licence: "/>
                     <Run Text="{Binding LicenseStatus, Mode=OneWay}"/>
                 </TextBlock>
+            </StatusBarItem>
+            <Separator Background="{StaticResource BorderBrush}"/>
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="QcStatusText" Text="{Binding QcStatusText}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                </StackPanel>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
                 <TextBlock Text="Stratus Desktop v1.1.0 | Lukas Esterhuizen" Foreground="{StaticResource TextMutedBrush}" FontSize="10"/>
