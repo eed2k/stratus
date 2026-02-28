@@ -1,0 +1,129 @@
+<Window x:Class="Stratus.Desktop.Views.AlarmManagerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Alarm Manager — Stratus" Height="650" Width="900"
+        WindowStartupLocation="CenterOwner"
+        Style="{StaticResource StratusWindow}"
+        Icon="/Assets/stratus.ico">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Create/Edit Alarm -->
+        <TextBlock Grid.Row="0" Text="Alarm Thresholds" FontSize="16" FontWeight="Bold"
+                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="240"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Alarm Rules List -->
+            <DataGrid x:Name="AlarmGrid" Grid.Column="0" AutoGenerateColumns="False"
+                      Style="{StaticResource StratusDataGrid}" Margin="0,0,8,0"
+                      SelectionChanged="AlarmGrid_SelectionChanged">
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="On" Binding="{Binding Enabled}" Width="35"/>
+                    <DataGridTextColumn Header="Parameter" Binding="{Binding Parameter}" Width="*"/>
+                    <DataGridTextColumn Header="Condition" Binding="{Binding Condition}" Width="80"/>
+                    <DataGridTextColumn Header="Threshold" Binding="{Binding Threshold, StringFormat=F2}" Width="80"/>
+                    <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="70"/>
+                    <DataGridTextColumn Header="Cooldown" Binding="{Binding CooldownMinutes, StringFormat={}{0} min}" Width="70"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Edit/Add Panel -->
+            <Border Grid.Column="1" Background="{StaticResource SurfaceBrush}" 
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="12">
+                <StackPanel>
+                    <TextBlock Text="Parameter:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <ComboBox x:Name="ParamCombo" Padding="6,4" Margin="0,0,0,6">
+                        <ComboBoxItem Content="temperature"/>
+                        <ComboBoxItem Content="humidity"/>
+                        <ComboBoxItem Content="pressure"/>
+                        <ComboBoxItem Content="windSpeed"/>
+                        <ComboBoxItem Content="windGust"/>
+                        <ComboBoxItem Content="rainfall"/>
+                        <ComboBoxItem Content="solarRadiation"/>
+                        <ComboBoxItem Content="uvIndex"/>
+                        <ComboBoxItem Content="batteryVoltage"/>
+                        <ComboBoxItem Content="soilTemperature"/>
+                        <ComboBoxItem Content="soilMoisture"/>
+                        <ComboBoxItem Content="waterLevel"/>
+                        <ComboBoxItem Content="pm25"/>
+                        <ComboBoxItem Content="co2"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Condition:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <ComboBox x:Name="ConditionCombo" Padding="6,4" Margin="0,0,0,6">
+                        <ComboBoxItem Content="above" IsSelected="True"/>
+                        <ComboBoxItem Content="below"/>
+                        <ComboBoxItem Content="equals"/>
+                        <ComboBoxItem Content="rate_of_change"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Threshold:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <TextBox x:Name="ThresholdBox" Padding="6,4" Margin="0,0,0,6"
+                             Style="{StaticResource StratusTextBox}"/>
+
+                    <TextBlock Text="Severity:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <ComboBox x:Name="SeverityCombo" Padding="6,4" Margin="0,0,0,6">
+                        <ComboBoxItem Content="info"/>
+                        <ComboBoxItem Content="warning" IsSelected="True"/>
+                        <ComboBoxItem Content="critical"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Message:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <TextBox x:Name="MessageBox" Padding="6,4" Margin="0,0,0,6"
+                             Style="{StaticResource StratusTextBox}" TextWrapping="Wrap" Height="50"/>
+
+                    <TextBlock Text="Cooldown (min):" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <TextBox x:Name="CooldownBox" Text="30" Padding="6,4" Margin="0,0,0,8"
+                             Style="{StaticResource StratusTextBox}"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Add" Style="{StaticResource PrimaryButton}"
+                                Click="AddAlarm_Click" Padding="16,6" Margin="0,0,4,0"/>
+                        <Button Content="Delete" Background="#1E293B" Foreground="White"
+                                BorderThickness="0" Padding="16,6" Cursor="Hand"
+                                Click="DeleteAlarm_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Alarm Events Section -->
+        <TextBlock Grid.Row="2" Text="Recent Alarm Events" FontSize="16" FontWeight="Bold"
+                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,8"/>
+
+        <DataGrid x:Name="EventGrid" Grid.Row="3" AutoGenerateColumns="False"
+                  Style="{StaticResource StratusDataGrid}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Time" Binding="{Binding TriggeredAt, StringFormat='yyyy-MM-dd HH:mm'}" Width="130"/>
+                <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="70"/>
+                <DataGridTextColumn Header="Parameter" Binding="{Binding Parameter}" Width="100"/>
+                <DataGridTextColumn Header="Value" Binding="{Binding Value, StringFormat=F2}" Width="70"/>
+                <DataGridTextColumn Header="Threshold" Binding="{Binding Threshold, StringFormat=F2}" Width="70"/>
+                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"/>
+                <DataGridCheckBoxColumn Header="Ack" Binding="{Binding Acknowledged, Mode=OneWay}" Width="40"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Bottom Buttons -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Acknowledge Selected" Style="{StaticResource PrimaryButton}"
+                    Click="Acknowledge_Click" Padding="16,6" Margin="0,0,8,0"/>
+            <Button Content="Refresh" Style="{StaticResource SecondaryButton}"
+                    Click="Refresh_Click" Padding="16,6" Margin="0,0,8,0"/>
+            <Button Content="Close" Background="#E2E8F0" BorderThickness="0" 
+                    Padding="16,6" Cursor="Hand" Click="Close_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -180,15 +180,20 @@ public class DatabaseService : IDisposable
 
     /// <summary>
     /// Fetch weather data for a station within a time range.
-    /// Uses SELECT * and column-existence checks for maximum robustness
-    /// against schema variations across different database deployments.
+    /// The weather_data table stores measurements in a JSONB 'data' column.
+    /// This method parses the JSONB and maps Campbell Scientific field name variants
+    /// to the WeatherRecord model (replicating the server's mapPgWeatherData logic).
     /// </summary>
     public async Task<List<WeatherRecord>> GetDataAsync(
         int stationId, DateTime? startTime = null, DateTime? endTime = null, int limit = 2000)
     {
         if (_dataSource == null) return new List<WeatherRecord>();
 
-        var sql = "SELECT * FROM weather_data WHERE station_id = @stationId";
+        var sql = "SELECT id, station_id, timestamp, data, " +
+                  "mppt_solar_voltage, mppt_solar_current, mppt_solar_power, " +
+                  "mppt_load_voltage, mppt_load_current, mppt_battery_voltage, " +
+                  "mppt_charger_state, mppt_absi_avg, mppt_board_temp " +
+                  "FROM weather_data WHERE station_id = @stationId";
 
         if (startTime.HasValue)
             sql += " AND timestamp >= @startTime";
@@ -208,101 +213,140 @@ public class DatabaseService : IDisposable
 
         await using var reader = await cmd.ExecuteReaderAsync();
 
-        // Build a lookup of available column names for safe reading
+        // Build column lookup for the MPPT dedicated columns
         var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < reader.FieldCount; i++)
             cols.Add(reader.GetName(i));
 
         while (await reader.ReadAsync())
         {
+            // Parse the JSONB 'data' column
+            var dataOrd = reader.GetOrdinal("data");
+            string jsonStr = reader.IsDBNull(dataOrd) ? "{}" : reader.GetString(dataOrd);
+            Dictionary<string, JsonElement> d;
+            try
+            {
+                d = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(jsonStr) 
+                    ?? new Dictionary<string, JsonElement>();
+            }
+            catch
+            {
+                d = new Dictionary<string, JsonElement>();
+            }
+
             records.Add(new WeatherRecord
             {
-                Id = cols.Contains("id") ? reader.GetInt64(reader.GetOrdinal("id")) : 0,
+                Id = reader.GetInt64(reader.GetOrdinal("id")),
                 StationId = reader.GetInt32(reader.GetOrdinal("station_id")),
                 Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
+                RawData = jsonStr,
                 // Atmospheric
-                Temperature = GetNullableDouble(reader, "temperature", cols),
-                TemperatureMin = GetNullableDouble(reader, "temperature_min", cols),
-                TemperatureMax = GetNullableDouble(reader, "temperature_max", cols),
-                Humidity = GetNullableDouble(reader, "humidity", cols),
-                Pressure = GetNullableDouble(reader, "pressure", cols),
-                PressureSeaLevel = GetNullableDouble(reader, "pressure_sea_level", cols),
-                DewPoint = GetNullableDouble(reader, "dew_point", cols),
-                AirDensity = GetNullableDouble(reader, "air_density", cols),
+                Temperature = J(d, "temperature", "AirTC_Avg", "AirTemp", "Temp_Avg", "AirTemp_Avg", "AirTC", "Temp_C", "Temperature"),
+                TemperatureMin = J(d, "temperatureMin", "AirTC_Min", "Temp_Min"),
+                TemperatureMax = J(d, "temperatureMax", "AirTC_Max", "Temp_Max"),
+                Humidity = J(d, "humidity", "RH_Avg", "RH", "RelHumidity_Avg", "RelHumidity", "Humidity"),
+                Pressure = J(d, "pressure", "BP_mbar", "Pressure", "Pressure_Avg", "BaroPressure_Avg", "BP_Avg", "BaroPres", "BP_mbar_Avg", "BPress_Avg", "BPress"),
+                PressureSeaLevel = J(d, "pressureSeaLevel", "BP_SeaLevel", "PressureSeaLevel"),
+                DewPoint = J(d, "dewPoint", "DewPoint_Avg", "DewPt", "DewPoint", "Dew_C", "DewPointTemp_Avg", "DewPointTemp"),
+                AirDensity = J(d, "airDensity", "AirDensity_Avg", "AirDensity"),
                 // Wind
-                WindSpeed = GetNullableDouble(reader, "wind_speed", cols),
-                WindDirection = GetNullableDouble(reader, "wind_direction", cols),
-                WindGust = GetNullableDouble(reader, "wind_gust", cols),
-                WindGust10min = GetNullableDouble(reader, "wind_gust_10min", cols),
-                WindPower = GetNullableDouble(reader, "wind_power", cols),
-                WindDirStdDev = GetNullableDouble(reader, "wind_dir_std_dev", cols),
-                Sdi12WindVector = GetNullableDouble(reader, "sdi12_wind_vector", cols),
+                WindSpeed = J(d, "windSpeed", "WS_ms_Avg", "WindSpeed", "Wind_Spd_S_WVT", "WindSpeed_Avg", "WS_ms", "WS_Avg", "WS_ms_S_WVT", "WSpd_1_Avg", "WSpd_Avg", "WSpd_1_S_WVT"),
+                WindDirection = J(d, "windDirection", "WindDir", "WindDir_D1_WVT", "Wind_Dir_D1_WVT", "WindDir_Avg", "WD_Deg", "WD_Avg", "WDir_1_Avg", "WDir_Avg", "WDir_1_D1_WVT"),
+                WindGust = J(d, "windGust", "WS_ms_Max", "Wind_Spd_Max", "WindSpeed_Max", "WS_Max", "Wind_Gust", "WSpd_1_Max", "WSpd_Max"),
+                WindGust10min = J(d, "windGust10min"),
+                WindPower = J(d, "windPower", "WindPower_Avg"),
+                WindDirStdDev = J(d, "windDirStdDev", "Wind_Dir_SD1_WVT", "WindDir_SD1_WVT"),
+                Sdi12WindVector = J(d, "sdi12WindVector", "SDI12_WVc", "SDI12_WV"),
                 // Precipitation
-                Rainfall = GetNullableDouble(reader, "rainfall", cols),
-                Rainfall10min = GetNullableDouble(reader, "rainfall_10min", cols),
-                Rainfall24h = GetNullableDouble(reader, "rainfall_24h", cols),
+                Rainfall = J(d, "rainfall", "Rain_mm_Tot", "Rain", "Rain_Tot", "Precip", "Precip_Tot", "Rain_1_Tot", "Rain_Tot_1"),
+                Rainfall10min = J(d, "rainfall10min"),
+                Rainfall24h = J(d, "rainfall24h"),
                 // Solar
-                SolarRadiation = GetNullableDouble(reader, "solar_radiation", cols),
-                SolarRadiationMax = GetNullableDouble(reader, "solar_radiation_max", cols),
-                UvIndex = GetNullableDouble(reader, "uv_index", cols),
-                SunElevation = GetNullableDouble(reader, "sun_elevation", cols),
-                SunAzimuth = GetNullableDouble(reader, "sun_azimuth", cols),
+                SolarRadiation = SanitizeSolar(J(d, "solarRadiation", "SlrW", "Solar", "Solar_Rad_Avg", "SolarRad_Avg", "SlrW_Avg", "SR_Avg")),
+                SolarRadiationMax = J(d, "solarRadiationMax", "SlrW_Max", "Solar_Rad_Max"),
+                UvIndex = J(d, "uvIndex", "UV_Index_Avg", "UV_Index"),
+                SunElevation = J(d, "sunElevation"),
+                SunAzimuth = J(d, "sunAzimuth"),
                 // Evapotranspiration
-                Eto = GetNullableDouble(reader, "eto", cols),
-                Eto24h = GetNullableDouble(reader, "eto_24h", cols),
+                Eto = J(d, "eto", "ETo_Avg", "ETo"),
+                Eto24h = J(d, "eto24h"),
                 // Soil
-                SoilTemperature = GetNullableDouble(reader, "soil_temperature", cols),
-                SoilMoisture = GetNullableDouble(reader, "soil_moisture", cols),
-                LeafWetness = GetNullableDouble(reader, "leaf_wetness", cols),
+                SoilTemperature = J(d, "soilTemperature", "SoilTemp_Avg", "SoilTC", "Soil_Temp"),
+                SoilMoisture = J(d, "soilMoisture", "SoilMoist_Avg", "VWC", "VWC_Avg", "Soil_VWC"),
+                LeafWetness = J(d, "leafWetness", "LeafWet_Avg", "LeafWetness"),
                 // Air Quality
-                Pm25 = GetNullableDouble(reader, "pm25", cols),
-                Pm10 = GetNullableDouble(reader, "pm10", cols),
-                Pm1 = GetNullableDouble(reader, "pm1", cols),
-                Co2 = GetNullableDouble(reader, "co2", cols),
-                Tvoc = GetNullableDouble(reader, "tvoc", cols),
+                Pm25 = J(d, "pm25", "pm2_5", "PM2_5_Avg", "PM2_5"),
+                Pm10 = J(d, "pm10", "PM10_Avg", "PM10"),
+                Pm1 = J(d, "pm1", "PM1_Avg", "PM1"),
+                Co2 = J(d, "co2", "CO2_Avg", "CO2"),
+                Tvoc = J(d, "tvoc", "TVOC_Avg", "TVOC"),
                 // Battery / Power
-                BatteryVoltage = GetNullableDouble(reader, "battery_voltage", cols),
-                PanelTemperature = GetNullableDouble(reader, "panel_temperature", cols),
-                ChargerVoltage = GetNullableDouble(reader, "charger_voltage", cols),
+                BatteryVoltage = J(d, "batteryVoltage", "BattV", "BattV_Min", "Batt_volt_Min", "BattV_Avg", "Batt_V", "LoggerBattery_Avg", "LoggerBattery"),
+                PanelTemperature = J(d, "panelTemperature", "PTemp_Avg", "PTemp", "PTemp_C", "PTemp_C_Avg", "LoggerTemp_Avg", "LoggerTemp"),
+                ChargerVoltage = SanitizeCharger(J(d, "chargerVoltage", "DC_Chg_Volts", "ChgV_Avg", "Charger_V", "SolarCharger_V")),
                 // Water & Sensors
-                WaterLevel = GetNullableDouble(reader, "water_level", cols),
-                TemperatureSwitch = GetNullableDouble(reader, "temperature_switch", cols),
-                LevelSwitch = GetNullableDouble(reader, "level_switch", cols),
-                TemperatureSwitchOutlet = GetNullableDouble(reader, "temperature_switch_outlet", cols),
-                LevelSwitchStatus = GetNullableDouble(reader, "level_switch_status", cols),
-                Lightning = GetNullableDouble(reader, "lightning", cols),
+                WaterLevel = J(d, "waterLevel", "Water_Level_Avg", "WaterLevel", "Water_Level"),
+                TemperatureSwitch = J(d, "temperatureSwitch", "Temp_Switch_Avg", "TempSwitch", "Temp_Switch"),
+                LevelSwitch = J(d, "levelSwitch", "Level_Switch", "LevelSwitch", "Level_Switch_Avg"),
+                TemperatureSwitchOutlet = J(d, "temperatureSwitchOutlet", "Temp_Switch_Outlet", "TempSwitchOutlet"),
+                LevelSwitchStatus = J(d, "levelSwitchStatus", "Level_Switch_Status", "LevelSwitchStatus"),
+                Lightning = J(d, "lightning", "Lightning_Tot", "Lightning_Count", "Lightning"),
                 // Pump & Port
-                PumpSelectWell = GetNullableDouble(reader, "pump_select_well", cols),
-                PumpSelectBore = GetNullableDouble(reader, "pump_select_bore", cols),
-                PortStatusC1 = GetNullableDouble(reader, "port_status_c1", cols),
-                PortStatusC2 = GetNullableDouble(reader, "port_status_c2", cols),
-                // MPPT 1
-                MpptSolarVoltage = GetNullableDouble(reader, "mppt_solar_voltage", cols),
-                MpptSolarCurrent = GetNullableDouble(reader, "mppt_solar_current", cols),
-                MpptSolarPower = GetNullableDouble(reader, "mppt_solar_power", cols),
-                MpptLoadVoltage = GetNullableDouble(reader, "mppt_load_voltage", cols),
-                MpptLoadCurrent = GetNullableDouble(reader, "mppt_load_current", cols),
-                MpptBatteryVoltage = GetNullableDouble(reader, "mppt_battery_voltage", cols),
-                MpptBatteryCurrent = GetNullableDouble(reader, "mppt_battery_current", cols),
-                MpptChargerState = GetNullableDouble(reader, "mppt_charger_state", cols),
-                MpptAbsiAvg = GetNullableDouble(reader, "mppt_absi_avg", cols),
-                MpptBoardTemp = GetNullableDouble(reader, "mppt_board_temp", cols),
-                MpptMode = GetNullableDouble(reader, "mppt_mode", cols),
+                PumpSelectWell = J(d, "pumpSelectWell", "Pump_Select_Well"),
+                PumpSelectBore = J(d, "pumpSelectBore", "Pump_Select_Bore"),
+                PortStatusC1 = J(d, "portStatusC1", "Port_Status_C1"),
+                PortStatusC2 = J(d, "portStatusC2", "Port_Status_C2"),
+                // MPPT 1 (dedicated columns + JSONB fallback)
+                MpptSolarVoltage = GetNullableDouble(reader, "mppt_solar_voltage", cols) ?? J(d, "mpptSolarVoltage", "SolarCharger_PanelVoltage_1_Avg"),
+                MpptSolarCurrent = GetNullableDouble(reader, "mppt_solar_current", cols) ?? J(d, "mpptSolarCurrent", "SolarCharger_PanelCurrent_1_Avg"),
+                MpptSolarPower = GetNullableDouble(reader, "mppt_solar_power", cols) ?? J(d, "mpptSolarPower", "SolarCharger_PanelPower_1_Avg"),
+                MpptLoadVoltage = GetNullableDouble(reader, "mppt_load_voltage", cols) ?? J(d, "mpptLoadVoltage", "SolarCharger_LoadVoltage_1_Avg"),
+                MpptLoadCurrent = GetNullableDouble(reader, "mppt_load_current", cols) ?? J(d, "mpptLoadCurrent", "SolarCharger_LoadCurrent_1_Avg"),
+                MpptBatteryVoltage = GetNullableDouble(reader, "mppt_battery_voltage", cols) ?? J(d, "mpptBatteryVoltage", "SolarCharger_BatteryVoltage_1_Avg"),
+                MpptBatteryCurrent = J(d, "mpptBatteryCurrent"),
+                MpptChargerState = GetNullableDouble(reader, "mppt_charger_state", cols) ?? J(d, "mpptChargerState", "SolarCharger_State_1"),
+                MpptAbsiAvg = GetNullableDouble(reader, "mppt_absi_avg", cols) ?? J(d, "mpptAbsiAvg"),
+                MpptBoardTemp = GetNullableDouble(reader, "mppt_board_temp", cols) ?? J(d, "mpptBoardTemp", "SolarCharger_BoardTemp_1_Avg"),
+                MpptMode = J(d, "mpptMode", "SolarCharger_Mode_1"),
                 // MPPT 2
-                Mppt2SolarVoltage = GetNullableDouble(reader, "mppt2_solar_voltage", cols),
-                Mppt2SolarCurrent = GetNullableDouble(reader, "mppt2_solar_current", cols),
-                Mppt2SolarPower = GetNullableDouble(reader, "mppt2_solar_power", cols),
-                Mppt2LoadVoltage = GetNullableDouble(reader, "mppt2_load_voltage", cols),
-                Mppt2LoadCurrent = GetNullableDouble(reader, "mppt2_load_current", cols),
-                Mppt2BatteryVoltage = GetNullableDouble(reader, "mppt2_battery_voltage", cols),
-                Mppt2ChargerState = GetNullableDouble(reader, "mppt2_charger_state", cols),
-                Mppt2BoardTemp = GetNullableDouble(reader, "mppt2_board_temp", cols),
-                Mppt2Mode = GetNullableDouble(reader, "mppt2_mode", cols),
+                Mppt2SolarVoltage = J(d, "mppt2SolarVoltage", "SolarCharger_PanelVoltage_2_Avg"),
+                Mppt2SolarCurrent = J(d, "mppt2SolarCurrent", "SolarCharger_PanelCurrent_2_Avg"),
+                Mppt2SolarPower = J(d, "mppt2SolarPower", "SolarCharger_PanelPower_2_Avg"),
+                Mppt2LoadVoltage = J(d, "mppt2LoadVoltage", "SolarCharger_LoadVoltage_2_Avg"),
+                Mppt2LoadCurrent = J(d, "mppt2LoadCurrent", "SolarCharger_LoadCurrent_2_Avg"),
+                Mppt2BatteryVoltage = J(d, "mppt2BatteryVoltage", "SolarCharger_BatteryVoltage_2_Avg"),
+                Mppt2ChargerState = J(d, "mppt2ChargerState", "SolarCharger_State_2"),
+                Mppt2BoardTemp = J(d, "mppt2BoardTemp", "SolarCharger_BoardTemp_2_Avg"),
+                Mppt2Mode = J(d, "mppt2Mode", "SolarCharger_Mode_2"),
             });
         }
 
         return records;
     }
+
+    /// <summary>
+    /// Extract a numeric value from a JSONB dictionary, trying multiple Campbell Scientific field name variants.
+    /// </summary>
+    private static double? J(Dictionary<string, JsonElement> d, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (d.TryGetValue(key, out var el))
+            {
+                if (el.ValueKind == JsonValueKind.Number)
+                    return el.GetDouble();
+                if (el.ValueKind == JsonValueKind.String && double.TryParse(el.GetString(), out var v))
+                    return v;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Charger voltage sanity — values > 100V are likely in mV.</summary>
+    private static double? SanitizeCharger(double? v) => v is > 100 ? v / 100 : v;
+
+    /// <summary>Solar radiation cap — values > 2000 W/m² are unrealistic.</summary>
+    private static double? SanitizeSolar(double? v) => v is > 2000 ? null : v;
 
     /// <summary>
     /// Inserts a single weather record into the database.

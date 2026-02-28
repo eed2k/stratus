@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -44,7 +45,9 @@ public class ApiService : IDisposable
             CookieContainer = _cookies,
             UseCookies = true,
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true // Accept self-signed certs
+            ServerCertificateCustomValidationCallback = (_, cert, _, errors) =>
+                errors == System.Net.Security.SslPolicyErrors.None ||
+                _baseUrl.Contains("localhost") || _baseUrl.Contains("127.0.0.1")
         };
         _httpClient = new HttpClient(_handler)
         {
@@ -77,7 +80,9 @@ public class ApiService : IDisposable
             CookieContainer = _cookies,
             UseCookies = true,
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+            ServerCertificateCustomValidationCallback = (_, cert, _, errors) =>
+                errors == System.Net.Security.SslPolicyErrors.None ||
+                _baseUrl.Contains("localhost") || _baseUrl.Contains("127.0.0.1")
         };
         _httpClient = new HttpClient(_handler)
         {
@@ -329,6 +334,247 @@ public class ApiService : IDisposable
         }
         catch
         {
+            return false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Alarm Management API
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Fetch all alarm rules for a station.
+    /// </summary>
+    public async Task<List<AlarmRule>> GetAlarmsAsync(int stationId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"api/alarms?stationId={stationId}");
+            if (!response.IsSuccessStatusCode) return new List<AlarmRule>();
+            return await response.Content.ReadFromJsonAsync<List<AlarmRule>>(_jsonOptions) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to fetch alarms for station {Id}", stationId);
+            return new();
+        }
+    }
+
+    /// <summary>
+    /// Create a new alarm rule.
+    /// </summary>
+    public async Task<AlarmRule?> CreateAlarmAsync(AlarmRule alarm)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/alarms", alarm, _jsonOptions);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<AlarmRule>(_jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create alarm");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Update an existing alarm rule.
+    /// </summary>
+    public async Task<bool> UpdateAlarmAsync(AlarmRule alarm)
+    {
+        try
+        {
+            var response = await _httpClient.PatchAsJsonAsync($"api/alarms/{alarm.Id}", alarm, _jsonOptions);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to update alarm {Id}", alarm.Id);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Delete an alarm rule.
+    /// </summary>
+    public async Task<bool> DeleteAlarmAsync(int alarmId)
+    {
+        try
+        {
+            var response = await _httpClient.DeleteAsync($"api/alarms/{alarmId}");
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to delete alarm {Id}", alarmId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Fetch alarm event history.
+    /// </summary>
+    public async Task<List<AlarmEvent>> GetAlarmEventsAsync(int? stationId = null, int limit = 100)
+    {
+        try
+        {
+            var query = stationId.HasValue
+                ? $"api/alarm-events?stationId={stationId}&limit={limit}"
+                : $"api/alarm-events?limit={limit}";
+            var response = await _httpClient.GetAsync(query);
+            if (!response.IsSuccessStatusCode) return new();
+            return await response.Content.ReadFromJsonAsync<List<AlarmEvent>>(_jsonOptions) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to fetch alarm events");
+            return new();
+        }
+    }
+
+    /// <summary>
+    /// Acknowledge an alarm event.
+    /// </summary>
+    public async Task<bool> AcknowledgeAlarmAsync(int eventId)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"api/alarm-events/{eventId}/acknowledge", null);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to acknowledge alarm event {Id}", eventId);
+            return false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Station Management API
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Create a new weather station.
+    /// </summary>
+    public async Task<WeatherStation?> CreateStationAsync(WeatherStation station)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/stations", station, _jsonOptions);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                Log.Warning("Create station failed: {Status} {Body}", (int)response.StatusCode, body);
+                ErrorOccurred?.Invoke(this, $"Create station failed: {response.StatusCode}");
+                return null;
+            }
+            return await response.Content.ReadFromJsonAsync<WeatherStation>(_jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create station");
+            ErrorOccurred?.Invoke(this, $"Failed to create station: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Update station metadata (name, location, description).
+    /// </summary>
+    public async Task<bool> UpdateStationAsync(int stationId, object updates)
+    {
+        try
+        {
+            var response = await _httpClient.PatchAsJsonAsync($"api/stations/{stationId}", updates, _jsonOptions);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to update station {Id}", stationId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Delete a weather station.
+    /// </summary>
+    public async Task<bool> DeleteStationAsync(int stationId)
+    {
+        try
+        {
+            var response = await _httpClient.DeleteAsync($"api/stations/{stationId}");
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to delete station {Id}", stationId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Upload TOA5 file data to the server for bulk import.
+    /// </summary>
+    public async Task<bool> ImportDataAsync(int stationId, string filePath)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var fileBytes = await File.ReadAllBytesAsync(filePath);
+            content.Add(new ByteArrayContent(fileBytes), "file", Path.GetFileName(filePath));
+
+            var response = await _httpClient.PostAsync($"api/stations/{stationId}/import", content);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                Log.Warning("Import failed: {Status} {Body}", (int)response.StatusCode, body);
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to import data for station {Id}", stationId);
+            return false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // User Preferences API
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Fetch user preferences (units, timezone, notification settings).
+    /// </summary>
+    public async Task<Dictionary<string, JsonElement>?> GetUserPreferencesAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("api/user/preferences");
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(_jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to fetch user preferences");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Save user preferences to the server.
+    /// </summary>
+    public async Task<bool> SaveUserPreferencesAsync(object preferences)
+    {
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync("api/user/preferences", preferences, _jsonOptions);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save user preferences");
             return false;
         }
     }

@@ -85,6 +85,10 @@ public class WeatherStation
     [JsonPropertyName("stationImage")]
     public string? ImageUrl { get; set; }
 
+    /// <summary>Station timezone (e.g. "Africa/Johannesburg").</summary>
+    [JsonPropertyName("timeZone")]
+    public string? TimeZone { get; set; }
+
     /// <summary>
     /// Captures any additional JSON fields not explicitly mapped.
     /// </summary>

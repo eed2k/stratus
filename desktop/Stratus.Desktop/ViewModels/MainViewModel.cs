@@ -34,11 +34,22 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private long _recordCount;
     [ObservableProperty] private string _licenseStatus = "Trial";
 
+    // ── Custom date range ──
+    [ObservableProperty] private DateTime _customStartDate = DateTime.Now.AddDays(-7);
+    [ObservableProperty] private DateTime _customEndDate = DateTime.Now;
+    [ObservableProperty] private bool _isCustomRange;
+
+    // ── Unit conversion ──
+    [ObservableProperty] private bool _useImperial;
+
+    // ── Statistics summary ──
+    [ObservableProperty] private string _statisticsSummary = "";
+
     public ObservableCollection<WeatherStation> Stations { get; } = new();
     public ObservableCollection<WeatherRecord> DataRecords { get; } = new();
     public ObservableCollection<string> LogMessages { get; } = new();
 
-    public string[] TimeRanges { get; } = { "1h", "6h", "24h", "48h", "7d", "30d" };
+    public string[] TimeRanges { get; } = { "1h", "6h", "24h", "48h", "7d", "30d", "90d", "Custom" };
 
     // ── Static chart images for the Charts tab ──
     // Rendered via LiveCharts2 SKCartesianChart off-screen, displayed as WPF Images.
@@ -271,17 +282,28 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var endTime = DateTime.UtcNow;
-            var startTime = SelectedTimeRange switch
+            DateTime endTime, startTime;
+
+            if (SelectedTimeRange == "Custom" && IsCustomRange)
             {
-                "1h" => endTime.AddHours(-1),
-                "6h" => endTime.AddHours(-6),
-                "24h" => endTime.AddHours(-24),
-                "48h" => endTime.AddHours(-48),
-                "7d" => endTime.AddDays(-7),
-                "30d" => endTime.AddDays(-30),
-                _ => endTime.AddHours(-24)
-            };
+                startTime = CustomStartDate.Date;
+                endTime = CustomEndDate.Date.AddDays(1).AddSeconds(-1);
+            }
+            else
+            {
+                endTime = DateTime.UtcNow;
+                startTime = SelectedTimeRange switch
+                {
+                    "1h" => endTime.AddHours(-1),
+                    "6h" => endTime.AddHours(-6),
+                    "24h" => endTime.AddHours(-24),
+                    "48h" => endTime.AddHours(-48),
+                    "7d" => endTime.AddDays(-7),
+                    "30d" => endTime.AddDays(-30),
+                    "90d" => endTime.AddDays(-90),
+                    _ => endTime.AddHours(-24)
+                };
+            }
 
             List<WeatherRecord> records;
             if (_dbService.IsConnected)
@@ -303,6 +325,9 @@ public partial class MainViewModel : ObservableObject
 
             // Apply QC/QA flags to loaded records
             ApplyQualityFlags(records);
+
+            // Compute statistics summary
+            ComputeStatistics(records);
 
             // Update LiveCharts series
             UpdateCharts(records);
@@ -351,6 +376,89 @@ public partial class MainViewModel : ObservableObject
 
         await _daqService.ExportToCsvAsync(SelectedStation.Id, startTime, endTime, filePath, "TOA5");
         AddLog($"[EXPORT] Saved to {filePath}");
+    }
+
+    [RelayCommand]
+    private async Task ExportJsonAsync()
+    {
+        if (SelectedStation == null || DataRecords.Count == 0) return;
+
+        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var exportDir = System.IO.Path.Combine(docs, "Stratus");
+        System.IO.Directory.CreateDirectory(exportDir);
+
+        var fileName = $"Stratus_{SelectedStation.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+        var filePath = System.IO.Path.Combine(exportDir, fileName);
+
+        var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+        var json = System.Text.Json.JsonSerializer.Serialize(DataRecords.ToList(), options);
+        await File.WriteAllTextAsync(filePath, json);
+        AddLog($"[EXPORT] JSON saved to {filePath}");
+        StatusText = $"Exported {DataRecords.Count} records to JSON";
+    }
+
+    [RelayCommand]
+    private async Task ExportExcelAsync()
+    {
+        if (SelectedStation == null || DataRecords.Count == 0) return;
+
+        await Task.Run(() =>
+        {
+            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var exportDir = System.IO.Path.Combine(docs, "Stratus");
+            System.IO.Directory.CreateDirectory(exportDir);
+
+            var fileName = $"Stratus_{SelectedStation.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var filePath = System.IO.Path.Combine(exportDir, fileName);
+
+            ExcelExportService.Export(DataRecords.ToList(), SelectedStation, filePath);
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                AddLog($"[EXPORT] Excel saved to {filePath}");
+                StatusText = $"Exported {DataRecords.Count} records to Excel";
+            });
+        });
+    }
+
+    /// <summary>
+    /// Computes min/max/avg/std dev statistics for all numeric fields and updates
+    /// the StatisticsSummary property.
+    /// </summary>
+    private void ComputeStatistics(List<WeatherRecord> records)
+    {
+        if (records.Count == 0) { StatisticsSummary = ""; return; }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Statistics for {records.Count} records ({SelectedTimeRange})");
+        sb.AppendLine(new string('─', 60));
+
+        void Stat(string label, string unit, Func<WeatherRecord, double?> sel)
+        {
+            var vals = records.Select(sel).Where(v => v.HasValue).Select(v => v!.Value).ToList();
+            if (vals.Count == 0) return;
+            double min = vals.Min(), max = vals.Max(), avg = vals.Average();
+            double stdDev = vals.Count > 1
+                ? Math.Sqrt(vals.Sum(v => (v - avg) * (v - avg)) / (vals.Count - 1))
+                : 0;
+            sb.AppendLine($"{label,-22} Min: {min,8:F2} {unit}  Max: {max,8:F2} {unit}  Avg: {avg,8:F2} {unit}  σ: {stdDev,7:F2} {unit}  n={vals.Count}");
+        }
+
+        Stat("Temperature",     "°C",   r => r.Temperature);
+        Stat("Humidity",        "%",    r => r.Humidity);
+        Stat("Pressure",        "hPa",  r => r.Pressure);
+        Stat("Wind Speed",      "km/h", r => r.WindSpeed);
+        Stat("Wind Gust",       "km/h", r => r.WindGust);
+        Stat("Rainfall",        "mm",   r => r.Rainfall);
+        Stat("Solar Radiation", "W/m²", r => r.SolarRadiation);
+        Stat("UV Index",        "",     r => r.UvIndex);
+        Stat("Dew Point",       "°C",   r => r.DewPoint);
+        Stat("ETo",             "mm",   r => r.Eto);
+        Stat("Soil Temperature","°C",   r => r.SoilTemperature);
+        Stat("Soil Moisture",   "%",    r => r.SoilMoisture);
+        Stat("Battery Voltage", "V",    r => r.BatteryVoltage);
+        Stat("Water Level",     "mm",   r => r.WaterLevel);
+
+        StatisticsSummary = sb.ToString();
     }
 
     [RelayCommand]
@@ -412,7 +520,8 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedTimeRangeChanged(string value)
     {
-        if (SelectedStation != null)
+        IsCustomRange = value == "Custom";
+        if (SelectedStation != null && value != "Custom")
         {
             _ = Task.Run(async () =>
             {

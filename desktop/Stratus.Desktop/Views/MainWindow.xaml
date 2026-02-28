@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Stratus.Desktop.ViewModels"
         xmlns:controls="clr-namespace:Stratus.Desktop.Controls"
+        xmlns:views="clr-namespace:Stratus.Desktop.Views"
         Title="Stratus Weather Station Manager" 
         Height="768" Width="1200"
         MinHeight="600" MinWidth="900"
@@ -17,6 +18,7 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <views:NullToVisibilityConverter x:Key="NullToVis"/>
     </Window.Resources>
 
     <Grid>
@@ -38,6 +40,10 @@
                 <MenuItem Header="_Refresh Stations" Command="{Binding LoadStationsCommand}"/>
                 <MenuItem Header="_Load Data" Command="{Binding LoadDataCommand}"/>
                 <Separator/>
+                <MenuItem Header="_New Station..." Click="NewStation_Click"/>
+                <MenuItem Header="_Edit Station..." Click="EditStation_Click"/>
+                <MenuItem Header="_Import TOA5 Data..." Click="ImportData_Click"/>
+                <Separator/>
                 <MenuItem Header="Start _Collection" Command="{Binding ToggleCollectionCommand}"/>
             </MenuItem>
             <MenuItem Header="_Database">
@@ -48,6 +54,8 @@
                 <MenuItem Header="_Serial Monitor..." Click="SerialMonitor_Click"/>
             </MenuItem>
             <MenuItem Header="_Tools">
+                <MenuItem Header="_Alarm Manager..." Click="AlarmManager_Click" InputGestureText="Ctrl+A"/>
+                <Separator/>
                 <MenuItem Header="_Generate Wind Rose" Click="GenerateWindRose_Click"/>
                 <MenuItem Header="_Import TOA5/CSV for Wind Rose..." Click="ImportCsvWindRose_Click"/>
                 <MenuItem Header="_Export Wind Rose PNG..." Click="ExportWindRosePng_Click"/>
@@ -189,7 +197,7 @@
                         </Grid.RowDefinitions>
 
                         <!-- Station Header — Dark -->
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12" FlowDirection="LeftToRight">
                             <TextBlock Text="{Binding SelectedStation.Name, FallbackValue='No Station Selected'}" 
                                        Style="{StaticResource SectionHeader}" FontSize="18" Margin="0,0,12,0"/>
                             <Button Content="{Binding IsCollecting, Converter={StaticResource BoolToCollectionText}, FallbackValue='Start Collection'}" 
@@ -199,71 +207,112 @@
                             <ComboBox ItemsSource="{Binding TimeRanges}" 
                                       SelectedItem="{Binding SelectedTimeRange}"
                                       Margin="8,0,0,0" Padding="8,4" VerticalAlignment="Center"/>
+                            
+                            <!-- Custom date range (visible when "Custom" selected) -->
+                            <StackPanel Orientation="Horizontal" Margin="8,0,0,0"
+                                        Visibility="{Binding IsCustomRange, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="From:" VerticalAlignment="Center" FontSize="11" Margin="0,0,4,0"
+                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <DatePicker SelectedDate="{Binding CustomStartDate}" VerticalAlignment="Center"
+                                            Width="120" FontSize="11"/>
+                                <TextBlock Text="To:" VerticalAlignment="Center" FontSize="11" Margin="8,0,4,0"
+                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <DatePicker SelectedDate="{Binding CustomEndDate}" VerticalAlignment="Center"
+                                            Width="120" FontSize="11"/>
+                            </StackPanel>
+                            
                             <Button Content="Load" Style="{StaticResource SecondaryButton}" 
                                     Command="{Binding LoadDataCommand}" Padding="12,4" FontSize="11"
                                     Margin="4,0,0,0" VerticalAlignment="Center"/>
+                            
+                            <!-- Unit toggle -->
+                            <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="12,2"/>
+                            <CheckBox x:Name="ImperialToggle" Content="Imperial"
+                                      IsChecked="{Binding UseImperial}"
+                                      VerticalAlignment="Center" FontSize="11" Margin="4,0,0,0"
+                                      Foreground="{StaticResource TextSecondaryBrush}"/>
                         </StackPanel>
 
                         <!-- ═══════ Gauge Panel ═══════ -->
                         <Border Grid.Row="1" Background="{StaticResource BackgroundBrush}" 
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" 
                                 CornerRadius="4" Padding="8" Margin="0,0,0,12">
-                            <UniformGrid Rows="2" Columns="5">
+                            <WrapPanel HorizontalAlignment="Center">
                                 <!-- Temperature Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.Temperature}" 
-                                    MinValue="-10" MaxValue="50" Unit="°C" Label="Temperature"
-                                    ValueFormat="F1" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.Temperature, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.Temperature}" 
+                                        MinValue="-10" MaxValue="50" Unit="°C" Label="Temperature"
+                                        ValueFormat="F1" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- Humidity Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.Humidity}" 
-                                    MinValue="0" MaxValue="100" Unit="%" Label="Humidity"
-                                    ValueFormat="F0" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.Humidity, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.Humidity}" 
+                                        MinValue="0" MaxValue="100" Unit="%" Label="Humidity"
+                                        ValueFormat="F0" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- Pressure Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.Pressure}" 
-                                    MinValue="950" MaxValue="1050" Unit="hPa" Label="Pressure"
-                                    ValueFormat="F1" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.Pressure, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.Pressure}" 
+                                        MinValue="950" MaxValue="1050" Unit="hPa" Label="Pressure"
+                                        ValueFormat="F1" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- Wind Speed Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.WindSpeed}" 
-                                    MinValue="0" MaxValue="120" Unit="km/h" Label="Wind Speed"
-                                    ValueFormat="F1" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.WindSpeed, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.WindSpeed}" 
+                                        MinValue="0" MaxValue="120" Unit="km/h" Label="Wind Speed"
+                                        ValueFormat="F1" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- Solar Radiation Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.SolarRadiation}" 
-                                    MinValue="0" MaxValue="1200" Unit="W/m²" Label="Solar"
-                                    ValueFormat="F0" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.SolarRadiation, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.SolarRadiation}" 
+                                        MinValue="0" MaxValue="1200" Unit="W/m²" Label="Solar"
+                                        ValueFormat="F0" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- Rainfall Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.Rainfall}" 
-                                    MinValue="0" MaxValue="50" Unit="mm" Label="Rainfall"
-                                    ValueFormat="F1" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.Rainfall, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.Rainfall}" 
+                                        MinValue="0" MaxValue="50" Unit="mm" Label="Rainfall"
+                                        ValueFormat="F1" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- Dew Point Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.DewPoint}" 
-                                    MinValue="-10" MaxValue="35" Unit="°C" Label="Dew Point"
-                                    ValueFormat="F1" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.DewPoint, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.DewPoint}" 
+                                        MinValue="-10" MaxValue="35" Unit="°C" Label="Dew Point"
+                                        ValueFormat="F1" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- ETo Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.Eto}" 
-                                    MinValue="0" MaxValue="15" Unit="mm" Label="ETo"
-                                    ValueFormat="F2" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.Eto, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.Eto}" 
+                                        MinValue="0" MaxValue="15" Unit="mm" Label="ETo"
+                                        ValueFormat="F2" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- Battery Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.BatteryVoltage}" 
-                                    MinValue="0" MaxValue="15" Unit="V" Label="Battery"
-                                    ValueFormat="F2" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
+                                <Border Margin="4" Visibility="{Binding LatestData.BatteryVoltage, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.BatteryVoltage}" 
+                                        MinValue="0" MaxValue="15" Unit="V" Label="Battery"
+                                        ValueFormat="F2" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
                                 <!-- Water Level Gauge -->
-                                <controls:GaugeControl Value="{Binding LatestData.WaterLevel}" 
-                                    MinValue="0" MaxValue="500" Unit="mm" Label="Water Level"
-                                    ValueFormat="F1" AccentColor="#1D4ED8"
-                                    Width="224" Height="224" Margin="4"/>
-                            </UniformGrid>
+                                <Border Margin="4" Visibility="{Binding LatestData.WaterLevel, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.WaterLevel}" 
+                                        MinValue="0" MaxValue="500" Unit="mm" Label="Water Level"
+                                        ValueFormat="F1" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
+                            </WrapPanel>
                         </Border>
 
                         <!-- Data Grid -->
-                        <DataGrid Grid.Row="2" ItemsSource="{Binding DataRecords}" 
+                        <DataGrid x:Name="WeatherDataGrid" Grid.Row="2" ItemsSource="{Binding DataRecords}" 
                                   Style="{StaticResource StratusDataGrid}"
                                   VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Auto"
@@ -494,12 +543,13 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Data Export" 
                                    Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
                         
-                        <GroupBox Grid.Row="1" Style="{StaticResource StratusGroupBox}" Header="Export Settings">
+                        <GroupBox Grid.Row="1" Style="{StaticResource StratusGroupBox}" Header="Export Settings" Margin="0,0,0,8">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <TextBlock Text="Station:" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -507,21 +557,45 @@
                                                FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <TextBlock Text="Records in DB:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Records loaded:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding DataRecords.Count, StringFormat='{}{0:N0}'}" 
+                                               FontWeight="SemiBold" VerticalAlignment="Center"
+                                               FontFamily="{StaticResource MonoFont}"/>
+                                    <TextBlock Text="  |  Records in DB:" VerticalAlignment="Center" Margin="8,0,8,0"/>
                                     <TextBlock Text="{Binding RecordCount, StringFormat='{}{0:N0}'}" 
                                                FontWeight="SemiBold" VerticalAlignment="Center"
                                                FontFamily="{StaticResource MonoFont}"/>
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                    <TextBlock Text="Format: TOA5 (Campbell Scientific compatible)" 
-                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                                               VerticalAlignment="Center"/>
-                                </StackPanel>
                                 <TextBlock Text="Output: Documents\Stratus\" FontSize="11" 
                                            Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8"/>
-                                <Button Content="Export 30-Day Data" Style="{StaticResource PrimaryButton}"
-                                        Command="{Binding ExportDataCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Grid.Row="2" Style="{StaticResource StratusGroupBox}" Header="Export Formats">
+                            <WrapPanel Orientation="Horizontal">
+                                <Button Content="Export TOA5 (30d)" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding ExportDataCommand}" Padding="16,8" Margin="0,0,8,8"
+                                        ToolTip="Campbell Scientific TOA5 format with 4-line header"/>
+                                <Button Content="Export JSON" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding ExportJsonCommand}" Padding="16,8" Margin="0,0,8,8"
+                                        ToolTip="Export loaded records as formatted JSON"/>
+                                <Button Content="Export Excel (.xlsx)" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding ExportExcelCommand}" Padding="16,8" Margin="0,0,8,8"
+                                        ToolTip="Export loaded records to Excel workbook"/>
+                                <Button Content="Generate PDF Report..." Style="{StaticResource SecondaryButton}"
+                                        Click="Report_Click" Padding="16,8" Margin="0,0,8,8"
+                                        ToolTip="Generate comprehensive PDF report with statistics"/>
+                            </WrapPanel>
+                        </GroupBox>
+
+                        <!-- Statistics Summary -->
+                        <GroupBox Grid.Row="3" Style="{StaticResource StratusGroupBox}" Header="Statistics Summary (Min / Max / Avg / StdDev)">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding StatisticsSummary}" 
+                                           FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           TextWrapping="NoWrap"/>
+                            </ScrollViewer>
                         </GroupBox>
                     </Grid>
                 </TabItem>

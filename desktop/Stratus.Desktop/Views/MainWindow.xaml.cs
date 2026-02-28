@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -30,6 +31,56 @@ public partial class MainWindow : Window
         Resources.Add("BoolToCollectionText", new BoolToCollectionTextConverter());
         
         InitializeComponent();
+
+        // Auto-hide empty DataGrid columns when data changes
+        Loaded += (_, _) =>
+        {
+            if (DataContext is MainViewModel vm)
+            {
+                vm.DataRecords.CollectionChanged += (_, _) => Dispatcher.InvokeAsync(UpdateColumnVisibility);
+                vm.PropertyChanged += (_, args) =>
+                {
+                    if (args.PropertyName == nameof(MainViewModel.LatestData))
+                        Dispatcher.InvokeAsync(UpdateColumnVisibility);
+                };
+            }
+        };
+    }
+
+    /// <summary>
+    /// Hides DataGrid columns where ALL records have null values for that field.
+    /// Only columns with bound data properties are checked; Timestamp and QC always stay visible.
+    /// </summary>
+    private void UpdateColumnVisibility()
+    {
+        if (DataContext is not MainViewModel vm) return;
+        var records = vm.DataRecords;
+        if (records.Count == 0) return;
+
+        foreach (var col in WeatherDataGrid.Columns)
+        {
+            if (col is not DataGridTextColumn textCol) continue;
+            if (textCol.Binding is not Binding binding) continue;
+
+            var path = binding.Path?.Path;
+            if (string.IsNullOrEmpty(path) || path == "Timestamp") continue;
+
+            // Check if ANY record has a non-null value for this property
+            bool hasData = false;
+            var prop = typeof(WeatherRecord).GetProperty(path);
+            if (prop == null) continue;
+
+            foreach (var r in records)
+            {
+                if (prop.GetValue(r) != null)
+                {
+                    hasData = true;
+                    break;
+                }
+            }
+
+            col.Visibility = hasData ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     private async void Login_Click(object sender, RoutedEventArgs e)
@@ -518,6 +569,75 @@ public partial class MainWindow : Window
         dialog.ShowDialog();
     }
 
+    private void AlarmManager_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        if (vm.SelectedStation == null)
+        {
+            MessageBox.Show("Select a station first.", "Alarm Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var dialog = new AlarmManagerDialog(vm.SelectedStation.Id) { Owner = this };
+        dialog.ShowDialog();
+    }
+
+    private async void NewStation_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new StationEditorDialog(null) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.StationModified)
+        {
+            var vm = (MainViewModel)DataContext;
+            await vm.LoadStationsCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void EditStation_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        if (vm.SelectedStation == null)
+        {
+            MessageBox.Show("Select a station first.", "Edit Station", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var dialog = new StationEditorDialog(vm.SelectedStation) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.StationModified)
+        {
+            await vm.LoadStationsCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void ImportData_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        if (vm.SelectedStation == null)
+        {
+            MessageBox.Show("Select a station first.", "Import Data", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var ofd = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Import TOA5 / CSV Data",
+            Filter = "TOA5 Files (*.dat;*.csv)|*.dat;*.csv|All Files (*.*)|*.*",
+            Multiselect = false
+        };
+
+        if (ofd.ShowDialog(this) != true) return;
+
+        var ok = await App.ApiService.ImportDataAsync(vm.SelectedStation.Id, ofd.FileName);
+        if (ok)
+        {
+            vm.AddLog($"[IMPORT] Successfully imported {System.IO.Path.GetFileName(ofd.FileName)}");
+            MessageBox.Show("Data imported successfully.", "Import", MessageBoxButton.OK, MessageBoxImage.Information);
+            await vm.LoadDataCommand.ExecuteAsync(null);
+        }
+        else
+        {
+            vm.AddLog($"[IMPORT] Failed to import {System.IO.Path.GetFileName(ofd.FileName)}");
+            MessageBox.Show("Import failed. Check the log for details.", "Import Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     #endregion
 }
 
@@ -554,6 +674,21 @@ public class BoolToCollectionTextConverter : IValueConverter
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         return value is true ? "Stop Collection" : "Start Collection";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Converts a nullable double to Visibility.Visible if non-null, Collapsed otherwise.
+/// Used to hide gauges and columns that have no data.
+/// </summary>
+public class NullToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value is double ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -70,9 +70,9 @@ public partial class App : Application
         DatabaseService = new DatabaseService(Configuration);
         DataAcquisitionService = new DataAcquisitionService(ApiService, DatabaseService);
         LoggerService = new LoggerConnectionService();
-        AuditService = new AuditService(Path.Combine(appData, "Audit"));
+        AuditService = new AuditService(appData);
         CalibrationService = new CalibrationService(appData);
-        OfflineBufferService = new OfflineBufferService(Path.Combine(appData, "Data", "offline_buffer.db"));
+        OfflineBufferService = new OfflineBufferService(appData);
         UpdateService = new UpdateService(appData);
         QualityFlagService = new QualityFlagService(appData);
 
