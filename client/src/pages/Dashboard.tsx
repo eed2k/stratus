@@ -111,15 +111,15 @@ const processWindRoseData = (historicalData: WeatherData[]) => {
     // Determine direction bin (0-15)
     const dirBin = Math.round(data.windDirection / 22.5) % 16;
     
-    // Determine speed class (WMO simplified)
+    // Determine speed class (WMO simplified, m/s)
     const speed = data.windSpeed;
     let speedClass = 0;
-    if (speed < 1) speedClass = 0;       // Calm
-    else if (speed < 12) speedClass = 1; // Light
-    else if (speed < 20) speedClass = 2; // Gentle
-    else if (speed < 29) speedClass = 3; // Moderate
-    else if (speed < 39) speedClass = 4; // Fresh
-    else speedClass = 5;                 // Strong+
+    if (speed < 0.3) speedClass = 0;       // Calm
+    else if (speed < 3.4) speedClass = 1;  // Light
+    else if (speed < 5.5) speedClass = 2;  // Gentle
+    else if (speed < 8.0) speedClass = 3;  // Moderate
+    else if (speed < 10.8) speedClass = 4; // Fresh
+    else speedClass = 5;                   // Strong+
     
     windRoseData[dirBin].speeds[speedClass]++;
   });
@@ -281,8 +281,8 @@ const processWindEnergyData = (historicalData: WeatherData[], density: number = 
   return historicalData.map((d, i) => {
     const windSpeed = d.windSpeed ?? 0;
     const windGust = d.windGust ?? windSpeed; // Fall back to windSpeed if no gust data
-    const speedMs = windSpeed / 3.6; // Convert km/h to m/s
-    const gustMs = windGust / 3.6; // Convert gust km/h to m/s
+    const speedMs = windSpeed; // Already in m/s
+    const gustMs = windGust; // Already in m/s
     const windPower = 0.5 * density * Math.pow(speedMs, 3); // W/m²
     const gustPower = 0.5 * density * Math.pow(gustMs, 3); // W/m² for gusts
     
@@ -313,13 +313,12 @@ const processWindEnergyData = (historicalData: WeatherData[], density: number = 
 
 /**
  * Calculate wind power density using P = 0.5 * rho * v³
- * @param windSpeed Wind speed in km/h
+ * @param windSpeed Wind speed in m/s
  * @param airDensity Air density in kg/m³ (default 1.225)
  * @returns Power density in W/m²
  */
 const calculateWindPower = (windSpeed: number, airDensity: number = 1.225): number => {
-  const speedMs = windSpeed / 3.6; // Convert km/h to m/s
-  return 0.5 * airDensity * Math.pow(speedMs, 3);
+  return 0.5 * airDensity * Math.pow(windSpeed, 3);
 };
 
 interface DashboardProps {
@@ -969,8 +968,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const dayOfYear = getDayOfYear();
     // Convert solar radiation from W/m² to MJ/m²/day (assuming 12hr daylight average)
     const solarMJ = wattsToMJPerDay(currentData.solarRadiation || 0, 12);
-    // Convert wind speed from km/h to m/s
-    const windMs = kmhToMs(currentData.windSpeed || 0);
+    // Wind speed is already in m/s
+    const windMs = currentData.windSpeed || 0;
     
     return calculateETo(
       currentData.temperature || 20,
@@ -993,14 +992,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Generate fire danger chart data from historical data
   const fireDangerChartData = useMemo(() => {
     return chartData.map((d) => {
-      const fd = calculateFireDanger(d.temperature, d.humidity, d.windSpeed);
+      const fd = calculateFireDanger(d.temperature ?? 20, d.humidity ?? 50, d.windSpeed ?? 0);
       return {
         timestamp: d.timestamp,
         ffdi: fd.ffdi,
         gfdi: fd.grasslandFDI,
-        temperature: d.temperature,
-        humidity: d.humidity,
-        windSpeed: d.windSpeed,
+        temperature: d.temperature ?? 0,
+        humidity: d.humidity ?? 0,
+        windSpeed: d.windSpeed ?? 0,
       };
     });
   }, [chartData]);
@@ -1337,9 +1336,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="Wind Speed"
               value={formatValue(currentData.windSpeed || 0, 1)}
-              unit="km/h"
+              unit="m/s"
               subMetrics={[
-                { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} km/h` },
+                { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} m/s` },
               ]}
               sparklineData={chartData.slice(-12).map(d => d.windSpeed).filter((v): v is number => v != null)}
               chartColor="#22c55e"
@@ -2070,7 +2069,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               direction={currentData.windDirection || 0}
               speed={currentData.windSpeed || 0}
               gust={currentData.windGust ?? undefined}
-              unit="km/h"
+              unit="m/s"
             />
             ) : (
             <NoDataWrapper
@@ -2197,7 +2196,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             }))}
             series={[
               { dataKey: "windPower", name: "Wind Power", color: "#22c55e", unit: "W/m²" },
-              { dataKey: "windSpeed", name: "Wind Speed", color: "#3b82f6", unit: "km/h" },
+              { dataKey: "windSpeed", name: "Wind Speed", color: "#3b82f6", unit: "m/s" },
             ]}
             chartType="area"
             xAxisLabel="Time"
@@ -2324,7 +2323,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Wind Speed"
                 data={historicalChartData}
                 series={[
-                  { dataKey: "windSpeed", name: "Wind Speed (km/h)", color: "#22c55e" },
+                  { dataKey: "windSpeed", name: "Wind Speed (m/s)", color: "#22c55e" },
                 ]}
               />
             </TabsContent>

@@ -405,8 +405,9 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     }
   }
 
-  // Convert wind speed from m/s to km/h if the source unit is m/s
-  // The dashboard expects km/h for display
+  // Wind speed: standardize to m/s (Campbell Scientific canonical unit)
+  // If source unit is already m/s, no conversion needed.
+  // If source unit is km/h, convert to m/s.
   if (units && headers) {
     const windFields = ['windSpeed', 'windGust'];
     for (const field of windFields) {
@@ -418,9 +419,10 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
             const headerIdx = headers.indexOf(alias);
             if (headerIdx >= 0 && headerIdx < units.length) {
               const unit = units[headerIdx]?.toLowerCase();
-              if (unit === 'm/s' || unit === 'meters/second' || unit === 'ms') {
-                result[field] = result[field]! * 3.6; // m/s → km/h
+              if (unit === 'km/h' || unit === 'kph' || unit === 'kmh') {
+                result[field] = result[field]! / 3.6; // km/h → m/s
               }
+              // m/s, meters/second, ms → already m/s, no conversion
               break;
             }
           }

@@ -9,7 +9,7 @@ import { WIND_DIRECTIONS, WMO_SPEED_CLASSES, getSpeedColor } from "@/lib/windCon
  */
 interface WindSpeedPoint {
   direction: number; // degrees (0-360)
-  speed: number; // km/h
+  speed: number; // m/s
   timestamp?: Date;
 }
 
@@ -151,7 +151,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
                 y={center - circle.radius + 12}
                 className="fill-muted-foreground text-[9px]"
               >
-                {safeFixed(circle.speed, 0)} km/h
+                {safeFixed(circle.speed, 0)} m/s
               </text>
             </g>
           ))}
@@ -204,7 +204,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
                 className="transition-opacity hover:opacity-100"
               >
                 <title>
-                  {safeFixed(point.speed, 1)} km/h @ {safeFixed(point.direction, 0)}°
+                  {safeFixed(point.speed, 1)} m/s @ {safeFixed(point.direction, 0)}°
                   {point.timestamp && `\n${point.timestamp.toLocaleTimeString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}`}
                 </title>
               </circle>
@@ -225,15 +225,15 @@ export const WindRoseScatter = memo(function WindRoseScatter({
         <div className="mt-3 grid grid-cols-4 gap-2 text-xs text-center w-full">
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Avg</div>
-            <div className="font-normal">{safeFixed(stats.avgSpeed, 1)} km/h</div>
+            <div className="font-normal">{safeFixed(stats.avgSpeed, 1)} m/s</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Max</div>
-            <div className="font-normal">{safeFixed(stats.maxSpeed, 1)} km/h</div>
+            <div className="font-normal">{safeFixed(stats.maxSpeed, 1)} m/s</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Min</div>
-            <div className="font-normal">{safeFixed(stats.minSpeed, 1)} km/h</div>
+            <div className="font-normal">{safeFixed(stats.minSpeed, 1)} m/s</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Dominant</div>

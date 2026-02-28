@@ -232,14 +232,14 @@ export function StationDashboard({ stationId }: StationDashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                {safeFixed(latestData.windSpeed, 1)} km/h
+                {safeFixed(latestData.windSpeed, 1)} m/s
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Gust: {safeFixed(latestData.windGust, 1)} km/h | Dir: {latestData.windDirection}°
+                Gust: {safeFixed(latestData.windGust, 1)} m/s | Dir: {latestData.windDirection}°
               </p>
               {latestData.windGust10min !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  10-min Gust: {safeFixed(latestData.windGust10min, 1)} km/h
+                  10-min Gust: {safeFixed(latestData.windGust10min, 1)} m/s
                 </p>
               )}
             </CardContent>

@@ -325,7 +325,7 @@ export const WindRose = memo(function WindRose({
 
         {/* Max wind speed and current classification */}
         <div className="mt-2 text-center text-xs text-muted-foreground">
-          Max: {safeFixed(calculatedMaxSpeed, 1)} km/h ({getWindDescription(calculatedMaxSpeed)})
+          Max: {safeFixed(calculatedMaxSpeed, 1)} m/s ({getWindDescription(calculatedMaxSpeed)})
         </div>
 
         {/* Legend */}

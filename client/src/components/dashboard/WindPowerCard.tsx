@@ -48,7 +48,7 @@ export function WindPowerCard({
 
             <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
               <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Speed (Recent)</p>
-              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgSpeed, 1)} km/h</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgSpeed, 1)} m/s</p>
             </div>
 
             <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">

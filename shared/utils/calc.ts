@@ -11,8 +11,17 @@ export function calculateAverage(values: number[]): number {
     return total / values.length;
 }
 
-export function calculateWindChill(temperature: number, windSpeed: number): number {
-    return 35.74 + 0.6215 * temperature - 35.75 * Math.pow(windSpeed, 0.16) + 0.4275 * temperature * Math.pow(windSpeed, 0.16);
+/**
+ * Calculate Wind Chill using the North American / Environment Canada metric formula.
+ * Valid when T ≤ 10 °C and wind speed ≥ 4.8 km/h.
+ * @param temperature Air temperature in °C
+ * @param windSpeedMs Wind speed in m/s
+ * @returns Wind chill temperature in °C (or the input temperature if conditions are outside the valid range)
+ */
+export function calculateWindChill(temperature: number, windSpeedMs: number): number {
+    const windKmh = windSpeedMs * 3.6;
+    if (temperature > 10 || windKmh < 4.8) return temperature;
+    return 13.12 + 0.6215 * temperature - 11.37 * Math.pow(windKmh, 0.16) + 0.3965 * temperature * Math.pow(windKmh, 0.16);
 }
 
 // ============================================================================
@@ -400,6 +409,7 @@ export function wattsToMJPerDay(watts: number, hours: number = 24): number {
 
 /**
  * Convert wind speed from km/h to m/s
+ * @deprecated Wind data is now stored in m/s natively. This function is kept for backward compatibility.
  */
 export function kmhToMs(kmh: number): number {
     return kmh / 3.6;
@@ -643,8 +653,10 @@ function getHumidityScore(rh: number): number {
 /**
  * Wind speed score for SA FDI (max ~25 points)
  * Stronger wind = higher fire danger
+ * @param windMs Wind speed in m/s
  */
-function getWindScore(windKmh: number): number {
+function getWindScore(windMs: number): number {
+    const windKmh = windMs * 3.6; // convert to km/h for threshold comparison
     if (windKmh <= 5) return 0;
     if (windKmh <= 10) return 2;
     if (windKmh <= 15) return 5;
@@ -680,7 +692,7 @@ function getRainScore(daysSinceRain: number, rainfall7day: number, rainfall30day
  * 
  * @param temperature Air temperature in °C
  * @param humidity Relative humidity in % (0-100)
- * @param windSpeed Wind speed in km/h
+ * @param windSpeed Wind speed in m/s
  * @param daysSinceRain Days since last significant rain (>2mm)
  * @param rainfall7day Total rainfall in last 7 days (mm)
  * @param rainfall30day Total rainfall in last 30 days (mm)
@@ -732,7 +744,7 @@ export function estimateFuelMoisture(temperature: number, humidity: number): num
  * 
  * @param temperature Air temperature in Celsius
  * @param humidity Relative humidity in percent (0-100)
- * @param windSpeed Wind speed in km/h
+ * @param windSpeed Wind speed in m/s
  * @param rainfall7day Total rainfall in last 7 days (mm), optional
  * @param rainfall30day Total rainfall in last 30 days (mm), optional
  * @param daysSinceRain Days since last significant rain, optional

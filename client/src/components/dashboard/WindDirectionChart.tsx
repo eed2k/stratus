@@ -198,8 +198,8 @@ export function WindDirectionChart({
     if (historicalData.length > 0) {
       historicalData.forEach(d => {
         if (d.windDirection !== null && d.windDirection !== undefined) {
-          // WMO: calm = wind speed < 0.5 m/s (≈ 1.8 km/h)
-          if (d.windSpeed !== undefined && d.windSpeed !== null && d.windSpeed < 1.8) {
+          // WMO: calm = wind speed < 0.5 m/s
+          if (d.windSpeed !== undefined && d.windSpeed !== null && d.windSpeed < 0.5) {
             calmCount++;
           } else {
             const index = degreesToIndex8(d.windDirection);
@@ -280,7 +280,7 @@ export function WindDirectionChart({
             </div>
             {currentSpeed !== null && currentSpeed !== undefined && (
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>{safeFixed(currentSpeed, 1)} km/h</p>
+                <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>{safeFixed(currentSpeed, 1)} m/s</p>
                 <p className="text-xs text-muted-foreground" style={{ fontFamily: 'Arial, sans-serif' }}>Current Speed</p>
               </div>
             )}

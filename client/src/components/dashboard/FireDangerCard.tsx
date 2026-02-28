@@ -150,7 +150,7 @@ export function FireDangerCard({
         <div className="flex justify-between text-xs text-black pt-2 border-t" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           <span>{safeFixed(temperature, 1)}°C</span>
           <span>{safeFixed(humidity, 0)}% RH</span>
-          <span>{safeFixed(windSpeed, 1)} km/h</span>
+          <span>{safeFixed(windSpeed, 1)} m/s</span>
         </div>
       </CardContent>
     </Card>

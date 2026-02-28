@@ -19,7 +19,7 @@ const getCardinalDirection = (degrees: number): string => {
   return directions[index];
 };
 
-export function WindCompass({ direction, speed, gust, unit = "km/h" }: WindCompassProps) {
+export function WindCompass({ direction, speed, gust, unit = "m/s" }: WindCompassProps) {
   const cardinal = getCardinalDirection(direction);
   const displayDirection = Math.round(direction); // No decimal places
   

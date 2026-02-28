@@ -334,8 +334,8 @@ function SharedDashboardContent() {
           <MetricCard
             title="Wind Speed"
             value={safeFixed(weatherData?.windSpeed, 1)}
-            unit="km/h"
-            subMetrics={[{ label: "Gust", value: `${safeFixed(weatherData?.windGust, 1)} km/h` }]}
+            unit="m/s"
+            subMetrics={[{ label: "Gust", value: `${safeFixed(weatherData?.windGust, 1)} m/s` }]}
           />
           <MetricCard
             title="Pressure"
@@ -376,7 +376,7 @@ function SharedDashboardContent() {
               <WeatherChart
                 data={chartData}
                 title="Wind Speed (24h)"
-                series={[{ dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: "km/h" }]}
+                series={[{ dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: "m/s" }]}
               />
               <WeatherChart
                 data={chartData}
@@ -401,11 +401,11 @@ function SharedDashboardContent() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Average Speed</p>
-                      <p className="text-2xl font-semibold">{safeFixed(weatherData?.windSpeed, 1)} km/h</p>
+                      <p className="text-2xl font-semibold">{safeFixed(weatherData?.windSpeed, 1)} m/s</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Max Gust</p>
-                      <p className="text-2xl font-semibold">{safeFixed(weatherData?.windGust, 1)} km/h</p>
+                      <p className="text-2xl font-semibold">{safeFixed(weatherData?.windGust, 1)} m/s</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Direction</p>
@@ -449,10 +449,10 @@ function SharedDashboardContent() {
                 title="Wind Speed"
                 periods={[
                   { period: "Last 24h", stats: [
-                    { label: "Current", value: safeFixed(weatherData?.windSpeed, 1, '--'), unit: "km/h" },
-                    { label: "Min", value: stats.wind.min != null ? stats.wind.min.toFixed(1) : '--', unit: "km/h" },
-                    { label: "Max", value: stats.wind.max != null ? stats.wind.max.toFixed(1) : '--', unit: "km/h" },
-                    { label: "Avg", value: stats.wind.avg != null ? stats.wind.avg.toFixed(1) : '--', unit: "km/h" },
+                    { label: "Current", value: safeFixed(weatherData?.windSpeed, 1, '--'), unit: "m/s" },
+                    { label: "Min", value: stats.wind.min != null ? stats.wind.min.toFixed(1) : '--', unit: "m/s" },
+                    { label: "Max", value: stats.wind.max != null ? stats.wind.max.toFixed(1) : '--', unit: "m/s" },
+                    { label: "Avg", value: stats.wind.avg != null ? stats.wind.avg.toFixed(1) : '--', unit: "m/s" },
                   ]},
                 ]}
               />

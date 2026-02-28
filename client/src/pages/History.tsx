@@ -232,8 +232,8 @@ export default function History() {
                     <TableHead className="text-right whitespace-nowrap">Temp (°C)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Humidity (%)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Pressure (hPa)</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Wind (km/h)</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Gust (km/h)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Wind (m/s)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Gust (m/s)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Dir (°)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Rain (mm)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Solar (W/m²)</TableHead>

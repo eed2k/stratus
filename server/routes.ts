@@ -284,8 +284,8 @@ export async function registerRoutes(
   // Register client dashboard routes (for external client applications)
   app.use('/api/client', clientRoutes);
 
-  // Register file watcher routes (Dropbox sync, etc.)
-  app.use('/api/file-watcher', fileWatcherRoutes);
+  // Register file watcher routes (local file sync)
+  app.use('/api/file-watcher', isAuthenticated, isAdmin, fileWatcherRoutes);
 
   // Register Dropbox sync routes (admin-only)
   app.use('/api/dropbox-sync', isAuthenticated, isAdmin, dropboxSyncRoutes);

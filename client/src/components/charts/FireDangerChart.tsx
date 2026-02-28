@@ -119,7 +119,7 @@ export const FireDangerChart = memo(function FireDangerChart({
           <div className="border-t pt-1 mt-1 text-muted-foreground">
             <p>Temp: {safeFixed(data.temperature, 1)}°C</p>
             <p>Humidity: {safeFixed(data.humidity, 0)}%</p>
-            <p>Wind: {safeFixed(data.windSpeed, 1)} km/h</p>
+            <p>Wind: {safeFixed(data.windSpeed, 1)} m/s</p>
           </div>
         </div>
       </div>

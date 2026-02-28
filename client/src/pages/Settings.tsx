@@ -769,7 +769,7 @@ export default function Settings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="metric">Metric (°C, km/h, mm)</SelectItem>
+                  <SelectItem value="metric">Metric (°C, m/s, mm)</SelectItem>
                   <SelectItem value="imperial">Imperial (°F, mph, in)</SelectItem>
                 </SelectContent>
               </Select>
