@@ -1224,7 +1224,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         {!isMpptOnlyStation && (
         <CurrentConditions
           stationName={selectedStation?.name || "Weather Station"}
-          lastUpdate={((currentData as any).collectedAt || currentData.timestamp) ? new Date((currentData as any).collectedAt || currentData.timestamp).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false }) : "No data"}
+          lastUpdate={(currentData as any).collectedAt || currentData.timestamp || "No data"}
           temperature={availableFields.temperature ? (currentData.temperature ?? undefined) : undefined}
           humidity={availableFields.humidity ? (currentData.humidity ?? undefined) : undefined}
           pressure={availableFields.pressure ? (currentData.pressure ?? undefined) : undefined}

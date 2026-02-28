@@ -94,46 +94,6 @@ export const CurrentConditions = memo(function CurrentConditions({
     return () => clearInterval(timer);
   }, []);
 
-  // Check if data is stale (no updates in expected time window)
-  const dataStatus = useMemo(() => {
-    if (lastUpdate === "No data" || !lastUpdate) {
-      return { isStale: true, message: "No live data available", minutesAgo: null };
-    }
-    
-    // Try to parse the last update time
-    try {
-      const lastUpdateDate = new Date(lastUpdate);
-      const now = new Date();
-      const diffMs = now.getTime() - lastUpdateDate.getTime();
-      const diffMinutes = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMinutes / 60);
-      
-      // Consider data stale if it's older than 2x the sync interval (or 2 hours default)
-      const staleThresholdMs = syncInterval ? syncInterval * 2 : 2 * 60 * 60 * 1000;
-      const isStale = diffMs > staleThresholdMs;
-      
-      let timeAgo = '';
-      if (diffMinutes < 1) {
-        timeAgo = 'just now';
-      } else if (diffMinutes < 60) {
-        timeAgo = `${diffMinutes}m ago`;
-      } else if (diffHours < 24) {
-        timeAgo = `${diffHours}h ${diffMinutes % 60}m ago`;
-      } else {
-        timeAgo = `${Math.floor(diffHours / 24)}d ${diffHours % 24}h ago`;
-      }
-      
-      return {
-        isStale,
-        message: isStale ? `No live data - last update ${timeAgo}` : null,
-        minutesAgo: diffMinutes,
-        timeAgo
-      };
-    } catch {
-      return { isStale: false, message: null, minutesAgo: null };
-    }
-  }, [lastUpdate, syncInterval, currentTime]);
-  
   // Format current time in station's timezone using IANA timezone
   const getIANATimezone = () => {
     if (latitude !== undefined && longitude !== undefined) {
@@ -149,6 +109,75 @@ export const CurrentConditions = memo(function CurrentConditions({
     // Default to SAST
     return 'Africa/Johannesburg';
   };
+
+  // Parse the raw ISO timestamp for reliable staleness checking
+  const lastUpdateDate = useMemo(() => {
+    if (!lastUpdate || lastUpdate === "No data") return null;
+    try {
+      const d = new Date(lastUpdate);
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  }, [lastUpdate]);
+
+  // Format the last update time for display using station timezone
+  const formattedLastUpdate = useMemo(() => {
+    if (!lastUpdateDate) return "No data";
+    const tz = getIANATimezone();
+    try {
+      return lastUpdateDate.toLocaleString('en-ZA', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+      });
+    } catch {
+      return lastUpdateDate.toLocaleString();
+    }
+  }, [lastUpdateDate]);
+
+  // Check if data is stale (no updates in expected time window)
+  const dataStatus = useMemo(() => {
+    if (!lastUpdateDate) {
+      return { isStale: true, message: "No live data available", minutesAgo: null };
+    }
+    
+    const now = new Date();
+    const diffMs = now.getTime() - lastUpdateDate.getTime();
+    
+    // Guard against future timestamps or clock skew
+    if (diffMs < 0) {
+      return { isStale: false, message: null, minutesAgo: 0, timeAgo: 'just now' };
+    }
+    
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    
+    // Stale threshold: 6 hours for Dropbox/HTTP sync, 3x sync interval, or 6 hours default
+    const staleThresholdMs = syncInterval
+      ? Math.max(syncInterval * 3, 6 * 60 * 60 * 1000)
+      : 6 * 60 * 60 * 1000;
+    const isStale = diffMs > staleThresholdMs;
+    
+    let timeAgo = '';
+    if (diffMinutes < 1) {
+      timeAgo = 'just now';
+    } else if (diffMinutes < 60) {
+      timeAgo = `${diffMinutes}m ago`;
+    } else if (diffHours < 24) {
+      timeAgo = `${diffHours}h ${diffMinutes % 60}m ago`;
+    } else {
+      timeAgo = `${Math.floor(diffHours / 24)}d ${diffHours % 24}h ago`;
+    }
+    
+    return {
+      isStale,
+      message: isStale ? `No live data - last update ${timeAgo}` : null,
+      minutesAgo: diffMinutes,
+      timeAgo
+    };
+  }, [lastUpdateDate, syncInterval, currentTime]);
 
   const formatLocalTime = () => {
     const tz = getIANATimezone();
@@ -207,7 +236,7 @@ export const CurrentConditions = memo(function CurrentConditions({
             {stationName}
           </CardTitle>
           <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-last-update">
-            Last update: {lastUpdate}
+            Last update: {formattedLastUpdate}{dataStatus.timeAgo && !dataStatus.isStale ? ` (${dataStatus.timeAgo})` : ''}
           </p>
           <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-local-time">
             Local Time: {formatLocalTime()}
