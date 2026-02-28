@@ -159,15 +159,16 @@ public class DataAcquisitionService
             long recordNum = 1;
             foreach (var r in records.OrderBy(r => r.Timestamp))
             {
+                // Wind values stored in m/s internally — output directly
                 sb.AppendLine(string.Join(",",
                     $"\"{r.Timestamp:yyyy-MM-dd HH:mm:ss}\"",
                     recordNum++,
                     FormatVal(r.Temperature),
                     FormatVal(r.Humidity),
                     FormatVal(r.Pressure),
-                    FormatVal(r.WindSpeed.HasValue ? r.WindSpeed / 3.6 : null), // km/h to m/s
+                    FormatVal(r.WindSpeed),
                     FormatVal(r.WindDirection),
-                    FormatVal(r.WindGust.HasValue ? r.WindGust / 3.6 : null),
+                    FormatVal(r.WindGust),
                     FormatVal(r.Rainfall),
                     FormatVal(r.SolarRadiation),
                     FormatVal(r.SoilTemperature),

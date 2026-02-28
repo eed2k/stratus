@@ -252,6 +252,28 @@ public class WeatherRecord
     /// <summary>Tooltip with comma-delimited issue descriptions.</summary>
     [JsonIgnore]
     public string QcSummary { get; set; } = "";
+
+    // ── Derived Parameters (computed locally, not from DB) ──
+
+    /// <summary>Vapour Pressure Deficit (kPa). Computed from T + RH.</summary>
+    [JsonIgnore]
+    public double? VPD { get; set; }
+
+    /// <summary>Heat Index (°C). Valid when T ≥ 27°C.</summary>
+    [JsonIgnore]
+    public double? HeatIndex { get; set; }
+
+    /// <summary>Wind Chill (°C). Valid when T ≤ 10°C and wind ≥ 4.8 km/h.</summary>
+    [JsonIgnore]
+    public double? WindChillTemp { get; set; }
+
+    /// <summary>Wet Bulb Temperature (°C). Stull (2011) approximation.</summary>
+    [JsonIgnore]
+    public double? WetBulb { get; set; }
+
+    /// <summary>Cumulative rainfall since start of dataset (mm).</summary>
+    [JsonIgnore]
+    public double CumulativeRainfall { get; set; }
 }
 
 /// <summary>

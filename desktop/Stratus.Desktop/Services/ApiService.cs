@@ -46,8 +46,11 @@ public class ApiService : IDisposable
             UseCookies = true,
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             ServerCertificateCustomValidationCallback = (_, cert, _, errors) =>
-                errors == System.Net.Security.SslPolicyErrors.None ||
-                _baseUrl.Contains("localhost") || _baseUrl.Contains("127.0.0.1")
+            {
+                if (errors == System.Net.Security.SslPolicyErrors.None) return true;
+                try { var host = new Uri(_baseUrl).Host; return host == "localhost" || host == "127.0.0.1"; }
+                catch { return false; }
+            }
         };
         _httpClient = new HttpClient(_handler)
         {
@@ -81,8 +84,11 @@ public class ApiService : IDisposable
             UseCookies = true,
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             ServerCertificateCustomValidationCallback = (_, cert, _, errors) =>
-                errors == System.Net.Security.SslPolicyErrors.None ||
-                _baseUrl.Contains("localhost") || _baseUrl.Contains("127.0.0.1")
+            {
+                if (errors == System.Net.Security.SslPolicyErrors.None) return true;
+                try { var host = new Uri(_baseUrl).Host; return host == "localhost" || host == "127.0.0.1"; }
+                catch { return false; }
+            }
         };
         _httpClient = new HttpClient(_handler)
         {

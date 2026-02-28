@@ -484,7 +484,7 @@ public partial class MainWindow : Window
 
     private void Report_Click(object sender, RoutedEventArgs e)
     {
-        var vm = (MainViewModel)DataContext;
+        if (DataContext is not MainViewModel vm) return;
         var dialog = new ReportDialog(vm.SelectedStation, vm.DataRecords.ToList())
         {
             Owner = this
@@ -494,7 +494,7 @@ public partial class MainWindow : Window
 
     private void Calibration_Click(object sender, RoutedEventArgs e)
     {
-        var vm = (MainViewModel)DataContext;
+        if (DataContext is not MainViewModel vm) return;
         var stationId = vm.SelectedStation?.Id ?? 0;
         var dialog = new CalibrationDialog(stationId)
         {
@@ -514,7 +514,7 @@ public partial class MainWindow : Window
 
     private void DataGap_Click(object sender, RoutedEventArgs e)
     {
-        var vm = (MainViewModel)DataContext;
+        if (DataContext is not MainViewModel vm) return;
         var station = vm.SelectedStation;
         var dialog = new DataGapDialog(station?.Id ?? 0, vm.DataRecords.ToList(), station?.Name)
         {
@@ -552,7 +552,7 @@ public partial class MainWindow : Window
 
     private void QcDashboard_Click(object sender, RoutedEventArgs e)
     {
-        var vm = (MainViewModel)DataContext;
+        if (DataContext is not MainViewModel vm) return;
         var window = new QualityDashboardWindow(vm.DataRecords.ToList(), vm.SelectedStation?.Name)
         {
             Owner = this

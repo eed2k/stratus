@@ -186,7 +186,7 @@ public partial class SerialMonitorWindow : Window
             LiveTemp.Text = record.Temperature.HasValue ? $"{record.Temperature:F1} °C" : "— °C";
             LiveHumidity.Text = record.Humidity.HasValue ? $"{record.Humidity:F1} %" : "— %";
             LivePressure.Text = record.Pressure.HasValue ? $"{record.Pressure:F1} hPa" : "— hPa";
-            LiveWind.Text = record.WindSpeed.HasValue ? $"{record.WindSpeed:F1} km/h" : "— km/h";
+            LiveWind.Text = record.WindSpeed.HasValue ? $"{record.WindSpeed:F1} m/s" : "— m/s";
             LiveWindDir.Text = record.WindDirection.HasValue ? $"{record.WindDirection:F0}°" : "— °";
             LiveRain.Text = record.Rainfall.HasValue ? $"{record.Rainfall:F1} mm" : "— mm";
             LiveSolar.Text = record.SolarRadiation.HasValue ? $"{record.SolarRadiation:F0} W/m²" : "— W/m²";

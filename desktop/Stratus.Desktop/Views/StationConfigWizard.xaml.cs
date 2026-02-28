@@ -203,7 +203,15 @@ public partial class StationConfigWizard : Window
         try
         {
             _loggerService = new LoggerConnectionService();
-            // Note: ConnectAsync is the proper way — simplified here for the wizard
+            var connected = _loggerService.ConnectAsync(port, baud, (ushort)(address > 0 ? address : 1))
+                .ConfigureAwait(false).GetAwaiter().GetResult();
+
+            if (!connected)
+            {
+                ConnectionStatusText.Text = $"Failed to connect to {port}";
+                return false;
+            }
+
             ConnectionStatusText.Text = $"Connected to {port} at {baud} baud";
             ConnectionStatus.Background = new System.Windows.Media.SolidColorBrush(
                 System.Windows.Media.Color.FromRgb(0xF1, 0xF5, 0xF9));

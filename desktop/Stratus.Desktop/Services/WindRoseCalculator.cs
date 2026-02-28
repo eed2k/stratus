@@ -47,14 +47,12 @@ public static class WindRoseCalculator
             if (r.WindDirection < 0 || r.WindDirection > 360) continue;
             if (r.WindSpeed < 0) continue;
 
-            // Convert km/h to m/s for wind rose categories
-            double speedMs = r.WindSpeed.Value / 3.6;
-
+            // Wind speed is already in m/s (canonical unit)
             var point = new WindDataPoint
             {
                 Date = r.Timestamp,
                 WindDirection = r.WindDirection.Value % 360.0, // Normalise 360 -> 0
-                WindSpeed = speedMs,
+                WindSpeed = r.WindSpeed.Value,
                 Daylight = DaylightCalculator.IsDaylight(r.Timestamp, latitude)
                     ? DaylightType.Daylight
                     : DaylightType.Nighttime,

@@ -102,7 +102,7 @@
                                 <TextBlock x:Name="LivePressure" Text="— hPa" FontFamily="Consolas" FontSize="16" FontWeight="Bold" Margin="0,0,0,6"/>
 
                                 <TextBlock Text="Wind Speed" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <TextBlock x:Name="LiveWind" Text="— km/h" FontFamily="Consolas" FontSize="16" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock x:Name="LiveWind" Text="— m/s" FontFamily="Consolas" FontSize="16" FontWeight="Bold" Margin="0,0,0,6"/>
 
                                 <TextBlock Text="Wind Direction" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                 <TextBlock x:Name="LiveWindDir" Text="— °" FontFamily="Consolas" FontSize="14" Margin="0,0,0,6"/>

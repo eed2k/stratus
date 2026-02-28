@@ -57,7 +57,7 @@ public static class UnitConversionService
         return parameter.ToLowerInvariant() switch
         {
             "temperature" or "dewpoint" or "soiltemperature" or "paneltemperature" => "°C",
-            "windspeed" or "windgust" => "km/h",
+            "windspeed" or "windgust" => "m/s",
             "pressure" or "pressuresealevel" => "hPa",
             "rainfall" or "rainfall24h" => "mm",
             "eto" or "eto24h" => "mm/day",

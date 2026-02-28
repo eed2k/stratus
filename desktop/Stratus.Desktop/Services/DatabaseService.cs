@@ -162,7 +162,7 @@ public class DatabaseService : IDisposable
                 StationType = reader.IsDBNull(6) ? null : reader.GetString(6),
                 Endpoint = apiEndpoint,
                 IsActive = !reader.IsDBNull(8) && reader.GetBoolean(8),
-                LastConnected = reader.IsDBNull(9) ? null : reader.GetDateTime(9),
+                LastConnected = reader.IsDBNull(9) ? null : DateTime.SpecifyKind(reader.GetDateTime(9), DateTimeKind.Utc),
                 Description = reader.IsDBNull(10) ? null : reader.GetString(10),
                 Protocol = reader.IsDBNull(11) ? null : reader.GetString(11),
                 ImageUrl = reader.IsDBNull(12) ? null : reader.GetString(12),

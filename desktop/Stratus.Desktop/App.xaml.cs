@@ -53,11 +53,11 @@ public partial class App : Application
             typeof(App).Assembly.GetName().Version);
 
         // Load configuration
-        // Always refresh cached config from built-in defaults to prevent stale URLs
+        // Copy default config only on first run to preserve user customizations
         var configPath = Path.Combine(appData, "appsettings.json");
         var defaultConfig = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-        if (File.Exists(defaultConfig))
-            File.Copy(defaultConfig, configPath, overwrite: true);
+        if (File.Exists(defaultConfig) && !File.Exists(configPath))
+            File.Copy(defaultConfig, configPath);
 
         _configuration = new ConfigurationBuilder()
             .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
@@ -112,6 +112,10 @@ public partial class App : Application
         ApplyUserSettings();
 
         Log.Information("Stratus Desktop initialised successfully");
+
+        // Show main window after all services are initialised (avoids StartupUri race)
+        var mainWindow = new MainWindow();
+        mainWindow.Show();
     }
 
     /// <summary>

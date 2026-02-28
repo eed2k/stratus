@@ -262,7 +262,7 @@
                                 <!-- Wind Speed Gauge -->
                                 <Border Margin="4" Visibility="{Binding LatestData.WindSpeed, Converter={StaticResource NullToVis}}">
                                     <controls:GaugeControl Value="{Binding LatestData.WindSpeed}" 
-                                        MinValue="0" MaxValue="120" Unit="km/h" Label="Wind Speed"
+                                        MinValue="0" MaxValue="75" Unit="m/s" Label="Wind Speed"
                                         ValueFormat="F1" AccentColor="#1D4ED8"
                                         Width="224" Height="224"/>
                                 </Border>
@@ -305,6 +305,20 @@
                                 <Border Margin="4" Visibility="{Binding LatestData.WaterLevel, Converter={StaticResource NullToVis}}">
                                     <controls:GaugeControl Value="{Binding LatestData.WaterLevel}" 
                                         MinValue="0" MaxValue="500" Unit="mm" Label="Water Level"
+                                        ValueFormat="F1" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
+                                <!-- VPD Gauge -->
+                                <Border Margin="4" Visibility="{Binding LatestData.VPD, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.VPD}" 
+                                        MinValue="0" MaxValue="5" Unit="kPa" Label="VPD"
+                                        ValueFormat="F2" AccentColor="#1D4ED8"
+                                        Width="224" Height="224"/>
+                                </Border>
+                                <!-- Wet Bulb Gauge -->
+                                <Border Margin="4" Visibility="{Binding LatestData.WetBulb, Converter={StaticResource NullToVis}}">
+                                    <controls:GaugeControl Value="{Binding LatestData.WetBulb}" 
+                                        MinValue="-10" MaxValue="35" Unit="°C" Label="Wet Bulb"
                                         ValueFormat="F1" AccentColor="#1D4ED8"
                                         Width="224" Height="224"/>
                                 </Border>
@@ -361,6 +375,12 @@
                                 <DataGridTextColumn Header="SoilT" Binding="{Binding SoilTemperature, StringFormat='{}{0:F1}'}" Width="*" MinWidth="40" CanUserResize="True"/>
                                 <DataGridTextColumn Header="SoilM" Binding="{Binding SoilMoisture, StringFormat='{}{0:F1}'}" Width="*" MinWidth="40" CanUserResize="True"/>
                                 <DataGridTextColumn Header="Batt" Binding="{Binding BatteryVoltage, StringFormat='{}{0:F2}'}" Width="*" MinWidth="40" CanUserResize="True"/>
+                                <!-- Derived parameters -->
+                                <DataGridTextColumn Header="VPD" Binding="{Binding VPD, StringFormat='{}{0:F2}'}" Width="*" MinWidth="40" CanUserResize="True"/>
+                                <DataGridTextColumn Header="HeatIdx" Binding="{Binding HeatIndex, StringFormat='{}{0:F1}'}" Width="*" MinWidth="45" CanUserResize="True"/>
+                                <DataGridTextColumn Header="WChill" Binding="{Binding WindChillTemp, StringFormat='{}{0:F1}'}" Width="*" MinWidth="45" CanUserResize="True"/>
+                                <DataGridTextColumn Header="WetBulb" Binding="{Binding WetBulb, StringFormat='{}{0:F1}'}" Width="*" MinWidth="45" CanUserResize="True"/>
+                                <DataGridTextColumn Header="Σ Rain" Binding="{Binding CumulativeRainfall, StringFormat='{}{0:F1}'}" Width="*" MinWidth="45" CanUserResize="True"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -573,9 +593,9 @@
 
                         <GroupBox Grid.Row="2" Style="{StaticResource StratusGroupBox}" Header="Export Formats">
                             <WrapPanel Orientation="Horizontal">
-                                <Button Content="Export TOA5 (30d)" Style="{StaticResource PrimaryButton}"
+                                <Button Content="Export TOA5 CSV" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding ExportDataCommand}" Padding="16,8" Margin="0,0,8,8"
-                                        ToolTip="Campbell Scientific TOA5 format with 4-line header"/>
+                                        ToolTip="Campbell Scientific TOA5 format (uses current time range)"/>
                                 <Button Content="Export JSON" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding ExportJsonCommand}" Padding="16,8" Margin="0,0,8,8"
                                         ToolTip="Export loaded records as formatted JSON"/>
@@ -589,13 +609,40 @@
                         </GroupBox>
 
                         <!-- Statistics Summary -->
-                        <GroupBox Grid.Row="3" Style="{StaticResource StratusGroupBox}" Header="Statistics Summary (Min / Max / Avg / StdDev)">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <TextBlock Text="{Binding StatisticsSummary}" 
-                                           FontFamily="{StaticResource MonoFont}" FontSize="11"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           TextWrapping="NoWrap"/>
-                            </ScrollViewer>
+                        <GroupBox Grid.Row="3" Style="{StaticResource StratusGroupBox}" Header="Statistics + Derived Parameters (VPD, Heat Index, Wind Chill, Wet Bulb)">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Data Aggregation Controls -->
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="Aggregate:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox ItemsSource="{Binding AggregationOptions}" 
+                                              SelectedItem="{Binding SelectedAggregation}" Width="120" Margin="0,0,8,0"/>
+                                    <Button Content="Run Aggregation" Style="{StaticResource PrimaryButton}"
+                                            Command="{Binding RunAggregationCommand}" Padding="12,4" Margin="0,0,16,0"/>
+                                    <TextBlock Text="Derived: VPD, Heat Index, Wind Chill, Wet Bulb, Cumul. Rainfall computed automatically"
+                                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Aggregation Results -->
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                                    <TextBlock Text="{Binding AggregationSummary}" 
+                                               FontFamily="{StaticResource MonoFont}" FontSize="10"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextWrapping="NoWrap" Margin="0,0,0,8"/>
+                                </ScrollViewer>
+
+                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                    <TextBlock Text="{Binding StatisticsSummary}" 
+                                               FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextWrapping="NoWrap"/>
+                                </ScrollViewer>
+                            </Grid>
                         </GroupBox>
                     </Grid>
                 </TabItem>

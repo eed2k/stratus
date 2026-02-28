@@ -149,7 +149,10 @@ public partial class MainViewModel : ObservableObject
             });
         };
 
-        _daqService.StatusChanged += (_, msg) => StatusText = msg;
+        _daqService.StatusChanged += (_, msg) =>
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() => StatusText = msg);
+        };
 
         // Check license
         var license = App.LicenseService.GetLicense();
@@ -286,8 +289,9 @@ public partial class MainViewModel : ObservableObject
 
             if (SelectedTimeRange == "Custom" && IsCustomRange)
             {
-                startTime = CustomStartDate.Date;
-                endTime = CustomEndDate.Date.AddDays(1).AddSeconds(-1);
+                // Convert local DatePicker values to UTC for DB/API queries
+                startTime = CustomStartDate.Date.ToUniversalTime();
+                endTime = CustomEndDate.Date.AddDays(1).AddSeconds(-1).ToUniversalTime();
             }
             else
             {
@@ -323,6 +327,9 @@ public partial class MainViewModel : ObservableObject
             if (records.Count > 0)
                 LatestData = records.OrderByDescending(r => r.Timestamp).First();
 
+            // Compute derived parameters (VPD, heat index, wind chill, wet bulb, cumulative rain)
+            ComputeDerivedParameters(records);
+
             // Apply QC/QA flags to loaded records
             ApplyQualityFlags(records);
 
@@ -353,9 +360,10 @@ public partial class MainViewModel : ObservableObject
         }
         else
         {
-            _daqService.StartCollection(60);
+            var interval = _daqService.PollIntervalSeconds > 0 ? _daqService.PollIntervalSeconds : 60;
+            _daqService.StartCollection(interval);
             IsCollecting = true;
-            AddLog("[INFO] Data collection started (60s interval)");
+            AddLog($"[INFO] Data collection started ({interval}s interval)");
         }
     }
 
@@ -364,8 +372,27 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedStation == null) return;
 
-        var endTime = DateTime.UtcNow;
-        var startTime = endTime.AddDays(-30);
+        DateTime endTime, startTime;
+        if (SelectedTimeRange == "Custom" && IsCustomRange)
+        {
+            startTime = CustomStartDate.Date.ToUniversalTime();
+            endTime = CustomEndDate.Date.AddDays(1).AddSeconds(-1).ToUniversalTime();
+        }
+        else
+        {
+            endTime = DateTime.UtcNow;
+            startTime = SelectedTimeRange switch
+            {
+                "1h" => endTime.AddHours(-1),
+                "6h" => endTime.AddHours(-6),
+                "24h" => endTime.AddHours(-24),
+                "48h" => endTime.AddHours(-48),
+                "7d" => endTime.AddDays(-7),
+                "30d" => endTime.AddDays(-30),
+                "90d" => endTime.AddDays(-90),
+                _ => endTime.AddDays(-30)
+            };
+        }
 
         var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         var exportDir = System.IO.Path.Combine(docs, "Stratus");
@@ -446,8 +473,8 @@ public partial class MainViewModel : ObservableObject
         Stat("Temperature",     "°C",   r => r.Temperature);
         Stat("Humidity",        "%",    r => r.Humidity);
         Stat("Pressure",        "hPa",  r => r.Pressure);
-        Stat("Wind Speed",      "km/h", r => r.WindSpeed);
-        Stat("Wind Gust",       "km/h", r => r.WindGust);
+        Stat("Wind Speed",      "m/s",  r => r.WindSpeed);
+        Stat("Wind Gust",       "m/s",  r => r.WindGust);
         Stat("Rainfall",        "mm",   r => r.Rainfall);
         Stat("Solar Radiation", "W/m²", r => r.SolarRadiation);
         Stat("UV Index",        "",     r => r.UvIndex);
@@ -458,8 +485,98 @@ public partial class MainViewModel : ObservableObject
         Stat("Battery Voltage", "V",    r => r.BatteryVoltage);
         Stat("Water Level",     "mm",   r => r.WaterLevel);
 
+        // Derived parameters
+        Stat("VPD",             "kPa",  r => r.VPD);
+        Stat("Heat Index",      "°C",   r => r.HeatIndex);
+        Stat("Wind Chill",      "°C",   r => r.WindChillTemp);
+        Stat("Wet Bulb",        "°C",   r => r.WetBulb);
+        Stat("Cumul. Rainfall", "mm",   r => r.CumulativeRainfall > 0 ? r.CumulativeRainfall : null);
+
         StatisticsSummary = sb.ToString();
     }
+
+    /// <summary>
+    /// Computes derived agricultural/meteorological parameters for each record:
+    /// VPD, Heat Index, Wind Chill, Wet Bulb Temperature, Cumulative Rainfall.
+    /// </summary>
+    private void ComputeDerivedParameters(List<WeatherRecord> records)
+    {
+        double cumulativeRain = 0;
+        foreach (var r in records.OrderBy(r => r.Timestamp))
+        {
+            if (r.Temperature.HasValue && r.Humidity.HasValue)
+            {
+                r.VPD = AgriculturalCalculationService.VPD(r.Temperature.Value, r.Humidity.Value);
+                r.HeatIndex = AgriculturalCalculationService.HeatIndex(r.Temperature.Value, r.Humidity.Value);
+                r.WetBulb = AgriculturalCalculationService.WetBulbTemperature(r.Temperature.Value, r.Humidity.Value);
+
+                if (r.WindSpeed.HasValue)
+                    r.WindChillTemp = AgriculturalCalculationService.WindChill(r.Temperature.Value, r.WindSpeed.Value);
+
+                // Compute dew point if not already provided by the logger
+                if (!r.DewPoint.HasValue)
+                    r.DewPoint = AgriculturalCalculationService.DewPoint(r.Temperature.Value, r.Humidity.Value);
+            }
+
+            cumulativeRain += r.Rainfall ?? 0;
+            r.CumulativeRainfall = cumulativeRain;
+        }
+    }
+
+    // ── Aggregation ──
+
+    [ObservableProperty] private string _selectedAggregation = "Raw";
+    public string[] AggregationOptions { get; } = { "Raw", "Hourly", "Daily", "Weekly", "Monthly" };
+    [ObservableProperty] private string _aggregationSummary = "";
+
+    [RelayCommand]
+    private void RunAggregation()
+    {
+        if (DataRecords.Count == 0) return;
+
+        if (SelectedAggregation == "Raw")
+        {
+            AggregationSummary = "";
+            return;
+        }
+
+        var period = SelectedAggregation switch
+        {
+            "Hourly" => AgriculturalCalculationService.AggregationPeriod.Hourly,
+            "Daily" => AgriculturalCalculationService.AggregationPeriod.Daily,
+            "Weekly" => AgriculturalCalculationService.AggregationPeriod.Weekly,
+            "Monthly" => AgriculturalCalculationService.AggregationPeriod.Monthly,
+            _ => AgriculturalCalculationService.AggregationPeriod.Daily
+        };
+
+        var aggregated = AgriculturalCalculationService.Aggregate(DataRecords, period);
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"{SelectedAggregation} Summary — {aggregated.Count} periods from {DataRecords.Count} raw records");
+        sb.AppendLine(new string('═', 80));
+        sb.AppendLine($"{"Period",-20} {"T Avg",7} {"T Min",7} {"T Max",7} {"RH %",6} {"Wind",6} {"Rain",7} {"Solar",7} {"VPD",6} {"Batt",6} {"n",4}");
+        sb.AppendLine(new string('─', 80));
+
+        foreach (var a in aggregated)
+        {
+            sb.AppendLine($"{a.PeriodLabel,-20} " +
+                $"{Fmt(a.TemperatureAvg),7} {Fmt(a.TemperatureMin),7} {Fmt(a.TemperatureMax),7} " +
+                $"{Fmt(a.HumidityAvg),6} {Fmt(a.WindSpeedAvg),6} {Fmt(a.RainfallTotal),7} " +
+                $"{Fmt(a.SolarRadiationAvg),7} {Fmt(a.VPD),6} {Fmt(a.BatteryVoltageMin),6} {a.RecordCount,4}");
+        }
+
+        // Totals
+        var totalRain = aggregated.Sum(a => a.RainfallTotal ?? 0);
+        var totalEto = aggregated.Sum(a => a.EtoTotal ?? 0);
+        sb.AppendLine(new string('─', 80));
+        sb.AppendLine($"{"TOTALS",-20} {"",7} {"",7} {"",7} {"",6} {"",6} {totalRain,7:F1} {"",7} {"",6} {"",6} {DataRecords.Count,4}");
+        if (totalEto > 0) sb.AppendLine($"  Total ETo: {totalEto:F1} mm");
+
+        AggregationSummary = sb.ToString();
+        AddLog($"[CALC] {SelectedAggregation} aggregation: {aggregated.Count} periods");
+    }
+
+    private static string Fmt(double? v) => v.HasValue ? v.Value.ToString("F1") : "—";
 
     [RelayCommand]
     private async Task ConnectDatabaseAsync(string connectionString)
@@ -503,12 +620,11 @@ public partial class MainViewModel : ObservableObject
     {
         if (value != null)
         {
-            _ = Task.Run(async () =>
+            System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 try
                 {
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(
-                        async () => await LoadDataAsync());
+                    await LoadDataAsync();
                 }
                 catch (Exception ex)
                 {
@@ -523,12 +639,11 @@ public partial class MainViewModel : ObservableObject
         IsCustomRange = value == "Custom";
         if (SelectedStation != null && value != "Custom")
         {
-            _ = Task.Run(async () =>
+            System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 try
                 {
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(
-                        async () => await LoadDataAsync());
+                    await LoadDataAsync();
                 }
                 catch (Exception ex)
                 {
@@ -549,7 +664,7 @@ public partial class MainViewModel : ObservableObject
             LatestData = record;
             StatusText = $"Logger data: {record.Timestamp:HH:mm:ss}";
             AddLog($"[LOGGER] T={record.Temperature:F1}°C RH={record.Humidity:F0}% " +
-                   $"P={record.Pressure:F1}hPa WS={record.WindSpeed:F1}km/h Batt={record.BatteryVoltage:F2}V");
+                   $"P={record.Pressure:F1}hPa WS={record.WindSpeed:F1}m/s Batt={record.BatteryVoltage:F2}V");
         });
     }
 
@@ -573,10 +688,10 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var qcService = App.QualityFlagService;
-            var results = qcService.EvaluateDataset(records);
-
-            // Map results back to records (both are ordered ascending by timestamp)
+            // Sort records before QC evaluation so results[i] matches ordered[i]
             var ordered = records.OrderBy(r => r.Timestamp).ToList();
+            var results = qcService.EvaluateDataset(ordered);
+
             for (int i = 0; i < ordered.Count && i < results.Count; i++)
             {
                 ordered[i].QcFlag = (int)results[i].OverallFlag;
@@ -725,10 +840,10 @@ public partial class MainViewModel : ObservableObject
         var windPts = Pts(x => x.WindSpeed);
         var gustPts = Pts(x => x.WindGust);
         var windList = new List<ISeries>();
-        if (windPts.Count > 0) windList.Add(Line(windPts, "Wind Speed (km/h)", 0x1D, 0x4E, 0xD8));
-        if (gustPts.Count > 0) windList.Add(Line(gustPts, "Wind Gust (km/h)", 0x1E, 0x29, 0x3B));
+        if (windPts.Count > 0) windList.Add(Line(windPts, "Wind Speed (m/s)", 0x1D, 0x4E, 0xD8));
+        if (gustPts.Count > 0) windList.Add(Line(gustPts, "Wind Gust (m/s)", 0x1E, 0x29, 0x3B));
         HasWind = windList.Count > 0;
-        WindImage = HasWind ? Render("Wind Speed", windList.ToArray(), MakeYAxes("Speed (km/h)", "F0", minLimit: 0)) : null;
+        WindImage = HasWind ? Render("Wind Speed", windList.ToArray(), MakeYAxes("Speed (m/s)", "F0", minLimit: 0)) : null;
         if (HasWind) chartCount++;
 
         // ── Wind Direction ──

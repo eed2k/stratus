@@ -43,17 +43,20 @@ public partial class QualityDashboardWindow : Window
             _results = _qcService.EvaluateDataset(_records);
             _summary = _qcService.Summarise(_records, _results);
 
-            // Build qualified records list
-            var ordered = _records.OrderBy(r => r.Timestamp).ToList();
-            _qualifiedRecords = new List<QualifiedRecord>(ordered.Count);
-            for (int i = 0; i < ordered.Count; i++)
+            // Build qualified records list — use original _records order (matches _results index)
+            _qualifiedRecords = new List<QualifiedRecord>(_records.Count);
+            for (int i = 0; i < _records.Count; i++)
             {
                 _qualifiedRecords.Add(new QualifiedRecord
                 {
-                    Record = ordered[i],
+                    Record = _records[i],
                     Quality = _results[i],
                 });
             }
+
+            // Sort for display after pairing
+            _qualifiedRecords = _qualifiedRecords.OrderBy(qr => qr.Record.Timestamp).ToList();
+            var ordered = _qualifiedRecords.Select(qr => qr.Record).ToList();
 
             UpdateScorcards();
             UpdateQualityBar();

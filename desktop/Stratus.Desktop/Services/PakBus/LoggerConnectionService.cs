@@ -247,7 +247,7 @@ public class LoggerConnectionService : IDisposable
                 var latest = records[^1]; // Most recent
                 var weatherRecord = MapToWeatherRecord(latest);
                 LogMonitor($"[DATA] T={weatherRecord.Temperature:F1}°C RH={weatherRecord.Humidity:F0}% " +
-                    $"P={weatherRecord.Pressure:F1}hPa WS={weatherRecord.WindSpeed:F1}km/h " +
+                    $"P={weatherRecord.Pressure:F1}hPa WS={weatherRecord.WindSpeed:F1}m/s " +
                     $"WD={weatherRecord.WindDirection:F0}° Rain={weatherRecord.Rainfall:F1}mm " +
                     $"Solar={weatherRecord.SolarRadiation:F0}W/m² Batt={weatherRecord.BatteryVoltage:F2}V");
                 DataReceived?.Invoke(this, weatherRecord);
@@ -304,21 +304,21 @@ public class LoggerConnectionService : IDisposable
             else if (MatchesAny(upperKey, "DEWPOINT", "DP", "DEW"))
                 record.DewPoint = dVal;
 
-            // Wind speed (some loggers report m/s, convert to km/h for Stratus)
+            // Wind speed — keep in m/s (Campbell canonical unit)
             else if (MatchesAny(upperKey, "WS_MS", "WINDSPD", "WS_AVG", "WIND_SPEED"))
-                record.WindSpeed = dVal * 3.6; // m/s → km/h
+                record.WindSpeed = dVal; // already m/s
             else if (MatchesAny(upperKey, "WINDSPD_KMH", "WS_KMH"))
-                record.WindSpeed = dVal;
+                record.WindSpeed = dVal / 3.6; // km/h → m/s
 
             // Wind direction
             else if (MatchesAny(upperKey, "WINDDIR", "WD", "WIND_DIR", "WINDDIR_D1_WVT", "WDIR"))
                 record.WindDirection = dVal;
 
-            // Wind gust
+            // Wind gust — keep in m/s
             else if (MatchesAny(upperKey, "WS_MS_MAX", "GUST", "WS_MAX", "WIND_GUST"))
-                record.WindGust = dVal * 3.6; // m/s → km/h
+                record.WindGust = dVal; // already m/s
             else if (MatchesAny(upperKey, "GUST_KMH"))
-                record.WindGust = dVal;
+                record.WindGust = dVal / 3.6; // km/h → m/s
 
             // Rainfall
             else if (MatchesAny(upperKey, "RAIN_MM", "RAINFALL", "RAIN", "PRECIP", "RAIN_MM_TOT"))
