@@ -45,7 +45,7 @@ const ingestRateLimiter = rateLimit({
 // - dnp3: DNP3 SCADA protocol
 const VALID_CONNECTION_TYPES = [
   'dropbox', 'http_post', 'tcp_ip', 'tcp', 'ip', 'wifi', 'http',
-  'lora', 'gsm', '4g', 'mqtt', 'satellite', 'modbus', 'dnp3', 'pakbus', 'demo', 'rikacloud'
+  'lora', 'gsm', '4g', 'mqtt', 'satellite', 'modbus', 'dnp3', 'pakbus', 'demo', 'rikacloud', 'arduino_iot'
 ] as const;
 
 const insertWeatherStationSchema = z.object({
@@ -572,6 +572,7 @@ export async function registerRoutes(
         'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
         'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
         'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus', 'rikacloud': 'http',
+        'arduino_iot': 'http',
       };
       
       await protocolManager.registerStation(stationId, {
@@ -1063,6 +1064,7 @@ export async function registerRoutes(
             'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
             'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
             'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus', 'rikacloud': 'http',
+            'arduino_iot': 'http',
           };
           
           await protocolManager.registerStation(station.id, {
@@ -1181,6 +1183,7 @@ export async function registerRoutes(
               'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
               'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
               'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus', 'rikacloud': 'http',
+              'arduino_iot': 'http',
             };
             
             await protocolManager.registerStation(station.id, {
