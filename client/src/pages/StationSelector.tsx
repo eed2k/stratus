@@ -290,10 +290,16 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                       </div>
 
                     </>
+                  ) : station.lastReading?.timestamp ? (
+                    <div>
+                      <Badge variant="outline" className="border-black text-black bg-transparent text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                        {formatTimeSince(new Date(station.lastReading.timestamp).toISOString())} &middot; {formatLastSync(new Date(station.lastReading.timestamp).toISOString())}
+                      </Badge>
+                    </div>
                   ) : (
                     <div>
-                      <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50 text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                        Awaiting Data
+                      <Badge variant="outline" className="border-gray-300 text-gray-500 bg-transparent text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                        No data yet
                       </Badge>
                     </div>
                   )}

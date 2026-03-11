@@ -13,9 +13,9 @@ interface TimezoneInfo {
  * Uses simple geographic bounds for common South African and regional timezones
  */
 export function getTimezoneFromCoordinates(latitude: number, longitude: number): TimezoneInfo {
-  // South Africa: SAST (UTC+2) - covers most of southern Africa
-  // Bounds: roughly -22° to -35° lat, 16° to 33° lon
-  if (latitude >= -35 && latitude <= -22 && longitude >= 16 && longitude <= 33) {
+  // South Africa & Namibia: SAST/WAT (UTC+2) - covers southern Africa
+  // Bounds: roughly -35° to -17° lat, 11° to 33° lon
+  if (latitude >= -35 && latitude <= -17 && longitude >= 11 && longitude <= 33) {
     return {
       name: 'Africa/Johannesburg',
       offset: 2,

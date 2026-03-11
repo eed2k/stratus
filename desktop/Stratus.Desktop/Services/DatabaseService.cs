@@ -350,7 +350,10 @@ public class DatabaseService : IDisposable
 
     /// <summary>
     /// Inserts a single weather record into the database.
-    /// Used by the offline buffer service for syncing buffered records.
+    /// The production weather_data table stores all measurements in a JSONB 'data' column.
+    /// This method builds a JSON object from the WeatherRecord fields and inserts it,
+    /// matching the server's INSERT pattern (station_id, table_name, record_number, timestamp, data).
+    /// Used by the offline buffer service and data gap backfill.
     /// </summary>
     public async Task<bool> InsertWeatherRecordAsync(WeatherRecord record)
     {
@@ -358,32 +361,70 @@ public class DatabaseService : IDisposable
 
         try
         {
+            // Build the JSONB data object from all available fields
+            var dataDict = new Dictionary<string, object>();
+            void Add(string key, double? val) { if (val.HasValue) dataDict[key] = val.Value; }
+
+            Add("temperature", record.Temperature);
+            Add("temperatureMin", record.TemperatureMin);
+            Add("temperatureMax", record.TemperatureMax);
+            Add("humidity", record.Humidity);
+            Add("pressure", record.Pressure);
+            Add("pressureSeaLevel", record.PressureSeaLevel);
+            Add("dewPoint", record.DewPoint);
+            Add("airDensity", record.AirDensity);
+            Add("windSpeed", record.WindSpeed);
+            Add("windDirection", record.WindDirection);
+            Add("windGust", record.WindGust);
+            Add("windGust10min", record.WindGust10min);
+            Add("windPower", record.WindPower);
+            Add("windDirStdDev", record.WindDirStdDev);
+            Add("sdi12WindVector", record.Sdi12WindVector);
+            Add("rainfall", record.Rainfall);
+            Add("rainfall10min", record.Rainfall10min);
+            Add("rainfall24h", record.Rainfall24h);
+            Add("solarRadiation", record.SolarRadiation);
+            Add("solarRadiationMax", record.SolarRadiationMax);
+            Add("uvIndex", record.UvIndex);
+            Add("sunElevation", record.SunElevation);
+            Add("sunAzimuth", record.SunAzimuth);
+            Add("eto", record.Eto);
+            Add("eto24h", record.Eto24h);
+            Add("soilTemperature", record.SoilTemperature);
+            Add("soilMoisture", record.SoilMoisture);
+            Add("leafWetness", record.LeafWetness);
+            Add("pm25", record.Pm25);
+            Add("pm10", record.Pm10);
+            Add("pm1", record.Pm1);
+            Add("co2", record.Co2);
+            Add("tvoc", record.Tvoc);
+            Add("batteryVoltage", record.BatteryVoltage);
+            Add("panelTemperature", record.PanelTemperature);
+            Add("chargerVoltage", record.ChargerVoltage);
+            Add("waterLevel", record.WaterLevel);
+            Add("temperatureSwitch", record.TemperatureSwitch);
+            Add("levelSwitch", record.LevelSwitch);
+            Add("temperatureSwitchOutlet", record.TemperatureSwitchOutlet);
+            Add("levelSwitchStatus", record.LevelSwitchStatus);
+            Add("lightning", record.Lightning);
+            Add("pumpSelectWell", record.PumpSelectWell);
+            Add("pumpSelectBore", record.PumpSelectBore);
+            Add("portStatusC1", record.PortStatusC1);
+            Add("portStatusC2", record.PortStatusC2);
+
+            var jsonData = JsonSerializer.Serialize(dataDict);
+
             await using var cmd = _dataSource.CreateCommand(@"
-                INSERT INTO weather_data (station_id, timestamp, temperature, humidity, pressure, 
-                    dew_point, wind_speed, wind_direction, wind_gust, rainfall, solar_radiation, 
-                    uv_index, soil_temperature, soil_moisture, battery_voltage, pm25, pm10, co2)
-                VALUES (@sid, @ts, @temp, @hum, @pres, @dew, @ws, @wd, @wg, @rain, @sol, 
-                    @uv, @st, @sm, @bv, @pm25, @pm10, @co2)
-                ON CONFLICT (station_id, timestamp) DO NOTHING");
+                INSERT INTO weather_data (station_id, table_name, record_number, timestamp, data)
+                VALUES (@sid, @tbl, @rn, @ts, @data::jsonb)
+                ON CONFLICT (station_id, table_name, timestamp) 
+                DO UPDATE SET data = EXCLUDED.data, collected_at = CURRENT_TIMESTAMP");
 
             cmd.Parameters.AddWithValue("sid", record.StationId);
+            cmd.Parameters.AddWithValue("tbl", "Desktop");
+            cmd.Parameters.AddWithValue("rn", (object?)null ?? DBNull.Value);
             cmd.Parameters.AddWithValue("ts", record.Timestamp);
-            AddNullableParam(cmd, "temp", record.Temperature);
-            AddNullableParam(cmd, "hum", record.Humidity);
-            AddNullableParam(cmd, "pres", record.Pressure);
-            AddNullableParam(cmd, "dew", record.DewPoint);
-            AddNullableParam(cmd, "ws", record.WindSpeed);
-            AddNullableParam(cmd, "wd", record.WindDirection);
-            AddNullableParam(cmd, "wg", record.WindGust);
-            AddNullableParam(cmd, "rain", record.Rainfall);
-            AddNullableParam(cmd, "sol", record.SolarRadiation);
-            AddNullableParam(cmd, "uv", record.UvIndex);
-            AddNullableParam(cmd, "st", record.SoilTemperature);
-            AddNullableParam(cmd, "sm", record.SoilMoisture);
-            AddNullableParam(cmd, "bv", record.BatteryVoltage);
-            AddNullableParam(cmd, "pm25", record.Pm25);
-            AddNullableParam(cmd, "pm10", record.Pm10);
-            AddNullableParam(cmd, "co2", record.Co2);
+            cmd.Parameters.AddWithValue("data", jsonData);
 
             await cmd.ExecuteNonQueryAsync();
             return true;

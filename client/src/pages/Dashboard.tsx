@@ -374,10 +374,23 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     refetchInterval: dashboardConfig.updatePeriod * 1000, // Auto-refresh based on config
   });
 
+  // Fetch the actual data time range for this station (used for historical-only stations)
+  const { data: dataRange } = useQuery<{ earliest: string; latest: string; count: number }>({
+    queryKey: ["/api/stations", activeStationId, "data", "range"],
+    queryFn: async () => {
+      if (!activeStationId) return null;
+      const res = await authFetch(`/api/stations/${activeStationId}/data/range`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!activeStationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Fetch historical data for charts and wind roses (based on configured time range)
-  // Auto-expands to 30 days if no data found in the requested window
+  // Auto-expands to 30 days, then falls back to station's actual data range
   const { data: historicalData = [], refetch: refetchHistorical } = useQuery<WeatherData[]>({
-    queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange],
+    queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange, dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
       const endTime = new Date();
@@ -396,7 +409,19 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           `/api/stations/${activeStationId}/data?startTime=${expandedStart.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`
         );
         if (!fallback.ok) return [];
-        return fallback.json();
+        const fallbackData = await fallback.json();
+        if (Array.isArray(fallbackData) && fallbackData.length > 0) return fallbackData;
+        // Final fallback: use station's actual data range (for historical-only stations)
+        if (dataRange?.latest) {
+          const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000); // +1min buffer
+          const rangeStart = new Date(rangeEnd.getTime() - dashboardConfig.chartTimeRange * 60 * 60 * 1000);
+          const rangeFallback = await authFetch(
+            `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=${limit}`
+          );
+          if (!rangeFallback.ok) return [];
+          return rangeFallback.json();
+        }
+        return [];
       }
       return data;
     },
@@ -409,7 +434,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Separate query for 7-day stats data (always fetches 7 days regardless of chart time range)
   const statsTimeRangeHours = 7 * 24; // 168 hours = 7 days
   const { data: statsData = [] } = useQuery<WeatherData[]>({
-    queryKey: ["/api/stations", activeStationId, "data", "stats-7d"],
+    queryKey: ["/api/stations", activeStationId, "data", "stats-7d", dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
       const endTime = new Date();
@@ -418,7 +443,17 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=500`
       );
       if (!response.ok) return [];
-      return response.json();
+      const data = await response.json();
+      if (Array.isArray(data) && data.length === 0 && dataRange?.latest) {
+        const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
+        const rangeStart = new Date(rangeEnd.getTime() - statsTimeRangeHours * 60 * 60 * 1000);
+        const fallback = await authFetch(
+          `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=500`
+        );
+        if (!fallback.ok) return [];
+        return fallback.json();
+      }
+      return data;
     },
     enabled: !!activeStationId,
     refetchInterval: Math.max(dashboardConfig.updatePeriod, 300) * 1000, // Min 5min for stats refresh
@@ -427,7 +462,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Separate 31-day query for dew point chart (always fetches 31 days regardless of dashboard time range)
   const { data: dewPointData31d = [] } = useQuery<WeatherData[]>({
-    queryKey: ["/api/stations", activeStationId, "data", "dewpoint-31d"],
+    queryKey: ["/api/stations", activeStationId, "data", "dewpoint-31d", dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
       const endTime = new Date();
@@ -436,7 +471,17 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=1500`
       );
       if (!response.ok) return [];
-      return response.json();
+      const data = await response.json();
+      if (Array.isArray(data) && data.length === 0 && dataRange?.latest) {
+        const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
+        const rangeStart = new Date(rangeEnd.getTime() - 31 * 24 * 60 * 60 * 1000);
+        const fallback = await authFetch(
+          `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=1500`
+        );
+        if (!fallback.ok) return [];
+        return fallback.json();
+      }
+      return data;
     },
     enabled: !!activeStationId,
     refetchInterval: 30 * 60 * 1000, // Refresh every 30 minutes
@@ -453,9 +498,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   }, [dewPointData31d, selectedStation?.latitude, selectedStation?.altitude]);
 
   // Separate query for historical charts section (uses its own independent time range)
-  // Auto-expands to 30 days if no data found in the requested window
+  // Auto-expands to 30 days, then falls back to station's actual data range
   const { data: historicalSectionData = [], isLoading: historicalSectionLoading } = useQuery<WeatherData[]>({
-    queryKey: ["/api/stations", activeStationId, "data", "historical-section", historicalChartRange],
+    queryKey: ["/api/stations", activeStationId, "data", "historical-section", historicalChartRange, dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
       const endTime = new Date();
@@ -472,7 +517,19 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           `/api/stations/${activeStationId}/data?startTime=${expandedStart.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`
         );
         if (!fallback.ok) return [];
-        return fallback.json();
+        const fallbackData = await fallback.json();
+        if (Array.isArray(fallbackData) && fallbackData.length > 0) return fallbackData;
+        // Final fallback: use station's actual data range
+        if (dataRange?.latest) {
+          const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
+          const rangeStart = new Date(rangeEnd.getTime() - historicalChartRange * 60 * 60 * 1000);
+          const rangeFallback = await authFetch(
+            `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=${limit}`
+          );
+          if (!rangeFallback.ok) return [];
+          return rangeFallback.json();
+        }
+        return [];
       }
       return data;
     },

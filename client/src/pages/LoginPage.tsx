@@ -13,7 +13,7 @@ interface LoginPageProps {
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [, setLocation] = useLocation();
-  const [loginType, setLoginType] = useState<'admin' | 'user'>('admin');
+  const [loginType, setLoginType] = useState<'admin' | 'user'>('user');
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -83,18 +83,28 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <Tabs value={loginType} onValueChange={(v) => setLoginType(v as 'admin' | 'user')} className="mb-6">
               <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 h-12">
                 <TabsTrigger 
+                  value="user" 
+                  className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-10 font-medium"
+                >
+                  Client Login
+                </TabsTrigger>
+                <TabsTrigger 
                   value="admin" 
                   className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-10 font-medium"
                 >
                   Admin Login
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="user" 
-                  className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-10 font-medium"
-                >
-                  User Login
-                </TabsTrigger>
               </TabsList>
+              <TabsContent value="user" className="mt-4">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3">
+                  <p className="text-sm text-emerald-800 text-center font-medium">
+                    Client Access
+                  </p>
+                  <p className="text-xs text-emerald-600 text-center mt-1">
+                    View data from your assigned weather stations
+                  </p>
+                </div>
+              </TabsContent>
               <TabsContent value="admin" className="mt-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                   <p className="text-sm text-blue-800 text-center font-medium">
@@ -102,16 +112,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   </p>
                   <p className="text-xs text-blue-600 text-center mt-1">
                     Full access to all stations, settings, and user management
-                  </p>
-                </div>
-              </TabsContent>
-              <TabsContent value="user" className="mt-4">
-                <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3">
-                  <p className="text-sm text-emerald-800 text-center font-medium">
-                    User Access
-                  </p>
-                  <p className="text-xs text-emerald-600 text-center mt-1">
-                    View data from your assigned weather stations
                   </p>
                 </div>
               </TabsContent>
@@ -155,7 +155,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 className={`w-full text-white ${loginType === 'admin' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                 disabled={isLoading}
               >
-                {isLoading ? "Signing in..." : `Sign In as ${loginType === 'admin' ? 'Admin' : 'User'}`}
+                {isLoading ? "Signing in..." : `Sign In as ${loginType === 'admin' ? 'Admin' : 'Client'}`}
               </Button>
               
               <div className="text-center">
@@ -174,10 +174,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         {/* Info Text */}
         <div className="text-center text-sm text-gray-500 space-y-2">
           <p>
-            <strong>Admins:</strong> Full access to all settings, stations, and user management.
+            <strong>Clients:</strong> Can view data from assigned stations only.
           </p>
           <p>
-            <strong>Users:</strong> Can view data from assigned stations only.
+            <strong>Admins:</strong> Full access to all settings, stations, and user management.
           </p>
         </div>
 
@@ -185,9 +185,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="text-center space-y-1">
           <p className="text-xs text-gray-600">
             Stratus Weather Station Server v1.1.0
-          </p>
-          <p className="text-xs text-gray-500">
-            &copy; 2025-2026 Lukas Esterhuizen
           </p>
         </div>
       </div>

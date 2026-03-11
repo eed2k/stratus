@@ -74,21 +74,18 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   
   // Detect the server's network address
   useEffect(() => {
-    // Get the current hostname - in local dev it might be localhost
     const hostname = window.location.hostname;
-    const port = window.location.port || '5000';
+    const port = window.location.port; // empty string for default ports (80/443)
     
-    // If running on localhost, try to get the local network IP
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      // Use the configured server address or instruct user to configure
       const savedAddress = localStorage.getItem('stratus_server_address');
       if (savedAddress) {
         setServerAddress(savedAddress);
       } else {
-        // Default to showing the port for manual configuration
-        setServerAddress(`[YOUR-SERVER-IP]:${port}`);
+        setServerAddress(`[YOUR-SERVER-IP]:${port || '5000'}`);
       }
     } else {
+      // For production domains: include port only if non-standard
       setServerAddress(`${hostname}${port ? ':' + port : ''}`);
     }
   }, []);

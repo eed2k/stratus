@@ -1,13 +1,14 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
+import { authFetch } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages — code-split for faster initial load
@@ -89,6 +90,29 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
   const [, setLocation] = useLocation();
   const [_selectedStationId, setSelectedStationId] = useState<number | null>(null);
   
+  // Fetch stations for position-based dashboard numbering
+  const { data: stationList = [] } = useQuery<{ id: number }[]>({
+    queryKey: ["/api/stations/ids"],
+    queryFn: async () => {
+      const res = await authFetch("/api/stations");
+      if (!res.ok) return [];
+      const stations = await res.json();
+      return stations.map((s: any) => ({ id: s.id })).sort((a: any, b: any) => a.id - b.id);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Build position ↔ ID mappings (1-indexed)
+  const { positionToId, idToPosition } = useMemo(() => {
+    const p2id: Record<number, number> = {};
+    const id2p: Record<number, number> = {};
+    stationList.forEach((s, i) => {
+      p2id[i + 1] = s.id;
+      id2p[s.id] = i + 1;
+    });
+    return { positionToId: p2id, idToPosition: id2p };
+  }, [stationList]);
+
   const sidebarStyle = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -100,12 +124,24 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
 
   const handleSelectStation = (stationId: number) => {
     setSelectedStationId(stationId);
-    setLocation(`/dashboard/${stationId}`);
+    const position = idToPosition[stationId] || stationId;
+    setLocation(`/dashboard/${position}`);
   };
 
   const handleBackToStations = () => {
     setSelectedStationId(null);
     setLocation("/");
+  };
+
+  // Resolve a dashboard route param to actual station ID
+  const resolveStationId = (param: string): number => {
+    const num = parseInt(param);
+    // If we have position mapping and this looks like a position, resolve it
+    if (positionToId[num] !== undefined) {
+      return positionToId[num];
+    }
+    // Fallback: treat as direct station ID for backward compatibility
+    return num;
   };
 
   return (
@@ -138,13 +174,13 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 />
               </Route>
               
-              {/* Dashboard with station ID */}
+              {/* Dashboard with station position number */}
               <Route path="/dashboard/:stationId">
                 {(params) => (
                   <Dashboard 
                     isAdmin={isAdmin} 
                     canAccessStation={canAccessStation} 
-                    stationId={parseInt(params.stationId)}
+                    stationId={resolveStationId(params.stationId)}
                     onBackToStations={handleBackToStations}
                   />
                 )}
@@ -177,7 +213,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 <AdminRoute isAdmin={isAdmin}><Organizations /></AdminRoute>
               </Route>
               <Route path="/history">
-                <AdminRoute isAdmin={isAdmin}><History /></AdminRoute>
+                <History canAccessStation={canAccessStation} assignedStations={user.assignedStations} isAdmin={isAdmin} />
               </Route>
               <Route path="/alarms">
                 <AdminRoute isAdmin={isAdmin}><Alarms /></AdminRoute>
@@ -192,8 +228,10 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
               {/* User routes */}
               <Route path="/account" component={AccountSettings} />
               
-              {/* Documentation - available to all users */}
-              <Route path="/docs" component={Documentation} />
+              {/* Documentation - admin only */}
+              <Route path="/docs">
+                <AdminRoute isAdmin={isAdmin}><Documentation /></AdminRoute>
+              </Route>
               
               <Route component={NotFound} />
             </Switch>

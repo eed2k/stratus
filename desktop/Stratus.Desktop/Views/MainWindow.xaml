@@ -262,7 +262,7 @@
                                 <!-- Wind Speed Gauge -->
                                 <Border Margin="4" Visibility="{Binding LatestData.WindSpeed, Converter={StaticResource NullToVis}}">
                                     <controls:GaugeControl Value="{Binding LatestData.WindSpeed}" 
-                                        MinValue="0" MaxValue="75" Unit="m/s" Label="Wind Speed"
+                                        MinValue="0" MaxValue="40" Unit="m/s" Label="Wind Speed"
                                         ValueFormat="F1" AccentColor="#1D4ED8"
                                         Width="224" Height="224"/>
                                 </Border>

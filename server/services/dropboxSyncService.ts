@@ -861,11 +861,16 @@ export class DropboxSyncService extends EventEmitter {
                     await storage.createWeatherData(data);
                     configRecordsImported++;
                   } catch (individualErr: any) {
-                    if (!individualErr.message?.includes('UNIQUE constraint')) {
+                    if (!individualErr.message?.includes('UNIQUE constraint') && !individualErr.message?.includes('duplicate key')) {
                       console.warn(`[DropboxSync] Error importing record:`, individualErr.message);
                     }
                   }
                 }
+              }
+
+              // Progress logging for large imports
+              if (recordsToImport.length > 1000 && (i + BATCH_SIZE) % 5000 < BATCH_SIZE) {
+                console.log(`[DropboxSync] Progress: ${Math.min(i + BATCH_SIZE, recordsToImport.length)}/${recordsToImport.length} records processed for ${dbConfig.name}`);
               }
             }
 

@@ -1174,7 +1174,7 @@ export default function Settings() {
                         id="newConfigFolder"
                         value={newConfigFolder}
                         onChange={(e) => setNewConfigFolder(e.target.value)}
-                        placeholder="/HOPEFIELD_CR300"
+                        placeholder="/YOUR_STATION_FOLDER"
                       />
                       <p className="text-[10px] text-muted-foreground">
                         The Dropbox folder containing .dat files (check the file browser above)

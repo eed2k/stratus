@@ -20,8 +20,11 @@ import {
   Eye,
   RefreshCw,
   Share2,
+  Download,
 } from "lucide-react";
 import type { WeatherData } from "@shared/schema";
+import { calculateSeaLevelPressure } from "@shared/utils/calc";
+import { getWindDirectionLabel } from "@/lib/windConstants";
 
 interface ShareAccess {
   stationId: number;
@@ -95,11 +98,23 @@ function SharedDashboardContent() {
     },
   });
 
-  // Fetch latest weather data once we have access
-  const { data: weatherData, refetch: refetchWeather } = useQuery<WeatherData>({
-    queryKey: ['shared-weather', access?.stationId, 'latest'],
+  // Fetch data range for historical fallback
+  const { data: dataRange } = useQuery<{ earliest: string; latest: string; count: number }>({
+    queryKey: ['shared-data-range', shareToken],
     queryFn: async () => {
-      const res = await fetch(`/api/stations/${access?.stationId}/data/latest`);
+      const res = await fetch(`/api/shares/${shareToken}/data/range`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!access,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch latest weather data via share token (public, no auth needed)
+  const { data: weatherData, refetch: refetchWeather } = useQuery<WeatherData>({
+    queryKey: ['shared-weather', shareToken, 'latest'],
+    queryFn: async () => {
+      const res = await fetch(`/api/shares/${shareToken}/data/latest`);
       if (!res.ok) throw new Error('Failed to fetch weather data');
       return res.json();
     },
@@ -107,18 +122,40 @@ function SharedDashboardContent() {
     refetchInterval: 60000, // Refresh every minute
   });
 
-  // Fetch historical data for charts
+  // Fetch historical data for charts via share token (public, no auth needed)
+  // Falls back to station's actual data range for historical-only stations
   const { data: historicalData = [] } = useQuery<WeatherData[]>({
-    queryKey: ['shared-weather', access?.stationId, 'history'],
+    queryKey: ['shared-weather', shareToken, 'history', dataRange?.latest],
     queryFn: async () => {
-      if (!access?.stationId) return [];
       const endTime = new Date();
       const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000); // Last 24 hours
       const res = await fetch(
-        `/api/stations/${access.stationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}`
+        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=1000`
       );
       if (!res.ok) return [];
-      return res.json();
+      const data = await res.json();
+      // Fallback: if no data in last 24h, try 30 days
+      if (Array.isArray(data) && data.length === 0) {
+        const expanded = new Date(endTime.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const fallback = await fetch(
+          `/api/shares/${shareToken}/data?startTime=${expanded.toISOString()}&endTime=${endTime.toISOString()}&limit=1000`
+        );
+        if (!fallback.ok) return [];
+        const fallbackData = await fallback.json();
+        if (Array.isArray(fallbackData) && fallbackData.length > 0) return fallbackData;
+        // Final fallback: station's actual data range
+        if (dataRange?.latest) {
+          const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
+          const rangeStart = new Date(rangeEnd.getTime() - 24 * 60 * 60 * 1000);
+          const rangeFallback = await fetch(
+            `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=1000`
+          );
+          if (!rangeFallback.ok) return [];
+          return rangeFallback.json();
+        }
+        return [];
+      }
+      return data;
     },
     enabled: !!access,
     refetchInterval: 60000,
@@ -147,16 +184,44 @@ function SharedDashboardContent() {
     };
   }, [historicalData]);
 
-  // Fetch station info once we have access
+  // Fetch station info via share token (public, no auth needed)
   const { data: stationData } = useQuery({
-    queryKey: ['shared-station', access?.stationId],
+    queryKey: ['shared-station', shareToken],
     queryFn: async () => {
-      const res = await fetch(`/api/stations/${access?.stationId}`);
+      const res = await fetch(`/api/shares/${shareToken}/station`);
       if (!res.ok) throw new Error('Failed to fetch station');
       return res.json();
     },
     enabled: !!access,
   });
+
+  const handleExportCSV = () => {
+    if (historicalData.length === 0) return;
+    const headers = [
+      "Timestamp", "Temperature", "Humidity", "Pressure", "Wind Speed", "Wind Direction",
+      "Wind Gust", "Rainfall", "Solar Radiation", "Battery Voltage",
+    ];
+    const rows = historicalData.map(d => [
+      new Date(d.timestamp).toISOString(),
+      d.temperature?.toString() || "",
+      d.humidity?.toString() || "",
+      d.pressure?.toString() || "",
+      d.windSpeed?.toString() || "",
+      d.windDirection?.toString() || "",
+      d.windGust?.toString() || "",
+      d.rainfall?.toString() || "",
+      d.solarRadiation?.toString() || "",
+      d.batteryVoltage?.toString() || "",
+    ]);
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `weather_data_${access?.stationId}_24h.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handlePasswordSubmit = async () => {
     try {
@@ -303,6 +368,15 @@ function SharedDashboardContent() {
               View Only
             </Badge>
             <Button
+              variant="outline"
+              size="sm"
+              disabled={historicalData.length === 0}
+              onClick={handleExportCSV}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Export CSV
+            </Button>
+            <Button
               variant="ghost"
               size="icon"
               onClick={() => {
@@ -324,7 +398,6 @@ function SharedDashboardContent() {
             title="Temperature"
             value={safeFixed(weatherData?.temperature, 1)}
             unit="°C"
-            trend={{ value: 2.5, label: "vs yesterday" }}
           />
           <MetricCard
             title="Humidity"
@@ -338,9 +411,15 @@ function SharedDashboardContent() {
             subMetrics={[{ label: "Gust", value: `${safeFixed(weatherData?.windGust, 1)} m/s` }]}
           />
           <MetricCard
-            title="Pressure"
-            value={safeFixed(weatherData?.pressure, 1)}
+            title="Pressure (SLP)"
+            value={safeFixed(
+              stationData?.station?.altitude && weatherData?.pressure && weatherData?.temperature
+                ? calculateSeaLevelPressure(weatherData.pressure, stationData.station.altitude, weatherData.temperature)
+                : weatherData?.pressure,
+              1
+            )}
             unit="hPa"
+            subMetrics={stationData?.station?.altitude ? [{ label: "Station", value: `${safeFixed(weatherData?.pressure, 1)} hPa` }] : undefined}
           />
           <MetricCard
             title="Solar Radiation"
@@ -409,11 +488,17 @@ function SharedDashboardContent() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Direction</p>
-                      <p className="text-2xl font-semibold">{weatherData?.windDirection}° SW</p>
+                      <p className="text-2xl font-semibold">{weatherData?.windDirection != null ? `${weatherData.windDirection}° ${getWindDirectionLabel(weatherData.windDirection)}` : '--'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Prevailing</p>
-                      <p className="text-2xl font-semibold">SW</p>
+                      <p className="text-2xl font-semibold">{(() => {
+                        if (historicalData.length === 0) return '--';
+                        const dirs = historicalData.filter(d => d.windDirection != null).map(d => d.windDirection!);
+                        if (dirs.length === 0) return '--';
+                        const avgDir = Math.round(dirs.reduce((a, b) => a + b, 0) / dirs.length);
+                        return getWindDirectionLabel(avgDir);
+                      })()}</p>
                     </div>
                   </div>
                 </CardContent>

@@ -25,14 +25,23 @@ import { Download, Calendar, Radio, Plus, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import type { WeatherStation, WeatherData } from "@shared/schema";
 
-export default function History() {
+interface HistoryProps {
+  canAccessStation?: (stationId: number) => boolean;
+  assignedStations?: number[];
+  isAdmin?: boolean;
+}
+
+export default function History({ canAccessStation, isAdmin }: HistoryProps) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedStation, setSelectedStation] = useState<string>("");
 
-  const { data: stations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
+  const { data: allStations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
   });
+
+  // Filter stations for non-admin users
+  const stations = isAdmin ? allStations : allStations.filter(s => canAccessStation?.(s.id) ?? false);
 
   const activeStationId = selectedStation || (stations.length > 0 ? String(stations[0].id) : "");
 

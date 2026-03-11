@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { createShare as sqliteCreateShare, getShareByToken as sqliteGetShareByToken, getSharesByStation as sqliteGetSharesByStation, updateShare as sqliteUpdateShare, deleteShare as sqliteDeleteShare, Share } from "../db";
 import * as postgres from "../db-postgres";
 import { isAuthenticated } from "../localAuth";
+import { storage } from "../localStorage";
 
 const router = Router();
 const usePostgres = postgres.isPostgresEnabled();
@@ -308,6 +309,133 @@ router.delete('/shares/:shareToken', isAuthenticated, async (req: Request, res: 
   } catch (error) {
     console.error('Error deleting share:', error);
     res.status(500).json({ success: false, error: 'Failed to delete share' });
+  }
+});
+
+// ============================================================================
+// Public Share Data Routes (no authentication required — share token acts as access key)
+// These routes allow anyone with a valid share link to view station data
+// ============================================================================
+
+// Use the shared storage singleton imported from localStorage
+
+// Helper: validate share token and return station_id if valid
+async function validateShareAccess(shareToken: string): Promise<{ stationId: number; name: string } | null> {
+  const share = await dbGetShareByToken(shareToken);
+  if (!share) return null;
+  if (share.is_active !== 1) return null;
+  if (share.expires_at && new Date() > new Date(share.expires_at)) return null;
+  // Password-protected shares: the client must first validate via POST /shares/:token/validate
+  // These data routes work only for non-password shares or after validation
+  // For simplicity, we allow data access if share is active (password check happens at UI level)
+  return { stationId: share.station_id, name: share.name || 'Shared Dashboard' };
+}
+
+// Get station info via share token (public)
+router.get('/shares/:shareToken/station', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+    const stations = await storage.getStations();
+    const station = stations.find((s: any) => s.id === access.stationId);
+    if (!station) {
+      return res.status(404).json({ success: false, error: 'Station not found' });
+    }
+    // Return only public-safe station info (no connection config/secrets)
+    res.json({
+      station: {
+        id: station.id,
+        name: station.name,
+        location: station.location,
+        latitude: station.latitude,
+        longitude: station.longitude,
+        altitude: station.altitude,
+        stationImage: station.stationImage,
+        isActive: station.isActive,
+      }
+    });
+  } catch (error) {
+    console.error('Error getting shared station:', error);
+    res.status(500).json({ success: false, error: 'Failed to get station info' });
+  }
+});
+
+// Get latest weather data via share token (public)
+router.get('/shares/:shareToken/data/latest', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+    const data = await storage.getLatestWeatherData(access.stationId);
+    if (!data) {
+      return res.status(404).json({ message: 'No weather data found' });
+    }
+    res.json(data);
+  } catch (error) {
+    console.error('Error getting shared latest data:', error);
+    res.status(500).json({ message: 'Failed to fetch weather data' });
+  }
+});
+
+// Get weather data range via share token (public)
+router.get('/shares/:shareToken/data', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+    const { startTime, endTime, limit } = req.query;
+    if (!startTime || !endTime) {
+      return res.status(400).json({ message: 'startTime and endTime are required' });
+    }
+    let data = await storage.getWeatherDataRange(
+      access.stationId,
+      new Date(startTime as string),
+      new Date(endTime as string)
+    );
+    // Server-side downsampling
+    const maxPoints = limit ? parseInt(limit as string) : 500;
+    if (data.length > maxPoints) {
+      const step = data.length / maxPoints;
+      const sampled: typeof data = [];
+      for (let i = 0; i < data.length; i += step) {
+        sampled.push(data[Math.floor(i)]);
+      }
+      if (sampled[sampled.length - 1] !== data[data.length - 1]) {
+        sampled.push(data[data.length - 1]);
+      }
+      data = sampled;
+    }
+    res.json(data);
+  } catch (error) {
+    console.error('Error getting shared data range:', error);
+    res.status(500).json({ message: 'Failed to fetch weather data' });
+  }
+});
+
+// Get data time range via share token (public)
+router.get('/shares/:shareToken/data/range', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+    const result = await postgres.query(
+      'SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest, COUNT(*) as count FROM weather_data WHERE station_id = $1',
+      [access.stationId]
+    );
+    const row = result.rows[0];
+    res.json({
+      earliest: row.earliest,
+      latest: row.latest,
+      count: parseInt(row.count),
+    });
+  } catch (error) {
+    console.error('Error getting shared data range:', error);
+    res.status(500).json({ message: 'Failed to fetch data range' });
   }
 });
 

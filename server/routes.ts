@@ -1372,6 +1372,28 @@ export async function registerRoutes(
   });
 
   // Weather Data routes (demo mode bypasses auth)
+  app.get("/api/stations/:stationId/data/range", optionalAuth, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const result = await postgres.query(
+        'SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest, COUNT(*) as count FROM weather_data WHERE station_id = $1',
+        [stationId]
+      );
+      const row = result.rows[0];
+      res.json({
+        earliest: row.earliest,
+        latest: row.latest,
+        count: parseInt(row.count),
+      });
+    } catch (error) {
+      console.error("Error fetching data range:", error);
+      res.status(500).json({ message: "Failed to fetch data range" });
+    }
+  });
+
   app.get("/api/stations/:stationId/data/latest", optionalAuth, async (req, res) => {
     try {
       const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');

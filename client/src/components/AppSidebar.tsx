@@ -39,11 +39,11 @@ const adminNavItems = [
   { title: "Documentation", url: "/docs" },
 ];
 
-// User navigation items - limited access
+// User navigation items - limited access (no docs, no config)
 const userNavItems = [
   { title: "Stations", url: "/" },
+  { title: "History", url: "/history" },
   { title: "Account Settings", url: "/account" },
-  { title: "Documentation", url: "/docs" },
 ];
 
 export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations }: AppSidebarProps) {
@@ -137,7 +137,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
         )}
         <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">
-          <p>Stratus v1.1.0 © Lukas Esterhuizen</p>
+          <p>Stratus v1.1.0</p>
         </div>
       </SidebarFooter>
     </Sidebar>
