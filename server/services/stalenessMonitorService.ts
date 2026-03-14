@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Station Data Staleness Monitor Service
  * 

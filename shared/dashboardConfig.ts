@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Dashboard Parameter Configuration
  * Defines all available weather parameters that can be displayed on the dashboard

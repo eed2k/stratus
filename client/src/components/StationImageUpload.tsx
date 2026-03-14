@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, useRef, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -6,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch, queryClient } from "@/lib/queryClient";
-import { Trash2, Upload, ImageIcon, ZoomIn, ZoomOut, RotateCw, Check } from "lucide-react";
+import { Trash2, Upload, ImageIcon, ZoomIn, ZoomOut, RotateCw, Check, Cloud } from "lucide-react";
 
 interface StationImageUploadProps {
   stationId: number;
@@ -410,12 +413,27 @@ export function StationImageUpload({
 // Mini version for inline display in station cards
 export function StationImageDisplay({ 
   image, 
-  stationName 
+  stationName,
+  lastSyncTime,
 }: { 
   image?: string | null; 
   stationName: string;
+  lastSyncTime?: string | null;
 }) {
-  if (!image) return null;
+  if (!image) {
+    // Default placeholder with station name and last sync info
+    return (
+      <div className="w-full h-32 rounded-t-lg overflow-hidden bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-900 dark:to-blue-950 flex flex-col items-center justify-center gap-1 px-4">
+        <Cloud className="h-8 w-8 text-sky-500 dark:text-sky-400 opacity-60" />
+        <span className="text-xs text-sky-700 dark:text-sky-300 font-medium text-center truncate w-full">{stationName}</span>
+        {lastSyncTime && (
+          <span className="text-[10px] text-sky-600 dark:text-sky-400 opacity-75">
+            Last sync: {new Date(lastSyncTime).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })}
+          </span>
+        )}
+      </div>
+    );
+  }
   
   return (
     <div className="w-full h-48 rounded-t-lg overflow-hidden bg-muted/30 flex items-center justify-center">

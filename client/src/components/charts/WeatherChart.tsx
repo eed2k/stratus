@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,19 +27,37 @@ const formatTooltipValue = (value: number | string): string => {
 };
 
 /**
- * Custom tooltip component with decimal precision control
+ * Custom tooltip component with decimal precision control and daily aggregation support
  */
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || !payload.length) return null;
   
+  const dataPoint = payload[0]?.payload;
+  const isDailyAggregated = dataPoint?._readings != null;
+  
   return (
     <div className="bg-card border border-border rounded-md p-2 shadow-md text-xs">
-      <p className="font-medium mb-1">{label}</p>
-      {payload.map((entry: any, index: number) => (
-        <p key={index} style={{ color: entry.color }}>
-          {entry.name}: {formatTooltipValue(entry.value)} {entry.payload?.unit || ''}
-        </p>
-      ))}
+      <p className="font-medium mb-1">
+        {label}{isDailyAggregated ? ` (${dataPoint._readings} readings)` : ''}
+      </p>
+      {payload.map((entry: any, index: number) => {
+        const minKey = entry.dataKey + 'Min';
+        const maxKey = entry.dataKey + 'Max';
+        const hasMinMax = isDailyAggregated && dataPoint[minKey] != null && dataPoint[maxKey] != null;
+        
+        return (
+          <div key={index}>
+            <p style={{ color: entry.color }}>
+              {isDailyAggregated ? `Avg ${entry.name}` : entry.name}: {formatTooltipValue(entry.value)} {entry.payload?.unit || ''}
+            </p>
+            {hasMinMax && (
+              <p className="text-muted-foreground ml-2" style={{ fontSize: '0.65rem' }}>
+                Min: {formatTooltipValue(dataPoint[minKey])} / Max: {formatTooltipValue(dataPoint[maxKey])}
+              </p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -113,7 +134,7 @@ export const WeatherChart = memo(function WeatherChart({
                 width={40}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
+              <Legend iconSize={0} />
               {series.map((s) => (
                 <Line
                   key={s.dataKey}

@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { SignupForm } from "../auth/SignupForm";
 import { ThemeProvider } from "../ThemeProvider";
 

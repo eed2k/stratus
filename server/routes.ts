@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
@@ -724,7 +727,7 @@ export async function registerRoutes(
     }
   });
 
-  // ========== User Management Routes ==========
+  // 
   
   // Get all users (admin only)
   app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
@@ -1429,7 +1432,8 @@ export async function registerRoutes(
         new Date(endTime as string)
       );
 
-      // Server-side downsampling: if >500 records, thin to ~500 evenly-spaced points
+      const rawCount = data.length;
+      // Server-side downsampling: if >maxPoints records, thin to evenly-spaced points
       // This prevents huge payloads while still providing sufficient chart resolution
       const maxPoints = limit ? parseInt(limit as string) : 500;
       if (data.length > maxPoints) {
@@ -1444,6 +1448,11 @@ export async function registerRoutes(
         }
         data = sampled;
       }
+
+      // Log data pipeline info for debugging chart range issues
+      const firstTs = data.length > 0 ? data[0].timestamp : null;
+      const lastTs = data.length > 0 ? data[data.length - 1].timestamp : null;
+      console.log(`[data] station=${stationId} raw=${rawCount} sent=${data.length} maxPts=${maxPoints} range=${firstTs}..${lastTs}`);
 
       res.json(data);
     } catch (error) {
@@ -1485,9 +1494,7 @@ export async function registerRoutes(
     }
   });
 
-  // ============================================================================
   // PUBLIC DATA INGEST ENDPOINT FOR DATALOGGERS
-  // ============================================================================
   // This endpoint allows Campbell Scientific dataloggers and other devices to
   // POST weather data without authentication (uses station ID + optional API key)
   // 
@@ -1498,7 +1505,6 @@ export async function registerRoutes(
   // Body:
   //   { "data": { "temperature": 22.5, "humidity": 65, ... }, "timestamp": "ISO8601" }
   // Accepts both numeric station IDs and alphanumeric ingest IDs (e.g., "ST64ART3")
-  // ============================================================================
   app.post("/api/ingest/:stationId", ingestRateLimiter, async (req, res) => {
     try {
       const paramId = req.params.stationId;
@@ -2359,9 +2365,7 @@ export async function registerRoutes(
     }
   });
 
-  // ============================================
   // Audit Log API Routes (Admin Only)
-  // ============================================
   
   /**
    * GET /api/audit-logs
@@ -2419,11 +2423,9 @@ export async function registerRoutes(
     }
   });
 
-  // ============================================
   // Public Embed/Widget API (CORS enabled, read-only)
   // These endpoints provide READ-ONLY access to weather data
   // They do NOT expose any admin functions, user accounts, or configuration
-  // ============================================
 
   // Rate limiter for embed API to prevent abuse
   const embedRateLimiter = rateLimit({

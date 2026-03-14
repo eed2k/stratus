@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Protocol Adapter Interface
  * Common interface for all communication protocols to integrate with the connection manager

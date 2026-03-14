@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Client Dashboard API Routes
  * These endpoints are used by external client dashboards and applications

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
@@ -48,6 +51,7 @@ interface StationShare {
   id: string;
   stationId: number;
   shareToken: string;
+  slug?: string;
   shareUrl: string;
   name: string;
   email?: string;
@@ -93,6 +97,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   // Form state
   const [newShare, setNewShare] = useState({
     name: '',
+    slug: '',
     email: '',
     accessLevel: 'viewer' as 'viewer' | 'editor',
     password: '',
@@ -123,6 +128,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: data.name || `${stationName} Dashboard`,
+          slug: data.slug || undefined,
           email: data.email || undefined,
           accessLevel: data.accessLevel,
           password: data.usePassword && data.password ? data.password : undefined,
@@ -137,6 +143,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
       setShowCreateDialog(false);
       setNewShare({
         name: '',
+        slug: '',
         email: '',
         accessLevel: 'viewer',
         password: '',
@@ -359,7 +366,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
 
       {/* Create Share Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Share Link</DialogTitle>
             <DialogDescription>
@@ -372,7 +379,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
               <Label htmlFor="share-name">Link Name</Label>
               <Input
                 id="share-name"
-                placeholder={`${stationName} Dashboard`}
+                placeholder=""
                 value={newShare.name}
                 onChange={(e) => setNewShare({ ...newShare, name: e.target.value })}
               />
@@ -382,11 +389,27 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="share-slug">Friendly URL (optional)</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">{window.location.origin}/</span>
+                <Input
+                  id="share-slug"
+                  placeholder=""
+                  value={newShare.slug}
+                  onChange={(e) => setNewShare({ ...newShare, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-') })}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave empty for a random link. Use a short, memorable slug like "swakop-uranium"
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="share-email">Recipient Email (optional)</Label>
               <Input
                 id="share-email"
                 type="email"
-                placeholder="client@example.com"
+                placeholder=""
                 value={newShare.email}
                 onChange={(e) => setNewShare({ ...newShare, email: e.target.value })}
               />
@@ -404,18 +427,8 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="viewer">
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4" />
-                      Viewer (Read-only)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="editor">
-                    <div className="flex items-center gap-2">
-                      <Edit className="h-4 w-4" />
-                      Editor (Can modify settings)
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="viewer">Viewer (Read-only)</SelectItem>
+                  <SelectItem value="editor">Editor (Can modify settings)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {

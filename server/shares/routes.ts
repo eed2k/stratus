@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -10,11 +13,12 @@ const router = Router();
 const usePostgres = postgres.isPostgresEnabled();
 
 // Abstraction layer: use PostgreSQL or SQLite
-async function dbCreateShare(share: Share): Promise<string> {
+async function dbCreateShare(share: Share & { slug?: string }): Promise<string> {
   if (usePostgres) {
     return postgres.pgCreateShare({
       station_id: share.station_id,
       share_token: share.share_token,
+      slug: share.slug,
       name: share.name || 'Shared Dashboard',
       email: share.email,
       access_level: share.access_level || 'viewer',
@@ -38,6 +42,19 @@ async function dbGetShareByToken(token: string): Promise<Share | null> {
     };
   }
   return sqliteGetShareByToken(token);
+}
+
+async function dbGetShareBySlug(slug: string): Promise<Share | null> {
+  if (usePostgres) {
+    const row = await postgres.pgGetShareBySlug(slug);
+    if (!row) return null;
+    return {
+      ...row,
+      is_active: row.is_active ? 1 : 0,
+    };
+  }
+  // SQLite fallback: not supported, return null
+  return null;
 }
 
 async function dbGetSharesByStation(stationId: number): Promise<Share[]> {
@@ -68,9 +85,30 @@ async function dbDeleteShare(token: string): Promise<void> {
 // Number of salt rounds for bcrypt
 const SALT_ROUNDS = 10;
 
+// Validated share sessions: maps "shareToken:sessionId" to expiry timestamp
+// When a password-protected share is validated, a session is created
+const validatedSessions = new Map<string, number>();
+
+// Generate a session ID for validated share access
+const generateSessionId = (): string => {
+  return randomBytes(24).toString('hex');
+};
+
+// Session duration: 24 hours
+const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+
 // Generate a unique share token
 const generateShareToken = (): string => {
   return randomBytes(16).toString('hex');
+};
+
+// Generate a URL-safe slug from a string
+const generateSlug = (text: string): string => {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 60);
 };
 
 // Hash a password using bcrypt
@@ -87,16 +125,28 @@ const verifyPassword = async (password: string, hash: string): Promise<boolean> 
 router.post('/stations/:stationId/shares', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { stationId } = req.params;
-    const { name, email, accessLevel = 'viewer', password, expiresAt } = req.body;
+    const { name, email, accessLevel = 'viewer', password, expiresAt, slug: requestedSlug } = req.body;
     
     const shareToken = generateShareToken();
+    
+    // Generate or validate slug
+    let slug: string | undefined;
+    if (requestedSlug) {
+      slug = generateSlug(requestedSlug);
+      // Check for slug collision
+      const existing = await dbGetShareBySlug(slug);
+      if (existing) {
+        return res.status(409).json({ success: false, error: 'This friendly URL is already in use. Please choose a different one.' });
+      }
+    }
     
     // Hash password if provided
     const hashedPassword = password ? await hashPassword(password) : undefined;
     
-    const share: Share = {
+    const share: Share & { slug?: string } = {
       station_id: parseInt(stationId),
       share_token: shareToken,
+      slug,
       name: name || 'Shared Dashboard',
       email,
       access_level: accessLevel,
@@ -104,18 +154,21 @@ router.post('/stations/:stationId/shares', isAuthenticated, async (req: Request,
       expires_at: expiresAt || undefined,
       is_active: 1,
       access_count: 0,
-      created_by: 'admin', // In real app, get from session
+      created_by: 'admin',
     };
     
     await dbCreateShare(share);
     
-    // Return share info with the full URL
+    // Return share info with the full URL (prefer slug URL if available)
+    const shareUrl = slug ? `/${slug}` : `/shared/${shareToken}`;
+    
     res.json({
       success: true,
       share: {
         id: share.share_token,
         stationId: share.station_id,
         shareToken: share.share_token,
+        slug: slug,
         name: share.name,
         email: share.email,
         accessLevel: share.access_level,
@@ -124,7 +177,7 @@ router.post('/stations/:stationId/shares', isAuthenticated, async (req: Request,
         isActive: share.is_active === 1,
         accessCount: share.access_count,
         createdBy: share.created_by,
-        shareUrl: `/shared/${shareToken}`,
+        shareUrl,
       },
     });
   } catch (error) {
@@ -144,6 +197,7 @@ router.get('/stations/:stationId/shares', isAuthenticated, async (req: Request, 
       id: s.share_token,
       stationId: s.station_id,
       shareToken: s.share_token,
+      slug: (s as any).slug,
       name: s.name,
       email: s.email,
       accessLevel: s.access_level,
@@ -155,13 +209,48 @@ router.get('/stations/:stationId/shares', isAuthenticated, async (req: Request, 
       createdBy: s.created_by,
       createdAt: s.created_at,
       updatedAt: s.updated_at,
-      shareUrl: `/shared/${s.share_token}`,
+      shareUrl: (s as any).slug ? `/${(s as any).slug}` : `/shared/${s.share_token}`,
     }));
     
     res.json({ success: true, shares: stationShares });
   } catch (error) {
     console.error('Error getting shares:', error);
     res.status(500).json({ success: false, error: 'Failed to get shares' });
+  }
+});
+
+// Resolve a friendly slug to its share token (public)
+// Must be defined BEFORE /shares/:shareToken to avoid conflict
+router.get('/shares/resolve/:slug', async (req: Request, res: Response) => {
+  try {
+    const { slug } = req.params;
+    const share = await dbGetShareBySlug(slug);
+    
+    if (!share) {
+      return res.status(404).json({ success: false, error: 'Share not found' });
+    }
+    
+    if (share.is_active !== 1) {
+      return res.status(403).json({ success: false, error: 'Share link is no longer active' });
+    }
+    
+    if (share.expires_at && new Date() > new Date(share.expires_at)) {
+      return res.status(403).json({ success: false, error: 'Share link has expired' });
+    }
+    
+    res.json({
+      success: true,
+      shareToken: share.share_token,
+      share: {
+        stationId: share.station_id,
+        name: share.name,
+        accessLevel: share.access_level,
+        requiresPassword: !!share.password,
+      },
+    });
+  } catch (error) {
+    console.error('Error resolving slug:', error);
+    res.status(500).json({ success: false, error: 'Failed to resolve share link' });
   }
 });
 
@@ -202,8 +291,17 @@ router.post('/shares/:shareToken/validate', async (req: Request, res: Response) 
       access_count: (share.access_count || 0) + 1
     });
     
+    // Create a session token for password-protected shares
+    let sessionToken: string | undefined;
+    if (share.password) {
+      sessionToken = generateSessionId();
+      const sessionKey = `${shareToken}:${sessionToken}`;
+      validatedSessions.set(sessionKey, Date.now() + SESSION_DURATION_MS);
+    }
+    
     res.json({
       success: true,
+      sessionToken,
       access: {
         stationId: share.station_id,
         accessLevel: share.access_level,
@@ -312,29 +410,38 @@ router.delete('/shares/:shareToken', isAuthenticated, async (req: Request, res: 
   }
 });
 
-// ============================================================================
-// Public Share Data Routes (no authentication required — share token acts as access key)
+// Public Share Data Routes (no authentication required, share token acts as access key)
 // These routes allow anyone with a valid share link to view station data
-// ============================================================================
 
 // Use the shared storage singleton imported from localStorage
 
 // Helper: validate share token and return station_id if valid
-async function validateShareAccess(shareToken: string): Promise<{ stationId: number; name: string } | null> {
+// For password-protected shares, requires a valid session token in X-Share-Session header
+async function validateShareAccess(shareToken: string, req: Request): Promise<{ stationId: number; name: string } | null> {
   const share = await dbGetShareByToken(shareToken);
   if (!share) return null;
   if (share.is_active !== 1) return null;
   if (share.expires_at && new Date() > new Date(share.expires_at)) return null;
-  // Password-protected shares: the client must first validate via POST /shares/:token/validate
-  // These data routes work only for non-password shares or after validation
-  // For simplicity, we allow data access if share is active (password check happens at UI level)
+  
+  // For password-protected shares, verify session token
+  if (share.password) {
+    const sessionToken = req.headers['x-share-session'] as string;
+    if (!sessionToken) return null;
+    const sessionKey = `${shareToken}:${sessionToken}`;
+    const expiry = validatedSessions.get(sessionKey);
+    if (!expiry || Date.now() > expiry) {
+      validatedSessions.delete(sessionKey);
+      return null;
+    }
+  }
+  
   return { stationId: share.station_id, name: share.name || 'Shared Dashboard' };
 }
 
 // Get station info via share token (public)
 router.get('/shares/:shareToken/station', async (req: Request, res: Response) => {
   try {
-    const access = await validateShareAccess(req.params.shareToken);
+    const access = await validateShareAccess(req.params.shareToken, req);
     if (!access) {
       return res.status(404).json({ success: false, error: 'Share not found or expired' });
     }
@@ -354,6 +461,7 @@ router.get('/shares/:shareToken/station', async (req: Request, res: Response) =>
         altitude: station.altitude,
         stationImage: station.stationImage,
         isActive: station.isActive,
+        windSpeedUnit: station.windSpeedUnit || 'ms',
       }
     });
   } catch (error) {
@@ -365,7 +473,7 @@ router.get('/shares/:shareToken/station', async (req: Request, res: Response) =>
 // Get latest weather data via share token (public)
 router.get('/shares/:shareToken/data/latest', async (req: Request, res: Response) => {
   try {
-    const access = await validateShareAccess(req.params.shareToken);
+    const access = await validateShareAccess(req.params.shareToken, req);
     if (!access) {
       return res.status(404).json({ success: false, error: 'Share not found or expired' });
     }
@@ -383,7 +491,7 @@ router.get('/shares/:shareToken/data/latest', async (req: Request, res: Response
 // Get weather data range via share token (public)
 router.get('/shares/:shareToken/data', async (req: Request, res: Response) => {
   try {
-    const access = await validateShareAccess(req.params.shareToken);
+    const access = await validateShareAccess(req.params.shareToken, req);
     if (!access) {
       return res.status(404).json({ success: false, error: 'Share not found or expired' });
     }
@@ -396,6 +504,7 @@ router.get('/shares/:shareToken/data', async (req: Request, res: Response) => {
       new Date(startTime as string),
       new Date(endTime as string)
     );
+    const rawCount = data.length;
     // Server-side downsampling
     const maxPoints = limit ? parseInt(limit as string) : 500;
     if (data.length > maxPoints) {
@@ -409,6 +518,9 @@ router.get('/shares/:shareToken/data', async (req: Request, res: Response) => {
       }
       data = sampled;
     }
+    const firstTs = data.length > 0 ? data[0].timestamp : null;
+    const lastTs = data.length > 0 ? data[data.length - 1].timestamp : null;
+    console.log(`[shared-data] station=${access.stationId} raw=${rawCount} sent=${data.length} maxPts=${maxPoints} range=${firstTs}..${lastTs}`);
     res.json(data);
   } catch (error) {
     console.error('Error getting shared data range:', error);
@@ -419,7 +531,7 @@ router.get('/shares/:shareToken/data', async (req: Request, res: Response) => {
 // Get data time range via share token (public)
 router.get('/shares/:shareToken/data/range', async (req: Request, res: Response) => {
   try {
-    const access = await validateShareAccess(req.params.shareToken);
+    const access = await validateShareAccess(req.params.shareToken, req);
     if (!access) {
       return res.status(404).json({ success: false, error: 'Share not found or expired' });
     }

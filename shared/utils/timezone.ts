@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Timezone utilities for weather stations
  */

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 // Get auth headers for API requests

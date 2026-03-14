@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { EventEmitter } from 'events';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires

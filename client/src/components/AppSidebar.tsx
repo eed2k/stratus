@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -13,7 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Cable } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
@@ -31,12 +34,11 @@ const adminNavItems = [
   { title: "Stations", url: "/" },
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
-  { title: "Organisations", url: "/organizations" },
   { title: "History", url: "/history" },
   { title: "Alarms", url: "/alarms" },
   { title: "Reports", url: "/reports" },
   { title: "Settings", url: "/settings" },
-  { title: "Documentation", url: "/docs" },
+  { title: "About", url: "/docs" },
 ];
 
 // User navigation items - limited access (no docs, no config)
@@ -56,7 +58,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
     const base = isAdmin ? [...adminNavItems] : [...userNavItems];
     if (isDesktop) {
       // Insert Serial Monitor before Documentation (or at end for users)
-      const docsIdx = base.findIndex(item => item.title === 'Documentation');
+      const docsIdx = base.findIndex(item => item.title === 'About');
       const serialItem = { title: 'Serial Monitor', url: '/serial-monitor' };
       if (docsIdx >= 0) {
         base.splice(docsIdx, 0, serialItem);
@@ -77,7 +79,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
           <div className="inline-flex flex-col items-center pt-[5px]">
             <h2 className="text-[20px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</h2>
-            <span className="text-[10px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.1.0</span>
+            <span className="text-[10px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.2.1</span>
           </div>
         </div>
       </SidebarHeader>
@@ -91,7 +93,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === item.url}
+                    isActive={item.url === '/' ? (location === '/' || location.startsWith('/dashboard')) : location === item.url}
                     data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     <Link href={item.url}>
@@ -137,7 +139,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
         )}
         <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">
-          <p>Stratus v1.1.0</p>
+          <p>Stratus v1.2.1</p>
         </div>
       </SidebarFooter>
     </Sidebar>

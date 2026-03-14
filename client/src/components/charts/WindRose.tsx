@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useMemo, useRef, useCallback, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -5,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { safeFixed } from "@/lib/utils";
 import { 
   WIND_DIRECTIONS, 
-  WMO_SIMPLIFIED_CLASSES, 
   getWindDescription,
-  type WindSpeedClass 
+  getWindUnitLabel,
+  getSimplifiedClasses,
+  type WindSpeedClass,
+  type WindSpeedUnit,
 } from "@/lib/windConstants";
 
 interface WindRoseData {
@@ -21,6 +26,7 @@ interface WindRoseProps {
   title?: string;
   maxWindSpeed?: number;
   showWMOInfo?: boolean;
+  windSpeedUnit?: WindSpeedUnit;
 }
 
 /**
@@ -56,17 +62,20 @@ export const WindRose = memo(function WindRose({
   speedClasses, 
   title = "Wind Rose", 
   maxWindSpeed,
-  showWMOInfo = true 
+  showWMOInfo = true,
+  windSpeedUnit = 'ms',
 }: WindRoseProps) {
+  const unitLabel = getWindUnitLabel(windSpeedUnit);
   // Calculate max wind speed from data if not provided
   const calculatedMaxSpeed = useMemo(() => {
     if (maxWindSpeed !== undefined) return maxWindSpeed;
     
     let maxSpeed = 0;
+    const classes = getSimplifiedClasses(windSpeedUnit);
     data.forEach(d => {
       d.speeds.forEach((count, idx) => {
         if (count > 0) {
-          const classMax = WMO_SIMPLIFIED_CLASSES[idx]?.max || 100;
+          const classMax = classes[idx]?.max || 100;
           if (classMax !== Infinity && classMax > maxSpeed) {
             maxSpeed = classMax;
           }
@@ -74,12 +83,12 @@ export const WindRose = memo(function WindRose({
       });
     });
     return maxSpeed || 50;
-  }, [data, maxWindSpeed]);
+  }, [data, maxWindSpeed, windSpeedUnit]);
 
   // Use WMO simplified classes by default
   const activeSpeedClasses = useMemo(() => {
-    return speedClasses || WMO_SIMPLIFIED_CLASSES;
-  }, [speedClasses]);
+    return speedClasses || getSimplifiedClasses(windSpeedUnit);
+  }, [speedClasses, windSpeedUnit]);
 
   // Calculate wind statistics
   const windStats = useMemo(() => calculateWindStats(data), [data]);
@@ -138,22 +147,34 @@ export const WindRose = memo(function WindRose({
       el.removeAttribute('class');
     });
 
-    // Set explicit size
+    // Add extra height for title
+    const titlePadding = 36;
+    const exportHeight = size + titlePadding;
+
+    // Set explicit size with extra height for title
     clone.setAttribute('width', String(size));
-    clone.setAttribute('height', String(size));
+    clone.setAttribute('height', String(exportHeight));
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-    // Add white background
+    // Shift all existing content down to make room for title
+    const contentGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    contentGroup.setAttribute('transform', `translate(0, ${titlePadding})`);
+    while (clone.firstChild) {
+      contentGroup.appendChild(clone.firstChild);
+    }
+    clone.appendChild(contentGroup);
+
+    // Add white background (full export size, inserted before content)
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     bg.setAttribute('width', String(size));
-    bg.setAttribute('height', String(size));
+    bg.setAttribute('height', String(exportHeight));
     bg.setAttribute('fill', 'white');
     clone.insertBefore(bg, clone.firstChild);
 
-    // Add title text
+    // Add title text in the padding area
     const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     titleText.setAttribute('x', String(center));
-    titleText.setAttribute('y', '18');
+    titleText.setAttribute('y', '24');
     titleText.setAttribute('text-anchor', 'middle');
     titleText.setAttribute('font-size', '14');
     titleText.setAttribute('font-family', 'Arial, sans-serif');
@@ -170,11 +191,11 @@ export const WindRose = memo(function WindRose({
       const canvas = document.createElement('canvas');
       const scale = 2; // 2x resolution
       canvas.width = size * scale;
-      canvas.height = size * scale;
+      canvas.height = exportHeight * scale;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, exportHeight);
       URL.revokeObjectURL(url);
 
       canvas.toBlob((blob) => {
@@ -325,7 +346,7 @@ export const WindRose = memo(function WindRose({
 
         {/* Max wind speed and current classification */}
         <div className="mt-2 text-center text-xs text-muted-foreground">
-          Max: {safeFixed(calculatedMaxSpeed, 1)} m/s ({getWindDescription(calculatedMaxSpeed)})
+          Max: {safeFixed(calculatedMaxSpeed, 1)} {unitLabel} ({getWindDescription(calculatedMaxSpeed, windSpeedUnit)})
         </div>
 
         {/* Legend */}

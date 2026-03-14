@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * PostgreSQL Database Adapter for Stratus Weather Server
  * 
@@ -258,6 +261,7 @@ async function createTables(): Promise<void> {
       id SERIAL PRIMARY KEY,
       station_id INTEGER NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
       share_token TEXT UNIQUE NOT NULL,
+      slug TEXT UNIQUE,
       name TEXT DEFAULT 'Shared Dashboard',
       email TEXT,
       access_level TEXT DEFAULT 'viewer',
@@ -270,6 +274,13 @@ async function createTables(): Promise<void> {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+  // Migration: add slug column if missing
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE shares ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE;
+    EXCEPTION WHEN duplicate_column THEN NULL;
+    END $$;
   `);
   pgLog.info('Shares table ready');
 
@@ -432,6 +443,8 @@ async function createTables(): Promise<void> {
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_charger_state REAL`);
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_board_temp REAL`);
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_mode REAL`);
+  // Wind speed unit per station (ms = m/s, kmh = km/h)
+  await pool.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS wind_speed_unit TEXT DEFAULT 'ms'`);
   pgLog.info('Additional performance indexes ready');
 }
 
@@ -470,9 +483,7 @@ export async function closePostgresDatabase(): Promise<void> {
   }
 }
 
-// ============================================================================
 // Station Operations
-// ============================================================================
 
 export interface Station {
   id?: number;
@@ -500,6 +511,7 @@ export interface Station {
   protocol?: string;
   stationType?: string;
   ingestId?: string | null;
+  windSpeedUnit?: string | null;
 }
 
 /**
@@ -511,7 +523,8 @@ export async function getAllStations(): Promise<Station[]> {
            security_code, created_at, updated_at, last_connected, is_active,
            latitude, longitude, altitude, location, datalogger_model,
            datalogger_serial_number, program_name, modem_model, modem_serial_number,
-           site_description, notes, station_image, protocol, station_type, ingest_id
+           site_description, notes, station_image, protocol, station_type, ingest_id,
+           wind_speed_unit
     FROM stations
     ORDER BY id
   `);
@@ -542,6 +555,7 @@ export async function getAllStations(): Promise<Station[]> {
     protocol: row.protocol,
     stationType: row.station_type,
     ingestId: row.ingest_id,
+    windSpeedUnit: row.wind_speed_unit || 'ms',
   }));
 }
 
@@ -554,7 +568,8 @@ export async function getStationById(id: number): Promise<Station | null> {
            security_code, created_at, updated_at, last_connected, is_active,
            latitude, longitude, altitude, location, datalogger_model,
            datalogger_serial_number, program_name, modem_model, modem_serial_number,
-           site_description, notes, station_image, protocol, station_type, ingest_id
+           site_description, notes, station_image, protocol, station_type, ingest_id,
+           wind_speed_unit
     FROM stations
     WHERE id = $1
   `, [id]);
@@ -588,6 +603,7 @@ export async function getStationById(id: number): Promise<Station | null> {
     protocol: row.protocol,
     stationType: row.station_type,
     ingestId: row.ingest_id,
+    windSpeedUnit: row.wind_speed_unit || 'ms',
   };
 }
 
@@ -667,7 +683,8 @@ export async function getStationByIngestId(ingestId: string): Promise<Station | 
            security_code, created_at, updated_at, last_connected, is_active,
            latitude, longitude, altitude, location, datalogger_model,
            datalogger_serial_number, program_name, modem_model, modem_serial_number,
-           site_description, notes, station_image, protocol, station_type, ingest_id
+           site_description, notes, station_image, protocol, station_type, ingest_id,
+           wind_speed_unit
     FROM stations
     WHERE ingest_id = $1
   `, [ingestId]);
@@ -701,6 +718,7 @@ export async function getStationByIngestId(ingestId: string): Promise<Station | 
     protocol: row.protocol,
     stationType: row.station_type,
     ingestId: row.ingest_id,
+    windSpeedUnit: row.wind_speed_unit || 'ms',
   };
 }
 
@@ -734,6 +752,7 @@ export async function updateStation(id: number, updates: Partial<Station>): Prom
     protocol: 'protocol',
     stationType: 'station_type',
     lastConnected: 'last_connected',
+    windSpeedUnit: 'wind_speed_unit',
   };
 
   for (const [key, column] of Object.entries(columnMap)) {
@@ -803,9 +822,7 @@ export async function deleteStation(id: number): Promise<void> {
   }
 }
 
-// ============================================================================
 // Weather Data Operations
-// ============================================================================
 
 export interface WeatherRecord {
   id?: number;
@@ -904,11 +921,13 @@ export async function getWeatherData(
   
   const whereClause = conditions.join(' AND ');
   
-  // Apply a default limit cap to prevent huge payloads (max 2000 records)
-  // Route-level downsampling will further thin to ~500 points for charts
-  const effectiveLimit = options.limit || 2000;
+  // When a time range is specified (startTime + endTime), skip the row limit
+  // so all data in that window is returned — route-level downsampling will thin it for charts.
+  // Only apply a default limit when no time range is provided (e.g. "latest N records").
+  const hasTimeRange = options.startTime && options.endTime;
+  const effectiveLimit = hasTimeRange ? null : (options.limit || 10000);
   
-  // Get records with limit
+  // Get records with optional limit
   let queryText = `
     SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
            mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
@@ -917,10 +936,13 @@ export async function getWeatherData(
     FROM weather_data
     WHERE ${whereClause}
     ORDER BY timestamp DESC
-    LIMIT $${paramIndex}
   `;
-  params.push(effectiveLimit);
-  paramIndex++;
+  
+  if (effectiveLimit) {
+    queryText += ` LIMIT $${paramIndex}`;
+    params.push(effectiveLimit);
+    paramIndex++;
+  }
   
   if (options.offset) {
     queryText += ` OFFSET $${paramIndex}`;
@@ -1014,9 +1036,7 @@ export async function getDistinctTableNames(stationId: number): Promise<string[]
   return result.rows.map((r: any) => r.table_name);
 }
 
-// ============================================================================
 // User Operations
-// ============================================================================
 
 export interface User {
   id?: number;
@@ -1088,9 +1108,7 @@ export async function updateUserLastLogin(userId: number): Promise<void> {
   `, [userId]);
 }
 
-// ============================================================================
 // Dropbox Config Operations
-// ============================================================================
 
 export interface DropboxConfig {
   id?: number;
@@ -1234,9 +1252,7 @@ export async function deleteDropboxConfig(id: number): Promise<void> {
   await query(`DELETE FROM dropbox_configs WHERE id = $1`, [id]);
 }
 
-// ============================================================================
 // Password Reset Token Operations
-// ============================================================================
 
 /**
  * Create a password reset token
@@ -1277,9 +1293,7 @@ export async function markPasswordResetTokenUsed(token: string): Promise<void> {
   await query('UPDATE password_reset_tokens SET used = true WHERE token = $1', [token]);
 }
 
-// ============================================================================
 // User Invitation Token Operations
-// ============================================================================
 
 /**
  * Create a user invitation token
@@ -1489,9 +1503,7 @@ export async function updateUserProfile(userId: number, updates: { firstName?: s
   };
 }
 
-// ============================================================================
 // Settings Operations
-// ============================================================================
 
 /**
  * Get a setting by key
@@ -1525,9 +1537,7 @@ export async function getAllSettings(): Promise<Record<string, string>> {
   return settings;
 }
 
-// ============================================================================
 // User Preferences Operations
-// ============================================================================
 
 export interface UserPreferences {
   userId: number;
@@ -1629,7 +1639,7 @@ export async function upsertUserPreferences(prefs: Partial<UserPreferences> & { 
   };
 }
 
-// ==================== Alarm Functions ====================
+// 
 
 export interface PgAlarm {
   id: number;
@@ -2023,6 +2033,7 @@ export async function pgGetUserOrganizations(userId: string): Promise<any[]> {
 export async function pgCreateShare(share: {
   station_id: number;
   share_token: string;
+  slug?: string;
   name: string;
   email?: string;
   access_level: string;
@@ -2035,11 +2046,12 @@ export async function pgCreateShare(share: {
   const pool = getPool();
   if (!pool) throw new Error('PostgreSQL pool not initialized');
   await pool.query(
-    `INSERT INTO shares (station_id, share_token, name, email, access_level, password, expires_at, is_active, access_count, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    `INSERT INTO shares (station_id, share_token, slug, name, email, access_level, password, expires_at, is_active, access_count, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
     [
       share.station_id,
       share.share_token,
+      share.slug || null,
       share.name || 'Shared Dashboard',
       share.email || null,
       share.access_level || 'viewer',
@@ -2051,6 +2063,14 @@ export async function pgCreateShare(share: {
     ]
   );
   return share.share_token;
+}
+
+export async function pgGetShareBySlug(slug: string): Promise<any | null> {
+  const pool = getPool();
+  if (!pool) throw new Error('PostgreSQL pool not initialized');
+  const result = await pool.query('SELECT * FROM shares WHERE slug = $1', [slug]);
+  if (result.rows.length === 0) return null;
+  return result.rows[0];
 }
 
 export async function pgGetShareByToken(token: string): Promise<any | null> {
@@ -2170,6 +2190,7 @@ export default {
   // Shares
   pgCreateShare,
   pgGetShareByToken,
+  pgGetShareBySlug,
   pgGetSharesByStation,
   pgUpdateShare,
   pgDeleteShare,

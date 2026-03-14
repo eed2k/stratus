@@ -1,3 +1,8 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
+import { STANDARD_AIR_DENSITY_KGM3 } from './weatherConstants';
+
 export function convertCelsiusToFahrenheit(celsius: number): number {
     return (celsius * 9/5) + 32;
 }
@@ -14,9 +19,9 @@ export function calculateAverage(values: number[]): number {
 /**
  * Calculate Wind Chill using the North American / Environment Canada metric formula.
  * Valid when T ≤ 10 °C and wind speed ≥ 4.8 km/h.
- * @param temperature Air temperature in °C
- * @param windSpeedMs Wind speed in m/s
- * @returns Wind chill temperature in °C (or the input temperature if conditions are outside the valid range)
+ * temperature: Air temperature in °C
+ * windSpeedMs: Wind speed in m/s
+ * Returns Wind chill temperature in °C (or the input temperature if conditions are outside the valid range)
  */
 export function calculateWindChill(temperature: number, windSpeedMs: number): number {
     const windKmh = windSpeedMs * 3.6;
@@ -24,9 +29,7 @@ export function calculateWindChill(temperature: number, windSpeedMs: number): nu
     return 13.12 + 0.6215 * temperature - 11.37 * Math.pow(windKmh, 0.16) + 0.3965 * temperature * Math.pow(windKmh, 0.16);
 }
 
-// ============================================================================
 // Solar Position Calculations (NOAA Algorithm)
-// ============================================================================
 
 interface SolarPosition {
     elevation: number;      // degrees above horizon
@@ -192,18 +195,16 @@ export function calculateSolarPosition(
     };
 }
 
-// ============================================================================
 // Air Density Calculations
-// ============================================================================
 
 /**
  * Calculate air density using the ideal gas law with humidity correction
  * ρ = (p_d / (R_d * T)) + (p_v / (R_v * T))
  * 
- * @param temperature Temperature in Celsius
- * @param pressure Atmospheric pressure in hPa (mbar)
- * @param humidity Relative humidity in percent (0-100)
- * @returns Air density in kg/m³
+ * temperature: Temperature in Celsius
+ * pressure: Atmospheric pressure in hPa (mbar)
+ * humidity: Relative humidity in percent (0-100)
+ * Returns Air density in kg/m³
  */
 export function calculateAirDensity(
     temperature: number,
@@ -232,17 +233,15 @@ export function calculateAirDensity(
     return rho;
 }
 
-// ============================================================================
 // Barometric Pressure Calculations
-// ============================================================================
 
 /**
  * Convert station pressure to sea level pressure using the barometric formula
  * 
- * @param stationPressure Station pressure in hPa (mbar)
- * @param altitude Station altitude in meters
- * @param temperature Temperature in Celsius
- * @returns Sea level pressure in hPa (mbar)
+ * stationPressure: Station pressure in hPa (mbar)
+ * altitude: Station altitude in meters
+ * temperature: Temperature in Celsius
+ * Returns Sea level pressure in hPa (mbar)
  */
 export function calculateSeaLevelPressure(
     stationPressure: number,
@@ -269,10 +268,10 @@ export function calculateSeaLevelPressure(
 /**
  * Convert sea level pressure to station pressure
  * 
- * @param seaLevelPressure Sea level pressure in hPa (mbar)
- * @param altitude Station altitude in meters
- * @param temperature Temperature in Celsius
- * @returns Station pressure in hPa (mbar)
+ * seaLevelPressure: Sea level pressure in hPa (mbar)
+ * altitude: Station altitude in meters
+ * temperature: Temperature in Celsius
+ * Returns Station pressure in hPa (mbar)
  */
 export function calculateStationPressure(
     seaLevelPressure: number,
@@ -315,22 +314,20 @@ export function hPaToMmHg(hpa: number): number {
     return hpa * 0.75006;
 }
 
-// ============================================================================
 // Reference Evapotranspiration (ETo) - FAO Penman-Monteith
-// ============================================================================
 
 /**
  * Calculate Reference Evapotranspiration using FAO Penman-Monteith equation
  * This is the standard method recommended by FAO-56 for calculating ETo
  * 
- * @param temperature Mean daily temperature (°C)
- * @param humidity Relative humidity (%)
- * @param windSpeed Wind speed at 2m height (m/s)
- * @param solarRadiation Solar radiation (MJ/m²/day)
- * @param altitude Station altitude (m)
- * @param latitude Station latitude (degrees)
- * @param dayOfYear Day of year (1-365)
- * @returns ETo in mm/day
+ * temperature: Mean daily temperature (°C)
+ * humidity: Relative humidity (%)
+ * windSpeed: Wind speed at 2m height (m/s)
+ * solarRadiation: Solar radiation (MJ/m²/day)
+ * altitude: Station altitude (m)
+ * latitude: Station latitude (degrees)
+ * dayOfYear: Day of year (1-365)
+ * Returns ETo in mm/day
  */
 export function calculateETo(
     temperature: number,
@@ -409,7 +406,7 @@ export function wattsToMJPerDay(watts: number, hours: number = 24): number {
 
 /**
  * Convert wind speed from km/h to m/s
- * @deprecated Wind data is now stored in m/s natively. This function is kept for backward compatibility.
+ * DEPRECATED: Wind data is now stored in m/s natively. This function is kept for backward compatibility.
  */
 export function kmhToMs(kmh: number): number {
     return kmh / 3.6;
@@ -425,31 +422,27 @@ export function getDayOfYear(date: Date = new Date()): number {
     return Math.floor(diff / oneDay);
 }
 
-// ============================================================================
 // Wind Power Density
-// ============================================================================
 
 /**
  * Calculate wind power density using P = 0.5 * ρ * v³
  * 
- * @param windSpeed Wind speed in m/s
- * @param airDensity Air density in kg/m³ (default 1.225)
- * @returns Power density in W/m²
+ * windSpeed: Wind speed in m/s
+ * airDensity: Air density in kg/m³ (default 1.225)
+ * Returns Power density in W/m²
  */
-export function calculateWindPower(windSpeed: number, airDensity: number = 1.225): number {
+export function calculateWindPower(windSpeed: number, airDensity: number = STANDARD_AIR_DENSITY_KGM3): number {
     return 0.5 * airDensity * Math.pow(windSpeed, 3);
 }
 
-// ============================================================================
 // Dew Point Calculation
-// ============================================================================
 
 /**
  * Calculate dew point temperature using Magnus-Tetens formula
  * 
- * @param temperature Temperature in Celsius
- * @param humidity Relative humidity in percent (0-100)
- * @returns Dew point temperature in Celsius
+ * temperature: Temperature in Celsius
+ * humidity: Relative humidity in percent (0-100)
+ * Returns Dew point temperature in Celsius
  */
 export function calculateDewPoint(temperature: number, humidity: number): number {
     const a = 17.27;
@@ -461,16 +454,14 @@ export function calculateDewPoint(temperature: number, humidity: number): number
     return dewPoint;
 }
 
-// ============================================================================
 // Heat Index Calculation
-// ============================================================================
 
 /**
  * Calculate heat index (feels like temperature in hot conditions)
  * 
- * @param temperature Temperature in Celsius
- * @param humidity Relative humidity in percent (0-100)
- * @returns Heat index in Celsius
+ * temperature: Temperature in Celsius
+ * humidity: Relative humidity in percent (0-100)
+ * Returns Heat index in Celsius
  */
 export function calculateHeatIndex(temperature: number, humidity: number): number {
     // Convert to Fahrenheit for the calculation
@@ -499,30 +490,33 @@ export function calculateHeatIndex(temperature: number, humidity: number): numbe
     return convertFahrenheitToCelsius(HI);
 }
 
-// ============================================================================
-// South African Fire Danger Index (SA FDI) Calculation
-// 
-// The SA FDI is a rating system providing fire risk indication for a specific
-// area. It uses an additive table-based method where environmental factors are
-// each allocated values and the total maps to a colour-coded danger group.
-//
-// Factors:
-//   a) Temperature (°C)
-//   b) Relative Humidity (% - less moisture = higher risk)
-//   c) Wind Speed (km/h - stronger wind = higher risk)
-//   d) Previous Rain (when last and how much fell)
-//
-// Categories:
-//   Blue  :  0 – 20  : SAFE        : Cold and wet
-//   Green : 21 – 45  : MODERATE    : Low fire risk. Care to be taken for burning
-//   Yellow: 46 – 60  : DANGEROUS   : Caution advised
-//   Orange: 61 – 75  : VERY DANGEROUS : Teams on standby. No open flames.
-//   Red   : 81 – 100 : EXTREME     : Warnings on radio/TV forecasts.
-// ============================================================================
 
-/**
- * Fire Danger Rating levels - SA FDI scale
- */
+// Lowveld Fire Danger Index (LFDI)
+//
+// Official fire danger index used by the South African Weather Service (SAWS)
+// and Namibia (via AFIS). National standard under the SA National Veld and
+// Forest Fire Act. Also known as the SA FDI.
+//
+// Formula: LFDI = (BI + WF) x RCF
+//   BI  = Burning Index (temperature + humidity dryness component)
+//   WF  = Wind Factor (polynomial approximation of spread risk)
+//   RCF = Rain Correction Factor (0.1 to 1.0, lookup from last rain amount and days since)
+//
+// Inputs (daily values):
+//   T  = Maximum air temperature (°C)
+//   RH = Minimum relative humidity (%)
+//   WS = Wind speed (km/h)
+//   P  = Rainfall from most recent event (mm)
+//   D  = Days since that rain
+//
+// Rating categories:
+//    0 - 20  Blue   SAFE            Fires unlikely to start or spread
+//   21 - 45  Green  MODERATE        Care needed with burning
+//   46 - 60  Yellow DANGEROUS       Controlled burning not recommended
+//   61 - 75  Orange VERY DANGEROUS  Fire teams on standby
+//   76+      Red    EXTREME         Total fire ban, warnings issued
+
+// Fire Danger Rating levels
 export interface FireDangerRating {
     level: 'safe' | 'moderate' | 'dangerous' | 'very-dangerous' | 'extreme';
     label: string;
@@ -533,37 +527,26 @@ export interface FireDangerRating {
     actionAdvice: string;
 }
 
-/**
- * Fire Danger Index result
- */
+// Fire Danger Index result
 export interface FireDangerResult {
-    ffdi: number;                    // SA Fire Danger Index value (0-100)
-    rating: FireDangerRating;        // Current danger rating
-    grasslandFDI: number;            // Grassland Fire Danger Index
-    keetchByramIndex: number;        // Drought index approximation
+    ffdi: number;                    // LFDI value
+    rating: FireDangerRating;
+    burningIndex: number;            // BI component
+    windFactor: number;              // WF component
+    rainCorrectionFactor: number;    // RCF (0.1 to 1.0)
     fuelMoisture: number;            // Estimated fuel moisture content (%)
     spreadPotential: 'low' | 'moderate' | 'high' | 'very-high' | 'extreme';
-    warningLevel: 0 | 1 | 2 | 3;     // 0=none, 1=watch, 2=warning, 3=emergency
+    warningLevel: 0 | 1 | 2 | 3;
     warningMessage: string | null;
 }
 
-/**
- * South African Fire Danger Index (FDI) Ratings
- * Based on the SA FDI colour-coded system
- * 
- * Categories:
- * - Blue (Safe): 0-20 - Cold and wet
- * - Green (Moderate): 21-45 - Low fire risk, care for burning operations
- * - Yellow (Dangerous): 46-60 - Caution advised
- * - Orange (Very Dangerous): 61-75 - Teams on standby, no open flames
- * - Red (Extreme): 81-100 - Warnings on radio and TV
- */
+// LFDI colour-coded rating thresholds
 export const FIRE_DANGER_RATINGS: FireDangerRating[] = [
     {
         level: 'safe',
         label: 'Safe',
-        color: '#3b82f6', // blue
-        description: 'Cold and wet. Safe conditions.',
+        color: '#3b82f6',
+        description: 'Fires unlikely to start or spread.',
         minValue: 0,
         maxValue: 20,
         actionAdvice: 'Conditions are safe. Controlled burning may be conducted with proper permits.'
@@ -571,8 +554,8 @@ export const FIRE_DANGER_RATINGS: FireDangerRating[] = [
     {
         level: 'moderate',
         label: 'Moderate',
-        color: '#22c55e', // green
-        description: 'Low fire risk. Care to be taken for burning operations.',
+        color: '#22c55e',
+        description: 'Low fire risk. Care needed with burning.',
         minValue: 21,
         maxValue: 45,
         actionAdvice: 'Low fire risk. Exercise care with burning operations. Ensure fires are fully extinguished.'
@@ -580,8 +563,8 @@ export const FIRE_DANGER_RATINGS: FireDangerRating[] = [
     {
         level: 'dangerous',
         label: 'Dangerous',
-        color: '#eab308', // yellow
-        description: 'Caution advised.',
+        color: '#eab308',
+        description: 'Controlled burning not recommended.',
         minValue: 46,
         maxValue: 60,
         actionAdvice: 'Caution advised. Avoid open fires and report any wildfires immediately.'
@@ -589,8 +572,8 @@ export const FIRE_DANGER_RATINGS: FireDangerRating[] = [
     {
         level: 'very-dangerous',
         label: 'Very Dangerous',
-        color: '#f97316', // orange
-        description: 'Teams kept on standby. No open flames.',
+        color: '#f97316',
+        description: 'Fire teams on standby. No open flames.',
         minValue: 61,
         maxValue: 75,
         actionAdvice: 'Very dangerous. Fire teams on standby. No open flames. Be alert and ready to evacuate.'
@@ -598,136 +581,127 @@ export const FIRE_DANGER_RATINGS: FireDangerRating[] = [
     {
         level: 'extreme',
         label: 'Extreme',
-        color: '#dc2626', // red
-        description: 'Warnings presented on radio and TV forecasts.',
+        color: '#dc2626',
+        description: 'Total fire ban. Warnings issued.',
         minValue: 76,
         maxValue: 100,
         actionAdvice: 'EXTREME fire danger. Warnings on radio and TV. All burning prohibited. Evacuate if advised.'
     }
 ];
 
-/**
- * Get fire danger rating from SA FDI value
- */
+// Get fire danger rating from LFDI value
 export function getFireDangerRating(fdi: number): FireDangerRating {
     for (const rating of FIRE_DANGER_RATINGS) {
         if (fdi >= rating.minValue && fdi <= rating.maxValue) {
             return rating;
         }
     }
-    return FIRE_DANGER_RATINGS[FIRE_DANGER_RATINGS.length - 1]; // Extreme
+    return FIRE_DANGER_RATINGS[FIRE_DANGER_RATINGS.length - 1];
 }
 
-// ---- SA FDI Component Scoring Tables ----
-
-/**
- * Temperature score for SA FDI (max ~30 points)
- * Higher temperatures = higher fire danger
- */
-function getTemperatureScore(tempC: number): number {
-    if (tempC <= 10) return 0;
-    if (tempC <= 15) return 2;
-    if (tempC <= 20) return 5;
-    if (tempC <= 25) return 10;
-    if (tempC <= 30) return 15;
-    if (tempC <= 35) return 22;
-    if (tempC <= 40) return 28;
-    return 30; // > 40°C
+// Burning Index (BI)
+// Scaled Angstrom-type dryness component from temperature and humidity.
+// BI = (T - 35) - (35 - T)/30 + ((100 - RH) * 0.37) + 30
+// T = daily max temperature (°C), RH = daily min relative humidity (%)
+export function calculateBurningIndex(tempC: number, rh: number): number {
+    const bi = (tempC - 35) - ((35 - tempC) / 30) + ((100 - rh) * 0.37) + 30;
+    return Math.max(0, bi);
 }
 
-/**
- * Relative Humidity score for SA FDI (max ~30 points)
- * Lower RH = higher fire danger
- */
-function getHumidityScore(rh: number): number {
-    if (rh >= 80) return 0;
-    if (rh >= 70) return 2;
-    if (rh >= 60) return 5;
-    if (rh >= 50) return 10;
-    if (rh >= 40) return 15;
-    if (rh >= 30) return 20;
-    if (rh >= 20) return 25;
-    return 30; // < 20% RH
+// Wind Factor (WF)
+// Polynomial approximation used in official LFDI practice.
+// WF = -0.0000227*WS^4 + 0.0026348*WS^3 - 0.09087*WS^2 + 1.65*WS + 0.2
+// WS = wind speed in km/h
+export function calculateWindFactor(windKmh: number): number {
+    const ws = Math.max(0, windKmh);
+    const wf = -0.0000227 * Math.pow(ws, 4)
+             +  0.0026348 * Math.pow(ws, 3)
+             -  0.09087   * Math.pow(ws, 2)
+             +  1.65      * ws
+             +  0.2;
+    return Math.max(0, wf);
 }
 
-/**
- * Wind speed score for SA FDI (max ~25 points)
- * Stronger wind = higher fire danger
- * @param windMs Wind speed in m/s
- */
-function getWindScore(windMs: number): number {
-    const windKmh = windMs * 3.6; // convert to km/h for threshold comparison
-    if (windKmh <= 5) return 0;
-    if (windKmh <= 10) return 2;
-    if (windKmh <= 15) return 5;
-    if (windKmh <= 25) return 10;
-    if (windKmh <= 35) return 15;
-    if (windKmh <= 45) return 20;
-    return 25; // > 45 km/h
+// Rain Correction Factor (RCF)
+// Lookup table based on last rainfall amount (mm) and days since that rain.
+// Values range from 0.1 (heavy recent rain) to 1.0 (12+ dry days).
+// Based on official DWAF/SAWS nomogram values.
+export function getRainCorrectionFactor(lastRainMm: number, daysSinceRain: number): number {
+    // 12+ days since rain, or no rain recorded: full dryness
+    if (daysSinceRain >= 12) return 1.0;
+
+    // Lookup table: rows = rain amount, columns = days since rain
+    // Days:          0     1     2     3     4     5     6     7     8     9    10    11
+    // Rain (mm):
+    if (lastRainMm >= 25) {
+        const rcf = [0.10, 0.15, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95];
+        return rcf[Math.min(daysSinceRain, 11)];
+    }
+    if (lastRainMm >= 13) {
+        const rcf = [0.15, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95, 1.00];
+        return rcf[Math.min(daysSinceRain, 11)];
+    }
+    if (lastRainMm >= 5) {
+        const rcf = [0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95, 1.00, 1.00];
+        return rcf[Math.min(daysSinceRain, 11)];
+    }
+    if (lastRainMm >= 2) {
+        const rcf = [0.40, 0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95, 1.00, 1.00, 1.00, 1.00];
+        return rcf[Math.min(daysSinceRain, 11)];
+    }
+    // Less than 2mm of rain is insignificant
+    return 1.0;
 }
 
-/**
- * Previous rain / drought score for SA FDI (max ~15 points)
- * Longer since rain and less rain = higher danger
- * Expected rainfall is NOT considered.
- */
-function getRainScore(daysSinceRain: number, rainfall7day: number, rainfall30day: number): number {
-    // If it rained today or yesterday with significant amount, very low score
-    if (daysSinceRain <= 1 && rainfall7day > 10) return 0;
-    if (daysSinceRain <= 1) return 2;
-    if (daysSinceRain <= 3 && rainfall7day > 5) return 3;
-    if (daysSinceRain <= 3) return 5;
-    if (daysSinceRain <= 7 && rainfall30day > 25) return 7;
-    if (daysSinceRain <= 7) return 9;
-    if (daysSinceRain <= 14) return 11;
-    if (daysSinceRain <= 21) return 13;
-    return 15; // > 21 days since rain
-}
-
-/**
- * Calculate South African Fire Danger Index using the additive table method.
- * 
- * FDI = Temperature Score + Humidity Score + Wind Score + Rain/Drought Score
- * Result is clamped to 0-100.
- * 
- * @param temperature Air temperature in °C
- * @param humidity Relative humidity in % (0-100)
- * @param windSpeed Wind speed in m/s
- * @param daysSinceRain Days since last significant rain (>2mm)
- * @param rainfall7day Total rainfall in last 7 days (mm)
- * @param rainfall30day Total rainfall in last 30 days (mm)
- * @returns SA FDI value (0-100)
- */
-export function calculateSAFDI(
+// Calculate the Lowveld Fire Danger Index.
+// LFDI = (BI + WF) x RCF
+//
+// temperature: daily max air temperature (°C)
+// humidity: daily min relative humidity (%)
+// windSpeed: wind speed in m/s (converted internally to km/h)
+// lastRainMm: rainfall from most recent event (mm)
+// daysSinceRain: days since that rain event
+export function calculateLFDI(
     temperature: number,
     humidity: number,
     windSpeed: number,
-    daysSinceRain: number = 7,
-    rainfall7day: number = 0,
-    rainfall30day: number = 0
-): number {
-    const tempScore = getTemperatureScore(temperature);
-    const humidityScore = getHumidityScore(humidity);
-    const windScore = getWindScore(windSpeed);
-    const rainScore = getRainScore(daysSinceRain, rainfall7day, rainfall30day);
-
-    const fdi = tempScore + humidityScore + windScore + rainScore;
-    return Math.max(0, Math.min(100, fdi));
+    lastRainMm: number = 0,
+    daysSinceRain: number = 7
+): { lfdi: number; bi: number; wf: number; rcf: number } {
+    const windKmh = windSpeed * 3.6;
+    const bi = calculateBurningIndex(temperature, humidity);
+    const wf = calculateWindFactor(windKmh);
+    const rcf = getRainCorrectionFactor(lastRainMm, daysSinceRain);
+    const lfdi = (bi + wf) * rcf;
+    return { lfdi: Math.max(0, lfdi), bi, wf, rcf };
 }
 
-/**
- * Estimate fuel moisture content from weather conditions
- * 
- * @param temperature Air temperature in Celsius
- * @param humidity Relative humidity in percent
- * @returns Estimated fine fuel moisture content (%)
- */
+// Backward-compatible aliases for old additive score API.
+// These map to LFDI components so the FireDangerCard breakdown still works.
+// They return rounded display values, not used in the actual calculation.
+export function getTemperatureScore(tempC: number): number {
+    // Portion of BI attributable to temperature: (T - 35) - (35 - T)/30 + 30
+    return Math.max(0, Math.round(((tempC - 35) - ((35 - tempC) / 30) + 30) * 10) / 10);
+}
+export function getHumidityScore(rh: number): number {
+    // Portion of BI attributable to humidity: (100 - RH) * 0.37
+    return Math.max(0, Math.round(((100 - rh) * 0.37) * 10) / 10);
+}
+export function getWindScore(windMs: number): number {
+    return Math.round(calculateWindFactor(windMs * 3.6) * 10) / 10;
+}
+export function getRainScore(daysSinceRain: number, rainfall7day: number, _rainfall30day: number): number {
+    // Return RCF as a display value (multiplier 0-1 shown as 0-10 range for the card)
+    // Use rainfall7day as a proxy for last rain amount
+    const rcf = getRainCorrectionFactor(rainfall7day, daysSinceRain);
+    return Math.round(rcf * 10) / 10;
+}
+
+// Estimate fuel moisture content from weather conditions
 export function estimateFuelMoisture(temperature: number, humidity: number): number {
     const T = temperature;
     const RH = humidity;
-    
     let fuelMoisture: number;
-    
     if (RH <= 10) {
         fuelMoisture = 0.03229 + 0.281073 * RH - 0.000578 * RH * T;
     } else if (RH <= 50) {
@@ -735,57 +709,40 @@ export function estimateFuelMoisture(temperature: number, humidity: number): num
     } else {
         fuelMoisture = 21.0606 + 0.005565 * RH * RH - 0.00035 * RH * T - 0.483199 * RH;
     }
-    
     return Math.max(2, Math.min(35, fuelMoisture));
 }
 
-/**
- * Calculate comprehensive Fire Danger Index using SA FDI method
- * 
- * @param temperature Air temperature in Celsius
- * @param humidity Relative humidity in percent (0-100)
- * @param windSpeed Wind speed in m/s
- * @param rainfall7day Total rainfall in last 7 days (mm), optional
- * @param rainfall30day Total rainfall in last 30 days (mm), optional
- * @param daysSinceRain Days since last significant rain, optional
- * @returns Complete fire danger assessment
- */
+// Calculate comprehensive Fire Danger Index using the official LFDI method.
+// LFDI = (BI + WF) x RCF
+//
+// temperature: daily max air temperature in Celsius
+// humidity: daily min relative humidity in percent (0-100)
+// windSpeed: wind speed in m/s
+// rainfall7day: total rainfall in last 7 days (mm), used as proxy for last rain amount
+// rainfall30day: unused, kept for API compatibility
+// daysSinceRain: days since last significant rain
 export function calculateFireDanger(
     temperature: number,
     humidity: number,
     windSpeed: number,
     rainfall7day: number = 0,
-    rainfall30day: number = 0,
+    _rainfall30day: number = 0,
     daysSinceRain: number = 7
 ): FireDangerResult {
-    // Calculate SA FDI using additive table method
-    const fdi = calculateSAFDI(temperature, humidity, windSpeed, daysSinceRain, rainfall7day, rainfall30day);
+    const { lfdi, bi, wf, rcf } = calculateLFDI(temperature, humidity, windSpeed, rainfall7day, daysSinceRain);
     const fuelMoisture = estimateFuelMoisture(temperature, humidity);
-    
-    // Get rating based on SA FDI
-    const rating = getFireDangerRating(fdi);
-    
-    // Approximate drought index from rain data
-    let droughtApprox = 5;
-    if (daysSinceRain > 21) droughtApprox = 9;
-    else if (daysSinceRain > 14) droughtApprox = 7;
-    else if (daysSinceRain > 7) droughtApprox = 6;
-    else if (daysSinceRain > 3) droughtApprox = 4;
-    else droughtApprox = 2;
-    const keetchByramIndex = Math.min(800, droughtApprox * 80);
-    
-    // Determine spread potential based on SA FDI
+    const rating = getFireDangerRating(Math.round(lfdi));
+
+    // Spread potential maps from LFDI rating thresholds
     let spreadPotential: 'low' | 'moderate' | 'high' | 'very-high' | 'extreme';
-    if (fdi <= 20) spreadPotential = 'low';
-    else if (fdi <= 45) spreadPotential = 'moderate';
-    else if (fdi <= 60) spreadPotential = 'high';
-    else if (fdi <= 75) spreadPotential = 'very-high';
+    if (lfdi <= 20) spreadPotential = 'low';
+    else if (lfdi <= 45) spreadPotential = 'moderate';
+    else if (lfdi <= 60) spreadPotential = 'high';
+    else if (lfdi <= 75) spreadPotential = 'very-high';
     else spreadPotential = 'extreme';
-    
-    // Determine warning level and message based on SA FDI
+
     let warningLevel: 0 | 1 | 2 | 3 = 0;
     let warningMessage: string | null = null;
-    
     if (rating.level === 'extreme') {
         warningLevel = 3;
         warningMessage = 'EXTREME: Fire warnings on radio and TV. All burning prohibited. Evacuate fire-prone areas if advised.';
@@ -796,12 +753,13 @@ export function calculateFireDanger(
         warningLevel = 1;
         warningMessage = 'DANGEROUS: Caution advised. Avoid open fires and stay vigilant.';
     }
-    
+
     return {
-        ffdi: Math.round(fdi * 10) / 10,
+        ffdi: Math.round(lfdi * 10) / 10,
         rating,
-        grasslandFDI: Math.round(fdi * 10) / 10, // Same value for SA FDI
-        keetchByramIndex: Math.round(keetchByramIndex),
+        burningIndex: Math.round(bi * 10) / 10,
+        windFactor: Math.round(wf * 10) / 10,
+        rainCorrectionFactor: Math.round(rcf * 100) / 100,
         fuelMoisture: Math.round(fuelMoisture * 10) / 10,
         spreadPotential,
         warningLevel,

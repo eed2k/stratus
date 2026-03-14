@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Campbell Scientific File Manager
  * Handles file operations on dataloggers: listing, download, upload, delete, backup/restore
@@ -714,7 +717,7 @@ export class FileManager extends EventEmitter {
     return new Map(this.activeTransfers);
   }
 
-  // ============ Private Methods ============
+  // 
 
   private emitProgress(transferId: string, progress: TransferProgress): void {
     this.emit('transfer-progress', { transferId, ...progress });

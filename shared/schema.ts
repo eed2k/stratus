@@ -1,8 +1,11 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Shared Schema Definitions for Stratus Weather Server
  * 
  * ARCHITECTURE NOTE (Issue #17 - Type Alignment):
- * ================================================
+ *
  * This file defines schemas using Drizzle ORM with PostgreSQL types for
  * cloud deployment compatibility.
  * 
@@ -769,9 +772,7 @@ export const insertStationShareSchema = createInsertSchema(stationShares).omit({
 export type InsertStationShare = z.infer<typeof insertStationShareSchema>;
 export type StationShare = typeof stationShares.$inferSelect;
 
-// ============================================================================
-// COMPLIANCE & AUDIT TABLES (GDPR Art. 32, ISO 27001, ISO 27701)
-// ============================================================================
+
 
 // Audit Log table - Comprehensive data access and modification tracking
 export const auditLog = pgTable("audit_log", {

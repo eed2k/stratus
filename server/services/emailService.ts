@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Email Service for Stratus Weather Server
  * Uses MailerSend for transactional email delivery
@@ -353,10 +356,25 @@ export async function sendAlarmResolvedEmail(
 </html>
 `;
 
-  return sendEmail({
+  const text = `RESOLVED: ${data.alarmName}
+
+Station: ${data.stationName} (ID: ${data.stationId})
+Status: Alarm condition has returned to normal.
+Current Value: ${data.currentValue} ${data.unit}
+Triggered At: ${data.triggeredAt.toLocaleString()}
+Resolved At: ${data.resolvedAt.toLocaleString()}
+
+View Dashboard: ${dashboardUrl}
+
+--
+Stratus Weather Server
+`;
+
+  return sendAlertEmail({
     to: recipients,
     subject,
     html,
+    text,
   });
 }
 

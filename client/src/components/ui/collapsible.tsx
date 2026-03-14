@@ -1,3 +1,6 @@
+// Stratus Weather System - UI Component
+// Source: Library (shadcn/ui)
+
 "use client"
 
 import * as CollapsiblePrimitive from "@radix-ui/react-collapsible"

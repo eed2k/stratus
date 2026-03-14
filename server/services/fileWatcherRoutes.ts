@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * File Watcher API Routes
  * Endpoints for managing watched folders (Dropbox sync, etc.)

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Compliance Routes - Regulatory Compliance API Endpoints
  * 
@@ -17,9 +20,7 @@ import { isAuthenticated } from "../localAuth";
 
 const router = Router();
 
-// ============================================================================
 // DATABASE INITIALIZATION - Create compliance tables if they don't exist
-// ============================================================================
 
 function initComplianceTables(): void {
   const database = db.getDatabase();
@@ -154,9 +155,7 @@ try {
   console.error("Failed to initialize compliance tables:", error);
 }
 
-// ============================================================================
 // AUDIT LOGGING HELPER
-// ============================================================================
 
 function logAuditEvent(
   eventType: string,
@@ -204,9 +203,7 @@ function logAuditEvent(
   }
 }
 
-// ============================================================================
 // CALIBRATION MANAGEMENT (ISO/IEC 17025)
-// ============================================================================
 
 /**
  * GET /api/compliance/calibrations
@@ -386,9 +383,7 @@ router.get("/calibrations/due", isAuthenticated, (req: Request, res: Response) =
   }
 });
 
-// ============================================================================
 // DATA QUALITY MANAGEMENT (ISO 19157)
-// ============================================================================
 
 /**
  * GET /api/compliance/quality-flags
@@ -536,9 +531,7 @@ router.patch("/quality-flags/:id/review", isAuthenticated, (req: Request, res: R
   }
 });
 
-// ============================================================================
 // GDPR DATA SUBJECT RIGHTS (Art. 15-22)
-// ============================================================================
 
 /**
  * POST /api/compliance/dsr
@@ -669,9 +662,7 @@ router.patch("/dsr/:id", isAuthenticated, (req: Request, res: Response) => {
   }
 });
 
-// ============================================================================
 // COMPLIANCE CERTIFICATIONS
-// ============================================================================
 
 /**
  * GET /api/compliance/certifications
@@ -774,9 +765,7 @@ router.post("/certifications", isAuthenticated, (req: Request, res: Response) =>
   }
 });
 
-// ============================================================================
 // AUDIT LOG ACCESS
-// ============================================================================
 
 /**
  * GET /api/compliance/audit-log
@@ -873,9 +862,7 @@ router.get("/audit-log/export", isAuthenticated, (req: Request, res: Response) =
   }
 });
 
-// ============================================================================
 // COMPLIANCE DASHBOARD SUMMARY
-// ============================================================================
 
 /**
  * GET /api/compliance/summary

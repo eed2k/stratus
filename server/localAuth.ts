@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Local Authentication Module
  * Multi-user authentication with database-backed user storage

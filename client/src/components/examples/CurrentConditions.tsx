@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { CurrentConditions } from "../dashboard/CurrentConditions";
 import { ThemeProvider } from "../ThemeProvider";
 

@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { StationSelector } from "../dashboard/StationSelector";
 import { ThemeProvider } from "../ThemeProvider";
 

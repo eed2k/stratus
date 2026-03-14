@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useEffect, useRef, useState, useCallback, Component, ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +9,7 @@ import { Input } from "@/components/ui/input";
 import { MapPin, Navigation, ExternalLink, Search, Loader2, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { safeFixed } from "@/lib/utils";
 
-// ============================================================================
 // BULLETPROOF LEAFLET LOADER - Multiple CDNs, retries, fallbacks
-// ============================================================================
 
 // CDN sources for Leaflet (in order of preference)
 const LEAFLET_CDNS = [
@@ -143,9 +144,7 @@ async function loadLeafletLibrary(): Promise<void> {
   }
 }
 
-// ============================================================================
 // ERROR BOUNDARY
-// ============================================================================
 interface MapErrorBoundaryProps {
   children: ReactNode;
   onError?: (error: Error) => void;
@@ -255,15 +254,15 @@ export function StationMap({
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Default to South Africa (center) if no coordinates provided
-  const lat = latitude ?? -30.5595; // Central South Africa
-  const lng = longitude ?? 22.9375;
+  // Default to Southern Africa (center) if no coordinates provided
+  const lat = latitude ?? -25.0; // Southern Africa
+  const lng = longitude ?? 22.0;
   const hasCoordinates = latitude !== undefined && longitude !== undefined;
   
   // Default zoom for South Africa overview vs specific location
   const defaultZoom = hasCoordinates ? zoom : 5;
 
-  // Nominatim search function with South Africa bias
+  // Nominatim search function with Southern Africa bias
   const searchLocation = useCallback(async (query: string) => {
     if (query.length < 3) {
       setSearchResults([]);
@@ -273,14 +272,14 @@ export function StationMap({
 
     setIsSearching(true);
     try {
-      // Search with South Africa country bias and viewbox
+      // Search with Southern Africa bias (SA + Namibia + neighbours)
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?` +
         `q=${encodeURIComponent(query)}` +
         `&format=json` +
         `&limit=8` +
-        `&countrycodes=za` + // Bias to South Africa
-        `&viewbox=16.45,-34.85,32.89,-22.13` + // South Africa bounding box
+        `&countrycodes=za,na,bw,mz,zw,sz,ls` + // Southern Africa countries
+        `&viewbox=11.7,-35.0,40.8,-16.5` + // Southern Africa bounding box
         `&bounded=0` + // Allow results outside but prefer inside
         `&addressdetails=1`,
         {
@@ -592,7 +591,7 @@ export function StationMap({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search location in South Africa..."
+                placeholder="Search location..."
                 value={searchQuery}
                 onChange={(e) => handleSearchInput(e.target.value)}
                 onFocus={() => searchResults.length > 0 && setShowResults(true)}

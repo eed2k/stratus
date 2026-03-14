@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { AppSidebar } from "../AppSidebar";
 import { ThemeProvider } from "../ThemeProvider";
 import { SidebarProvider } from "@/components/ui/sidebar";

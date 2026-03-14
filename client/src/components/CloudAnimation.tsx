@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 ﻿export default function CloudAnimation({ className = "" }: { className?: string }) {
   return (
     <div className={`relative overflow-hidden ${className}`} aria-hidden="true">

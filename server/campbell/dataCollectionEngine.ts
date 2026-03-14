@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /// <reference types="node" />
 /**
  * Data Collection Engine

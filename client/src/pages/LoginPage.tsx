@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -184,7 +187,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         {/* Footer */}
         <div className="text-center space-y-1">
           <p className="text-xs text-gray-600">
-            Stratus Weather Station Server v1.1.0
+            Stratus Weather Station Server v1.2.1
           </p>
         </div>
       </div>

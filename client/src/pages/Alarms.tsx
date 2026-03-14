@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +14,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { authFetch } from "@/lib/queryClient";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2, Check } from "lucide-react";
 import type { WeatherStation } from "@shared/schema";
+import { getWindUnitLabel, type WindSpeedUnit } from "@/lib/windConstants";
 
 interface Alarm {
   id: number;
@@ -152,7 +156,11 @@ export default function Alarms() {
     queryKey: ["/api/alarm-events"],
   });
 
+  const selectedStation = stations.find((s) => s.id.toString() === formData.stationId);
+  const stationWindUnit = (selectedStation as any)?.windSpeedUnit;
+  const windUnitLabel = getWindUnitLabel((stationWindUnit as WindSpeedUnit) || 'ms');
   const selectedParam = PARAMETERS.find((p) => p.value === formData.parameter);
+  const effectiveUnit = (formData.parameter === 'windSpeed' || formData.parameter === 'windGust') ? windUnitLabel : selectedParam?.unit;
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -161,7 +169,7 @@ export default function Alarms() {
         stationId: parseInt(data.stationId),
         threshold: data.condition === "stale" ? 0 : parseFloat(data.threshold),
         staleMinutes: data.condition === "stale" ? parseInt(data.staleMinutes) : undefined,
-        unit: data.condition === "stale" ? "min" : (selectedParam?.unit || ""),
+        unit: data.condition === "stale" ? "min" : (effectiveUnit || ""),
       });
     },
     onSuccess: () => {
@@ -228,7 +236,7 @@ export default function Alarms() {
       stationId: parseInt(formData.stationId),
       threshold: formData.condition === "stale" ? 0 : parseFloat(formData.threshold || "1"),
       staleMinutes: formData.condition === "stale" ? parseInt(formData.staleMinutes) : undefined,
-      unit: formData.condition === "stale" ? "min" : formData.condition === "no_charge" ? "V" : (selectedParam?.unit || ""),
+      unit: formData.condition === "stale" ? "min" : formData.condition === "no_charge" ? "V" : (effectiveUnit || ""),
       parameter: formData.condition === "no_charge" ? "batteryVoltage" : formData.parameter,
     };
     
@@ -410,7 +418,7 @@ export default function Alarms() {
               </div>
               ) : (
               <div className="space-y-2">
-                <Label>Threshold ({selectedParam?.unit})</Label>
+                <Label>Threshold ({effectiveUnit})</Label>
                 <Input
                   type="number"
                   step="0.1"
@@ -619,6 +627,25 @@ export default function Alarms() {
                       <Badge variant={event.acknowledged ? "secondary" : "destructive"}>
                         {event.acknowledged ? "Acknowledged" : "Active"}
                       </Badge>
+                      {!event.acknowledged && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-green-600"
+                          onClick={async () => {
+                            try {
+                              await apiRequest('POST', `/api/alarm-events/${event.id}/acknowledge`);
+                              queryClient.invalidateQueries({ queryKey: ['/api/alarm-events'] });
+                              toast({ title: 'Acknowledged', description: 'Alarm event acknowledged.' });
+                            } catch {
+                              toast({ title: 'Error', description: 'Failed to acknowledge event.', variant: 'destructive' });
+                            }
+                          }}
+                          title="Acknowledge event"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"

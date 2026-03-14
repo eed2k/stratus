@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Station Setup Routes
  * Handles all station setup and configuration endpoints for different protocols

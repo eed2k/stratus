@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useQuery } from "@tanstack/react-query";
 import { StationDashboard } from "@/components/campbell/StationDashboard";
 import { Card, CardContent } from "@/components/ui/card";

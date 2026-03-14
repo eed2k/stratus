@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { EToCard } from "../dashboard/EToCard";
 import { ThemeProvider } from "../ThemeProvider";
 

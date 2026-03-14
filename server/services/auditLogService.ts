@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Audit Logging Service
  * Tracks all admin actions for security compliance and accountability

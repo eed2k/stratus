@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Service Type Detection & Auto-Configuration
  * For Campbell Scientific dataloggers

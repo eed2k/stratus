@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import type { Express } from "express";
 import { dataCollectionService } from "./dataCollectionService";
 import { isAuthenticated } from "../localAuth";
@@ -48,7 +51,7 @@ const insertDataQualityFlagSchema = z.object({
 
 export function registerCampbellRoutes(app: Express): void {
   
-  // ========== Station Management ==========
+  // 
   
   /**
    * Start data collection for a station
@@ -184,7 +187,7 @@ export function registerCampbellRoutes(app: Express): void {
     }
   });
 
-  // ========== Sensor Management ==========
+  // 
 
   /**
    * Get all sensors for a station
@@ -258,7 +261,7 @@ export function registerCampbellRoutes(app: Express): void {
     }
   });
 
-  // ========== Calibration Management ==========
+  // 
 
   /**
    * Get calibration records for a sensor
@@ -310,7 +313,7 @@ export function registerCampbellRoutes(app: Express): void {
     }
   });
 
-  // ========== Maintenance Management ==========
+  // 
 
   /**
    * Get maintenance events for a station
@@ -354,7 +357,7 @@ export function registerCampbellRoutes(app: Express): void {
     }
   });
 
-  // ========== Alarm Management ==========
+  // 
   // NOTE: Top-level alarm CRUD (/api/alarms, /api/alarms/:id) is handled
   // in server/routes.ts with optionalAuth. Only station-scoped alarm
   // endpoints are defined here to avoid route shadowing.
@@ -423,7 +426,7 @@ export function registerCampbellRoutes(app: Express): void {
     }
   });
 
-  // ========== Data Quality Management ==========
+  // 
 
   /**
    * Get data quality flags for a station
@@ -466,7 +469,7 @@ export function registerCampbellRoutes(app: Express): void {
     }
   });
 
-  // ========== Configuration History ==========
+  // 
 
   /**
    * Get configuration change history for a station
@@ -482,7 +485,7 @@ export function registerCampbellRoutes(app: Express): void {
     }
   });
 
-  // ========== Station Groups ==========
+  // 
 
   /**
    * Get all station groups
@@ -542,7 +545,7 @@ export function registerCampbellRoutes(app: Express): void {
     }
   });
 
-  // ========== Email Notification Routes ==========
+  // 
 
   /**
    * Check email configuration status

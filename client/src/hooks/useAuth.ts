@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, useEffect, useCallback } from 'react';
 
 export interface AuthUser {
@@ -24,7 +27,7 @@ export interface StoredUser {
   createdBy?: string;
 }
 
-// ============ API Functions - Use server endpoints instead of localStorage ============
+// 
 
 // Get all users from server
 export async function getAllUsers(): Promise<StoredUser[]> {

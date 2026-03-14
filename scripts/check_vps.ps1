@@ -1,0 +1,12 @@
+$ErrorActionPreference = "Continue"
+# Check Swakop sync status on VPS
+Write-Host "=== SWAKOP LOGS ==="
+ssh root@139.84.242.126 "docker logs stratus-app 2>&1 | grep -i swakop"
+Write-Host ""
+Write-Host "=== WEATHER DATA COUNTS ==="
+ssh root@139.84.242.126 "docker exec stratus-postgres psql -U stratus -d stratus -t -c 'SELECT station_id, count(*) FROM weather_data GROUP BY station_id ORDER BY station_id;'"
+Write-Host ""
+Write-Host "=== RECENT SYNC LOGS ==="
+ssh root@139.84.242.126 "docker logs stratus-app --since 10m 2>&1 | grep -iE 'Processing.*database|DB config|additional|complete|finished|error|fail' | tail -10"
+Write-Host ""
+Write-Host "=== DONE ==="

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * HTTP Protocol Adapter
  * Fetches weather data from REST APIs, cloud services, and direct IP endpoints

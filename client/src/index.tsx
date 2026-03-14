@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'

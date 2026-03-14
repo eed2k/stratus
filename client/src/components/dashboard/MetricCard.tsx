@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMemo, memo } from "react";
 
@@ -37,7 +40,13 @@ export const MetricCard = memo(function MetricCard({
     if (sparklineData && sparklineData.length > 0) {
       // Filter out any zero or null values for cleaner display
       const validData = sparklineData.filter(v => v !== null && v !== undefined);
-      return validData.length > 0 ? validData : [];
+      if (validData.length === 0) return [];
+      // Cap at 24 data points max to prevent bars becoming too thin on longer ranges
+      if (validData.length > 24) {
+        const step = validData.length / 24;
+        return Array.from({ length: 24 }, (_, i) => validData[Math.min(Math.floor(i * step), validData.length - 1)]);
+      }
+      return validData;
     }
     return [];
   }, [sparklineData, showChart]);
@@ -63,13 +72,13 @@ export const MetricCard = memo(function MetricCard({
   }
 
   return (
-    <Card className="hover-elevate transition-shadow duration-200 border border-gray-300 bg-white" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card className="hover-elevate transition-shadow duration-200 border border-gray-300 bg-white flex flex-col" data-testid={`card-metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col flex-1">
         <div className="flex items-baseline gap-1">
           <span className="text-3xl font-normal tracking-tight text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid={`value-${title.toLowerCase().replace(/\s+/g, '-')}`}>
             {value}
@@ -83,9 +92,20 @@ export const MetricCard = memo(function MetricCard({
           </p>
         )}
 
-        {/* Mini chart - only show if enabled */}
+        {subMetrics && subMetrics.length > 0 && (
+          <div className="mt-2 grid grid-cols-2 gap-2 border-t border-gray-300 pt-2">
+            {subMetrics.map((sub, i) => (
+              <div key={i} className="text-xs" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <span className="font-normal text-black">{sub.label}: </span>
+                <span className="font-normal text-black">{sub.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Mini chart – always at bottom, fixed height */}
         {showChart && chartData.length > 0 && (
-          <div className="mt-3 h-12 flex items-end gap-0.5">
+          <div className="mt-auto pt-3 h-12 flex items-end gap-0.5">
             {chartData.map((val, i) => {
               const max = Math.max(...chartData);
               const min = Math.min(...chartData);
@@ -95,21 +115,10 @@ export const MetricCard = memo(function MetricCard({
                 <div
                   key={i}
                   className="flex-1 rounded-t-sm"
-                  style={{ height: `${Math.max(height, 5)}%`, backgroundColor: chartColor }}
+                  style={{ height: `${Math.max(height, 5)}%`, backgroundColor: chartColor, maxWidth: 12 }}
                 />
               );
             })}
-          </div>
-        )}
-
-        {subMetrics && subMetrics.length > 0 && (
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-300 pt-3">
-            {subMetrics.map((sub, i) => (
-              <div key={i} className="text-xs" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                <span className="font-normal text-black">{sub.label}: </span>
-                <span className="font-normal text-black">{sub.value}</span>
-              </div>
-            ))}
           </div>
         )}
       </CardContent>

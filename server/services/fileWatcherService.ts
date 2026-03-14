@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * File Watcher Service
  * Watches a local folder (e.g., Dropbox sync folder) for new/updated .dat files

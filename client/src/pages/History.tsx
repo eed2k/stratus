@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
@@ -24,6 +27,7 @@ import {
 import { Download, Calendar, Radio, Plus, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import type { WeatherStation, WeatherData } from "@shared/schema";
+import { getWindUnitLabel, type WindSpeedUnit } from "@/lib/windConstants";
 
 interface HistoryProps {
   canAccessStation?: (stationId: number) => boolean;
@@ -44,6 +48,8 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
   const stations = isAdmin ? allStations : allStations.filter(s => canAccessStation?.(s.id) ?? false);
 
   const activeStationId = selectedStation || (stations.length > 0 ? String(stations[0].id) : "");
+  const activeStation = stations.find(s => s.id.toString() === activeStationId);
+  const windUnitLabel = getWindUnitLabel(((activeStation as any)?.windSpeedUnit as WindSpeedUnit) || 'ms');
 
   const { data: weatherData = [], isLoading: dataLoading, refetch } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "history", startDate, endDate],
@@ -241,8 +247,8 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
                     <TableHead className="text-right whitespace-nowrap">Temp (°C)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Humidity (%)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Pressure (hPa)</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Wind (m/s)</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Gust (m/s)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">{`Wind (${windUnitLabel})`}</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">{`Gust (${windUnitLabel})`}</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Dir (°)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Rain (mm)</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Solar (W/m²)</TableHead>

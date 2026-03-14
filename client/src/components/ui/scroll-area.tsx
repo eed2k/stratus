@@ -1,3 +1,6 @@
+// Stratus Weather System - UI Component
+// Source: Library (shadcn/ui)
+
 import * as React from "react"
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 

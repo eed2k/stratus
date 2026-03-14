@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useQuery } from "@tanstack/react-query";
 import { ReportGenerator } from "@/components/reports/ReportGenerator";
 import type { WeatherStation } from "@shared/schema";

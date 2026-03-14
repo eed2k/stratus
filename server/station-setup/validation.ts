@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Station Setup Validation
  * Validates connection configurations for all protocol types

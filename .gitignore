@@ -94,6 +94,18 @@ mppt_test.sql
 update_coords.sql
 scripts/login.json
 
+# ── Deploy state and output files ──
+deploy/deploy_output.txt
+deploy/vps_state.txt
+deploy/check_vps.py
+deploy/check_vps_setup.py
+deploy/monitor_build.py
+deploy/poll_build.py
+deploy/quick_check.py
+deploy/rebuild_vps.py
+deploy/restart_container.py
+deploy/deploy_lean.py
+
 # ── .NET Desktop build artifacts ──
 desktop/Stratus.Desktop/bin/
 desktop/Stratus.Desktop/obj/

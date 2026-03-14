@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Wind Direction and Speed Constants
  * 
@@ -33,7 +36,7 @@ export interface WindSpeedClass {
  * Official Beaufort scale values in m/s:
  * 
  * Beaufort | m/s
- * ---------|----------
+ * ---------|---------
  *    0     | <0.3
  *    1     | 0.3-1.5
  *    2     | 1.6-3.3
@@ -84,9 +87,59 @@ export const WMO_SIMPLIFIED_CLASSES: WindSpeedClass[] = [
 ];
 
 /**
+ * WMO Speed Classes in km/h for stations that report wind speed in km/h
+ * Same Beaufort scale, converted: m/s × 3.6 = km/h
+ */
+export const WMO_SPEED_CLASSES_KMH: WindSpeedClass[] = [
+  { min: 0, max: 1, color: "#e0f2fe", label: "Calm", beaufort: "0" },
+  { min: 1, max: 6, color: "#bae6fd", label: "Light Air", beaufort: "1" },
+  { min: 6, max: 12, color: "#7dd3fc", label: "Light Breeze", beaufort: "2" },
+  { min: 12, max: 20, color: "#38bdf8", label: "Gentle Breeze", beaufort: "3" },
+  { min: 20, max: 29, color: "#0ea5e9", label: "Moderate Breeze", beaufort: "4" },
+  { min: 29, max: 39, color: "#22c55e", label: "Fresh Breeze", beaufort: "5" },
+  { min: 39, max: 50, color: "#84cc16", label: "Strong Breeze", beaufort: "6" },
+  { min: 50, max: 62, color: "#eab308", label: "Near Gale", beaufort: "7" },
+  { min: 62, max: 75, color: "#f97316", label: "Gale", beaufort: "8" },
+  { min: 75, max: 89, color: "#ef4444", label: "Strong Gale", beaufort: "9" },
+  { min: 89, max: 103, color: "#dc2626", label: "Storm", beaufort: "10" },
+  { min: 103, max: 118, color: "#b91c1c", label: "Violent Storm", beaufort: "11" },
+  { min: 118, max: Infinity, color: "#7f1d1d", label: "Hurricane", beaufort: "12" },
+];
+
+/**
+ * Simplified WMO classes in km/h for wind rose display (6 categories)
+ */
+export const WMO_SIMPLIFIED_CLASSES_KMH: WindSpeedClass[] = [
+  { min: 0, max: 6, color: "#bae6fd", label: "Calm/Light (0–5 km/h)", beaufort: "0-1" },
+  { min: 6, max: 20, color: "#38bdf8", label: "Light/Gentle (6–19 km/h)", beaufort: "2-3" },
+  { min: 20, max: 39, color: "#22c55e", label: "Moderate/Fresh (20–38 km/h)", beaufort: "4-5" },
+  { min: 39, max: 62, color: "#eab308", label: "Strong/Near Gale (39–61 km/h)", beaufort: "6-7" },
+  { min: 62, max: 89, color: "#f97316", label: "Gale/Strong Gale (62–88 km/h)", beaufort: "8-9" },
+  { min: 89, max: Infinity, color: "#dc2626", label: "Storm+ (>89 km/h)", beaufort: "10+" },
+];
+
+/** Wind speed unit type */
+export type WindSpeedUnit = 'ms' | 'kmh';
+
+/** Get the display label for a wind speed unit */
+export function getWindUnitLabel(unit: WindSpeedUnit): string {
+  return unit === 'kmh' ? 'km/h' : 'm/s';
+}
+
+/** Get simplified speed classes for a given unit */
+export function getSimplifiedClasses(unit: WindSpeedUnit): WindSpeedClass[] {
+  return unit === 'kmh' ? WMO_SIMPLIFIED_CLASSES_KMH : WMO_SIMPLIFIED_CLASSES;
+}
+
+/** Get full speed classes for a given unit */
+export function getFullSpeedClasses(unit: WindSpeedUnit): WindSpeedClass[] {
+  return unit === 'kmh' ? WMO_SPEED_CLASSES_KMH : WMO_SPEED_CLASSES;
+}
+
+/**
  * Convert wind direction in degrees to compass label
- * @param degrees Wind direction in degrees (0-360, where 0/360 = North)
- * @returns Compass direction label (e.g., "N", "NNE", "NE", etc.)
+ * degrees: Wind direction in degrees (0-360, where 0/360 = North)
+ * Returns Compass direction label (e.g., "N", "NNE", "NE", etc.)
  */
 export function getWindDirectionLabel(degrees: number): WindDirection {
   const index = Math.round(degrees / 22.5) % 16;
@@ -95,28 +148,32 @@ export function getWindDirectionLabel(degrees: number): WindDirection {
 
 /**
  * Get color for a given wind speed based on WMO/Beaufort scale
- * @param speed Wind speed in m/s
- * @returns Color hex code
+ * speed: Wind speed in the station's unit
+ * unit: Wind speed unit ('ms' or 'kmh')
+ * Returns Color hex code
  */
-export function getSpeedColor(speed: number): string {
-  const colorClass = WMO_SPEED_CLASSES.find(c => speed >= c.min && speed < c.max);
+export function getSpeedColor(speed: number, unit: WindSpeedUnit = 'ms'): string {
+  const classes = unit === 'kmh' ? WMO_SPEED_CLASSES_KMH : WMO_SPEED_CLASSES;
+  const colorClass = classes.find(c => speed >= c.min && speed < c.max);
   return colorClass?.color || "#dc2626";
 }
 
 /**
  * Get wind description based on WMO Beaufort scale
- * @param speed Wind speed in m/s
- * @returns Beaufort scale description (e.g., "Calm", "Light Air", etc.)
+ * speed: Wind speed in the station's unit
+ * unit: Wind speed unit ('ms' or 'kmh')
+ * Returns Beaufort scale description (e.g., "Calm", "Light Air", etc.)
  */
-export function getWindDescription(speed: number): string {
-  const wmoClass = WMO_SPEED_CLASSES.find(c => speed >= c.min && speed < c.max);
+export function getWindDescription(speed: number, unit: WindSpeedUnit = 'ms'): string {
+  const classes = unit === 'kmh' ? WMO_SPEED_CLASSES_KMH : WMO_SPEED_CLASSES;
+  const wmoClass = classes.find(c => speed >= c.min && speed < c.max);
   return wmoClass?.label || "Unknown";
 }
 
 /**
  * Get Beaufort number for a given wind speed
- * @param speed Wind speed in m/s
- * @returns Beaufort number (0-12)
+ * speed: Wind speed in m/s
+ * Returns Beaufort number (0-12)
  */
 export function getBeaufortNumber(speed: number): number {
   const wmoClass = WMO_SPEED_CLASSES.find(c => speed >= c.min && speed < c.max);

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useMemo } from "react";
 import { safeFixed } from "@/lib/utils";
 

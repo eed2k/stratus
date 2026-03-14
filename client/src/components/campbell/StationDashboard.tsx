@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useEffect, useState } from "react";
 import { authFetch } from "@/lib/queryClient";
 import { safeFixed } from "@/lib/utils";

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * LoRa/LoRaWAN Protocol Implementation
  * Long Range, Low Power wireless communication for IoT weather stations

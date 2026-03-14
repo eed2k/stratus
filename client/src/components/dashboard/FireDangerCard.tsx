@@ -1,11 +1,15 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { safeFixed } from "@/lib/utils";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, Info } from "lucide-react";
 import { 
   calculateFireDanger, 
+  calculateBurningIndex,
+  calculateWindFactor,
+  getRainCorrectionFactor,
   type FireDangerResult 
 } from "@shared/utils/calc";
 
@@ -19,15 +23,9 @@ interface FireDangerCardProps {
   showDetailedInfo?: boolean;
 }
 
-/**
- * South African Fire Danger Index Card
- * 
- * Displays the Lowveld Fire Danger Index (FDI) as used by SAWS with:
- * - Visual gauge showing current danger level
- * - Color-coded rating (Blue/Green/Yellow/Orange/Red)
- * - Warning messages for elevated danger
- * - Supporting metrics (fuel moisture, spread potential)
- */
+// Lowveld Fire Danger Index Card
+// Displays the official LFDI as used by SAWS and Namibia AFIS.
+// Formula: LFDI = (BI + WF) x RCF
 export function FireDangerCard({
   temperature,
   humidity,
@@ -37,7 +35,6 @@ export function FireDangerCard({
   daysSinceRain = 7,
   showDetailedInfo = true,
 }: FireDangerCardProps) {
-  // Calculate fire danger
   const fireDanger = useMemo(() => {
     return calculateFireDanger(
       temperature,
@@ -49,26 +46,17 @@ export function FireDangerCard({
     );
   }, [temperature, humidity, windSpeed, rainfall7day, rainfall30day, daysSinceRain]);
 
-  // Get warning icon based on level
-  const getWarningIcon = () => {
-    switch (fireDanger.warningLevel) {
-      case 3:
-        return <AlertTriangle className="h-5 w-5 text-red-600 animate-pulse" />;
-      case 2:
-        return <AlertTriangle className="h-5 w-5 text-orange-500" />;
-      case 1:
-        return <Info className="h-5 w-5 text-yellow-500" />;
-      default:
-        return null;
-    }
-  };
+  // Compute LFDI components for the formula display
+  const bi = calculateBurningIndex(temperature, humidity);
+  const wf = calculateWindFactor(windSpeed * 3.6);
+  const rcf = getRainCorrectionFactor(rainfall7day, daysSinceRain);
 
   return (
     <Card data-testid="card-fire-danger" className="relative overflow-hidden border border-gray-300 bg-white">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            FDI
+            Lowveld Fire Danger Index
           </CardTitle>
           <Badge 
             variant="outline" 
@@ -83,30 +71,13 @@ export function FireDangerCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Warning Alert */}
-        {fireDanger.warningLevel > 0 && fireDanger.warningMessage && (
-          <Alert 
-            variant={fireDanger.warningLevel >= 2 ? "destructive" : "default"}
-            className={fireDanger.warningLevel === 1 ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20" : ""}
-          >
-            {getWarningIcon()}
-            <AlertTitle className="ml-2">
-              {fireDanger.warningLevel === 3 ? "Emergency" : 
-               fireDanger.warningLevel === 2 ? "Warning" : "Watch"}
-            </AlertTitle>
-            <AlertDescription className="ml-2">
-              {fireDanger.warningMessage}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* FDI Value Display (no gauge) */}
+        {/* LFDI Value Display */}
         <div className="flex flex-col items-center">
           <div className="text-center">
             <div className="text-4xl font-normal" style={{ color: fireDanger.rating.color, fontFamily: 'Arial, Helvetica, sans-serif' }}>
               {safeFixed(fireDanger.ffdi, 1)}
             </div>
-            <div className="text-sm text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>SA Fire Danger Index</div>
+            <div className="text-sm text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>LFDI</div>
           </div>
           
           {/* Rating Description */}
@@ -129,26 +100,41 @@ export function FireDangerCard({
               <p className="text-sm font-normal text-black capitalize" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{fireDanger.spreadPotential}</p>
             </div>
             <div>
-              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Grassland FDI</p>
-              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(fireDanger.grasslandFDI, 1)}</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rain Correction</p>
+              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(rcf, 2)}</p>
             </div>
             <div>
-              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Drought Index</p>
-              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{fireDanger.keetchByramIndex}</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Days Since Rain</p>
+              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{daysSinceRain}d</p>
             </div>
           </div>
         )}
 
-        {/* Action Advice */}
+        {/* LFDI Formula Breakdown: (BI + WF) x RCF = LFDI */}
         <div className="pt-2 border-t">
-          <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            <strong>Action:</strong> {fireDanger.rating.actionAdvice}
-          </p>
+          <div className="flex items-center justify-center gap-1 text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <span className="text-muted-foreground italic">LFDI</span>
+            <span className="text-muted-foreground">=</span>
+            <span className="text-muted-foreground">(</span>
+            <span className="font-medium bg-gray-100 rounded px-1.5 py-0.5">{safeFixed(bi, 1)}</span>
+            <span className="text-muted-foreground">+</span>
+            <span className="font-medium bg-gray-100 rounded px-1.5 py-0.5">{safeFixed(wf, 1)}</span>
+            <span className="text-muted-foreground">)</span>
+            <span className="text-muted-foreground">×</span>
+            <span className="font-medium bg-gray-100 rounded px-1.5 py-0.5">{safeFixed(rcf, 2)}</span>
+            <span className="text-muted-foreground">=</span>
+            <span className="font-semibold" style={{ color: fireDanger.rating.color }}>{safeFixed(fireDanger.ffdi, 1)}</span>
+          </div>
+          <div className="flex items-center justify-center gap-4 mt-1 text-[10px] text-muted-foreground" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <span>BI</span>
+            <span>WF</span>
+            <span>RCF</span>
+          </div>
         </div>
 
         {/* Input conditions summary */}
         <div className="flex justify-between text-xs text-black pt-2 border-t" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          <span>{safeFixed(temperature, 1)}°C</span>
+          <span>{safeFixed(temperature, 1)} °C</span>
           <span>{safeFixed(humidity, 0)}% RH</span>
           <span>{safeFixed(windSpeed, 1)} m/s</span>
         </div>

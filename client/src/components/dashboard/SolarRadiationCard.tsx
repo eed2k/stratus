@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Helper to safely convert to number and format

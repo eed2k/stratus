@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { WindRose } from "../charts/WindRose";
 import { ThemeProvider } from "../ThemeProvider";
 

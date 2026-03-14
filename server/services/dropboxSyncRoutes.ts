@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Dropbox Sync API Routes
  * Provides endpoints to configure and manage Dropbox synchronization

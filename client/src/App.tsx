@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, useMemo, lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
@@ -19,7 +22,6 @@ const CampbellDashboard = lazy(() => import("@/pages/CampbellDashboard"));
 const Stations = lazy(() => import("@/pages/Stations"));
 const History = lazy(() => import("@/pages/History"));
 const Settings = lazy(() => import("@/pages/Settings"));
-const Organizations = lazy(() => import("@/pages/Organizations"));
 const Alarms = lazy(() => import("@/pages/Alarms"));
 const Reports = lazy(() => import("@/pages/Reports"));
 const SharedDashboard = lazy(() => import("@/pages/SharedDashboard"));
@@ -50,8 +52,13 @@ function Router() {
   const isResetPasswordRoute = location.startsWith('/reset-password');
   const isSetupPasswordRoute = location.startsWith('/setup-password');
   
+  // Check if this is a friendly share slug (e.g., /swakop-uranium)
+  const knownPrefixes = ['/', '/shared/', '/forgot-password', '/reset-password', '/setup-password', '/dashboard', '/serial-monitor', '/campbell', '/stations', '/users', '/history', '/alarms', '/reports', '/settings', '/account', '/docs'];
+  const isKnownRoute = location === '/' || knownPrefixes.some(p => p !== '/' && location.startsWith(p));
+  const isSlugRoute = !isKnownRoute && /^\/[a-z0-9][a-z0-9-]*$/.test(location);
+  
   // Handle public routes first (before auth check)
-  if (isSharedRoute) {
+  if (isSharedRoute || isSlugRoute) {
     return <Suspense fallback={<LoadingScreen />}><SharedDashboard /></Suspense>;
   }
   
@@ -208,9 +215,6 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
               </Route>
               <Route path="/users">
                 <AdminRoute isAdmin={isAdmin}><UserManagement /></AdminRoute>
-              </Route>
-              <Route path="/organizations">
-                <AdminRoute isAdmin={isAdmin}><Organizations /></AdminRoute>
               </Route>
               <Route path="/history">
                 <History canAccessStation={canAccessStation} assignedStations={user.assignedStations} isAdmin={isAdmin} />

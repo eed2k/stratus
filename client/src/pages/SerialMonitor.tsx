@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,9 +29,7 @@ import {
   Settings,
 } from "lucide-react";
 
-// ============================================================
 // Type declarations for the desktop API
-// ============================================================
 interface SerialPortInfo {
   path: string;
   manufacturer: string;
@@ -63,17 +64,13 @@ interface DesktopAPI {
 const isDesktop = !!(window as any).stratusDesktop?.isDesktop;
 const desktopApi: DesktopAPI | null = isDesktop ? (window as any).stratusDesktop : null;
 
-// ============================================================
 // Baud rate options for RS232/Serial
-// ============================================================
 const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
 const DATA_BITS = [5, 6, 7, 8];
 const STOP_BITS = [1, 1.5, 2];
 const PARITY_OPTIONS = ["none", "even", "odd", "mark", "space"];
 
-// ============================================================
 // Common Campbell Scientific commands
-// ============================================================
 const QUICK_COMMANDS = [
   { label: "Status", cmd: "*0S", desc: "Request station status" },
   { label: "Data", cmd: "*0D", desc: "Request current data" },
@@ -83,9 +80,7 @@ const QUICK_COMMANDS = [
   { label: "Storage", cmd: "*0W", desc: "Request storage info" },
 ];
 
-// ============================================================
 // Serial Monitor Component
-// ============================================================
 export default function SerialMonitor() {
   const { toast } = useToast();
 
@@ -111,18 +106,14 @@ export default function SerialMonitor() {
 
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // ============================================================
   // Auto-scroll
-  // ============================================================
   useEffect(() => {
     if (autoScroll && logEndRef.current) {
       logEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [serialLog, autoScroll]);
 
-  // ============================================================
   // List serial ports
-  // ============================================================
   const refreshPorts = useCallback(async () => {
     if (!desktopApi) return;
     try {
@@ -145,9 +136,7 @@ export default function SerialMonitor() {
     refreshPorts();
   }, []);
 
-  // ============================================================
   // Subscribe to serial events
-  // ============================================================
   useEffect(() => {
     if (!desktopApi) return;
 
@@ -186,9 +175,7 @@ export default function SerialMonitor() {
     };
   }, [timestampEnabled, toast]);
 
-  // ============================================================
   // Connect / Disconnect
-  // ============================================================
   const handleConnect = async () => {
     if (!desktopApi || !selectedPort) return;
     setIsConnecting(true);
@@ -245,9 +232,7 @@ export default function SerialMonitor() {
     }
   };
 
-  // ============================================================
   // Send data
-  // ============================================================
   const handleSend = async (data?: string) => {
     if (!desktopApi || !isConnected) return;
     const toSend = data || sendInput;
@@ -274,9 +259,7 @@ export default function SerialMonitor() {
     }
   };
 
-  // ============================================================
   // Export log
-  // ============================================================
   const handleExportLog = () => {
     const content = serialLog
       .map((entry) => `${entry.time ? `[${entry.time}] ` : ""}${entry.type === "tx" ? "TX" : "RX"}: ${entry.data}`)
@@ -290,9 +273,7 @@ export default function SerialMonitor() {
     URL.revokeObjectURL(url);
   };
 
-  // ============================================================
   // Not available in browser
-  // ============================================================
   if (!isDesktop) {
     return (
       <div className="container mx-auto p-6">
@@ -319,9 +300,7 @@ export default function SerialMonitor() {
     );
   }
 
-  // ============================================================
   // Desktop Serial Monitor UI
-  // ============================================================
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-4">
       {/* Header */}

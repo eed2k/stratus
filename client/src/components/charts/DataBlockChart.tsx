@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,26 +33,46 @@ const formatValue = (value: number | string, decimals: number = 2): string => {
 };
 
 /**
- * Custom tooltip for charts
+ * Custom tooltip for charts - shows min/max for daily-aggregated data
  */
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || !payload.length) return null;
   
+  const dataPoint = payload[0]?.payload;
+  const isDailyAggregated = dataPoint?._readings != null;
+  
   return (
     <div className="bg-white border border-gray-300 rounded-md p-3 shadow-lg text-sm">
-      <p className="font-medium mb-2 text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{label}</p>
-      {payload.map((entry: any, index: number) => (
-        <div key={index} className="flex items-center gap-2 text-sm">
-          <div 
-            className="w-3 h-3 rounded-full" 
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{entry.name}:</span>
-          <span className="font-medium" style={{ color: entry.color }}>
-            {formatValue(entry.value)} {entry.payload?.unit || ''}
-          </span>
-        </div>
-      ))}
+      <p className="font-medium mb-2 text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+        {label}{isDailyAggregated ? ` (${dataPoint._readings} readings)` : ''}
+      </p>
+      {payload.map((entry: any, index: number) => {
+        const minKey = entry.dataKey + 'Min';
+        const maxKey = entry.dataKey + 'Max';
+        const hasMinMax = isDailyAggregated && dataPoint[minKey] != null && dataPoint[maxKey] != null;
+        
+        return (
+          <div key={index} className="mb-1">
+            <div className="flex items-center gap-2 text-sm">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                {isDailyAggregated ? `Avg ${entry.name}` : entry.name}:
+              </span>
+              <span className="font-medium" style={{ color: entry.color }}>
+                {formatValue(entry.value)} {entry.payload?.unit || ''}
+              </span>
+            </div>
+            {hasMinMax && (
+              <div className="ml-5 text-xs text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                Min: {formatValue(dataPoint[minKey])} / Max: {formatValue(dataPoint[maxKey])}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -227,7 +250,7 @@ export const DataBlockChart = memo(function DataBlockChart({
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
             <Tooltip content={<CustomTooltip />} />
-            {!compact && <Legend wrapperStyle={{ paddingTop: 20 }} />}
+            {!compact && <Legend iconSize={0} wrapperStyle={{ paddingTop: 20 }} />}
             {showAverage && (
               <ReferenceLine 
                 y={avg} 
@@ -258,7 +281,7 @@ export const DataBlockChart = memo(function DataBlockChart({
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
             <Tooltip content={<CustomTooltip />} />
-            {!compact && <Legend wrapperStyle={{ paddingTop: 20 }} />}
+            {!compact && <Legend iconSize={0} wrapperStyle={{ paddingTop: 20 }} />}
             {series.map((s) => (
               <Bar
                 key={s.dataKey}
@@ -278,7 +301,7 @@ export const DataBlockChart = memo(function DataBlockChart({
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
             <Tooltip content={<CustomTooltip />} />
-            {!compact && <Legend wrapperStyle={{ paddingTop: 20 }} />}
+            {!compact && <Legend iconSize={0} wrapperStyle={{ paddingTop: 20 }} />}
             {showAverage && (
               <ReferenceLine 
                 y={avg} 

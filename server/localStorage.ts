@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Local Storage Layer for Desktop App
  * Wraps the SQLite database operations with an interface compatible with the server routes
@@ -89,6 +92,8 @@ export interface WeatherStation {
   stationImage?: string | null;
   // Unique ingest ID for HTTP POST stations
   ingestId?: string | null;
+  // Wind speed unit from DAT file (ms = m/s, kmh = km/h)
+  windSpeedUnit?: string | null;
 }
 
 export interface WeatherData {
@@ -1646,7 +1651,7 @@ export class DatabaseStorage {
     return true;
   }
 
-  // ==================== Dropbox Config Methods ====================
+  // 
   
   async getDropboxConfigs(): Promise<any[]> {
     if (usePostgres) {
@@ -2018,9 +2023,15 @@ export class DatabaseStorage {
       return isNaN(n) ? null : n;
     };
 
+    const stationId = record.stationId ?? record.station_id;
+
+    // RIKA R25021205 (station id=2) reports cumulative rainfall since erection; apply offset
+    const rawRainfall = data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? data.Rain_1_Tot ?? data.Rain_Tot_1 ?? null;
+    const rainfall = (rawRainfall !== null && stationId === 2) ? Math.max(0, rawRainfall - 212) : rawRainfall;
+
     return {
       id: record.id,
-      stationId: record.stationId ?? record.station_id,
+      stationId,
       tableName: record.tableName ?? record.table_name,
       recordNumber: record.recordNumber ?? record.record_number,
       timestamp: new Date(record.timestamp),
@@ -2032,7 +2043,7 @@ export class DatabaseStorage {
       windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? data.WindSpeed_Avg ?? data.WS_ms ?? data.WS_Avg ?? data.WS_ms_S_WVT ?? data.WSpd_1_Avg ?? data.WSpd_Avg ?? data.WSpd_1_S_WVT ?? null,
       windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? data.WDir_1_Avg ?? data.WDir_Avg ?? data.WDir_1_D1_WVT ?? null,
       windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? data.WindSpeed_Max ?? data.WS_Max ?? data.Wind_Gust ?? data.WSpd_1_Max ?? data.WSpd_Max ?? null,
-      rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? data.Rain_1_Tot ?? data.Rain_Tot_1 ?? null,
+      rainfall,
       solarRadiation: sanitizeSolarRadiation(data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? data.SolarRad_Avg ?? data.SlrW_Avg ?? data.SR_Avg ?? null),
       dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? data.DewPointTemp_Avg ?? data.DewPointTemp ?? null,
       batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? data.Batt_volt_Min ?? data.BattV_Avg ?? data.Batt_V ?? data.LoggerBattery_Avg ?? data.LoggerBattery ?? null,
@@ -2085,7 +2096,7 @@ export class DatabaseStorage {
     };
   }
 
-  // ============ User Management Operations ============
+  // 
   
   async getAllUsers(): Promise<any[]> {
     if (usePostgres) {

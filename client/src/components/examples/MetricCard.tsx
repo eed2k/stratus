@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { MetricCard } from "../dashboard/MetricCard";
 import { ThemeProvider } from "../ThemeProvider";
 

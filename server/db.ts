@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /// <reference types="node" />
 /**
  * Local SQLite Database Module
@@ -156,9 +159,9 @@ async function runStartupCleanup(database: Database): Promise<void> {
 /**
  * Run a database transaction
  * Ensures atomicity of multiple operations - all succeed or all rollback
- * @param callback Function that performs database operations
- * @returns Result of the callback function
- * @throws Error if transaction fails (after rollback)
+ * callback: Function that performs database operations
+ * Returns Result of the callback function
+ * Throws Error if transaction fails (after rollback)
  */
 export function runTransaction<T>(callback: (database: Database) => T): T {
   if (!db) {
@@ -819,7 +822,7 @@ export function getDatabase(): Database | null {
   return db;
 }
 
-// ============ Station Operations ============
+// 
 
 export interface Station {
   id?: number;
@@ -1007,7 +1010,7 @@ export function deleteStation(id: number): void {
   saveDatabase();
 }
 
-// ============ Weather Data Operations ============
+// 
 
 export interface WeatherRecord {
   id?: number;
@@ -1108,7 +1111,7 @@ export function getLatestWeatherData(stationId: number, tableName: string): Weat
   return records.length > 0 ? records[0] : null;
 }
 
-// ============ Settings Operations ============
+// 
 
 export function getSetting(key: string): string | null {
   if (!db) return null;
@@ -1138,7 +1141,7 @@ export function getAllSettings(): Record<string, string> {
   return settings;
 }
 
-// ============ Alerts Operations ============
+// 
 
 export interface Alert {
   id?: number;
@@ -1203,7 +1206,7 @@ export function acknowledgeAlert(id: number): void {
   saveDatabase();
 }
 
-// ============ Organizations Operations ============
+// 
 
 export interface OrganizationRecord {
   id: number;
@@ -1398,7 +1401,7 @@ export function createOrganizationInvitation(orgId: number, email: string, role:
   return token;
 }
 
-// ============ Share Operations ============
+// 
 
 export interface Share {
   id?: number;
@@ -1518,7 +1521,7 @@ export function deleteShare(token: string): void {
   saveDatabase();
 }
 
-// ============ Alarm Functions (Issue #10 fix - persistent alarms) ============
+// 
 
 export interface Alarm {
   id?: number;
@@ -1776,7 +1779,7 @@ export function cleanupOldAlarmEvents(daysToKeep: number = 30): number {
   return count;
 }
 
-// ==================== Dropbox Config Functions ====================
+// 
 
 export interface DropboxConfigRow {
   id: number;
@@ -1890,7 +1893,7 @@ export function deleteDropboxConfig(id: number): void {
   saveDatabase();
 }
 
-// ==================== User Management Functions ====================
+// 
 
 export interface UserRecord {
   id: number;

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
@@ -10,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { WeatherStation, WeatherData } from "@shared/schema";
+import { getWindUnitLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 
@@ -84,6 +88,8 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
   });
 
   const selectedStation = stations.find((s) => s.id === config.stationId);
+  const stationWindUnit = (selectedStation as any)?.windSpeedUnit;
+  const windUnitLabel = getWindUnitLabel((stationWindUnit as WindSpeedUnit) || 'ms');
 
   const calculateStatistics = (values: number[]) => {
     if (values.length === 0) return { min: 0, max: 0, avg: 0, count: 0 };
@@ -134,8 +140,8 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         { title: "Humidity", enabled: config.includeHumidity, getValue: (d) => d.humidity, unit: "%" },
         { title: "Dew Point", enabled: config.includeDewPoint, getValue: (d) => d.dewPoint, unit: "°C" },
         { title: "Pressure", enabled: config.includePressure, getValue: (d) => d.pressure, unit: "hPa" },
-        { title: "Wind Speed", enabled: config.includeWind, getValue: (d) => d.windSpeed, unit: "m/s" },
-        { title: "Wind Gust", enabled: config.includeWind, getValue: (d) => d.windGust, unit: "m/s" },
+        { title: "Wind Speed", enabled: config.includeWind, getValue: (d) => d.windSpeed, unit: windUnitLabel },
+        { title: "Wind Gust", enabled: config.includeWind, getValue: (d) => d.windGust, unit: windUnitLabel },
         { title: "Rainfall", enabled: config.includeRainfall, getValue: (d) => d.rainfall, unit: "mm" },
         { title: "Solar Radiation", enabled: config.includeSolar, getValue: (d) => d.solarRadiation, unit: "W/m²" },
         { title: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex, unit: "" },
@@ -237,9 +243,9 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       { key: "humidity", header: "Humidity (%)", enabled: config.includeHumidity, getValue: (d) => d.humidity },
       { key: "dewPoint", header: "Dew Point (°C)", enabled: config.includeDewPoint, getValue: (d) => d.dewPoint },
       { key: "pressure", header: "Pressure (hPa)", enabled: config.includePressure, getValue: (d) => d.pressure },
-      { key: "windSpeed", header: "Wind Speed (m/s)", enabled: config.includeWind, getValue: (d) => d.windSpeed },
+      { key: "windSpeed", header: `Wind Speed (${windUnitLabel})`, enabled: config.includeWind, getValue: (d) => d.windSpeed },
       { key: "windDirection", header: "Wind Direction (°)", enabled: config.includeWind, getValue: (d) => d.windDirection },
-      { key: "windGust", header: "Wind Gust (m/s)", enabled: config.includeWind, getValue: (d) => d.windGust },
+      { key: "windGust", header: `Wind Gust (${windUnitLabel})`, enabled: config.includeWind, getValue: (d) => d.windGust },
       { key: "rainfall", header: "Rainfall (mm)", enabled: config.includeRainfall, getValue: (d) => d.rainfall },
       { key: "solarRadiation", header: "Solar Radiation (W/m²)", enabled: config.includeSolar, getValue: (d) => d.solarRadiation },
       { key: "uvIndex", header: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex },

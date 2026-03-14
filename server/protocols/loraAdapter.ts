@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * LoRa Protocol Adapter
  * Wraps LoRaProtocol with IProtocolAdapter interface

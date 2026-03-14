@@ -1,3 +1,6 @@
+// Stratus Weather System - UI Component
+// Source: Library (shadcn/ui)
+
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,

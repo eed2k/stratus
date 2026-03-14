@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useEffect, useRef, useCallback, useState } from "react";
 import type { WeatherData } from "@shared/schema";
 

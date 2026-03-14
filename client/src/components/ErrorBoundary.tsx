@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {

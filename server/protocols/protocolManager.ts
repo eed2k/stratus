@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Protocol Manager
  * Central orchestration layer for all protocol adapters

@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -34,6 +37,7 @@ import {
 import { apiRequest, queryClient, authFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useLocation } from "wouter";
 import type { WeatherStation } from "@shared/schema";
 // Skeleton removed — using table layout
 import { StationImageUpload } from "@/components/StationImageUpload";
@@ -142,6 +146,7 @@ const initialFormData: StationFormData = {
 };
 
 export default function Stations() {
+  const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"stations" | "setup">("stations");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
@@ -496,7 +501,7 @@ export default function Stations() {
                     <div className="space-y-2">
                       <Label>Ingest Endpoint</Label>
                       <Input
-                        value={`POST https://stratusweather.co.za/api/ingest/{ingest-id}`}
+                        value={`POST ${window.location.origin}/api/ingest/{ingest-id}`}
                         disabled
                         className="font-mono text-xs bg-muted"
                       />
@@ -893,7 +898,7 @@ X-API-Key: your-key (optional)
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.location.href = `/dashboard/${station.id}`}
+                            onClick={() => setLocation(`/dashboard/${station.id}`)}
                             data-testid={`button-view-${station.id}`}
                           >
                             View

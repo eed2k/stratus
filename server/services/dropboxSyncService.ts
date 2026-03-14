@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Dropbox Sync Service
  * Automatically syncs weather data files from Dropbox App Folder
@@ -9,11 +12,16 @@
 
 import { EventEmitter } from 'events';
 import { storage } from '../localStorage';
-import { parseDataFile, mapToWeatherData, ParsedRecord } from '../parsers/campbellScientific';
+import { parseDataFile, mapToWeatherData, ParsedRecord, detectWindSpeedUnit } from '../parsers/campbellScientific';
 
 // Callback for broadcasting weather data updates via WebSocket
 // Set by routes.ts to avoid circular dependency
 let weatherDataBroadcaster: ((stationId: number, data: any) => void) | null = null;
+
+/** Default coordinates for known stations (used during auto-creation or coordinate backfill). */
+const KNOWN_STATION_DEFAULTS: Record<string, { latitude: number; longitude: number; altitude: number; location: string }> = {
+  'hopefield': { latitude: -33.0630, longitude: 18.3528, altitude: 95, location: 'Hopefield, Western Cape, South Africa' },
+};
 
 export function setWeatherDataBroadcaster(fn: (stationId: number, data: any) => void) {
   weatherDataBroadcaster = fn;
@@ -108,6 +116,8 @@ export class DropboxSyncService extends EventEmitter {
   private lastSyncTime: Date | null = null;
   private lastError: string | null = null;
   private isRefreshingToken: boolean = false;
+  private pendingBackfills: Map<number, { records: ParsedRecord[]; parsed: any; station: any; dbConfig: any }> = new Map();
+  private isBackfilling: boolean = false;
 
   constructor() {
     super();
@@ -369,7 +379,7 @@ export class DropboxSyncService extends EventEmitter {
 
   /**
    * Perform a sync now
-   * @param fullImport - If true, import all records regardless of timestamp (useful for initial setup)
+   * fullImport: - If true, import all records regardless of timestamp (useful for initial setup)
    */
   async syncNow(fullImport: boolean = false): Promise<{ success: boolean; filesProcessed: number; recordsImported: number; error?: string }> {
     if (this.isSyncing) {
@@ -389,6 +399,8 @@ export class DropboxSyncService extends EventEmitter {
         return { success: false, filesProcessed: 0, recordsImported: 0, error: err.message };
       } finally {
         this.isSyncing = false;
+        // Process any pending historical backfills in the background
+        this.processBackfills().catch(err => console.error('[DropboxSync] Backfill error:', err.message));
       }
     }
 
@@ -436,12 +448,8 @@ export class DropboxSyncService extends EventEmitter {
         console.log(`[DropboxSync] Creating new station: ${stationName}`);
         try {
           // Default coordinates for known stations
-          const knownStationDefaults: Record<string, { latitude: number; longitude: number; altitude: number; location: string }> = {
-            'hopefield': { latitude: -33.0630, longitude: 18.3528, altitude: 95, location: 'Hopefield, Western Cape, South Africa' },
-          };
-          
           const stationKey = stationName.toLowerCase().split(' ')[0];
-          const defaults = knownStationDefaults[stationKey] || {};
+          const defaults = KNOWN_STATION_DEFAULTS[stationKey] || {};
           
           station = await storage.createStation({
             name: stationName,
@@ -468,11 +476,8 @@ export class DropboxSyncService extends EventEmitter {
       
       // Update existing station with default coordinates if not set
       if (station && (!station.latitude || !station.longitude)) {
-        const knownStationDefaults: Record<string, { latitude: number; longitude: number; altitude: number; location: string }> = {
-          'hopefield': { latitude: -33.0630, longitude: 18.3528, altitude: 95, location: 'Hopefield, Western Cape, South Africa' },
-        };
         const stationKey = station.name.toLowerCase().split(' ')[0];
-        const defaults = knownStationDefaults[stationKey];
+        const defaults = KNOWN_STATION_DEFAULTS[stationKey];
         if (defaults) {
           try {
             await storage.updateStation(station.id, {
@@ -549,6 +554,14 @@ export class DropboxSyncService extends EventEmitter {
           }
 
           console.log(`[DropboxSync] Parsed ${parsed.records.length} total records from ${file.name}`);
+
+          // Auto-detect wind speed unit from DAT file headers and update station if needed
+          const detectedUnit = detectWindSpeedUnit(parsed.headers, parsed.units);
+          try {
+            await storage.updateStation(this.config!.stationId, { windSpeedUnit: detectedUnit } as any);
+          } catch (e: any) {
+            console.warn(`[DropboxSync] Could not update wind_speed_unit:`, e.message);
+          }
 
           // Filter records based on import mode
           let recordsToImport: ParsedRecord[];
@@ -677,6 +690,8 @@ export class DropboxSyncService extends EventEmitter {
         console.error('[DropboxSync] DB config sync error in finally:', dbErr.message);
       }
       this.isSyncing = false;
+      // Process any pending historical backfills in the background
+      this.processBackfills().catch(err => console.error('[DropboxSync] Backfill error:', err.message));
     }
   }
 
@@ -759,6 +774,11 @@ export class DropboxSyncService extends EventEmitter {
 
         console.log(`[DropboxSync] Found ${matchingFiles.length} matching files for ${dbConfig.name}`);
 
+        if (matchingFiles.length === 0) {
+          await storage.updateDropboxSyncStatus(dbConfig.id, 'success (no new files)', 0);
+          continue;
+        }
+
         for (const file of matchingFiles) {
           try {
             // Check if file has been modified since last sync
@@ -824,10 +844,47 @@ export class DropboxSyncService extends EventEmitter {
             const neverImportedData = !dbConfig.lastSyncAt || (!dbConfig.lastSyncRecords || dbConfig.lastSyncRecords === 0);
             const isFirstImport = neverImportedData && dbConfig.lastSyncStatus !== 'success (handled by main sync)';
             let recordsToImport: ParsedRecord[];
-            if (this.isFullImport || isFirstImport) {
-              // Full import: import all records (first sync or manual full import)
+            if (this.isFullImport) {
+              // Manual full import: import all records
               recordsToImport = parsed.records;
-              console.log(`[DropboxSync] ${isFirstImport ? 'First import for "' + dbConfig.name + '" (no data yet)' : 'Full import'}: importing all ${recordsToImport.length} records`);
+              console.log(`[DropboxSync] Full import: importing all ${recordsToImport.length} records`);
+            } else if (isFirstImport) {
+              // Recent-first strategy: import last 30 days immediately so the dashboard works,
+              // then schedule historical backfill in the background
+              let latestExisting: Date | null = null;
+              try {
+                const latestData = await storage.getLatestWeatherData(station.id);
+                if (latestData?.timestamp) {
+                  latestExisting = new Date(latestData.timestamp);
+                }
+              } catch {}
+
+              const recentCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+              if (latestExisting && latestExisting >= recentCutoff) {
+                // Already have recent data — just import newer records
+                recordsToImport = parsed.records.filter((r: any) => r.timestamp > latestExisting);
+                console.log(`[DropboxSync] Resuming import for "${dbConfig.name}": ${recordsToImport.length} new records (after ${latestExisting.toISOString()})`);
+              } else {
+                // Import recent 30 days first for immediate dashboard readiness
+                const recentRecords = parsed.records.filter((r: any) => r.timestamp >= recentCutoff);
+                const olderRecords = latestExisting
+                  ? parsed.records.filter((r: any) => r.timestamp > latestExisting && r.timestamp < recentCutoff)
+                  : parsed.records.filter((r: any) => r.timestamp < recentCutoff);
+
+                recordsToImport = recentRecords;
+                console.log(`[DropboxSync] Recent-first import for "${dbConfig.name}": ${recentRecords.length} recent records (last 30d), ${olderRecords.length} older records queued for backfill`);
+
+                // Queue older records for background backfill
+                if (olderRecords.length > 0) {
+                  this.pendingBackfills.set(station.id, {
+                    records: olderRecords,
+                    parsed: { units: parsed.units, headers: parsed.headers, tableName: parsed.tableName },
+                    station,
+                    dbConfig,
+                  });
+                }
+              }
             } else {
               // Normal sync: filter to last 48 hours
               const cutoffTime = new Date();
@@ -868,9 +925,18 @@ export class DropboxSyncService extends EventEmitter {
                 }
               }
 
-              // Progress logging for large imports
+              // Progress logging and status updates for large imports
               if (recordsToImport.length > 1000 && (i + BATCH_SIZE) % 5000 < BATCH_SIZE) {
-                console.log(`[DropboxSync] Progress: ${Math.min(i + BATCH_SIZE, recordsToImport.length)}/${recordsToImport.length} records processed for ${dbConfig.name}`);
+                const processed = Math.min(i + BATCH_SIZE, recordsToImport.length);
+                console.log(`[DropboxSync] Progress: ${processed}/${recordsToImport.length} records processed for ${dbConfig.name}`);
+                // Update sync status periodically so it's visible even if import is interrupted
+                await storage.updateDropboxSyncStatus(dbConfig.id, `importing (${processed}/${recordsToImport.length})`, configRecordsImported);
+                // Also update last_connected so station preview shows activity
+                if (station && configRecordsImported > 0) {
+                  try {
+                    await storage.updateStation(station.id, { lastConnected: new Date(), isActive: true } as any);
+                  } catch {}
+                }
               }
             }
 
@@ -921,6 +987,72 @@ export class DropboxSyncService extends EventEmitter {
     }
 
     return { filesProcessed, recordsImported };
+  }
+
+  /**
+   * Process pending historical backfills in the background.
+   * Called after each sync cycle completes so the dashboard has recent data first.
+   */
+  private async processBackfills(): Promise<void> {
+    if (this.isBackfilling || this.pendingBackfills.size === 0) return;
+    this.isBackfilling = true;
+
+    for (const [stationId, backfill] of this.pendingBackfills) {
+      const { records, parsed, station, dbConfig } = backfill;
+      console.log(`[DropboxSync] Starting background backfill for "${dbConfig.name}": ${records.length} historical records`);
+      await storage.updateDropboxSyncStatus(dbConfig.id, `backfilling (0/${records.length})`, 0);
+
+      let imported = 0;
+      const BATCH_SIZE = 100;
+
+      for (let i = 0; i < records.length; i += BATCH_SIZE) {
+        const batch = records.slice(i, i + BATCH_SIZE);
+        const batchData = batch.map((record: ParsedRecord) => {
+          const mappedData = mapToWeatherData(record, parsed.units, parsed.headers);
+          return {
+            stationId: station.id,
+            tableName: parsed.tableName || 'Table1',
+            recordNumber: record.recordNumber,
+            timestamp: record.timestamp,
+            data: { ...record.data, ...mappedData },
+          };
+        });
+
+        try {
+          const inserted = await storage.insertWeatherDataBatch(batchData);
+          imported += inserted;
+        } catch {
+          for (const data of batchData) {
+            try {
+              await storage.createWeatherData(data);
+              imported++;
+            } catch (e: any) {
+              if (!e.message?.includes('UNIQUE constraint') && !e.message?.includes('duplicate key')) {
+                console.warn(`[DropboxSync] Backfill record error:`, e.message);
+              }
+            }
+          }
+        }
+
+        // Progress update every 5000 records
+        if ((i + BATCH_SIZE) % 5000 < BATCH_SIZE) {
+          const processed = Math.min(i + BATCH_SIZE, records.length);
+          console.log(`[DropboxSync] Backfill progress for "${dbConfig.name}": ${processed}/${records.length}`);
+          await storage.updateDropboxSyncStatus(dbConfig.id, `backfilling (${processed}/${records.length})`, imported);
+        }
+
+        // Yield to event loop periodically to keep the server responsive
+        if (i % 1000 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+
+      console.log(`[DropboxSync] Backfill complete for "${dbConfig.name}": ${imported} historical records imported`);
+      await storage.updateDropboxSyncStatus(dbConfig.id, 'success', imported);
+      this.pendingBackfills.delete(stationId);
+    }
+
+    this.isBackfilling = false;
   }
 
   /**

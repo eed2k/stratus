@@ -1,8 +1,11 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useMemo, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { safeFixed } from "@/lib/utils";
-import { WIND_DIRECTIONS, WMO_SPEED_CLASSES, getSpeedColor } from "@/lib/windConstants";
+import { WIND_DIRECTIONS, getSpeedColor, getWindUnitLabel, getFullSpeedClasses, type WindSpeedUnit } from "@/lib/windConstants";
 
 /**
  * Wind speed scatter point data - individual wind observations
@@ -18,6 +21,7 @@ interface WindRoseScatterProps {
   title?: string;
   maxWindSpeed?: number;
   showLegend?: boolean;
+  windSpeedUnit?: WindSpeedUnit;
 }
 
 /**
@@ -67,8 +71,11 @@ export const WindRoseScatter = memo(function WindRoseScatter({
   data, 
   title = "Wind Speed Scatter", 
   maxWindSpeed,
-  showLegend = true 
+  showLegend = true,
+  windSpeedUnit = 'ms',
 }: WindRoseScatterProps) {
+  const unitLabel = getWindUnitLabel(windSpeedUnit);
+  const speedClasses = getFullSpeedClasses(windSpeedUnit);
   // Calculate max speed for scaling
   const calculatedMaxSpeed = useMemo(() => {
     if (maxWindSpeed !== undefined) return maxWindSpeed;
@@ -83,11 +90,11 @@ export const WindRoseScatter = memo(function WindRoseScatter({
   const activeClasses = useMemo(() => {
     const present = new Set<number>();
     data.forEach(d => {
-      const idx = WMO_SPEED_CLASSES.findIndex(c => d.speed >= c.min && d.speed < c.max);
+      const idx = speedClasses.findIndex(c => d.speed >= c.min && d.speed < c.max);
       if (idx >= 0) present.add(idx);
     });
-    return WMO_SPEED_CLASSES.filter((_, i) => present.has(i));
-  }, [data]);
+    return speedClasses.filter((_, i) => present.has(i));
+  }, [data, speedClasses]);
 
   const size = 320;
   const center = size / 2;
@@ -151,7 +158,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
                 y={center - circle.radius + 12}
                 className="fill-muted-foreground text-[9px]"
               >
-                {safeFixed(circle.speed, 0)} m/s
+                {safeFixed(circle.speed, 0)} {unitLabel}
               </text>
             </g>
           ))}
@@ -190,7 +197,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
           {/* Data points - colored by speed, clamped to circle boundary */}
           {data.map((point, i) => {
             const pos = polarToCart(point.direction, point.speed, true); // Clamp to circle
-            const color = getSpeedColor(point.speed);
+            const color = getSpeedColor(point.speed, windSpeedUnit);
             return (
               <circle
                 key={i}
@@ -204,7 +211,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
                 className="transition-opacity hover:opacity-100"
               >
                 <title>
-                  {safeFixed(point.speed, 1)} m/s @ {safeFixed(point.direction, 0)}°
+                  {safeFixed(point.speed, 1)} {unitLabel} @ {safeFixed(point.direction, 0)}°
                   {point.timestamp && `\n${point.timestamp.toLocaleTimeString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}`}
                 </title>
               </circle>
@@ -225,15 +232,15 @@ export const WindRoseScatter = memo(function WindRoseScatter({
         <div className="mt-3 grid grid-cols-4 gap-2 text-xs text-center w-full">
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Avg</div>
-            <div className="font-normal">{safeFixed(stats.avgSpeed, 1)} m/s</div>
+            <div className="font-normal">{safeFixed(stats.avgSpeed, 1)} {unitLabel}</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Max</div>
-            <div className="font-normal">{safeFixed(stats.maxSpeed, 1)} m/s</div>
+            <div className="font-normal">{safeFixed(stats.maxSpeed, 1)} {unitLabel}</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Min</div>
-            <div className="font-normal">{safeFixed(stats.minSpeed, 1)} m/s</div>
+            <div className="font-normal">{safeFixed(stats.minSpeed, 1)} {unitLabel}</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
             <div className="text-muted-foreground">Dominant</div>

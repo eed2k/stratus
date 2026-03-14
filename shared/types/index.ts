@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 export interface WeatherMeasurement {
     temperature: number;
     humidity: number;
@@ -27,9 +30,7 @@ export interface StationConfig {
     isActive: boolean;
 }
 
-// ============================================================================
 // ISO 19157 DATA QUALITY TYPES
-// ============================================================================
 
 /**
  * Data quality status flags per ISO 19157
@@ -63,9 +64,7 @@ export type DataQualityDimension =
     | 'temporal_accuracy'   // Accuracy of temporal attributes and relationships
     | 'thematic_accuracy';  // Accuracy of quantitative and qualitative attributes
 
-// ============================================================================
 // ISO/IEC 17025 CALIBRATION TYPES
-// ============================================================================
 
 /**
  * Measurement uncertainty following GUM (Guide to Uncertainty in Measurement)
@@ -125,9 +124,7 @@ export interface TraceabilityChain {
     nextLink?: TraceabilityChain;     // Link to higher-level reference
 }
 
-// ============================================================================
 // ISO 27001 / GDPR COMPLIANCE TYPES
-// ============================================================================
 
 /**
  * Audit event types
@@ -166,9 +163,7 @@ export type DataSubjectRequestType =
     | 'portability'        // Art. 20 - Right to data portability
     | 'objection';         // Art. 21 - Right to object
 
-// ============================================================================
 // COMPLIANCE CERTIFICATION TYPES
-// ============================================================================
 
 /**
  * Supported compliance standards

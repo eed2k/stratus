@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { WindPowerCard } from "../dashboard/WindPowerCard";
 import { ThemeProvider } from "../ThemeProvider";
 

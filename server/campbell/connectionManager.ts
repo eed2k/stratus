@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Connection Manager
  * Handles multiple connection types for Campbell Scientific stations

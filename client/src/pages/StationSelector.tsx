@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch, queryClient } from "@/lib/queryClient";
@@ -211,7 +214,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
             >
               {/* Station Image */}
               <div className="relative">
-                <StationImageDisplay image={station.stationImage} stationName={station.name} />
+                <StationImageDisplay image={station.stationImage} stationName={station.name} lastSyncTime={station.lastSyncTime} />
                 {isAdmin && (
                   <div className="absolute top-2 right-2 flex gap-1">
                     <Button
@@ -296,13 +299,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                         {formatTimeSince(new Date(station.lastReading.timestamp).toISOString())} &middot; {formatLastSync(new Date(station.lastReading.timestamp).toISOString())}
                       </Badge>
                     </div>
-                  ) : (
-                    <div>
-                      <Badge variant="outline" className="border-gray-300 text-gray-500 bg-transparent text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                        No data yet
-                      </Badge>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* View Button */}

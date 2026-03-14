@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 import { useEffect, useRef, useState } from 'react';
 
 // Type declarations
@@ -35,7 +38,7 @@ interface StratusWeatherWidgetProps {
  * 
  * Embeds a Stratus weather station widget in your React application.
  * 
- * @example
+ * Example:
  * ```tsx
  * <StratusWeatherWidget
  *   stationId={1}
@@ -117,9 +120,7 @@ export function StratusWeatherWidget({
   return <div ref={containerRef} className={className} />;
 }
 
-// ============================================
 // Alternative: Hook-based approach for custom UI
-// ============================================
 
 interface StationData {
   station: {
@@ -154,7 +155,7 @@ interface UseStratusDataOptions {
 /**
  * Hook to fetch Stratus weather data for custom UI implementations
  * 
- * @example
+ * Example:
  * ```tsx
  * const { data, loading, error, refresh } = useStratusData({
  *   stationId: 1,

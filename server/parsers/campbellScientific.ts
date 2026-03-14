@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Campbell Scientific Data File Parser
  * Supports TOA5 (ASCII Table) and TOB1 (Binary) formats
@@ -405,33 +408,11 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     }
   }
 
-  // Wind speed: standardize to m/s (Campbell Scientific canonical unit)
-  // If source unit is already m/s, no conversion needed.
-  // If source unit is km/h, convert to m/s.
-  if (units && headers) {
-    const windFields = ['windSpeed', 'windGust'];
-    for (const field of windFields) {
-      if (result[field] !== null && result[field] !== undefined) {
-        // Find which source header matched this field
-        const fieldAliases = fieldMappings[field];
-        if (fieldAliases) {
-          for (const alias of fieldAliases) {
-            const headerIdx = headers.indexOf(alias);
-            if (headerIdx >= 0 && headerIdx < units.length) {
-              const unit = units[headerIdx]?.toLowerCase();
-              if (unit === 'km/h' || unit === 'kph' || unit === 'kmh') {
-                result[field] = result[field]! / 3.6; // km/h → m/s
-              }
-              // m/s, meters/second, ms → already m/s, no conversion
-              break;
-            }
-          }
-        }
-      }
-    }
+  // Wind speed: preserve original units from DAT file (m/s or km/h)
+  // Unit detection is handled by detectWindSpeedUnit() — no conversion here.
 
-    // Convert charger voltage from mV to V if the source unit is mV
-    if (result['chargerVoltage'] !== null && result['chargerVoltage'] !== undefined) {
+  // Convert charger voltage from mV to V if the source unit is mV
+  if (result['chargerVoltage'] !== null && result['chargerVoltage'] !== undefined && headers && units) {
       const chargerAliases = fieldMappings['chargerVoltage'];
       if (chargerAliases) {
         for (const alias of chargerAliases) {
@@ -459,7 +440,31 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
         result['solarRadiation'] = null;
       }
     }
-  }
 
   return result;
+}
+
+/**
+ * Detect wind speed unit from DAT file headers/units rows.
+ * Returns 'kmh' if any wind speed column has km/h unit, otherwise 'ms'.
+ */
+export function detectWindSpeedUnit(headers?: string[], units?: string[]): 'ms' | 'kmh' {
+  if (!headers || !units) return 'ms';
+  const windAliases = [
+    "WS_ms", "WS_Avg", "WindSpd", "Wind_Speed", "WS_kph",
+    "Wind_Spd_S_WVT", "WindSpeed_Avg", "WS_ms_Avg", "WS_ms_S_WVT",
+    "WSpd_1_Avg", "WSpd_Avg", "WSpd_1_S_WVT",
+    "WS_Max", "WindGust", "Gust_ms", "Wind_Spd_Max",
+    "WindSpeed_Max", "WS_ms_Max", "Wind_Gust", "WSpd_1_Max", "WSpd_Max",
+  ];
+  for (const alias of windAliases) {
+    const idx = headers.indexOf(alias);
+    if (idx >= 0 && idx < units.length) {
+      const unit = units[idx]?.toLowerCase()?.trim();
+      if (unit === 'km/h' || unit === 'kph' || unit === 'kmh') {
+        return 'kmh';
+      }
+    }
+  }
+  return 'ms';
 }

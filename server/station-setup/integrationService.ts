@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Station Integration Service
  * Handles complete station setup flow including validation, testing, and registration

@@ -1,3 +1,6 @@
+// Stratus Weather System - UI Component
+// Source: Library (shadcn/ui)
+
 import { cn } from "@/lib/utils"
 
 function Skeleton({

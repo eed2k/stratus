@@ -1,3 +1,6 @@
+// Stratus Weather System - Example/Template Component
+// Source: Library (shadcn/ui example)
+
 import { RefreshIndicator } from "../dashboard/RefreshIndicator";
 import { ThemeProvider } from "../ThemeProvider";
 

@@ -30,7 +30,7 @@ Real-Time Monitoring Dashboard
 - Reference Evapotranspiration - FAO Penman-Monteith ETo calculations
 - Barometric Pressure - Dual display showing station level and sea level QNH (hPa)
 - Battery Monitoring - Logger battery voltage with status indicators
-- Fire Danger Index - Real-time fire risk assessment
+- Lowveld Fire Danger Index - Official SA/Namibia fire risk assessment (LFDI)
 - Connection Health - Monitor connection status and data freshness
 - Alerts and Alarms - Configurable alerts for data thresholds
 - Data Staleness Detection - Visual warnings when live data stops flowing
@@ -120,7 +120,7 @@ The dashboard calculates and displays derived meteorological values:
 - Reference Evapotranspiration (ETo) - FAO Penman-Monteith method (FAO-56 standard)
 - Wind Power Density - Energy available in wind (W/m²) using station-specific air density
 - Cumulative Wind Energy Potential - Daily kWh/m² with proper time-interval integration
-- Fire Danger Index - McArthur FFDI/GFDI based on temperature, humidity, and wind speed
+- Lowveld Fire Danger Index (LFDI) - Official SAWS/Namibia AFIS fire risk formula: (BI + WF) x RCF
 - Heat Index / Wind Chill - Apparent temperature calculations
 - Trend Analysis - Absolute difference comparison of current values versus historical average
 
@@ -176,6 +176,44 @@ ADMIN_PASSWORD=secure_password
 ADMIN_FIRST_NAME=Admin
 ADMIN_LAST_NAME=User
 ```
+
+---
+
+Project Structure
+
+```
+client/             React frontend (Vite + TypeScript + Tailwind)
+  src/
+    components/     UI components (dashboard cards, charts, sidebar)
+    pages/          Route pages (Dashboard, SharedDashboard, Settings)
+    hooks/          Custom React hooks (useAuth, useMobile)
+    lib/            Utility functions and constants
+server/             Express backend (TypeScript)
+  campbell/         PakBus protocol and datalogger management
+  compliance/       Audit and compliance routes
+  parsers/          TOA5/Campbell data parsers
+  protocols/        HTTP adapter, protocol manager
+  services/         Dropbox sync, email, staleness monitor, file watcher
+  shares/           Shared dashboard routes
+shared/             Shared types and utilities
+  utils/            Calculation functions (LFDI, solar, ETo, air density)
+electron/           Desktop app (Electron) shell and preload
+assets/             Application icons
+deploy/             Deployment scripts and Docker config
+scripts/            Database utilities and maintenance scripts
+docs/               User documentation
+examples/           CRBasic example programs
+```
+
+---
+
+Tech Stack
+
+- Frontend: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts
+- Backend: Express, TypeScript, Drizzle ORM
+- Database: PostgreSQL (Neon serverless supported), SQLite for desktop
+- Desktop: Electron with serial port support
+- Deployment: Docker, Traefik reverse proxy
 
 ---
 

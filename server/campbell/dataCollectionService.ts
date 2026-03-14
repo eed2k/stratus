@@ -1,3 +1,6 @@
+// Stratus Weather System
+// Created by Lukas Esterhuizen
+
 /**
  * Data Collection Service
  * Manages data collection from Campbell Scientific dataloggers
