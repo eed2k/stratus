@@ -20,7 +20,7 @@ import { AirDensityCard } from "@/components/dashboard/AirDensityCard";
 import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
 import { MpptChargerCard } from "@/components/dashboard/MpptChargerCard";
 import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
-import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
+import { SolarPowerHarvestCard, calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarvestCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 // RainfallYearlyCard removed - yearly data now shown as subMetric in Rainfall MetricCard
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
@@ -833,6 +833,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       humidity: hasData('humidity'),
       pressure: hasData('pressure'),
       windSpeed: hasData('windSpeed'),
+      windGust: hasData('windGust'),
       windDirection: hasData('windDirection'),
       solarRadiation: hasData('solarRadiation'),
       rainfall: hasData('rainfall', true),
@@ -2342,15 +2343,61 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
 
 
-          {/* Solar Power Harvesting Potential - only show when solar radiation data available */}
-          {availableFields.solarRadiation && (
-            <SolarPowerHarvestCard
-              currentRadiation={availableFields.solarRadiation ? currentData.solarRadiation : null}
-              dailyAverageRadiation={avgDaytimeRadiation}
-              panelEfficiency={0.20}
-              systemLosses={0.15}
+          {/* Solar Power Harvesting - Wind Energy style layout */}
+          {availableFields.solarRadiation && (() => {
+            const eff = 0.20;
+            const losses = 0.15;
+            const est = calculateSolarEstimates(avgDaytimeRadiation ?? (currentData.solarRadiation ?? 0), eff, losses);
+            return (
+            <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <SolarPowerHarvestCard
+                currentRadiation={currentData.solarRadiation}
+                dailyAverageRadiation={avgDaytimeRadiation}
+                panelEfficiency={eff}
+                systemLosses={losses}
+              />
+              <MetricCard
+                title="Daily Energy"
+                value={safeFixed(est.dailyEnergy, 2)}
+                unit="kWh/m²"
+                sparklineData={chartData.slice(-12).map(d => (d.solarRadiation ?? 0) * eff * (1 - losses))}
+                chartColor="#f59e0b"
+              />
+              <MetricCard
+                title="Monthly Energy"
+                value={safeFixed(est.monthlyEnergy, 1)}
+                unit="kWh/m²"
+                chartColor="#ef4444"
+              />
+              <MetricCard
+                title="Yearly Energy"
+                value={safeFixed(est.yearlyEnergy, 0)}
+                unit="kWh/m²"
+                chartColor="#3b82f6"
+              />
+            </div>
+            <DataBlockChart
+              title="Solar Power Output Over Time"
+              data={chartData.map(d => ({
+                timestamp: d.timestamp,
+                solarPower: (d.solarRadiation ?? 0) * eff * (1 - losses),
+                solarRadiation: d.solarRadiation ?? 0,
+              }))}
+              series={[
+                { dataKey: "solarPower", name: "Solar Power (W/m²)", color: "#f59e0b", unit: "W/m²" },
+                { dataKey: "solarRadiation", name: "Radiation (W/m²)", color: "#ef4444", unit: "W/m²" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Power / Radiation"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={(currentData.solarRadiation ?? 0) * eff * (1 - losses)}
             />
-          )}
+            </>
+            );
+          })()}
         </section>
         )}
 
@@ -2762,6 +2809,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 data={historicalChartData}
                 series={[
                   { dataKey: "windSpeed", name: `Wind Speed (${windUnitLabel})`, color: "#22c55e" },
+                  ...(availableFields.windGust ? [{ dataKey: "windGust", name: `Wind Gust (${windUnitLabel})`, color: "#f59e0b" }] : []),
                 ]}
               />
             </TabsContent>

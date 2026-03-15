@@ -412,41 +412,50 @@ async function createTables(): Promise<void> {
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_org_members_unique ON organization_members(organization_id, user_id)`);
 
   // ── Migrations for existing databases ──────────────────────────
-  await pool.query(`ALTER TABLE alarms ADD COLUMN IF NOT EXISTS stale_minutes INTEGER`);
-  await pool.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS ingest_id VARCHAR(10) UNIQUE`);
-  // New weather data columns for wind std dev, SDI-12, pump/port
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS wind_dir_std_dev REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS sdi12_wind_vector REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS pump_select_well REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS pump_select_bore REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS port_status_c1 REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS port_status_c2 REAL`);
-  // MPPT Solar Charge Controller columns
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_voltage REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_current REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_power REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_load_voltage REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_load_current REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_battery_voltage REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_charger_state REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_absi_avg REAL`);
-  // MPPT additional fields
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_board_temp REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_mode REAL`);
-  // MPPT Charger 2 columns
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_voltage REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_current REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_power REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_load_voltage REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_load_current REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_battery_voltage REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_charger_state REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_board_temp REAL`);
-  await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_mode REAL`);
-  // Wind speed unit per station (ms = m/s, kmh = km/h)
-  await pool.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS wind_speed_unit TEXT DEFAULT 'ms'`);
-  // Dashboard configuration (section visibility, parameters, etc.)
-  await pool.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS dashboard_config JSONB`);
+  const migrations = [
+    `ALTER TABLE alarms ADD COLUMN IF NOT EXISTS stale_minutes INTEGER`,
+    `ALTER TABLE stations ADD COLUMN IF NOT EXISTS ingest_id VARCHAR(10) UNIQUE`,
+    // New weather data columns for wind std dev, SDI-12, pump/port
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS wind_dir_std_dev REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS sdi12_wind_vector REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS pump_select_well REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS pump_select_bore REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS port_status_c1 REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS port_status_c2 REAL`,
+    // MPPT Solar Charge Controller columns
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_voltage REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_current REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_solar_power REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_load_voltage REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_load_current REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_battery_voltage REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_charger_state REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_absi_avg REAL`,
+    // MPPT additional fields
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_board_temp REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt_mode REAL`,
+    // MPPT Charger 2 columns
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_voltage REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_current REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_solar_power REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_load_voltage REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_load_current REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_battery_voltage REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_charger_state REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_board_temp REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_mode REAL`,
+    // Wind speed unit per station (ms = m/s, kmh = km/h)
+    `ALTER TABLE stations ADD COLUMN IF NOT EXISTS wind_speed_unit TEXT DEFAULT 'ms'`,
+    // Dashboard configuration (section visibility, parameters, etc.)
+    `ALTER TABLE stations ADD COLUMN IF NOT EXISTS dashboard_config JSONB`,
+  ];
+  for (const sql of migrations) {
+    try {
+      await pool.query(sql);
+    } catch (err: any) {
+      pgLog.warn(`Migration skipped: ${err.message}`);
+    }
+  }
   pgLog.info('Additional performance indexes ready');
 }
 

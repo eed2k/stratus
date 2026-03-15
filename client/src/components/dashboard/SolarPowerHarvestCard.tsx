@@ -2,148 +2,96 @@
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Sun } from "lucide-react";
 import { useMemo } from "react";
-import { safeFixed } from "@/lib/utils";
 
-interface SolarPowerHarvestCardProps {
-  /** Current solar radiation in W/m² */
-  currentRadiation: number | null | undefined;
-  /** Average daytime solar radiation in W/m² (computed from historical data) */
-  dailyAverageRadiation?: number | null;
-  /** Solar panel efficiency (default 18%) */
-  panelEfficiency?: number;
-  /** System losses (inverter, wiring, etc. - default 15%) */
-  systemLosses?: number;
-  /** Panel area in m² (default 1 for per-m² calculations) */
-  panelArea?: number;
-}
+// Helper to safely convert to number and format
+const safeFixed = (value: number | string | null | undefined, decimals: number = 1): string => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return (num != null && !isNaN(num)) ? num.toFixed(decimals) : '--';
+};
 
 /**
  * Calculate harvestable solar energy from radiation data
  * Formula: Energy (kWh) = Radiation (W/m²) × Time (hours) × Panel Efficiency × (1 - System Losses) / 1000
  */
-const calculateSolarEnergy = (
+export const calculateSolarEnergy = (
   radiationWm2: number,
   hours: number,
   efficiency: number,
   losses: number,
-  area: number
+  area: number = 1
 ): number => {
   return (radiationWm2 * hours * efficiency * (1 - losses) * area) / 1000;
 };
 
 /**
- * Convert W/m² to peak sun hours equivalent
- * 1 peak sun hour = 1000 W/m² for 1 hour
+ * Calculate solar harvesting estimates from radiation
  */
-const toPeakSunHours = (radiationWm2: number, hours: number): number => {
-  return (radiationWm2 * hours) / 1000;
-};
+export function calculateSolarEstimates(
+  estimateRadiation: number,
+  panelEfficiency: number = 0.20,
+  systemLosses: number = 0.15,
+  panelArea: number = 1,
+) {
+  if (estimateRadiation === 0) {
+    return { dailyEnergy: 0, weeklyEnergy: 0, monthlyEnergy: 0, yearlyEnergy: 0, peakSunHours: 0 };
+  }
+  const avgDaylightHours = 10;
+  const avgRadiation = estimateRadiation * 0.5;
+  const dailyEnergy = calculateSolarEnergy(avgRadiation, avgDaylightHours, panelEfficiency, systemLosses, panelArea);
+  const weeklyEnergy = dailyEnergy * 7;
+  const monthlyEnergy = dailyEnergy * 30;
+  const yearlyEnergy = dailyEnergy * 365 * 0.85;
+  const peakSunHours = (avgRadiation * avgDaylightHours) / 1000;
+  return { dailyEnergy, weeklyEnergy, monthlyEnergy, yearlyEnergy, peakSunHours };
+}
 
+interface SolarPowerHarvestCardProps {
+  currentRadiation: number | null | undefined;
+  dailyAverageRadiation?: number | null;
+  panelEfficiency?: number;
+  systemLosses?: number;
+  panelArea?: number;
+  sparklineData?: number[];
+}
+
+/**
+ * Solar Power Harvesting card — matches WindPowerCard layout.
+ * Shows current output + 2x2 grid of key metrics.
+ */
 export function SolarPowerHarvestCard({
   currentRadiation,
   dailyAverageRadiation,
-  panelEfficiency = 0.18, // 18% typical for modern panels
-  systemLosses = 0.15, // 15% typical system losses
-  panelArea = 1, // Per m² by default
+  panelEfficiency = 0.20,
+  systemLosses = 0.15,
+  panelArea = 1,
+  sparklineData: _sparklineData,
 }: SolarPowerHarvestCardProps) {
-  // Check if we have valid data
   const hasData = currentRadiation !== null && currentRadiation !== undefined;
-  const isNighttime = !hasData || (currentRadiation ?? 0) === 0;
   const hasAverage = dailyAverageRadiation != null && dailyAverageRadiation > 0;
-
-  // Use daily average for estimates (more accurate than instantaneous); fall back to current
   const estimateRadiation = hasAverage ? dailyAverageRadiation : (currentRadiation ?? 0);
 
-  // Current instantaneous power output (kW) - always based on real-time reading
-  const currentPower = useMemo(() => {
+  const currentOutput = useMemo(() => {
     const rad = currentRadiation ?? 0;
-    return (rad * panelEfficiency * (1 - systemLosses) * panelArea) / 1000;
+    return rad * panelEfficiency * (1 - systemLosses) * panelArea;
   }, [currentRadiation, panelEfficiency, systemLosses, panelArea]);
 
-  // Calculate energy estimates based on average radiation (or current if no average)
-  const estimates = useMemo(() => {
-    if (estimateRadiation === 0) {
-      return {
-        dailyEnergy: 0,
-        weeklyEnergy: 0,
-        monthlyEnergy: 0,
-        yearlyEnergy: 0,
-        peakSunHours: 0,
-      };
-    }
+  const estimates = useMemo(
+    () => calculateSolarEstimates(estimateRadiation, panelEfficiency, systemLosses, panelArea),
+    [estimateRadiation, panelEfficiency, systemLosses, panelArea],
+  );
 
-    const radiation = estimateRadiation;
-
-    // Estimate average daily radiation (assuming current is representative)
-    const avgDaylightHours = 10;
-
-    // Daily energy (kWh) - using average radiation over daylight hours
-    const avgRadiation = radiation * 0.5;
-    const dailyEnergy = calculateSolarEnergy(avgRadiation, avgDaylightHours, panelEfficiency, systemLosses, panelArea);
-
-    // Weekly, monthly, yearly extrapolations
-    const weeklyEnergy = dailyEnergy * 7;
-    const monthlyEnergy = dailyEnergy * 30;
-    const yearlyEnergy = dailyEnergy * 365 * 0.85; // 85% to account for weather variations
-
-    // Peak sun hours (daily equivalent)
-    const peakSunHours = toPeakSunHours(avgRadiation, avgDaylightHours);
-
-    return {
-      dailyEnergy,
-      weeklyEnergy,
-      monthlyEnergy,
-      yearlyEnergy,
-      peakSunHours,
-    };
-  }, [estimateRadiation, panelEfficiency, systemLosses, panelArea]);
-
-  // Generate chart data for energy potential over months
-  const monthlyChartData = useMemo(() => {
-    const baseMonthlyEnergy = estimates.monthlyEnergy;
-    const basePeakSunHours = estimates.peakSunHours;
-
-    // Seasonal variation factors (Southern hemisphere - SA stations)
-    const seasonalFactors = [
-      { month: 'Jan', factor: 1.0 },
-      { month: 'Feb', factor: 0.95 },
-      { month: 'Mar', factor: 0.85 },
-      { month: 'Apr', factor: 0.7 },
-      { month: 'May', factor: 0.55 },
-      { month: 'Jun', factor: 0.45 },
-      { month: 'Jul', factor: 0.5 },
-      { month: 'Aug', factor: 0.6 },
-      { month: 'Sep', factor: 0.75 },
-      { month: 'Oct', factor: 0.85 },
-      { month: 'Nov', factor: 0.95 },
-      { month: 'Dec', factor: 1.0 },
-    ];
-
-    return seasonalFactors.map(({ month, factor }) => ({
-      month,
-      energy: baseMonthlyEnergy * factor,
-      peakSunHours: basePeakSunHours * factor * 30,
-    }));
-  }, [estimates.monthlyEnergy, estimates.peakSunHours]);
-
-  // No data at all and no average available
   if (!hasData && !hasAverage) {
     return (
       <Card className="border border-gray-300 bg-white">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            Solar Power Harvesting Potential
+            Solar Power
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <p className="text-sm font-normal text-black">No Data</p>
-            <p className="text-xs text-black mt-1">
-              Solar radiation data is not available for this station
-            </p>
           </div>
         </CardContent>
       </Card>
@@ -151,90 +99,38 @@ export function SolarPowerHarvestCard({
   }
 
   return (
-    <Card className="border border-gray-300 bg-white">
+    <Card className="border border-gray-300 bg-white" data-testid="card-solar-power">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          Solar Power Harvesting Potential
-          <Badge variant="outline" className="ml-auto text-xs border-gray-300 text-black">
-            {safeFixed(panelEfficiency * 100, 0)}% efficiency
-          </Badge>
-        </CardTitle>
+        <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Solar Power</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* Night notice */}
-          {isNighttime && hasAverage && (
-            <div className="rounded border border-gray-300 bg-white p-2">
-              <p className="text-[10px] text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                Estimates based on recent average daytime radiation ({safeFixed(dailyAverageRadiation!, 0)} W/m²).
-              </p>
-            </div>
-          )}
-
-          {/* Current Power Output */}
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              {safeFixed(currentPower * 1000, 0)}
-            </span>
-            <span className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              W/m² (current output)
-            </span>
+            <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(currentOutput, 1)}</span>
+            <span className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>W/m²</span>
           </div>
 
-          {/* Energy Estimates Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-gray-300 bg-white p-3">
-              <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily</p>
-              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {safeFixed(estimates.dailyEnergy, 2)}
-              </p>
-              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(currentRadiation ?? 0, 0)} W/m²</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-white p-3">
-              <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Weekly</p>
-              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {safeFixed(estimates.weeklyEnergy, 1)}
-              </p>
-              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Efficiency</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(panelEfficiency * 100, 0)}%</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-white p-3">
-              <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly</p>
-              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {safeFixed(estimates.monthlyEnergy, 1)}
-              </p>
-              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(estimates.peakSunHours, 1)} hrs</p>
             </div>
 
-            <div className="rounded-lg border border-gray-300 bg-white p-3">
-              <p className="text-xs font-normal text-black mb-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly</p>
-              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {safeFixed(estimates.yearlyEnergy, 0)}
-              </p>
-              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>kWh/m²</p>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Radiation</p>
+              <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(estimateRadiation, 0)} W/m²</p>
             </div>
           </div>
-
-          {/* Peak Sun Hours */}
-          <div className="rounded-lg border border-gray-300 bg-white p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours (Daily Avg)</p>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(estimates.peakSunHours, 1)} hours
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(currentRadiation ?? 0, 0)} W/m²
-                </p>
-              </div>
-            </div>
-          </div>
-
-
         </div>
       </CardContent>
     </Card>
