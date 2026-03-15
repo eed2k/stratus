@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindCompass } from "@/components/dashboard/WindCompass";
-import { WindPowerCard } from "@/components/dashboard/WindPowerCard";
+// WindPowerCard replaced with inline Card layout
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
 import { SolarRadiationCard } from "@/components/dashboard/SolarRadiationCard";
 import { EToCard } from "@/components/dashboard/EToCard";
@@ -20,7 +20,7 @@ import { AirDensityCard } from "@/components/dashboard/AirDensityCard";
 import { BatteryVoltageCard } from "@/components/dashboard/BatteryVoltageCard";
 import { MpptChargerCard } from "@/components/dashboard/MpptChargerCard";
 import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
-import { SolarPowerHarvestCard, calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarvestCard";
+import { calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarvestCard";
 import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 // RainfallYearlyCard removed - yearly data shown in Rainfall MetricCard subMetric
@@ -173,6 +173,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         humidityMax: maxNonNull(dayData.map(d => d.humidity ?? null)),
         pressure: avgNonNull(dayData.map(d => d.pressure ?? null)),
         windSpeed: avgNonNull(dayData.map(d => d.windSpeed ?? null)),
+        windGust: avgNonNull(dayData.map(d => d.windGust ?? d.windSpeed ?? null)),
         windSpeedMax: maxNonNull(dayData.map(d => d.windSpeed ?? null)),
         solar: avgNonNull(dayData.map(d => d.solarRadiation != null ? Math.max(d.solarRadiation, 0) : null)),
         solarMax: maxNonNull(dayData.map(d => d.solarRadiation != null ? Math.max(d.solarRadiation, 0) : null)),
@@ -274,6 +275,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       humidity: d.humidity ?? null,
       pressure: d.pressure ?? null,
       windSpeed: d.windSpeed ?? null,
+      windGust: d.windGust ?? null,
       solar: d.solarRadiation != null ? Math.max(d.solarRadiation, 0) : null,
       rain: incrementalRain,
       soilTemperature: d.soilTemperature ?? null,
@@ -1584,7 +1586,7 @@ function SharedDashboardContent() {
             />
             )}
             {availableFields.windSpeed && (
-            <DataBlockChart title="Wind Speed (24h)" data={chartData}
+            <DataBlockChart title="Wind Speed vs Wind Gust (24h)" data={chartData}
               series={[
                 { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
                 { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
@@ -1653,40 +1655,75 @@ function SharedDashboardContent() {
             )}
           </div>
           </Suspense>
-          {/* Solar Power Harvesting - Wind Energy style layout */}
+          {/* Solar Power Harvesting - Single full-width block */}
           {availableFields.solarRadiation && (() => {
             const eff = 0.20;
             const losses = 0.15;
-            const est = calculateSolarEstimates(avgDaytimeRadiation ?? (currentData.solarRadiation ?? 0), eff, losses);
+            const rad = currentData.solarRadiation ?? 0;
+            const currentOutput = rad * eff * (1 - losses);
+            const estimateRad = avgDaytimeRadiation ?? rad;
+            const est = calculateSolarEstimates(estimateRad, eff, losses);
             return (
-            <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <SolarPowerHarvestCard
-                currentRadiation={currentData.solarRadiation}
-                dailyAverageRadiation={avgDaytimeRadiation}
-                panelEfficiency={eff}
-                systemLosses={losses}
-              />
-              <MetricCard title="Daily Energy" value={safeFixed(est.dailyEnergy, 2)} unit="kWh/m²"
-                sparklineData={chartData.slice(-12).map(d => (d.solar ?? 0) * eff * (1 - losses))} chartColor="#f59e0b" />
-              <MetricCard title="Monthly Energy" value={safeFixed(est.monthlyEnergy, 1)} unit="kWh/m²" chartColor="#ef4444" />
-              <MetricCard title="Yearly Energy" value={safeFixed(est.yearlyEnergy, 0)} unit="kWh/m²" chartColor="#3b82f6" />
-            </div>
+            <Card className="border border-gray-300 bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Solar Power Harvesting Potential</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(currentOutput, 1)}</span>
+                  <span className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>W/m²</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(rad, 0)} W/m²</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Efficiency</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(eff * 100, 0)}%</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.peakSunHours, 1)} hrs</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Radiation</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(estimateRad, 0)} W/m²</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.dailyEnergy, 2)} kWh/m²</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.monthlyEnergy, 1)} kWh/m²</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.yearlyEnergy, 0)} kWh/m²</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  Estimates based on {safeFixed(eff * 100, 0)}% panel efficiency, {safeFixed(losses * 100, 0)}% system losses (wiring, inverter, dust), 1 m² panel area, and {safeFixed(estimateRad, 0)} W/m² average radiation. Actual output depends on panel orientation, shading, and local conditions. Yearly estimate includes 15% seasonal reduction factor.
+                </p>
+              </CardContent>
+            </Card>
+            );
+          })()}
+          {availableFields.solarRadiation && (
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Solar Power Output Over Time"
-              data={chartData.map(d => ({ timestamp: d.timestamp, solarPower: (d.solar ?? 0) * eff * (1 - losses), solarRadiation: d.solar ?? 0 }))}
+              data={chartData.map(d => ({ timestamp: d.timestamp, solarPower: (d.solar ?? 0) * 0.20 * (1 - 0.15), solarRadiation: d.solar ?? 0 }))}
               series={[
                 { dataKey: "solarPower", name: "Solar Power (W/m²)", color: "#f59e0b", unit: "W/m²" },
                 { dataKey: "solarRadiation", name: "Radiation (W/m²)", color: "#ef4444", unit: "W/m²" },
               ]}
               chartType="area" xAxisLabel="Time" yAxisLabel="Power / Radiation"
               showAverage={true} showMinMax={true}
-              currentValue={(currentData.solarRadiation ?? 0) * eff * (1 - losses)}
+              currentValue={(currentData.solarRadiation ?? 0) * 0.20 * (1 - 0.15)}
             />
             </Suspense>
-            </>
-            );
-          })()}
+          )}
         </section>
         )}
 
@@ -1809,26 +1846,66 @@ function SharedDashboardContent() {
         </section>
         )}
 
-        {/* Wind Energy */}
+        {/* Wind Energy - Single full-width block */}
         {sv.windEnergy !== false && (availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Wind Energy</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <WindPowerCard
-              currentPower={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit)}
-              gustPower={calculateWindPower(currentData.windGust || 0, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit)}
-              airDensity={currentData.airDensity || STANDARD_AIR_DENSITY_KGM3}
-              avgSpeed={chartData.slice(-10).reduce((sum, d) => sum + (d.windSpeed ?? 0), 0) / Math.max(chartData.slice(-10).length, 1)}
-              avgPower={chartData.slice(-10).reduce((sum, d) => sum + calculateWindPower(d.windSpeed ?? 0, STANDARD_AIR_DENSITY_KGM3, windSpeedUnit), 0) / Math.max(chartData.slice(-10).length, 1)}
-              sparklineData={chartData.slice(-12).map(d => calculateWindPower(d.windSpeed ?? 0, STANDARD_AIR_DENSITY_KGM3, windSpeedUnit))}
-            />
-            <MetricCard title="Current Wind Power" value={safeFixed(calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit), 1)} unit="W/m²"
-              sparklineData={windEnergyData.slice(-12).map(d => d.windPower)} chartColor="#22c55e" />
-            <MetricCard title="Peak Gust Power" value={safeFixed(calculateWindPower(currentData.windGust || 0, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit), 1)} unit="W/m²"
-              sparklineData={windEnergyData.slice(-12).map(d => d.gustPower)} chartColor="#ef4444" />
-            <MetricCard title="Daily Energy Potential" value={safeFixed(windEnergyData.length > 0 ? windEnergyData[windEnergyData.length - 1].cumulativeEnergy : 0, 2)} unit="kWh/m²"
-              sparklineData={windEnergyData.slice(-12).map(d => d.cumulativeEnergy)} chartColor="#3b82f6" />
-          </div>
+          {(() => {
+            const density = currentData.airDensity || STANDARD_AIR_DENSITY_KGM3;
+            const currentPower = calculateWindPower(currentData.windSpeed || 0, density, windSpeedUnit);
+            const gustPower = calculateWindPower(currentData.windGust || 0, density, windSpeedUnit);
+            const avgSpd = chartData.slice(-10).reduce((sum, d) => sum + (d.windSpeed ?? 0), 0) / Math.max(chartData.slice(-10).length, 1);
+            const avgPwr = chartData.slice(-10).reduce((sum, d) => sum + calculateWindPower(d.windSpeed ?? 0, STANDARD_AIR_DENSITY_KGM3, windSpeedUnit), 0) / Math.max(chartData.slice(-10).length, 1);
+            const dailyEnergy = windEnergyData.length > 0 ? windEnergyData[windEnergyData.length - 1].cumulativeEnergy : 0;
+            const monthlyEnergy = dailyEnergy * 30;
+            const yearlyEnergy = dailyEnergy * 365 * 0.85;
+            return (
+            <Card className="border border-gray-300 bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Wind Power</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(currentPower, 1)}</span>
+                  <span className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>W/m²</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust Power</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(gustPower, 1)} W/m²</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Air Density</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(density, 3)} kg/m³</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Speed (Recent)</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgSpd, 1)} {windUnitLabel}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Power (Recent)</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgPwr, 1)} W/m²</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy Potential</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(dailyEnergy, 2)} kWh/m²</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(monthlyEnergy, 1)} kWh/m²</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy Potential</p>
+                    <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(yearlyEnergy, 0)} kWh/m²</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  Wind power density calculated using P = ½ × ρ × v³ where ρ = {safeFixed(density, 3)} kg/m³ (air density) and v = wind speed in m/s. Energy potential assumes continuous operation at average power. Monthly and yearly projections extrapolated from daily cumulative energy. Yearly estimate includes 15% capacity reduction for variable wind conditions.
+                </p>
+              </CardContent>
+            </Card>
+            );
+          })()}
           <Suspense fallback={<ChartFallback />}>
           <DataBlockChart title="Wind Power Density Over Time"
             data={windEnergyData.map(d => ({ timestamp: d.timestamp, windPower: d.windPower, windSpeed: d.windSpeed }))}
