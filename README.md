@@ -8,10 +8,6 @@ A professional web application for Campbell Scientific weather station managemen
 
 ---
 
-Live Demo: https://stratusweather.co.za
-
----
-
 Campbell Scientific Integration
 
 - PakBus Protocol Support - Native implementation of Campbell Scientific's PakBus protocol
@@ -197,7 +193,7 @@ server/             Express backend (TypeScript)
   shares/           Shared dashboard routes
 shared/             Shared types and utilities
   utils/            Calculation functions (LFDI, solar, ETo, air density)
-electron/           Desktop app (Electron) shell and preload
+desktop/            Desktop application (WPF / .NET 8, Windows)
 assets/             Application icons
 deploy/             Deployment scripts and Docker config
 scripts/            Database utilities and maintenance scripts
@@ -212,7 +208,7 @@ Tech Stack
 - Frontend: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts
 - Backend: Express, TypeScript, Drizzle ORM
 - Database: PostgreSQL (Neon serverless supported), SQLite for desktop
-- Desktop: Electron with serial port support
+- Desktop: WPF / .NET 8 with serial port support (Windows)
 - Deployment: Docker, Traefik reverse proxy
 
 ---

@@ -27,8 +27,9 @@ public class LicenseService
         if (!string.IsNullOrEmpty(secret))
             return Encoding.UTF8.GetBytes(secret);
         
-        // Default development placeholder — override for production
-        return Encoding.UTF8.GetBytes("CHANGE-ME-IN-PRODUCTION");
+        // No secret configured — use development fallback
+        Log.Warning("STRATUS_LICENSE_SECRET not set — using development fallback key");
+        return Encoding.UTF8.GetBytes("STRATUS-DEV-FALLBACK-KEY-2026");
     }
 
     public LicenseService(string appDataPath)

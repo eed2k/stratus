@@ -532,16 +532,7 @@ public class PakBusProtocol
     /// <summary>Calculate signature nullifier that makes full-packet CRC = 0.</summary>
     private static ushort CalculateSignatureNullifier(byte[] body, ushort signature)
     {
-        // The nullifier is computed so that CRC(body + nullifier) = 0
-        ushort n = signature;
-        byte n0 = (byte)(0x100 - (n >> 8));
-        byte n1 = (byte)(0x100 - (n & 0xFF));
-        // Adjust using CRC feedback
-        var test = new byte[body.Length + 2];
-        Buffer.BlockCopy(body, 0, test, 0, body.Length);
-        test[^2] = (byte)(n >> 8);
-        test[^1] = (byte)(n & 0xFF);
-        return (ushort)((n >> 8 << 8) | (n & 0xFF));
+        return (ushort)((signature >> 8 << 8) | (signature & 0xFF));
     }
 
     /// <summary>Decode Campbell FP2 (2-byte floating point).</summary>
