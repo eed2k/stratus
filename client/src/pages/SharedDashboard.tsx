@@ -496,29 +496,42 @@ function SharedDashboardContent() {
   const [chartTimeRange, setChartTimeRange] = useState(24);
 
   // Fetch historical data for charts via share token (public, no auth needed)
-  // Falls back to station's actual data range for historical-only stations
   const { data: historicalData = [] } = useQuery<WeatherData[]>({
     queryKey: ['shared-weather', shareToken, 'history', chartTimeRange, dataRange?.latest],
     queryFn: async () => {
-      const endTime = new Date();
-      const startTime = new Date(endTime.getTime() - chartTimeRange * 60 * 60 * 1000);
       const limit = chartTimeRange > 72 ? 2000 : 1000;
+      // Use dataRange to pick the right time window upfront
+      let endTime: Date;
+      let startTime: Date;
+      if (dataRange?.latest) {
+        const latestTs = new Date(dataRange.latest).getTime();
+        const now = Date.now();
+        if (now - latestTs > chartTimeRange * 60 * 60 * 1000) {
+          endTime = new Date(latestTs + 60000);
+          startTime = new Date(endTime.getTime() - chartTimeRange * 60 * 60 * 1000);
+        } else {
+          endTime = new Date();
+          startTime = new Date(endTime.getTime() - chartTimeRange * 60 * 60 * 1000);
+        }
+      } else {
+        endTime = new Date();
+        startTime = new Date(endTime.getTime() - chartTimeRange * 60 * 60 * 1000);
+      }
       const res = await fetch(
         `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`,
         { headers: shareHeaders }
       );
       if (!res.ok) return [];
       const data = await res.json();
-      // Fallback: if no data in selected range, try station's actual data range
-      if (Array.isArray(data) && data.length === 0 && dataRange?.latest) {
-        const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
-        const rangeStart = new Date(rangeEnd.getTime() - chartTimeRange * 60 * 60 * 1000);
-        const rangeFallback = await fetch(
-          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=${limit}`,
+      if (Array.isArray(data) && data.length === 0) {
+        const expandedEnd = dataRange?.latest ? new Date(new Date(dataRange.latest).getTime() + 60000) : endTime;
+        const expandedStart = new Date(expandedEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const fallback = await fetch(
+          `/api/shares/${shareToken}/data?startTime=${expandedStart.toISOString()}&endTime=${expandedEnd.toISOString()}&limit=${limit}`,
           { headers: shareHeaders }
         );
-        if (!rangeFallback.ok) return [];
-        return rangeFallback.json();
+        if (!fallback.ok) return [];
+        return fallback.json();
       }
       return data;
     },
@@ -533,7 +546,7 @@ function SharedDashboardContent() {
       const endTime = new Date();
       const startTime = new Date(endTime.getTime() - 7 * 24 * 60 * 60 * 1000);
       const res = await fetch(
-        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=500`,
+        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=1000`,
         { headers: shareHeaders }
       );
       if (!res.ok) return [];
@@ -542,7 +555,7 @@ function SharedDashboardContent() {
         const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
         const rangeStart = new Date(rangeEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
         const fallback = await fetch(
-          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=500`,
+          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=1000`,
           { headers: shareHeaders }
         );
         if (!fallback.ok) return [];
@@ -552,35 +565,6 @@ function SharedDashboardContent() {
     },
     enabled: !!access,
     staleTime: 10 * 60 * 1000,
-  });
-
-  // Separate 7-day query for dew point chart (always fetches 7 days regardless of chart time range)
-  const { data: dewPointData7d = [] } = useQuery<WeatherData[]>({
-    queryKey: ['shared-weather', shareToken, 'dewpoint-7d', dataRange?.latest],
-    queryFn: async () => {
-      const endTime = new Date();
-      const startTime = new Date(endTime.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const res = await fetch(
-        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=1500`,
-        { headers: shareHeaders }
-      );
-      if (!res.ok) return [];
-      const data = await res.json();
-      if (Array.isArray(data) && data.length === 0 && dataRange?.latest) {
-        const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
-        const rangeStart = new Date(rangeEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const fallback = await fetch(
-          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=1500`,
-          { headers: shareHeaders }
-        );
-        if (!fallback.ok) return [];
-        return fallback.json();
-      }
-      return data;
-    },
-    enabled: !!access,
-    refetchInterval: 30 * 60 * 1000,
-    staleTime: 15 * 60 * 1000,
   });
 
   // Fetch station info via share token
@@ -630,24 +614,38 @@ function SharedDashboardContent() {
   const { data: historicalSectionData = [], isLoading: historicalSectionLoading } = useQuery<WeatherData[]>({
     queryKey: ['shared-weather', shareToken, 'historical-section', historicalChartRange, dataRange?.latest],
     queryFn: async () => {
-      const endTime = new Date();
-      const startTime = new Date(endTime.getTime() - historicalChartRange * 60 * 60 * 1000);
       const limit = historicalChartRange > 72 ? 2000 : 1000;
+      let endTime: Date;
+      let startTime: Date;
+      if (dataRange?.latest) {
+        const latestTs = new Date(dataRange.latest).getTime();
+        const now = Date.now();
+        if (now - latestTs > historicalChartRange * 60 * 60 * 1000) {
+          endTime = new Date(latestTs + 60000);
+          startTime = new Date(endTime.getTime() - historicalChartRange * 60 * 60 * 1000);
+        } else {
+          endTime = new Date();
+          startTime = new Date(endTime.getTime() - historicalChartRange * 60 * 60 * 1000);
+        }
+      } else {
+        endTime = new Date();
+        startTime = new Date(endTime.getTime() - historicalChartRange * 60 * 60 * 1000);
+      }
       const res = await fetch(
         `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=${limit}`,
         { headers: shareHeaders }
       );
       if (!res.ok) return [];
       const data = await res.json();
-      if (Array.isArray(data) && data.length === 0 && dataRange?.latest) {
-        const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
-        const rangeStart = new Date(rangeEnd.getTime() - historicalChartRange * 60 * 60 * 1000);
-        const rangeFallback = await fetch(
-          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=${limit}`,
+      if (Array.isArray(data) && data.length === 0) {
+        const expandedEnd = dataRange?.latest ? new Date(new Date(dataRange.latest).getTime() + 60000) : endTime;
+        const expandedStart = new Date(expandedEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const fallback = await fetch(
+          `/api/shares/${shareToken}/data?startTime=${expandedStart.toISOString()}&endTime=${expandedEnd.toISOString()}&limit=${limit}`,
           { headers: shareHeaders }
         );
-        if (!rangeFallback.ok) return [];
-        return rangeFallback.json();
+        if (!fallback.ok) return [];
+        return fallback.json();
       }
       return data;
     },
@@ -739,11 +737,11 @@ function SharedDashboardContent() {
 
   // Process chart data
   const chartData = useMemo(() => processChartData(sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit), [sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit]);
+  // Derive 7-day dew point chart data from statsData (no separate query needed)
   const dewPointChartData = useMemo(() => {
-    if (dewPointData7d.length === 0) return [];
-    const sorted = [...dewPointData7d].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    return processChartData(sorted, 168, station?.latitude, station?.altitude, windSpeedUnit);
-  }, [dewPointData7d, station?.latitude, station?.altitude, windSpeedUnit]);
+    if (sortedStatsData.length === 0) return [];
+    return processChartData(sortedStatsData, 168, station?.latitude, station?.altitude, windSpeedUnit);
+  }, [sortedStatsData, station?.latitude, station?.altitude, windSpeedUnit]);
 
   // Average daytime solar radiation from historical data (for Solar Power Harvesting card)
   const avgDaytimeRadiation = useMemo(() => {
