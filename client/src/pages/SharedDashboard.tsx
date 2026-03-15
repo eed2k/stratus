@@ -23,7 +23,7 @@ import { BarometricPressureCard } from "@/components/dashboard/BarometricPressur
 import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
 import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
-import { RainfallYearlyCard } from "@/components/dashboard/RainfallYearlyCard";
+// RainfallYearlyCard removed - yearly data shown in Rainfall MetricCard subMetric
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
@@ -833,7 +833,7 @@ function SharedDashboardContent() {
   }, [currentData.pressure, currentData.temperature, station?.altitude]);
 
   // Rainfall
-  const { accumulatedRainfall, effectiveRainfall } = useMemo(() => {
+  const { effectiveRainfall } = useMemo(() => {
     const rainfallReadings = sortedHistoricalData.map(d => d.rainfall).filter((v): v is number => v !== null && v !== undefined);
     if (rainfallReadings.length < 2) {
       const currentRain = currentData.rainfall ?? 0;
@@ -1819,24 +1819,7 @@ function SharedDashboardContent() {
         </section>
         )}
 
-        {/* Rainfall */}
-        {sv.rainfall !== false && (rainfallYearly.length > 0 || (availableFields.rainfall && accumulatedRainfall > 0)) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Rainfall</h2>
-          {rainfallYearly.length > 0 && (
-            <RainfallYearlyCard yearlyData={rainfallYearly} />
-          )}
-          {accumulatedRainfall > 0 && (
-          <Suspense fallback={<ChartFallback />}>
-          <DataBlockChart title="Rainfall History" data={chartData}
-            series={[{ dataKey: "rain", name: "Rainfall", color: "#3b82f6", unit: "mm" }]}
-            chartType="area" xAxisLabel="Time" yAxisLabel="Rainfall"
-            showMinMax={true} currentValue={currentData.rainfall || 0}
-          />
-          </Suspense>
-          )}
-        </section>
-        )}
+
 
         {/* Historical Data with Time Range Picker */}
         {sv.historicalCharts !== false && (chartData.length > 0 || historicalChartData.length > 0) && (

@@ -22,7 +22,7 @@ import { MpptChargerCard } from "@/components/dashboard/MpptChargerCard";
 import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
 import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
-import { RainfallYearlyCard } from "@/components/dashboard/RainfallYearlyCard";
+// RainfallYearlyCard removed - yearly data now shown as subMetric in Rainfall MetricCard
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
 import { safeFixed } from "@/lib/utils";
 
@@ -1388,6 +1388,35 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [sortedStatsData, sortedHistoricalData, currentData.rainfall]);
 
+  // Compute rainfall stats for Fire Danger card (7-day total + days since last rain)
+  const rainfallStats = useMemo(() => {
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    if (dataSource.length < 2) return { rainfall7day: 0, daysSinceRain: 30 };
+
+    const readings = dataSource
+      .map(d => ({ ts: new Date(d.timestamp).getTime(), val: d.rainfall }))
+      .filter((r): r is { ts: number; val: number } => r.val !== null && r.val !== undefined);
+    if (readings.length < 2) return { rainfall7day: 0, daysSinceRain: 30 };
+
+    // 7-day total using range method (cumulative gauge)
+    const minVal = Math.min(...readings.map(r => r.val));
+    const maxVal = Math.max(...readings.map(r => r.val));
+    const rainfall7day = Math.max(0, maxVal - minVal);
+
+    // Days since last rain: find the most recent reading where rainfall value changed (increased)
+    let daysSinceRain = 30; // default if no rain found
+    const now = referenceNow;
+    for (let i = readings.length - 1; i > 0; i--) {
+      if (readings[i].val > readings[i - 1].val + 0.05) {
+        // Rain detected at this reading
+        daysSinceRain = Math.max(0, Math.round((now - readings[i].ts) / (24 * 60 * 60 * 1000)));
+        break;
+      }
+    }
+
+    return { rainfall7day, daysSinceRain };
+  }, [sortedStatsData, sortedHistoricalData, referenceNow]);
+
   // Extract battery voltage from historical data for proper charting
   const batteryChartData = useMemo(() => {
     const effectiveRange = dashboardConfig.chartTimeRange || 24;
@@ -2243,6 +2272,23 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showMinMax={true}
             />
             )}
+            {/* Wind Speed Chart (24h) - next to Irrigation Time */}
+            {availableFields.windSpeed && (
+            <DataBlockChart
+              title="Wind Speed (24h)"
+              data={chartData}
+              series={[
+                { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
+                { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel={`Speed (${windUnitLabel})`}
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.windSpeed || 0}
+            />
+            )}
             {/* Sun Elevation & Azimuth Chart - Calculated from station coordinates */}
             {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
             <DataBlockChart
@@ -2624,6 +2670,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               temperature={currentData.temperature!}
               humidity={currentData.humidity!}
               windSpeed={currentData.windSpeed!}
+              rainfall7day={rainfallStats.rainfall7day}
+              daysSinceRain={rainfallStats.daysSinceRain}
             />
             <FireDangerChart
               data={fireDangerChartData}
