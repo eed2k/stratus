@@ -1390,8 +1390,9 @@ export function getOrganizationInvitations(orgId: number): OrgInvitationRecord[]
 export function createOrganizationInvitation(orgId: number, email: string, role: string = 'member'): string {
   if (!db) throw new Error('Database not initialized');
   
-  // Generate a simple token
-  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  // Generate a cryptographically secure token
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
   
   db.run(

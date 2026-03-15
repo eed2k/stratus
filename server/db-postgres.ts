@@ -622,10 +622,12 @@ export async function getStationById(id: number): Promise<Station | null> {
  * Generate a unique 8-character alphanumeric ingest ID (e.g., "ST64ART3")
  */
 function generateIngestId(): string {
+  const crypto = require('crypto');
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = crypto.randomBytes(8);
   let id = '';
   for (let i = 0; i < 8; i++) {
-    id += chars.charAt(Math.floor(Math.random() * chars.length));
+    id += chars.charAt(bytes[i] % chars.length);
   }
   return id;
 }

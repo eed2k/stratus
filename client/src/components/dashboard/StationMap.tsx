@@ -122,7 +122,6 @@ async function loadLeafletLibrary(): Promise<void> {
           
           if ((window as any).L) {
             leafletLoaded = true;
-            console.log('[Map] Leaflet loaded from:', cdn.js);
             return;
           }
         } catch (err) {
