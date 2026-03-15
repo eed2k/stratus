@@ -22,6 +22,7 @@ import { MpptChargerCard } from "@/components/dashboard/MpptChargerCard";
 import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
 import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
+import { RainfallYearlyCard } from "@/components/dashboard/RainfallYearlyCard";
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
 import { safeFixed } from "@/lib/utils";
 
@@ -66,7 +67,7 @@ import {
   wattsToMJPerDay,
   calculateFireDanger
 } from "@shared/utils/calc";
-import { DEFAULT_DASHBOARD_CONFIG, type DashboardConfig } from "../../../shared/dashboardConfig";
+import { DEFAULT_DASHBOARD_CONFIG, DASHBOARD_CATEGORIES, type DashboardConfig } from "../../../shared/dashboardConfig";
 import { getSimplifiedClasses, getWindUnitLabel, getWindDirectionLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import {
   STANDARD_SEA_LEVEL_PRESSURE_HPA,
@@ -280,6 +281,24 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
           return calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
         })(),
+        irrigationTime: (() => {
+          const temp = avgNonNull(dayData.map(d => d.temperature ?? null));
+          const hum = avgNonNull(dayData.map(d => d.humidity ?? null));
+          const ws = avgNonNull(dayData.map(d => d.windSpeed ?? null));
+          const sr = avgNonNull(dayData.map(d => d.solarRadiation ?? null));
+          if (temp == null || hum == null || ws == null || sr == null) return null;
+          const lat = stationLat || 0;
+          const alt = stationAltitude || 0;
+          const ts = new Date(dateKey + 'T12:00:00');
+          const dayOfYear = Math.floor((ts.getTime() - new Date(ts.getFullYear(), 0, 0).getTime()) / 86400000);
+          const solarMJ = wattsToMJPerDay(sr, ASSUMED_DAYLIGHT_HOURS);
+          const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
+          const eto = calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
+          const rainfallVals = dayData.map(d => d.rainfall).filter((v): v is number => v != null);
+          const dayRain = rainfallVals.length >= 2 ? Math.max(0, rainfallVals[rainfallVals.length - 1] - rainfallVals[0]) : 0;
+          const netNeed = Math.max(0, eto - dayRain);
+          return Math.round((netNeed / 5) * 60);
+        })(),
         _readings: dayData.length,
       };
     });
@@ -388,6 +407,22 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         const solarMJ = wattsToMJPerDay(sr, ASSUMED_DAYLIGHT_HOURS);
         const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
         return calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
+      })(),
+      irrigationTime: (() => {
+        const temp = d.temperature;
+        const hum = d.humidity;
+        const ws = d.windSpeed;
+        const sr = d.solarRadiation;
+        if (temp == null || hum == null || ws == null || sr == null) return null;
+        const lat = stationLat || 0;
+        const alt = stationAltitude || 0;
+        const ts = new Date(d.timestamp);
+        const dayOfYear = Math.floor((ts.getTime() - new Date(ts.getFullYear(), 0, 0).getTime()) / 86400000);
+        const solarMJ = wattsToMJPerDay(sr, ASSUMED_DAYLIGHT_HOURS);
+        const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
+        const eto = calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
+        const netNeed = Math.max(0, eto - (incrementalRain || 0));
+        return Math.round((netNeed / 5) * 60);
       })(),
     };
   });
@@ -673,6 +708,19 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     return processChartData(sorted, 168, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined, windSpeedUnit);
   }, [dewPointData7d, selectedStation?.latitude, selectedStation?.altitude]);
 
+  // Rainfall yearly totals
+  const { data: rainfallYearly = [] } = useQuery<{ year: number; total: number; readings: number; isCurrent: boolean }[]>({
+    queryKey: ["/api/stations", activeStationId, "data", "rainfall-yearly"],
+    queryFn: async () => {
+      if (!activeStationId) return [];
+      const res = await authFetch(`/api/stations/${activeStationId}/data/rainfall-yearly`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeStationId,
+    staleTime: 60 * 60 * 1000,
+  });
+
   // Separate query for historical charts section (uses its own independent time range)
   // Auto-expands to 30 days, then falls back to station's actual data range
   const { data: historicalSectionData = [], isLoading: historicalSectionLoading } = useQuery<WeatherData[]>({
@@ -747,12 +795,23 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [historicalData]);
 
-  // Detect which data fields have valid data
+  // Detect which data fields have valid data AND are enabled in config
   const availableFields = useMemo(() => {
+    // Build set of known toggleable parameter dataFields from DASHBOARD_CATEGORIES
+    const toggleableFields = new Set(
+      DASHBOARD_CATEGORIES.flatMap(c => c.parameters.map(p => p.dataField))
+    );
+    const ep = dashboardConfig.enabledParameters;
+
     // Check if field has at least some non-null, meaningful values
     // Fields that are always 0 (disconnected sensors) are treated as unavailable
     // allowZero: rainfall can be 0 and still mean the sensor exists
     const hasData = (field: keyof WeatherData, allowZero = false) => {
+      // If this field is a toggleable parameter and was disabled in config, hide it
+      if (Array.isArray(ep) && toggleableFields.has(field) && !ep.includes(field)) {
+        return false;
+      }
+
       // First check historical data
       if (historicalData.length > 0) {
         return historicalData.some(d => {
@@ -819,7 +878,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       mppt2BoardTemp: hasData('mppt2BoardTemp'),
       mppt2Mode: hasData('mppt2Mode'),
     };
-  }, [historicalData, latestData]);
+  }, [historicalData, latestData, dashboardConfig.enabledParameters]);
 
   // Sort historical data by timestamp ascending (oldest to newest) for charts to display correctly
   const sortedHistoricalData = useMemo(() => {
@@ -1025,12 +1084,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [sortedStatsData, sortedHistoricalData, selectedStation?.latitude, selectedStation?.altitude, referenceNow]);
 
-  // Save config to localStorage (per-station only) and invalidate queries when it changes
+  // Save config to localStorage (per-station only) and server, invalidate queries when changed
   const handleConfigChange = useCallback((newConfig: DashboardConfig) => {
     setDashboardConfig(newConfig);
     // Save only for this station. never write to global key
     if (activeStationId) {
       localStorage.setItem(`dashboardConfig_${activeStationId}`, JSON.stringify(newConfig));
+      // Also persist to server so shared dashboard can read it
+      authFetch(`/api/stations/${activeStationId}/dashboard-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newConfig),
+      }).catch(() => {}); // Fire and forget
     }
     // Invalidate historical data queries to force refresh with new time range
     queryClient.invalidateQueries({ 
@@ -1145,6 +1210,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         sunset: undefined,
         nauticalDawn: undefined,
         nauticalDusk: undefined,
+        civilDawn: undefined,
+        civilDusk: undefined,
         solarNoon: undefined,
         dayLength: undefined,
       };
@@ -1564,7 +1631,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Primary Metrics - Only show cards with data (use availableFields which excludes all-zero sensors) */}
-        {!isMpptOnlyStation && (availableFields.temperature || availableFields.humidity || availableFields.pressure || availableFields.windSpeed || availableFields.rainfall) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.primaryMetrics !== false && (availableFields.temperature || availableFields.humidity || availableFields.pressure || availableFields.windSpeed || availableFields.rainfall) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -1624,10 +1691,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Rainfall (24h)"
               value={formatValue(effectiveRainfall, 2)}
               unit="mm"
-              subMetrics={[
-                { label: "Period Total", value: `${formatValue(accumulatedRainfall, 1)} mm` },
-                ...(isRainfallStale ? [{ label: "Status", value: "No change detected" }] : []),
-              ]}
+              subMetrics={(() => {
+                const currentYear = rainfallYearly.find(r => r.isCurrent);
+                if (!currentYear) return undefined;
+                return [
+                  { label: `${currentYear.year} Total`, value: `${formatValue(currentYear.total, 1)} mm` },
+                  { label: "Status", value: "Year in progress" },
+                ];
+              })()}
               sparklineData={chartData.slice(-12).map(d => d.rain)}
               chartColor="#3b82f6"
             />
@@ -1669,11 +1740,42 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
             />
             )}
+            {/* 7-Day Rainfall Chart */}
+            {availableFields.rainfall && (
+            <DataBlockChart
+              title="Rainfall (7 days)"
+              data={dewPointChartData.length > 0 ? dewPointChartData.map(d => ({ ...d, rain: (d as any).rain ?? 0 })) : chartData}
+              series={[
+                { dataKey: "rain", name: "Rainfall", color: "#3b82f6", unit: "mm" },
+              ]}
+              chartType="area"
+              xAxisLabel="Time"
+              yAxisLabel="Rainfall (mm)"
+              showMinMax={true}
+              currentValue={currentData.rainfall || 0}
+            />
+            )}
+            {/* Dew Point 7-day Chart */}
+            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
+            <DataBlockChart
+              title="Dew Point Temperature (7 days)"
+              data={dewPointChartData}
+              series={[
+                { dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Dew Point (°C)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={effectiveDewPoint ?? 0}
+            />
+            )}
           </div>
           </Suspense>
           
           {/* Barometric Pressure Section with Sea Level and Station Level */}
-          {availableFields.pressure && (
+          {dashboardConfig.sectionVisibility?.barometricPressure !== false && availableFields.pressure && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BarometricPressureCard
               stationPressure={effectiveStationPressure}
@@ -2075,6 +2177,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               sunset={solarPosition.sunset}
               nauticalDawn={solarPosition.nauticalDawn}
               nauticalDusk={solarPosition.nauticalDusk}
+              civilDawn={solarPosition.civilDawn}
+              civilDusk={solarPosition.civilDusk}
               solarNoon={solarPosition.solarNoon}
               dayLength={solarPosition.dayLength}
             />
@@ -2124,20 +2228,19 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentValue={currentData.eto ?? calculatedETo ?? 0}
             />
             )}
-            {/* Dew Point 7-day Chart - Always shows when temp+humidity available */}
-            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
+            {/* Irrigation Time Chart */}
+            {availableFields.solarRadiation && availableFields.rainfall && (
             <DataBlockChart
-              title="Dew Point Temperature (7 days)"
-              data={dewPointChartData}
+              title="Irrigation Time (Estimated)"
+              data={chartData}
               series={[
-                { dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" },
+                { dataKey: "irrigationTime", name: "Irrigation Time", color: "#0ea5e9", unit: "min" },
               ]}
-              chartType="line"
+              chartType="bar"
               xAxisLabel="Time"
-              yAxisLabel="Dew Point (°C)"
+              yAxisLabel="Minutes"
               showAverage={true}
               showMinMax={true}
-              currentValue={effectiveDewPoint ?? 0}
             />
             )}
             {/* Sun Elevation & Azimuth Chart - Calculated from station coordinates */}
@@ -2432,6 +2535,26 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             />
             )}
           </div>
+
+          {/* Wind Speed Chart (24h) */}
+          {availableFields.windSpeed && (
+          <Suspense fallback={<ChartFallback />}>
+          <DataBlockChart
+            title="Wind Speed (24h)"
+            data={chartData}
+            series={[
+              { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
+              { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
+            ]}
+            chartType="line"
+            xAxisLabel="Time"
+            yAxisLabel={`Speed (${windUnitLabel})`}
+            showAverage={true}
+            showMinMax={true}
+            currentValue={currentData.windSpeed || 0}
+          />
+          </Suspense>
+          )}
         </section>
         )}
 
@@ -2495,6 +2618,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         {/* Fire Danger Section - Only show when we have actual data */}
         {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.fireDanger !== false && (availableFields.temperature && availableFields.humidity && availableFields.windSpeed) && (
         <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Fire Danger</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FireDangerCard
               temperature={currentData.temperature!}
@@ -2509,27 +2633,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Rainfall Section - Only show chart if actual rainfall in timeframe */}
-        {!isMpptOnlyStation && availableFields.rainfall && accumulatedRainfall > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Rainfall</h2>
-          <DataBlockChart
-            title="Rainfall History"
-            data={chartData}
-            series={[
-              { dataKey: "rain", name: "Rainfall", color: "#3b82f6", unit: "mm" },
-            ]}
-            chartType="area"
-            xAxisLabel="Time"
-            yAxisLabel="Rainfall"
-            showMinMax={true}
-            currentValue={currentData.rainfall || 0}
-          />
-        </section>
-        )}
+
 
         {/* Charts Section */}
-        {!isMpptOnlyStation && (chartData.length > 0 || historicalChartData.length > 0) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.historicalCharts !== false && (chartData.length > 0 || historicalChartData.length > 0) && (
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-base font-normal text-foreground">Historical Data</h2>
@@ -2652,7 +2759,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Solar & ET Cards */}
-        {!isMpptOnlyStation && (availableFields.solarRadiation || availableFields.temperature) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.solarEtCards !== false && (availableFields.solarRadiation || availableFields.temperature) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar & Reference ET₀</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

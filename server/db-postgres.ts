@@ -445,6 +445,8 @@ async function createTables(): Promise<void> {
   await pool.query(`ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS mppt2_mode REAL`);
   // Wind speed unit per station (ms = m/s, kmh = km/h)
   await pool.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS wind_speed_unit TEXT DEFAULT 'ms'`);
+  // Dashboard configuration (section visibility, parameters, etc.)
+  await pool.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS dashboard_config JSONB`);
   pgLog.info('Additional performance indexes ready');
 }
 

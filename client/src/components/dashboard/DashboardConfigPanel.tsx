@@ -47,6 +47,11 @@ import {
 } from "../../../../shared/dashboardConfig";
 
 const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
+  primaryMetrics: 'Primary Metrics',
+  barometricPressure: 'Barometric Pressure',
+  rainfall: 'Rainfall',
+  historicalCharts: 'Historical Charts',
+  solarEtCards: 'Solar & Reference ET₀',
   waterSensors: 'Water & Sensors',
   windAnalysis: 'Wind Analysis',
   windEnergy: 'Wind Energy Assessment',
@@ -87,6 +92,11 @@ const DERIVED_FIELD_DEPS: Record<string, string[]> = {
 
 // Map sections to the availableFields they depend on
 const SECTION_FIELD_DEPS: Record<keyof SectionVisibility, string[]> = {
+  primaryMetrics: ['temperature', 'humidity', 'pressure', 'windSpeed', 'rainfall'],
+  barometricPressure: ['pressure'],
+  rainfall: ['rainfall'],
+  historicalCharts: ['temperature', 'humidity', 'pressure', 'windSpeed', 'rainfall', 'solarRadiation'],
+  solarEtCards: ['solarRadiation', 'temperature'],
   waterSensors: ['waterLevel', 'temperatureSwitch', 'levelSwitch', 'temperatureSwitchOutlet', 'levelSwitchStatus', 'lightning', 'chargerVoltage'],
   windAnalysis: ['windSpeed', 'windDirection'],
   windEnergy: ['windSpeed'],

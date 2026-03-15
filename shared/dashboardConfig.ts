@@ -896,6 +896,11 @@ export const UPDATE_PERIOD_OPTIONS = [
 
 // Default dashboard configuration - ALL parameters enabled for demo
 export interface SectionVisibility {
+  primaryMetrics: boolean;
+  barometricPressure: boolean;
+  rainfall: boolean;
+  historicalCharts: boolean;
+  solarEtCards: boolean;
   waterSensors: boolean;
   windAnalysis: boolean;
   windEnergy: boolean;
@@ -908,6 +913,11 @@ export interface SectionVisibility {
 }
 
 export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
+  primaryMetrics: true,
+  barometricPressure: true,
+  rainfall: true,
+  historicalCharts: true,
+  solarEtCards: true,
   waterSensors: true,
   windAnalysis: true,
   windEnergy: true,

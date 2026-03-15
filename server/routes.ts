@@ -1212,6 +1212,50 @@ export async function registerRoutes(
     }
   });
 
+  // Dashboard config - GET (read config for a station)
+  app.get("/api/stations/:stationId/dashboard-config", optionalAuth, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      if (usePostgres) {
+        const result = await postgres.query('SELECT dashboard_config FROM stations WHERE id = $1', [stationId]);
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Station not found' });
+        res.json(result.rows[0].dashboard_config || null);
+      } else {
+        const station = await storage.getStation(stationId);
+        if (!station) return res.status(404).json({ message: 'Station not found' });
+        const config = (station as any).dashboardConfig;
+        res.json(config ? JSON.parse(config) : null);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard config:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard config" });
+    }
+  });
+
+  // Dashboard config - PUT (save config for a station, admin only)
+  app.put("/api/stations/:stationId/dashboard-config", isAuthenticated, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const config = req.body;
+      if (usePostgres) {
+        await postgres.query('UPDATE stations SET dashboard_config = $1 WHERE id = $2', [JSON.stringify(config), stationId]);
+      } else {
+        const db = (await import('./db')).getDatabase();
+        if (db) db.run('UPDATE stations SET dashboard_config = ? WHERE id = ?', [JSON.stringify(config), stationId]);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving dashboard config:", error);
+      res.status(500).json({ message: "Failed to save dashboard config" });
+    }
+  });
+
   app.delete("/api/stations/:id", isAuthenticated, async (req, res) => {
     try {
       const { value: stationId, error } = parseIntSafe(req.params.id, 'id');
@@ -1394,6 +1438,82 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching data range:", error);
       res.status(500).json({ message: "Failed to fetch data range" });
+    }
+  });
+
+  // Rainfall yearly totals - computes annual totals from cumulative rainfall readings
+  app.get("/api/stations/:stationId/data/rainfall-yearly", optionalAuth, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+
+      // Rainfall field names in order of preference (stored in JSONB data column)
+      const rainfallFields = [
+        "data->>'Rain_mm_Tot'", "data->>'Rain_Tot'", "data->>'Precip'",
+        "data->>'Rain_mm'", "data->>'Precip_Tot'", "data->>'Rain_1_Tot'",
+        "data->>'Rain_Tot_1'", "data->>'rainfall'", "data->>'Rain'", "data->>'Rainfall'"
+      ];
+      const coalesce = rainfallFields.join(', ');
+
+      // Compute yearly rainfall using both cumulative (MAX-MIN) and incremental (SUM) methods
+      // Then auto-detect which method is appropriate per station
+      const result = await postgres.query(`
+        WITH rainfall_readings AS (
+          SELECT
+            EXTRACT(YEAR FROM timestamp) AS year,
+            COALESCE(${coalesce})::numeric AS rainfall_val
+          FROM weather_data
+          WHERE station_id = $1
+            AND COALESCE(${coalesce}) IS NOT NULL
+        )
+        SELECT
+          year,
+          COUNT(*) AS readings,
+          COUNT(CASE WHEN rainfall_val > 0 THEN 1 END) AS nonzero_count,
+          MAX(rainfall_val) - MIN(rainfall_val) AS range_total,
+          SUM(rainfall_val) AS sum_total
+        FROM rainfall_readings
+        GROUP BY year
+        HAVING COUNT(*) >= 2
+        ORDER BY year DESC
+        LIMIT 6
+      `, [stationId]);
+
+      const currentYear = new Date().getFullYear();
+      const yearlyTotals = result.rows.map((row: any) => {
+        const year = parseInt(row.year);
+        const readings = parseInt(row.readings);
+        const nonzeroCount = parseInt(row.nonzero_count);
+        const rangeTotal = parseFloat(row.range_total) || 0;
+        const sumTotal = parseFloat(row.sum_total) || 0;
+        const nonzeroRatio = nonzeroCount / readings;
+        // Detect cumulative vs incremental rainfall data:
+        // 1) If most values non-zero (>50%), it's a running total → use RANGE
+        // 2) If SUM is suspiciously inflated vs RANGE (>20x and >500mm), likely
+        //    cumulative spikes being summed → use RANGE
+        // 3) Otherwise treat as incremental per-interval data → use SUM
+        let total: number;
+        if (nonzeroRatio > 0.5) {
+          total = rangeTotal;
+        } else if (sumTotal > 500 && rangeTotal > 0 && sumTotal > rangeTotal * 20) {
+          total = rangeTotal;
+        } else {
+          total = sumTotal;
+        }
+        return {
+          year,
+          total: Math.round(Math.max(0, total) * 10) / 10,
+          readings,
+          isCurrent: year === currentYear,
+        };
+      });
+
+      res.json(yearlyTotals);
+    } catch (error) {
+      console.error("Error fetching rainfall yearly totals:", error);
+      res.status(500).json({ message: "Failed to fetch rainfall data" });
     }
   });
 

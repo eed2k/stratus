@@ -765,6 +765,8 @@ async function createTables(database: Database): Promise<void> {
   // Description columns
   addColumnIfNotExists('site_description', 'TEXT');
   addColumnIfNotExists('notes', 'TEXT');
+  // Dashboard configuration
+  addColumnIfNotExists('dashboard_config', 'TEXT');
 
   // Add users table if it doesn't exist (for migration)
   try {

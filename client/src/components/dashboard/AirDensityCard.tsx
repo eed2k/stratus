@@ -34,7 +34,7 @@ export function AirDensityCard({
     <Card className="border border-gray-300 bg-white" data-testid="card-air-density">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          Air Density
+          Air Density (ρ, Rho)
         </CardTitle>
       </CardHeader>
       <CardContent>

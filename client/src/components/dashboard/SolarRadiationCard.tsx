@@ -27,7 +27,7 @@ export function SolarRadiationCard({
   return (
     <Card className="border border-gray-300 bg-white" data-testid="card-solar-radiation">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Solar Radiation</CardTitle>
+        <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Solar Radiation (Flux Density)</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

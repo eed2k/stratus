@@ -551,4 +551,88 @@ router.get('/shares/:shareToken/data/range', async (req: Request, res: Response)
   }
 });
 
+// Rainfall yearly totals via share token (public)
+router.get('/shares/:shareToken/data/rainfall-yearly', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken, req);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+
+    const rainfallFields = [
+      "data->>'Rain_mm_Tot'", "data->>'Rain_Tot'", "data->>'Precip'",
+      "data->>'Rain_mm'", "data->>'Precip_Tot'", "data->>'Rain_1_Tot'",
+      "data->>'Rain_Tot_1'", "data->>'rainfall'", "data->>'Rain'", "data->>'Rainfall'"
+    ];
+    const coalesce = rainfallFields.join(', ');
+
+    const result = await postgres.query(`
+      WITH rainfall_readings AS (
+        SELECT
+          EXTRACT(YEAR FROM timestamp) AS year,
+          COALESCE(${coalesce})::numeric AS rainfall_val
+        FROM weather_data
+        WHERE station_id = $1
+          AND COALESCE(${coalesce}) IS NOT NULL
+      )
+      SELECT
+        year,
+        COUNT(*) AS readings,
+        COUNT(CASE WHEN rainfall_val > 0 THEN 1 END) AS nonzero_count,
+        MAX(rainfall_val) - MIN(rainfall_val) AS range_total,
+        SUM(rainfall_val) AS sum_total
+      FROM rainfall_readings
+      GROUP BY year
+      HAVING COUNT(*) >= 2
+      ORDER BY year DESC
+      LIMIT 6
+    `, [access.stationId]);
+
+    const currentYear = new Date().getFullYear();
+    const yearlyTotals = result.rows.map((row: any) => {
+      const year = parseInt(row.year);
+      const readings = parseInt(row.readings);
+      const nonzeroCount = parseInt(row.nonzero_count);
+      const rangeTotal = parseFloat(row.range_total) || 0;
+      const sumTotal = parseFloat(row.sum_total) || 0;
+      const nonzeroRatio = nonzeroCount / readings;
+      let total: number;
+      if (nonzeroRatio > 0.5) {
+        total = rangeTotal;
+      } else if (sumTotal > 500 && rangeTotal > 0 && sumTotal > rangeTotal * 20) {
+        total = rangeTotal;
+      } else {
+        total = sumTotal;
+      }
+      return {
+        year,
+        total: Math.round(Math.max(0, total) * 10) / 10,
+        readings,
+        isCurrent: year === currentYear,
+      };
+    });
+
+    res.json(yearlyTotals);
+  } catch (error) {
+    console.error('Error fetching shared rainfall yearly totals:', error);
+    res.status(500).json({ message: 'Failed to fetch rainfall data' });
+  }
+});
+
+// Dashboard config via share token (public, read-only)
+router.get('/shares/:shareToken/dashboard-config', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken, req);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+    const result = await postgres.query('SELECT dashboard_config FROM stations WHERE id = $1', [access.stationId]);
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Station not found' });
+    res.json(result.rows[0].dashboard_config || null);
+  } catch (error) {
+    console.error('Error fetching shared dashboard config:', error);
+    res.status(500).json({ message: 'Failed to fetch dashboard config' });
+  }
+});
+
 export default router;

@@ -18,6 +18,8 @@ interface SolarPositionCardProps {
   sunset?: Date | string;
   nauticalDawn?: Date | string;
   nauticalDusk?: Date | string;
+  civilDawn?: Date | string;
+  civilDusk?: Date | string;
   solarNoon?: Date | string;
   dayLength?: number;        // minutes
 }
@@ -46,6 +48,8 @@ export function SolarPositionCard({
   sunset,
   nauticalDawn,
   nauticalDusk,
+  civilDawn,
+  civilDusk,
   solarNoon,
   dayLength,
 }: SolarPositionCardProps) {
@@ -121,10 +125,14 @@ export function SolarPositionCard({
           </div>
 
           {/* Time information grid */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Nautical Dawn</p>
               <p className="text-sm font-normal text-black">{formatTime(nauticalDawn)}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
+              <p className="text-xs text-gray-500">Civil Dawn</p>
+              <p className="text-sm font-normal text-black">{formatTime(civilDawn)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Sunrise</p>
@@ -137,6 +145,10 @@ export function SolarPositionCard({
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Sunset</p>
               <p className="text-sm font-normal text-black">{formatTime(sunset)}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
+              <p className="text-xs text-gray-500">Civil Dusk</p>
+              <p className="text-sm font-normal text-black">{formatTime(civilDusk)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
               <p className="text-xs text-gray-500">Nautical Dusk</p>

@@ -23,6 +23,7 @@ import { BarometricPressureCard } from "@/components/dashboard/BarometricPressur
 import { SolarPowerHarvestCard } from "@/components/dashboard/SolarPowerHarvestCard";
 import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
+import { RainfallYearlyCard } from "@/components/dashboard/RainfallYearlyCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
@@ -36,6 +37,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import type { WeatherData } from "@shared/schema";
+import { DEFAULT_SECTION_VISIBILITY, DASHBOARD_CATEGORIES, type SectionVisibility } from "../../../shared/dashboardConfig";
 import { 
   calculateSeaLevelPressure,
   calculateAirDensity,
@@ -223,6 +225,24 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
           return calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
         })(),
+        irrigationTime: (() => {
+          const temp = avgNonNull(dayData.map(d => d.temperature ?? null));
+          const hum = avgNonNull(dayData.map(d => d.humidity ?? null));
+          const ws = avgNonNull(dayData.map(d => d.windSpeed ?? null));
+          const sr = avgNonNull(dayData.map(d => d.solarRadiation ?? null));
+          if (temp == null || hum == null || ws == null || sr == null) return null;
+          const lat = stationLat || 0;
+          const alt = stationAltitude || 0;
+          const ts = new Date(dateKey + 'T12:00:00');
+          const dayOfYear = Math.floor((ts.getTime() - new Date(ts.getFullYear(), 0, 0).getTime()) / 86400000);
+          const solarMJ = wattsToMJPerDay(sr, ASSUMED_DAYLIGHT_HOURS);
+          const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
+          const eto = calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
+          const rainfallVals = dayData.map(d => d.rainfall).filter((v): v is number => v != null);
+          const dayRain = rainfallVals.length >= 2 ? Math.max(0, rainfallVals[rainfallVals.length - 1] - rainfallVals[0]) : 0;
+          const netNeed = Math.max(0, eto - dayRain);
+          return Math.round((netNeed / 5) * 60);
+        })(),
         _readings: dayData.length,
       };
     });
@@ -301,6 +321,22 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         const solarMJ = wattsToMJPerDay(sr, ASSUMED_DAYLIGHT_HOURS);
         const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
         return calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
+      })(),
+      irrigationTime: (() => {
+        const temp = d.temperature;
+        const hum = d.humidity;
+        const ws = d.windSpeed;
+        const sr = d.solarRadiation;
+        if (temp == null || hum == null || ws == null || sr == null) return null;
+        const lat = stationLat || 0;
+        const alt = stationAltitude || 0;
+        const ts = new Date(d.timestamp);
+        const dayOfYear = Math.floor((ts.getTime() - new Date(ts.getFullYear(), 0, 0).getTime()) / 86400000);
+        const solarMJ = wattsToMJPerDay(sr, ASSUMED_DAYLIGHT_HOURS);
+        const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
+        const eto = calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
+        const netNeed = Math.max(0, eto - (incrementalRain || 0));
+        return Math.round((netNeed / 5) * 60);
       })(),
     };
   });
@@ -559,6 +595,32 @@ function SharedDashboardContent() {
   const windSpeedUnit: WindSpeedUnit = (stationData?.station?.windSpeedUnit === 'kmh') ? 'kmh' : 'ms';
   const windUnitLabel = getWindUnitLabel(windSpeedUnit);
 
+  // Rainfall yearly totals
+  const { data: rainfallYearly = [] } = useQuery<{ year: number; total: number; readings: number; isCurrent: boolean }[]>({
+    queryKey: ['shared-rainfall-yearly', shareToken],
+    queryFn: async () => {
+      const res = await fetch(`/api/shares/${shareToken}/data/rainfall-yearly`, { headers: shareHeaders });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!access,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  // Fetch dashboard config (section visibility) set by admin
+  const { data: serverConfig } = useQuery<{ sectionVisibility?: SectionVisibility; enabledParameters?: string[] } | null>({
+    queryKey: ['shared-dashboard-config', shareToken],
+    queryFn: async () => {
+      const res = await fetch(`/api/shares/${shareToken}/dashboard-config`, { headers: shareHeaders });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!access,
+    staleTime: 5 * 60 * 1000,
+  });
+  const sv = serverConfig?.sectionVisibility ?? DEFAULT_SECTION_VISIBILITY;
+  const sharedEnabledParameters = serverConfig?.enabledParameters;
+
   // Historical chart range (user-selectable)
   const [historicalChartRange, setHistoricalChartRange] = useState(24);
 
@@ -611,9 +673,18 @@ function SharedDashboardContent() {
     return (realNow - latestTs) > 24 * 60 * 60 * 1000 ? latestTs : realNow;
   }, [sortedHistoricalData]);
 
-  // Detect available data fields
+  // Detect available data fields AND respect enabledParameters from config
   const availableFields = useMemo(() => {
+    const toggleableFields = new Set(
+      DASHBOARD_CATEGORIES.flatMap(c => c.parameters.map(p => p.dataField))
+    );
+    const ep = sharedEnabledParameters;
+
     const hasData = (field: keyof WeatherData, allowZero = false) => {
+      // If parameter was disabled in config, hide it
+      if (Array.isArray(ep) && toggleableFields.has(field) && !ep.includes(field)) {
+        return false;
+      }
       if (historicalData.length > 0) {
         return historicalData.some(d => {
           const v = d[field];
@@ -659,7 +730,7 @@ function SharedDashboardContent() {
       mppt2BatteryVoltage: hasData('mppt2BatteryVoltage'),
       mppt2BoardTemp: hasData('mppt2BoardTemp'),
     };
-  }, [historicalData, weatherData]);
+  }, [historicalData, weatherData, sharedEnabledParameters]);
 
   const station = stationData?.station || { name: access?.name || 'Weather Station', location: 'Unknown' };
   const currentData = weatherData || {} as WeatherData;
@@ -751,7 +822,7 @@ function SharedDashboardContent() {
   const hasStationCoordinates = station?.latitude != null && station?.longitude != null;
   const solarPosition = useMemo(() => {
     if (!hasStationCoordinates) {
-      return { elevation: 0, azimuth: 0, sunrise: undefined, sunset: undefined, nauticalDawn: undefined, nauticalDusk: undefined, solarNoon: undefined, dayLength: undefined };
+      return { elevation: 0, azimuth: 0, sunrise: undefined, sunset: undefined, nauticalDawn: undefined, nauticalDusk: undefined, civilDawn: undefined, civilDusk: undefined, solarNoon: undefined, dayLength: undefined };
     }
     return calculateSolarPosition(station!.latitude!, station!.longitude!);
   }, [station?.latitude, station?.longitude, hasStationCoordinates]);
@@ -762,7 +833,7 @@ function SharedDashboardContent() {
   }, [currentData.pressure, currentData.temperature, station?.altitude]);
 
   // Rainfall
-  const { accumulatedRainfall, isRainfallStale, effectiveRainfall } = useMemo(() => {
+  const { accumulatedRainfall, effectiveRainfall } = useMemo(() => {
     const rainfallReadings = sortedHistoricalData.map(d => d.rainfall).filter((v): v is number => v !== null && v !== undefined);
     if (rainfallReadings.length < 2) {
       const currentRain = currentData.rainfall ?? 0;
@@ -1207,7 +1278,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Primary Metrics */}
-        {(availableFields.temperature || availableFields.humidity || availableFields.pressure || availableFields.windSpeed || availableFields.rainfall) && (
+        {sv.primaryMetrics !== false && (availableFields.temperature || availableFields.humidity || availableFields.pressure || availableFields.windSpeed || availableFields.rainfall) && (
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
@@ -1278,10 +1349,14 @@ function SharedDashboardContent() {
               title="Rainfall (24h)"
               value={formatValue(effectiveRainfall, 2)}
               unit="mm"
-              subMetrics={[
-                { label: "Period Total", value: `${formatValue(accumulatedRainfall, 1)} mm` },
-                ...(isRainfallStale ? [{ label: "Status", value: "No change detected" }] : []),
-              ]}
+              subMetrics={(() => {
+                const currentYear = rainfallYearly.find(r => r.isCurrent);
+                if (!currentYear) return undefined;
+                return [
+                  { label: `${currentYear.year} Total`, value: `${formatValue(currentYear.total, 1)} mm` },
+                  { label: "Status", value: "Year in progress" },
+                ];
+              })()}
               sparklineData={chartData.slice(-12).map(d => d.rain)}
               chartColor="#3b82f6"
             />
@@ -1311,7 +1386,7 @@ function SharedDashboardContent() {
           </Suspense>
 
           {/* Barometric Pressure */}
-          {availableFields.pressure && (
+          {sv.barometricPressure !== false && availableFields.pressure && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BarometricPressureCard
               stationPressure={currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA}
@@ -1335,7 +1410,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Logger Battery Section */}
-        {availableFields.batteryVoltage && (
+        {sv.loggerBattery !== false && availableFields.batteryVoltage && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
           {batteryChargingStatus.hasData && !batteryChargingStatus.didCharge && (
@@ -1370,7 +1445,7 @@ function SharedDashboardContent() {
         )}
 
         {/* MPPT Solar Charge Controller */}
-        {(availableFields.mpptSolarVoltage || availableFields.mpptSolarPower || availableFields.mpptBatteryVoltage) && (
+        {sv.mpptCharger !== false && (availableFields.mpptSolarVoltage || availableFields.mpptSolarPower || availableFields.mpptBatteryVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">MPPT Solar Charge Controller</h2>
           <div className={`grid grid-cols-1 ${availableFields.mppt2SolarVoltage ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
@@ -1437,7 +1512,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Water & Sensors */}
-        {(availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage) && (
+        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1458,7 +1533,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Solar Position & Radiation */}
-        {(availableFields.solarRadiation || availableFields.uvIndex || (availableFields.temperature && availableFields.pressure) || hasStationCoordinates) && (
+        {sv.solarRadiation !== false && (availableFields.solarRadiation || availableFields.uvIndex || (availableFields.temperature && availableFields.pressure) || hasStationCoordinates) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar Position & Radiation</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1470,6 +1545,8 @@ function SharedDashboardContent() {
               sunset={solarPosition.sunset}
               nauticalDawn={solarPosition.nauticalDawn}
               nauticalDusk={solarPosition.nauticalDusk}
+              civilDawn={solarPosition.civilDawn}
+              civilDusk={solarPosition.civilDusk}
               solarNoon={solarPosition.solarNoon}
               dayLength={solarPosition.dayLength}
             />
@@ -1497,6 +1574,13 @@ function SharedDashboardContent() {
               series={[{ dataKey: "eto", name: "Reference ETo", color: "#22c55e", unit: "mm/day" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="ETo (mm/day)"
               showAverage={true} showMinMax={true} currentValue={currentData.eto ?? calculatedETo ?? 0}
+            />
+            )}
+            {availableFields.solarRadiation && availableFields.rainfall && (
+            <DataBlockChart title="Irrigation Time (Estimated)" data={chartData}
+              series={[{ dataKey: "irrigationTime", name: "Irrigation Time", color: "#0ea5e9", unit: "min" }]}
+              chartType="bar" xAxisLabel="Time" yAxisLabel="Minutes"
+              showAverage={true} showMinMax={true}
             />
             )}
           </div>
@@ -1571,7 +1655,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Soil & Environment */}
-        {(availableFields.soilTemperature || availableFields.soilMoisture || availableFields.pm25 || availableFields.pm10) && (
+        {sv.soilEnvironment !== false && (availableFields.soilTemperature || availableFields.soilMoisture || availableFields.pm25 || availableFields.pm10) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1636,7 +1720,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Wind Analysis */}
-        {(availableFields.windSpeed || availableFields.windDirection) && (
+        {sv.windAnalysis !== false && (availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-6">
           <h2 className="text-base font-normal text-foreground">Wind Analysis (WMO/Beaufort Scale)</h2>
           <Suspense fallback={<ChartFallback />}>
@@ -1690,7 +1774,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Wind Energy */}
-        {(availableFields.windSpeed || availableFields.windDirection) && (
+        {sv.windEnergy !== false && (availableFields.windSpeed || availableFields.windDirection) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Wind Energy</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1724,7 +1808,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Fire Danger */}
-        {(availableFields.temperature && availableFields.humidity && availableFields.windSpeed) && (
+        {sv.fireDanger !== false && (availableFields.temperature && availableFields.humidity && availableFields.windSpeed) && (
         <section className="space-y-4">
           <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1736,9 +1820,13 @@ function SharedDashboardContent() {
         )}
 
         {/* Rainfall */}
-        {availableFields.rainfall && accumulatedRainfall > 0 && (
+        {sv.rainfall !== false && (rainfallYearly.length > 0 || (availableFields.rainfall && accumulatedRainfall > 0)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Rainfall</h2>
+          {rainfallYearly.length > 0 && (
+            <RainfallYearlyCard yearlyData={rainfallYearly} />
+          )}
+          {accumulatedRainfall > 0 && (
           <Suspense fallback={<ChartFallback />}>
           <DataBlockChart title="Rainfall History" data={chartData}
             series={[{ dataKey: "rain", name: "Rainfall", color: "#3b82f6", unit: "mm" }]}
@@ -1746,11 +1834,12 @@ function SharedDashboardContent() {
             showMinMax={true} currentValue={currentData.rainfall || 0}
           />
           </Suspense>
+          )}
         </section>
         )}
 
         {/* Historical Data with Time Range Picker */}
-        {(chartData.length > 0 || historicalChartData.length > 0) && (
+        {sv.historicalCharts !== false && (chartData.length > 0 || historicalChartData.length > 0) && (
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-base font-normal text-foreground">Historical Data</h2>
@@ -1850,7 +1939,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Solar & Reference ET₀ */}
-        {(availableFields.solarRadiation || availableFields.temperature) && (
+        {sv.solarEtCards !== false && (availableFields.solarRadiation || availableFields.temperature) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar & Reference ET₀</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
