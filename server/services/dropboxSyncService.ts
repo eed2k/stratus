@@ -578,7 +578,7 @@ export class DropboxSyncService extends EventEmitter {
 
           // Import records to database in efficient batches
           let recordsImported = 0;
-          const batchSize = 100;
+          const batchSize = 1000;
           
           for (let i = 0; i < recordsToImport.length; i += batchSize) {
             const batch = recordsToImport.slice(i, i + batchSize);
@@ -615,8 +615,8 @@ export class DropboxSyncService extends EventEmitter {
               }
             }
             
-            // Progress update every 500 records
-            if (i > 0 && i % 500 === 0) {
+            // Progress update every 5000 records
+            if (i > 0 && i % 5000 === 0) {
               console.log(`[DropboxSync] Progress: ${i}/${recordsToImport.length} records processed`);
             }
           }
@@ -894,7 +894,7 @@ export class DropboxSyncService extends EventEmitter {
             }
 
             let configRecordsImported = 0;
-            const BATCH_SIZE = 100;
+            const BATCH_SIZE = 1000;
             
             for (let i = 0; i < recordsToImport.length; i += BATCH_SIZE) {
               const batch = recordsToImport.slice(i, i + BATCH_SIZE);
@@ -926,7 +926,7 @@ export class DropboxSyncService extends EventEmitter {
               }
 
               // Progress logging and status updates for large imports
-              if (recordsToImport.length > 1000 && (i + BATCH_SIZE) % 5000 < BATCH_SIZE) {
+              if (recordsToImport.length > 1000 && (i + BATCH_SIZE) % 10000 < BATCH_SIZE) {
                 const processed = Math.min(i + BATCH_SIZE, recordsToImport.length);
                 console.log(`[DropboxSync] Progress: ${processed}/${recordsToImport.length} records processed for ${dbConfig.name}`);
                 // Update sync status periodically so it's visible even if import is interrupted
@@ -1003,7 +1003,7 @@ export class DropboxSyncService extends EventEmitter {
       await storage.updateDropboxSyncStatus(dbConfig.id, `backfilling (0/${records.length})`, 0);
 
       let imported = 0;
-      const BATCH_SIZE = 100;
+      const BATCH_SIZE = 1000;
 
       for (let i = 0; i < records.length; i += BATCH_SIZE) {
         const batch = records.slice(i, i + BATCH_SIZE);
@@ -1126,35 +1126,50 @@ export class DropboxSyncService extends EventEmitter {
   /**
    * Download file content from Dropbox
    */
-  private async downloadFile(filePath: string, retried = false): Promise<string> {
+  private async downloadFile(filePath: string, retryCount = 0): Promise<string> {
     // Ensure we have a valid token before making API calls
     await this.ensureValidToken();
     
-    const response = await fetch('https://content.dropboxapi.com/2/files/download', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.config!.accessToken}`,
-        'Dropbox-API-Arg': JSON.stringify({ path: filePath }),
-      },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minute timeout
+    
+    try {
+      const response = await fetch('https://content.dropboxapi.com/2/files/download', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config!.accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: filePath }),
+        },
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      
-      // If we get a 401, try to refresh the token and retry ONCE
-      if (response.status === 401 && this.config?.refreshToken && !retried) {
-        console.log('[DropboxSync] Got 401 on download, attempting token refresh and retry...');
-        const refreshed = await this.refreshAccessToken();
-        if (refreshed) {
-          // Retry the request with the new token (only once)
-          return this.downloadFile(filePath, true);
+      if (!response.ok) {
+        const errorText = await response.text();
+        
+        // If we get a 401, try to refresh the token and retry ONCE
+        if (response.status === 401 && this.config?.refreshToken && retryCount === 0) {
+          console.log('[DropboxSync] Got 401 on download, attempting token refresh and retry...');
+          const refreshed = await this.refreshAccessToken();
+          if (refreshed) {
+            return this.downloadFile(filePath, 1);
+          }
         }
+        
+        throw new Error(`Dropbox download error: ${response.status} - ${errorText}`);
       }
-      
-      throw new Error(`Dropbox download error: ${response.status} - ${errorText}`);
-    }
 
-    return await response.text();
+      return await response.text();
+    } catch (err: any) {
+      // Retry once on network/timeout errors
+      if (retryCount < 1 && (err.name === 'AbortError' || err.message === 'fetch failed')) {
+        console.log(`[DropboxSync] Download failed (${err.message}), retrying in 5s...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return this.downloadFile(filePath, retryCount + 1);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   /**

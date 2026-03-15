@@ -848,6 +848,34 @@ function SharedDashboardContent() {
     return { accumulatedRainfall: isStale ? 0 : range, isRainfallStale: isStale, effectiveRainfall: isStale ? 0 : range };
   }, [sortedHistoricalData, currentData.rainfall]);
 
+  // Compute rainfall stats for Fire Danger card (7-day total + days since last rain)
+  const rainfallStats = useMemo(() => {
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    if (dataSource.length < 2) return { rainfall7day: 0, daysSinceRain: 30 };
+
+    const readings = dataSource
+      .map(d => ({ ts: new Date(d.timestamp).getTime(), val: d.rainfall }))
+      .filter((r): r is { ts: number; val: number } => r.val !== null && r.val !== undefined);
+    if (readings.length < 2) return { rainfall7day: 0, daysSinceRain: 30 };
+
+    // 7-day total using range method (cumulative gauge)
+    const minVal = Math.min(...readings.map(r => r.val));
+    const maxVal = Math.max(...readings.map(r => r.val));
+    const rainfall7day = Math.max(0, maxVal - minVal);
+
+    // Days since last rain: find the most recent reading where rainfall value changed (increased)
+    let daysSinceRain = 30; // default if no rain found
+    const now = referenceNow;
+    for (let i = readings.length - 1; i > 0; i--) {
+      if (readings[i].val > readings[i - 1].val + 0.05) {
+        daysSinceRain = Math.max(0, Math.round((now - readings[i].ts) / (24 * 60 * 60 * 1000)));
+        break;
+      }
+    }
+
+    return { rainfall7day, daysSinceRain };
+  }, [sortedStatsData, sortedHistoricalData, referenceNow]);
+
   // Battery chart data
   const batteryChartData = useMemo(() => {
     const effectiveRange = chartTimeRange || 24;
@@ -1925,7 +1953,7 @@ function SharedDashboardContent() {
         <section className="space-y-4">
           <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <FireDangerCard temperature={currentData.temperature!} humidity={currentData.humidity!} windSpeed={currentData.windSpeed!} />
+            <FireDangerCard temperature={currentData.temperature!} humidity={currentData.humidity!} windSpeed={currentData.windSpeed!} rainfall7day={rainfallStats.rainfall7day} daysSinceRain={rainfallStats.daysSinceRain} />
             <FireDangerChart data={fireDangerChartData} title="Fire Danger History" />
           </div>
           </Suspense>

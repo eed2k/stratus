@@ -866,23 +866,32 @@ export async function insertWeatherData(records: WeatherRecord[]): Promise<numbe
   try {
     await client.query('BEGIN');
     
-    for (const record of records) {
-      // Use ON CONFLICT DO UPDATE to allow re-syncs to fix incomplete records
+    // Build multi-row INSERT for much better performance
+    const CHUNK = 200; // rows per multi-row INSERT statement
+    for (let c = 0; c < records.length; c += CHUNK) {
+      const chunk = records.slice(c, c + CHUNK);
+      const values: any[] = [];
+      const placeholders: string[] = [];
+      
+      chunk.forEach((record, i) => {
+        const offset = i * 5;
+        placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`);
+        values.push(
+          record.stationId,
+          record.tableName || 'Table1',
+          record.recordNumber || null,
+          record.timestamp,
+          typeof record.data === 'string' ? record.data : JSON.stringify(record.data),
+        );
+      });
+      
       const result = await client.query(`
         INSERT INTO weather_data (station_id, table_name, record_number, timestamp, data)
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ${placeholders.join(', ')}
         ON CONFLICT (station_id, table_name, timestamp) 
         DO UPDATE SET data = EXCLUDED.data, collected_at = CURRENT_TIMESTAMP
-      `, [
-        record.stationId,
-        record.tableName || 'Table1',
-        record.recordNumber || null,
-        record.timestamp,
-        typeof record.data === 'string' ? record.data : JSON.stringify(record.data),
-      ]);
-      if (result.rowCount && result.rowCount > 0) {
-        insertedCount++;
-      }
+      `, values);
+      insertedCount += result.rowCount || 0;
     }
     
     await client.query('COMMIT');
