@@ -1107,6 +1107,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const isMpptOnlyStation = selectedStation?.name?.toUpperCase().includes('MPPT TEST');
   // RIKA stations report SLP as pressure. need to handle differently
   const isRikaStation = selectedStation?.connectionType === 'rikacloud';
+  // Some Campbell stations also report sea-level corrected pressure (e.g. Koeberg)
+  const pressureIsSLP = isRikaStation || (selectedStation?.connectionConfig as any)?.pressureIsSLP === true;
 
   // Use actual data, with sensible defaults for missing fields
   const currentData = latestData
@@ -1204,8 +1206,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Calculate air density from current conditions (needs actual station pressure, not SLP)
   const calculatedAirDensity = useMemo(() => {
     const rawPressure = currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA;
-    // For RIKA, pressure is SLP. convert to station pressure for density calc
-    const stationPressure = isRikaStation
+    // For stations reporting SLP, convert to station pressure for density calc
+    const stationPressure = pressureIsSLP
       ? calculateStationPressure(rawPressure, selectedStation?.altitude || 0, currentData.temperature || DEFAULT_TEMPERATURE_C)
       : rawPressure;
     return calculateAirDensity(
@@ -1213,7 +1215,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       stationPressure,
       currentData.humidity || DEFAULT_HUMIDITY_PERCENT
     );
-  }, [currentData.temperature, currentData.pressure, currentData.humidity, isRikaStation, selectedStation?.altitude]);
+  }, [currentData.temperature, currentData.pressure, currentData.humidity, pressureIsSLP, selectedStation?.altitude]);
 
   // Process wind energy data from historical data (must be after calculatedAirDensity)
   const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, calculatedAirDensity, windSpeedUnit, dashboardConfig.chartTimeRange), [sortedHistoricalData, calculatedAirDensity, windSpeedUnit, dashboardConfig.chartTimeRange]);
@@ -1239,8 +1241,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // so we use it directly as SLP and reverse-calculate station pressure
   const seaLevelPressure = useMemo(() => {
     const altitude = selectedStation?.altitude || 0;
-    if (isRikaStation) {
-      // RIKA pressure IS already SLP. use it directly
+    if (pressureIsSLP) {
+      // Pressure IS already SLP. use it directly
       return currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA;
     }
     return calculateSeaLevelPressure(
@@ -1248,11 +1250,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       altitude,
       currentData.temperature || DEFAULT_TEMPERATURE_C
     );
-  }, [currentData.pressure, currentData.temperature, selectedStation?.altitude, isRikaStation]);
+  }, [currentData.pressure, currentData.temperature, selectedStation?.altitude, pressureIsSLP]);
 
-  // For RIKA stations, derive station pressure from SLP
+  // For stations reporting SLP, derive station pressure from SLP
   const effectiveStationPressure = useMemo(() => {
-    if (isRikaStation) {
+    if (pressureIsSLP) {
       const altitude = selectedStation?.altitude || 0;
       return calculateStationPressure(
         currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA,
@@ -1261,7 +1263,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       );
     }
     return currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA;
-  }, [currentData.pressure, currentData.temperature, selectedStation?.altitude, isRikaStation]);
+  }, [currentData.pressure, currentData.temperature, selectedStation?.altitude, pressureIsSLP]);
 
   // Calculate reference evapotranspiration
   const calculatedETo = useMemo(() => {
@@ -1786,8 +1788,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               altitude={selectedStation?.altitude || 0}
               temperature={currentData.temperature || DEFAULT_TEMPERATURE_C}
               trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
-              sparklineDataStation={chartData.slice(-24).map(d => isRikaStation ? calculateStationPressure(d.pressure ?? 0, selectedStation?.altitude || 0, d.temperature ?? 20) : (d.pressure ?? 0)).filter((v): v is number => v != null)}
-              sparklineDataSeaLevel={chartData.slice(-24).map(d => isRikaStation ? (d.pressure ?? 0) : calculateSeaLevelPressure(d.pressure ?? 0, selectedStation?.altitude || 0, d.temperature ?? 20)).filter((v): v is number => v != null)}
+              sparklineDataStation={chartData.slice(-24).map(d => pressureIsSLP ? calculateStationPressure(d.pressure ?? 0, selectedStation?.altitude || 0, d.temperature ?? 20) : (d.pressure ?? 0)).filter((v): v is number => v != null)}
+              sparklineDataSeaLevel={chartData.slice(-24).map(d => pressureIsSLP ? (d.pressure ?? 0) : calculateSeaLevelPressure(d.pressure ?? 0, selectedStation?.altitude || 0, d.temperature ?? 20)).filter((v): v is number => v != null)}
             />
             <DataBlockChart
               title="Barometric Pressure History"

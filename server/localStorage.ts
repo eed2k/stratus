@@ -1973,6 +1973,11 @@ export class DatabaseStorage {
       // Wind direction std dev & SDI-12
       windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,
       sdi12WindVector: data.sdi12WindVector ?? data.SDI12_WVc ?? data.SDI12_WV ?? null,
+      // Visibility & clouds
+      visibility: data.visibility ?? data.Visibility_km ?? data.Visibility ?? data.Vis_km ?? data.Visibility_Avg ?? null,
+      atmosphericVisibility: data.atmosphericVisibility ?? data.Atmos_Visibility ?? data.AtmosVis ?? null,
+      cloudBase: data.cloudBase ?? data.Cloud_Base ?? data.CloudBase ?? data.CloudBase_Avg ?? null,
+      cloudCover: data.cloudCover ?? data.Cloud_Cover ?? data.CloudCover ?? data.CloudCover_Avg ?? null,
       // Pump & port status
       pumpSelectWell: data.pumpSelectWell ?? data.Pump_Select_Well ?? null,
       pumpSelectBore: data.pumpSelectBore ?? data.Pump_Select_Bore ?? null,
@@ -2067,6 +2072,11 @@ export class DatabaseStorage {
       // Wind direction std dev & SDI-12
       windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,
       sdi12WindVector: data.sdi12WindVector ?? data.SDI12_WVc ?? data.SDI12_WV ?? null,
+      // Visibility & clouds
+      visibility: data.visibility ?? data.Visibility_km ?? data.Visibility ?? data.Vis_km ?? data.Visibility_Avg ?? null,
+      atmosphericVisibility: data.atmosphericVisibility ?? data.Atmos_Visibility ?? data.AtmosVis ?? null,
+      cloudBase: data.cloudBase ?? data.Cloud_Base ?? data.CloudBase ?? data.CloudBase_Avg ?? null,
+      cloudCover: data.cloudCover ?? data.Cloud_Cover ?? data.CloudCover ?? data.CloudCover_Avg ?? null,
       // Pump & port status
       pumpSelectWell: data.pumpSelectWell ?? data.Pump_Select_Well ?? null,
       pumpSelectBore: data.pumpSelectBore ?? data.Pump_Select_Bore ?? null,

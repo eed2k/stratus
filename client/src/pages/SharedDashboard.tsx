@@ -828,10 +828,12 @@ function SharedDashboardContent() {
     return calculateSolarPosition(station!.latitude!, station!.longitude!);
   }, [station?.latitude, station?.longitude, hasStationCoordinates]);
 
-  // Sea level pressure
+  // Sea level pressure - handle stations that already report SLP
+  const pressureIsSLP = station?.connectionConfig?.pressureIsSLP === true || station?.connectionType === 'rikacloud';
   const seaLevelPressure = useMemo(() => {
+    if (pressureIsSLP) return currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA;
     return calculateSeaLevelPressure(currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA, station?.altitude || 0, currentData.temperature || DEFAULT_TEMPERATURE_C);
-  }, [currentData.pressure, currentData.temperature, station?.altitude]);
+  }, [currentData.pressure, currentData.temperature, station?.altitude, pressureIsSLP]);
 
   // Rainfall
   const { effectiveRainfall } = useMemo(() => {
@@ -1410,13 +1412,13 @@ function SharedDashboardContent() {
           {sv.barometricPressure !== false && availableFields.pressure && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BarometricPressureCard
-              stationPressure={currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA}
+              stationPressure={pressureIsSLP ? (currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA) - ((station?.altitude || 0) * 0.12) : currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA}
               seaLevelPressure={seaLevelPressure}
               altitude={station?.altitude || 0}
               temperature={currentData.temperature || DEFAULT_TEMPERATURE_C}
               trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
               sparklineDataStation={chartData.slice(-24).map(d => d.pressure ?? 0).filter((v): v is number => v != null)}
-              sparklineDataSeaLevel={chartData.slice(-24).map(d => calculateSeaLevelPressure(d.pressure ?? 0, station?.altitude || 0, d.temperature ?? 20)).filter((v): v is number => v != null)}
+              sparklineDataSeaLevel={pressureIsSLP ? chartData.slice(-24).map(d => d.pressure ?? 0).filter((v): v is number => v != null) : chartData.slice(-24).map(d => calculateSeaLevelPressure(d.pressure ?? 0, station?.altitude || 0, d.temperature ?? 20)).filter((v): v is number => v != null)}
             />
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Barometric Pressure History" data={chartData}
