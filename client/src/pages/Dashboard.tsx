@@ -677,25 +677,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes (stats data changes slowly)
   });
 
-  // Derive 7-day dew point / rainfall chart data from statsData (no separate query needed)
-  const dewPointChartData = useMemo(() => {
-    if (sortedStatsData.length === 0) return [];
-    return processChartData(sortedStatsData, 168, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined, windSpeedUnit);
-  }, [sortedStatsData, selectedStation?.latitude, selectedStation?.altitude, windSpeedUnit]);
-
-  // Rainfall yearly totals
-  const { data: rainfallYearly = [] } = useQuery<{ year: number; total: number; readings: number; isCurrent: boolean }[]>({
-    queryKey: ["/api/stations", activeStationId, "data", "rainfall-yearly"],
-    queryFn: async () => {
-      if (!activeStationId) return [];
-      const res = await authFetch(`/api/stations/${activeStationId}/data/rainfall-yearly`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!activeStationId,
-    staleTime: 60 * 60 * 1000,
-  });
-
   // Separate query for historical charts section (uses its own independent time range)
   const { data: historicalSectionData = [], isLoading: historicalSectionLoading } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "historical-section", historicalChartRange, dataRange?.latest],
@@ -757,6 +738,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
   }, [statsData]);
+
+  // Derive 7-day dew point / rainfall chart data from statsData (no separate query needed)
+  const dewPointChartData = useMemo(() => {
+    if (sortedStatsData.length === 0) return [];
+    return processChartData(sortedStatsData, 168, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined, windSpeedUnit);
+  }, [sortedStatsData, selectedStation?.latitude, selectedStation?.altitude, windSpeedUnit]);
 
   // Calculate actual data time range for display
   const dataTimeRange = useMemo(() => {
@@ -1330,7 +1317,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Calculate accumulated rainfall from historical data (always uses 24h window)
   // Uses statsData (7-day) to ensure coverage even if chart time range is short
   // This is historical-data-dependent, not VPS-uptime-dependent
-  const { accumulatedRainfall, isRainfallStale, effectiveRainfall } = useMemo(() => {
+  const { effectiveRainfall } = useMemo(() => {
     // Use statsData (7-day) if available, ensuring we always have data even after VPS restarts
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     
@@ -1699,14 +1686,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Rainfall (24h)"
               value={formatValue(effectiveRainfall, 2)}
               unit="mm"
-              subMetrics={(() => {
-                const currentYear = rainfallYearly.find(r => r.isCurrent);
-                if (!currentYear) return undefined;
-                return [
-                  { label: `${currentYear.year} Total`, value: `${formatValue(currentYear.total, 1)} mm` },
-                  { label: "Status", value: "Year in progress" },
-                ];
-              })()}
               sparklineData={chartData.slice(-12).map(d => d.rain)}
               chartColor="#3b82f6"
             />

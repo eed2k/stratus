@@ -581,18 +581,6 @@ function SharedDashboardContent() {
   const windSpeedUnit: WindSpeedUnit = (stationData?.station?.windSpeedUnit === 'kmh') ? 'kmh' : 'ms';
   const windUnitLabel = getWindUnitLabel(windSpeedUnit);
 
-  // Rainfall yearly totals
-  const { data: rainfallYearly = [] } = useQuery<{ year: number; total: number; readings: number; isCurrent: boolean }[]>({
-    queryKey: ['shared-rainfall-yearly', shareToken],
-    queryFn: async () => {
-      const res = await fetch(`/api/shares/${shareToken}/data/rainfall-yearly`, { headers: shareHeaders });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!access,
-    staleTime: 60 * 60 * 1000,
-  });
-
   // Fetch dashboard config (section visibility) set by admin
   const { data: serverConfig } = useQuery<{ sectionVisibility?: SectionVisibility; enabledParameters?: string[] } | null>({
     queryKey: ['shared-dashboard-config', shareToken],
@@ -1377,14 +1365,6 @@ function SharedDashboardContent() {
               title="Rainfall (24h)"
               value={formatValue(effectiveRainfall, 2)}
               unit="mm"
-              subMetrics={(() => {
-                const currentYear = rainfallYearly.find(r => r.isCurrent);
-                if (!currentYear) return undefined;
-                return [
-                  { label: `${currentYear.year} Total`, value: `${formatValue(currentYear.total, 1)} mm` },
-                  { label: "Status", value: "Year in progress" },
-                ];
-              })()}
               sparklineData={chartData.slice(-12).map(d => d.rain)}
               chartColor="#3b82f6"
             />
