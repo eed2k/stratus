@@ -268,26 +268,37 @@ export class DropboxSyncService extends EventEmitter {
     const data = await response.json() as DropboxListResponse;
     let allEntries = data.entries;
 
-    // Handle pagination
+    // Handle pagination with retry logic (Dropbox returns ~500 entries per page)
     let cursor = data.cursor;
     let hasMore = data.has_more;
+    let page = 1;
     while (hasMore) {
-      const continueResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder/continue', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.config.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cursor }),
-      });
-
-      if (!continueResponse.ok) break;
+      let continueResponse: Response | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
+        continueResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder/continue', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.config.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ cursor }),
+        });
+        if (continueResponse.ok) break;
+        console.warn(`[DropboxSync] Pagination page ${page + 1} failed (attempt ${attempt + 1}/3): ${continueResponse.status}`);
+      }
+      if (!continueResponse || !continueResponse.ok) {
+        console.error(`[DropboxSync] Pagination failed after 3 retries at page ${page + 1}, got ${allEntries.length} entries so far`);
+        break;
+      }
 
       const continueData = await continueResponse.json() as DropboxListResponse;
       allEntries = allEntries.concat(continueData.entries);
       cursor = continueData.cursor;
       hasMore = continueData.has_more;
+      page++;
     }
+    console.log(`[DropboxSync] listAllFiles: fetched ${page} pages, ${allEntries.length} total entries`);
 
     // Filter to .dat files only
     return allEntries
@@ -1313,26 +1324,37 @@ export class DropboxSyncService extends EventEmitter {
     const data = await response.json() as DropboxListResponse;
     let allEntries = data.entries;
 
-    // Handle pagination
+    // Handle pagination with retry logic
     let cursor = data.cursor;
     let hasMore = data.has_more;
+    let page = 1;
     while (hasMore) {
-      const continueResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder/continue', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.config.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cursor }),
-      });
-
-      if (!continueResponse.ok) break;
+      let continueResponse: Response | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
+        continueResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder/continue', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.config.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ cursor }),
+        });
+        if (continueResponse.ok) break;
+        console.warn(`[DropboxSync] Discovery pagination page ${page + 1} failed (attempt ${attempt + 1}/3): ${continueResponse.status}`);
+      }
+      if (!continueResponse || !continueResponse.ok) {
+        console.error(`[DropboxSync] Discovery pagination failed after 3 retries at page ${page + 1}, got ${allEntries.length} entries so far`);
+        break;
+      }
 
       const continueData = await continueResponse.json() as DropboxListResponse;
       allEntries = allEntries.concat(continueData.entries);
       cursor = continueData.cursor;
       hasMore = continueData.has_more;
+      page++;
     }
+    console.log(`[DropboxSync] listAllDropboxContents: fetched ${page} pages, ${allEntries.length} total entries`);
 
     // Separate folders and files
     const folders = allEntries
