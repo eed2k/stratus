@@ -908,6 +908,7 @@ export interface SectionVisibility {
   solarPosition: boolean;
   soilEnvironment: boolean;
   fireDanger: boolean;
+  visibilityClouds: boolean;
   loggerBattery: boolean;
   mpptCharger: boolean;
 }
@@ -925,6 +926,7 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
   solarPosition: true,
   soilEnvironment: true,
   fireDanger: true,
+  visibilityClouds: true,
   loggerBattery: true,
   mpptCharger: true,
 };

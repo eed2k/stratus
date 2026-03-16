@@ -300,6 +300,10 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           const netNeed = Math.max(0, eto - dayRain);
           return Math.round((netNeed / 5) * 60);
         })(),
+        visibility: avgNonNull(dayData.map(d => d.visibility ?? null)),
+        atmosphericVisibility: avgNonNull(dayData.map(d => d.atmosphericVisibility ?? null)),
+        cloudBase: avgNonNull(dayData.map(d => d.cloudBase ?? null)),
+        cloudCover: avgNonNull(dayData.map(d => d.cloudCover ?? null)),
         _readings: dayData.length,
       };
     });
@@ -426,6 +430,10 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         const netNeed = Math.max(0, eto - (incrementalRain || 0));
         return Math.round((netNeed / 5) * 60);
       })(),
+      visibility: d.visibility ?? null,
+      atmosphericVisibility: d.atmosphericVisibility ?? null,
+      cloudBase: d.cloudBase ?? null,
+      cloudCover: d.cloudCover ?? null,
     };
   });
 };
@@ -843,6 +851,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       mppt2ChargerState: hasData('mppt2ChargerState'),
       mppt2BoardTemp: hasData('mppt2BoardTemp'),
       mppt2Mode: hasData('mppt2Mode'),
+      // Visibility
+      visibility: hasData('visibility'),
+      atmosphericVisibility: hasData('atmosphericVisibility'),
+      cloudBase: hasData('cloudBase'),
+      cloudCover: hasData('cloudCover'),
     };
   }, [historicalData, latestData, dashboardConfig.enabledParameters]);
 
@@ -1117,7 +1130,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         particulateCount: null,
         pm25: null,
         pm10: null,
+        visibility: null,
         atmosphericVisibility: null,
+        cloudBase: null,
+        cloudCover: null,
         panelTemperature: null,
         soilTemperature: null,
         soilMoisture: null,
@@ -2490,6 +2506,86 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.pm25 || 0}
+            />
+            )}
+          </div>
+          )}
+        </section>
+        )}
+
+        {/* Visibility & Clouds - Only show if visibility data available */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.visibilityClouds !== false && (availableFields.visibility || availableFields.atmosphericVisibility || availableFields.cloudBase || availableFields.cloudCover) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Visibility & Clouds</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {availableFields.visibility && (
+            <MetricCard
+              title="Visibility"
+              value={formatValue(currentData.visibility || 0, 1)}
+              unit="km"
+              subMetrics={[
+                { label: "Conditions", value: (currentData.visibility || 0) >= 10 ? "Clear" : (currentData.visibility || 0) >= 4 ? "Moderate" : (currentData.visibility || 0) >= 1 ? "Poor" : "Fog" },
+              ]}
+              chartColor="#8b5cf6"
+            />
+            )}
+            {availableFields.atmosphericVisibility && (
+            <MetricCard
+              title="Atmospheric Visibility"
+              value={formatValue(currentData.atmosphericVisibility || 0, 1)}
+              unit="km"
+              chartColor="#6366f1"
+            />
+            )}
+            {availableFields.cloudBase && (
+            <MetricCard
+              title="Cloud Base"
+              value={formatValue(currentData.cloudBase || 0, 0)}
+              unit="m"
+              chartColor="#06b6d4"
+            />
+            )}
+            {availableFields.cloudCover && (
+            <MetricCard
+              title="Cloud Cover"
+              value={formatValue(currentData.cloudCover || 0, 0)}
+              unit="%"
+              chartColor="#94a3b8"
+            />
+            )}
+          </div>
+
+          {/* Visibility Charts */}
+          {(availableFields.visibility || availableFields.atmosphericVisibility) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {availableFields.visibility && (
+            <DataBlockChart
+              title="Visibility"
+              data={chartData.filter(d => d.visibility !== null).map(d => ({ ...d, vis: d.visibility }))}
+              series={[
+                { dataKey: "vis", name: "Visibility", color: "#8b5cf6", unit: "km" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Visibility (km)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.visibility || 0}
+            />
+            )}
+            {availableFields.atmosphericVisibility && (
+            <DataBlockChart
+              title="Atmospheric Visibility"
+              data={chartData.filter(d => d.atmosphericVisibility !== null && d.atmosphericVisibility !== undefined).map(d => ({ ...d, atmosVis: d.atmosphericVisibility }))}
+              series={[
+                { dataKey: "atmosVis", name: "Atmospheric Vis.", color: "#6366f1", unit: "km" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Visibility (km)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.atmosphericVisibility || 0}
             />
             )}
           </div>

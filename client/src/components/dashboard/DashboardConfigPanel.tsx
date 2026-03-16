@@ -61,6 +61,7 @@ const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   fireDanger: 'Fire Danger Index',
   loggerBattery: 'Logger & Battery',
   mpptCharger: 'MPPT Solar Charger',
+  visibilityClouds: 'Visibility & Clouds',
 };
 
 // Map derived/calculated fields to their source dependencies
@@ -107,6 +108,7 @@ const SECTION_FIELD_DEPS: Record<keyof SectionVisibility, string[]> = {
   loggerBattery: ['batteryVoltage'],
   mpptCharger: ['mpptSolarVoltage', 'mpptSolarCurrent', 'mpptSolarPower', 'mpptLoadVoltage', 'mpptLoadCurrent', 'mpptBatteryVoltage', 'mpptChargerState', 'mpptAbsiAvg', 'mpptBoardTemp', 'mpptMode',
     'mppt2SolarVoltage', 'mppt2SolarCurrent', 'mppt2SolarPower', 'mppt2LoadVoltage', 'mppt2LoadCurrent', 'mppt2BatteryVoltage', 'mppt2ChargerState', 'mppt2BoardTemp', 'mppt2Mode'],
+  visibilityClouds: ['visibility', 'atmosphericVisibility', 'cloudBase', 'cloudCover'],
 };
 
 /** Check if a parameter is available based on available fields */

@@ -355,6 +355,8 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     pumpSelectBore: ["Pump_Select_Bore", "PumpSelectBore", "Pump_Bore"],
     portStatusC1: ["Port_Status_C1", "PortStatusC1", "Port_C1"],
     portStatusC2: ["Port_Status_C2", "PortStatusC2", "Port_C2"],
+    // Visibility
+    visibility: ["Visibility_km", "Visibility", "Vis_km", "Visibility_Avg"],
     // MPPT Solar Charge Controller fields (Charger 1)
     mpptSolarVoltage: ["MPPT_SolV_Avg", "MPPT_SolarVoltage", "Solar_Voltage", "SolV_Avg", "MPPT_Vsol", "Vsol_Avg", "SolarCharger_PanelVoltage_1_Avg"],
     mpptSolarCurrent: ["MPPT_SolI_Avg", "MPPT_SolarCurrent", "Solar_Current", "SolI_Avg", "MPPT_Isol", "Isol_Avg", "SolarCharger_PanelCurrent_1_Avg"],
