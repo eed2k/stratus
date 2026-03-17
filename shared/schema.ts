@@ -299,6 +299,9 @@ export const weatherData = pgTable(
     levelSwitch: real("level_switch"),
     temperatureSwitchOutlet: real("temperature_switch_outlet"),
     levelSwitchStatus: real("level_switch_status"),
+    // Airshed / multi-height temperature
+    temperature8m: real("temperature_8m"),
+    deltaTemperature: real("delta_temperature"),
     // Lightning
     lightning: real("lightning"),
     // Charger

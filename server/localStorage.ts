@@ -135,6 +135,9 @@ export interface WeatherData {
   // Wind direction std dev & SDI-12
   windDirStdDev?: number | null;
   sdi12WindVector?: number | null;
+  // Airshed / multi-height temperature
+  temperature8m?: number | null;
+  deltaTemperature?: number | null;
   // Pump & port status
   pumpSelectWell?: number | null;
   pumpSelectBore?: number | null;
@@ -876,6 +879,9 @@ export class DatabaseStorage {
       // Wind direction std dev & SDI-12
       windDirStdDev: data.data.windDirStdDev ?? data.data.Wind_Dir_SD1_WVT ?? null,
       sdi12WindVector: data.data.sdi12WindVector ?? data.data.SDI12_WVc ?? null,
+      // Airshed / multi-height temperature
+      temperature8m: data.data.temperature8m ?? data.data.Temp8m_Avg ?? data.data.Temp_8m_Avg ?? null,
+      deltaTemperature: data.data.deltaTemperature ?? data.data.DeltaTemp_Avg ?? data.data.Delta_Temp_Avg ?? null,
       // Pump & port status
       pumpSelectWell: data.data.pumpSelectWell ?? data.data.Pump_Select_Well ?? null,
       pumpSelectBore: data.data.pumpSelectBore ?? data.data.Pump_Select_Bore ?? null,
@@ -1978,6 +1984,9 @@ export class DatabaseStorage {
       atmosphericVisibility: data.atmosphericVisibility ?? data.Atmos_Visibility ?? data.AtmosVis ?? null,
       cloudBase: data.cloudBase ?? data.Cloud_Base ?? data.CloudBase ?? data.CloudBase_Avg ?? null,
       cloudCover: data.cloudCover ?? data.Cloud_Cover ?? data.CloudCover ?? data.CloudCover_Avg ?? null,
+      // Airshed / multi-height temperature
+      temperature8m: data.temperature8m ?? data.Temp8m_Avg ?? data.Temp_8m_Avg ?? null,
+      deltaTemperature: data.deltaTemperature ?? data.DeltaTemp_Avg ?? data.Delta_Temp_Avg ?? null,
       // Pump & port status
       pumpSelectWell: data.pumpSelectWell ?? data.Pump_Select_Well ?? null,
       pumpSelectBore: data.pumpSelectBore ?? data.Pump_Select_Bore ?? null,
@@ -2077,6 +2086,9 @@ export class DatabaseStorage {
       atmosphericVisibility: data.atmosphericVisibility ?? data.Atmos_Visibility ?? data.AtmosVis ?? null,
       cloudBase: data.cloudBase ?? data.Cloud_Base ?? data.CloudBase ?? data.CloudBase_Avg ?? null,
       cloudCover: data.cloudCover ?? data.Cloud_Cover ?? data.CloudCover ?? data.CloudCover_Avg ?? null,
+      // Airshed / multi-height temperature
+      temperature8m: data.temperature8m ?? data.Temp8m_Avg ?? data.Temp_8m_Avg ?? null,
+      deltaTemperature: data.deltaTemperature ?? data.DeltaTemp_Avg ?? data.Delta_Temp_Avg ?? null,
       // Pump & port status
       pumpSelectWell: data.pumpSelectWell ?? data.Pump_Select_Well ?? null,
       pumpSelectBore: data.pumpSelectBore ?? data.Pump_Select_Bore ?? null,

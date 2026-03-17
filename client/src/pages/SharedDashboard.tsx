@@ -744,6 +744,9 @@ function SharedDashboardContent() {
       atmosphericVisibility: hasData('atmosphericVisibility'),
       cloudBase: hasData('cloudBase'),
       cloudCover: hasData('cloudCover'),
+      // Airshed / multi-height temperature
+      temperature8m: hasData('temperature8m'),
+      deltaTemperature: hasData('deltaTemperature'),
     };
   }, [historicalData, weatherData, sharedEnabledParameters]);
 
@@ -1466,7 +1469,7 @@ function SharedDashboardContent() {
               voltage={currentData.batteryVoltage || 0}
               minVoltage={11.5}
               maxVoltage={14.5}
-              isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.5 && ((currentData.solarRadiation ?? 0) > 0 || (currentData.mpptSolarPower != null ? Number(currentData.mpptSolarPower) > 0 : false)) : false}
+              isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.0 && ((currentData.solarRadiation ?? 0) > 0 || (currentData.mpptSolarPower != null ? Number(currentData.mpptSolarPower) > 0 : false)) : false}
               sparklineData={batteryChartData.slice(-24).map(d => d.batteryVoltage)}
             />
             <Suspense fallback={<ChartFallback />}>
@@ -1549,7 +1552,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Water & Sensors */}
-        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet) && (
+        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet || availableFields.temperature8m || availableFields.deltaTemperature) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1580,6 +1583,14 @@ function SharedDashboardContent() {
             {availableFields.chargerVoltage && (
             <MetricCard title="Charger Voltage" value={formatValue(currentData.chargerVoltage || 0, 2)} unit="V"
               sparklineData={chartData.slice(-24).map(d => d.chargerVoltage).filter((v): v is number => v != null)} chartColor="#22c55e" />
+            )}
+            {availableFields.temperature8m && (
+            <MetricCard title="Temperature (8m)" value={formatValue(currentData.temperature8m || 0, 1)} unit="°C"
+              sparklineData={chartData.slice(-24).map(d => d.temperature8m).filter((v): v is number => v != null)} chartColor="#ef4444" />
+            )}
+            {availableFields.deltaTemperature && (
+            <MetricCard title="Delta Temperature" value={formatValue(currentData.deltaTemperature || 0, 2)} unit="°C"
+              sparklineData={chartData.slice(-24).map(d => d.deltaTemperature).filter((v): v is number => v != null)} chartColor="#8b5cf6" />
             )}
           </div>
         </section>

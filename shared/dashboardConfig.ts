@@ -126,6 +126,28 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         chartType: 'line',
         defaultEnabled: true,
         precision: 3
+      },
+      {
+        id: 'temperature8m',
+        name: 'Temperature (8m)',
+        category: 'temperature',
+        unit: '°C',
+        description: 'Air temperature at 8m height for airshed monitoring',
+        dataField: 'temperature8m',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 1
+      },
+      {
+        id: 'deltaTemperature',
+        name: 'Delta Temperature',
+        category: 'temperature',
+        unit: '°C',
+        description: 'Temperature differential between measurement heights (atmospheric stability)',
+        dataField: 'deltaTemperature',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 2
       }
     ]
   },
