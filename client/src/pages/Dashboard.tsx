@@ -2113,11 +2113,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.lightning && (
               <MetricCard
-                title="Lightning"
-                value={formatValue(currentData.lightning || 0, 0)}
+                title="Lightning (24h)"
+                value={formatValue(chartData.slice(-144).reduce((sum, d) => sum + (d.lightning || 0), 0), 0)}
                 unit="strikes"
                 sparklineData={chartData.slice(-24).map(d => d.lightning).filter((v): v is number => v != null)}
-                chartColor="#22c55e"
+                chartColor="#f59e0b"
               />
             )}
             {availableFields.chargerVoltage && (
@@ -2528,7 +2528,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               subMetrics={[
                 { label: "Conditions", value: (currentData.visibility || 0) >= 10 ? "Clear" : (currentData.visibility || 0) >= 4 ? "Moderate" : (currentData.visibility || 0) >= 1 ? "Poor" : "Fog" },
               ]}
-              chartColor="#8b5cf6"
+              chartColor="#3b82f6"
             />
             )}
             {availableFields.atmosphericVisibility && (
@@ -2536,7 +2536,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Atmospheric Visibility"
               value={formatValue(currentData.atmosphericVisibility || 0, 1)}
               unit="km"
-              chartColor="#6366f1"
+              chartColor="#2563eb"
             />
             )}
             {availableFields.cloudBase && (
@@ -2565,7 +2565,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Visibility"
               data={chartData.filter(d => d.visibility !== null).map(d => ({ ...d, vis: d.visibility }))}
               series={[
-                { dataKey: "vis", name: "Visibility", color: "#8b5cf6", unit: "km" },
+                { dataKey: "vis", name: "Visibility", color: "#3b82f6", unit: "km" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2580,7 +2580,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Atmospheric Visibility"
               data={chartData.filter(d => d.atmosphericVisibility !== null && d.atmosphericVisibility !== undefined).map(d => ({ ...d, atmosVis: d.atmosphericVisibility }))}
               series={[
-                { dataKey: "atmosVis", name: "Atmospheric Vis.", color: "#6366f1", unit: "km" },
+                { dataKey: "atmosVis", name: "Atmospheric Vis.", color: "#2563eb", unit: "km" },
               ]}
               chartType="line"
               xAxisLabel="Time"

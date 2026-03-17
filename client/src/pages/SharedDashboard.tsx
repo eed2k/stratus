@@ -136,6 +136,10 @@ const maxNonNull = (vals: (number | null)[]): number | null => {
   const nums = vals.filter((v): v is number => v != null);
   return nums.length > 0 ? Math.round(Math.max(...nums) * 10) / 10 : null;
 };
+const sumNonNull = (vals: (number | null)[]): number | null => {
+  const nums = vals.filter((v): v is number => v != null);
+  return nums.length > 0 ? Math.round(nums.reduce((a, b) => a + b, 0) * 10) / 10 : null;
+};
 
 const processChartData = (historicalData: WeatherData[], timeRangeHours?: number, stationLat?: number, stationAltitude?: number, windUnit: WindSpeedUnit = 'ms') => {
   if (historicalData.length === 0) return [];
@@ -244,6 +248,9 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           const netNeed = Math.max(0, eto - dayRain);
           return Math.round((netNeed / 5) * 60);
         })(),
+        lightning: sumNonNull(dayData.map(d => d.lightning ?? null)),
+        levelSwitch: avgNonNull(dayData.map(d => d.levelSwitch ?? null)),
+        levelSwitchStatus: avgNonNull(dayData.map(d => d.levelSwitchStatus ?? null)),
         visibility: avgNonNull(dayData.map(d => d.visibility ?? null)),
         atmosphericVisibility: avgNonNull(dayData.map(d => d.atmosphericVisibility ?? null)),
         cloudBase: avgNonNull(dayData.map(d => d.cloudBase ?? null)),
@@ -291,6 +298,9 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       temperatureSwitch: d.temperatureSwitch ?? null,
       temperatureSwitchOutlet: d.temperatureSwitchOutlet ?? null,
       chargerVoltage: d.chargerVoltage ?? null,
+      lightning: d.lightning ?? null,
+      levelSwitch: d.levelSwitch ?? null,
+      levelSwitchStatus: d.levelSwitchStatus ?? null,
       mpptSolarVoltage: toNum(d.mpptSolarVoltage),
       mpptSolarCurrent: toNum(d.mpptSolarCurrent),
       mpptSolarPower: toNum(d.mpptSolarPower),
@@ -711,6 +721,10 @@ function SharedDashboardContent() {
       waterLevel: hasData('waterLevel'),
       temperatureSwitch: hasData('temperatureSwitch'),
       chargerVoltage: hasData('chargerVoltage'),
+      lightning: hasData('lightning'),
+      levelSwitch: hasData('levelSwitch'),
+      temperatureSwitchOutlet: hasData('temperatureSwitchOutlet'),
+      levelSwitchStatus: hasData('levelSwitchStatus'),
       mpptSolarVoltage: hasData('mpptSolarVoltage'),
       mpptSolarCurrent: hasData('mpptSolarCurrent'),
       mpptSolarPower: hasData('mpptSolarPower'),
@@ -1535,7 +1549,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Water & Sensors */}
-        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage) && (
+        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1546,6 +1560,22 @@ function SharedDashboardContent() {
             {availableFields.temperatureSwitch && (
             <MetricCard title="Temp Switch" value={formatValue(currentData.temperatureSwitch || 0, 1)} unit="mV"
               sparklineData={chartData.slice(-24).map(d => d.temperatureSwitch).filter((v): v is number => v != null)} chartColor="#ef4444" />
+            )}
+            {availableFields.temperatureSwitchOutlet && (
+            <MetricCard title="Temp Switch Outlet" value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)} unit="mV"
+              sparklineData={chartData.slice(-24).map(d => d.temperatureSwitchOutlet).filter((v): v is number => v != null)} chartColor="#ef4444" />
+            )}
+            {availableFields.levelSwitch && (
+            <MetricCard title="Level Switch" value={formatValue(currentData.levelSwitch || 0, 1)} unit=""
+              sparklineData={chartData.slice(-24).map(d => d.levelSwitch).filter((v): v is number => v != null)} chartColor="#06b6d4" />
+            )}
+            {availableFields.levelSwitchStatus && (
+            <MetricCard title="Level Switch Status" value={(currentData.levelSwitchStatus ?? 0) > 0 ? "On" : "Off"} unit=""
+              chartColor={(currentData.levelSwitchStatus ?? 0) > 0 ? "#22c55e" : "#6b7280"} />
+            )}
+            {availableFields.lightning && (
+            <MetricCard title="Lightning (24h)" value={formatValue(chartData.slice(-144).reduce((sum, d) => sum + (d.lightning || 0), 0), 0)} unit="strikes"
+              sparklineData={chartData.slice(-24).map(d => d.lightning).filter((v): v is number => v != null)} chartColor="#f59e0b" />
             )}
             {availableFields.chargerVoltage && (
             <MetricCard title="Charger Voltage" value={formatValue(currentData.chargerVoltage || 0, 2)} unit="V"
@@ -1826,7 +1856,7 @@ function SharedDashboardContent() {
               subMetrics={[
                 { label: "Conditions", value: (currentData.visibility || 0) >= 10 ? "Clear" : (currentData.visibility || 0) >= 4 ? "Moderate" : (currentData.visibility || 0) >= 1 ? "Poor" : "Fog" },
               ]}
-              chartColor="#8b5cf6"
+              chartColor="#3b82f6"
             />
             )}
             {availableFields.atmosphericVisibility && (
@@ -1834,7 +1864,7 @@ function SharedDashboardContent() {
               title="Atmospheric Visibility"
               value={formatValue(currentData.atmosphericVisibility || 0, 1)}
               unit="km"
-              chartColor="#6366f1"
+              chartColor="#2563eb"
             />
             )}
             {availableFields.cloudBase && (
@@ -1863,7 +1893,7 @@ function SharedDashboardContent() {
             <DataBlockChart
               title="Visibility"
               data={chartData.filter(d => d.visibility !== null).map(d => ({ ...d, vis: d.visibility }))}
-              series={[{ dataKey: "vis", name: "Visibility", color: "#8b5cf6", unit: "km" }]}
+              series={[{ dataKey: "vis", name: "Visibility", color: "#3b82f6", unit: "km" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Visibility (km)"
               showAverage={true} showMinMax={true} currentValue={currentData.visibility || 0}
             />
@@ -1872,7 +1902,7 @@ function SharedDashboardContent() {
             <DataBlockChart
               title="Atmospheric Visibility"
               data={chartData.filter(d => d.atmosphericVisibility !== null && d.atmosphericVisibility !== undefined).map(d => ({ ...d, atmosVis: d.atmosphericVisibility }))}
-              series={[{ dataKey: "atmosVis", name: "Atmospheric Vis.", color: "#6366f1", unit: "km" }]}
+              series={[{ dataKey: "atmosVis", name: "Atmospheric Vis.", color: "#2563eb", unit: "km" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Visibility (km)"
               showAverage={true} showMinMax={true} currentValue={currentData.atmosphericVisibility || 0}
             />
