@@ -168,7 +168,7 @@ export abstract class BaseProtocolAdapter extends EventEmitter implements IProto
       stationId: this.config.stationId,
       timestamp: new Date(),
       temperature: raw.temperature ?? null,
-      humidity: raw.humidity ?? null,
+      humidity: raw.humidity != null ? Math.min(100, Math.max(0, raw.humidity)) : null,
       pressure: raw.pressure ?? null,
       windSpeed: raw.windSpeed ?? null,
       windDirection: raw.windDirection ?? null,

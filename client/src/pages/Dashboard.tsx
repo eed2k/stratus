@@ -311,11 +311,8 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
   
   // Format timestamp based on time range
   const formatTimestamp = (date: Date) => {
-    if (effectiveRange <= 2) {
-      // Under 2 hours: show HH:MM
-      return date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
-    } else if (effectiveRange <= 24) {
-      // 2-24 hours: show HH:MM
+    if (effectiveRange <= 24) {
+      // Up to 24 hours: show HH:MM
       return date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
     } else if (effectiveRange <= 72) {
       // 1-3 days: show Day HH:MM
@@ -1278,8 +1275,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const dayOfYear = getDayOfYear();
     // Convert solar radiation from W/m² to MJ/m²/day (assuming 12hr daylight average)
     const solarMJ = wattsToMJPerDay(currentData.solarRadiation || 0, ASSUMED_DAYLIGHT_HOURS);
-    // Wind speed is already in m/s
-    const windMs = currentData.windSpeed || 0;
+    const windMs = windSpeedUnit === 'kmh' ? kmhToMs(currentData.windSpeed || 0) : (currentData.windSpeed || 0);
     
     return calculateETo(
       currentData.temperature || DEFAULT_TEMPERATURE_C,
@@ -1319,22 +1315,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       return { temperature: null, humidity: null, pressure: null };
     }
     
-    // Get average of first half vs last value
+    // Get average of first half vs last value (filter nulls to avoid poisoning average)
     const halfLen = Math.floor(historicalData.length / 2);
     const olderData = historicalData.slice(0, halfLen);
     
-    const avgOldTemp = olderData.reduce((sum, d) => sum + (d.temperature ?? 0), 0) / halfLen;
-    const avgOldHumidity = olderData.reduce((sum, d) => sum + (d.humidity ?? 0), 0) / halfLen;
-    const avgOldPressure = olderData.reduce((sum, d) => sum + (d.pressure ?? 0), 0) / halfLen;
+    const olderTemps = olderData.map(d => d.temperature).filter((v): v is number => v != null);
+    const olderHums = olderData.map(d => d.humidity).filter((v): v is number => v != null);
+    const olderPress = olderData.map(d => d.pressure).filter((v): v is number => v != null);
     
-    const currentTemp = currentData.temperature ?? 0;
-    const currentHum = currentData.humidity ?? 0;
-    const currentPress = currentData.pressure ?? 0;
+    const avgOldTemp = olderTemps.length > 0 ? olderTemps.reduce((s, v) => s + v, 0) / olderTemps.length : null;
+    const avgOldHumidity = olderHums.length > 0 ? olderHums.reduce((s, v) => s + v, 0) / olderHums.length : null;
+    const avgOldPressure = olderPress.length > 0 ? olderPress.reduce((s, v) => s + v, 0) / olderPress.length : null;
     
     return {
-      temperature: avgOldTemp !== 0 ? currentTemp - avgOldTemp : null,
-      humidity: avgOldHumidity !== 0 ? currentHum - avgOldHumidity : null,
-      pressure: avgOldPressure !== 0 ? currentPress - avgOldPressure : null,
+      temperature: avgOldTemp != null && currentData.temperature != null ? currentData.temperature - avgOldTemp : null,
+      humidity: avgOldHumidity != null && currentData.humidity != null ? currentData.humidity - avgOldHumidity : null,
+      pressure: avgOldPressure != null && currentData.pressure != null ? currentData.pressure - avgOldPressure : null,
     };
   }, [historicalData, currentData]);
 
@@ -1962,7 +1958,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Battery Voltage – Charger 1 vs 2"
               data={chartData}
               series={[
-                { dataKey: "mpptBatteryVoltage", name: "Charger 1", color: "#3b82f6", unit: "V" },
+                { dataKey: "mpptBatteryVoltage", name: "Charger 1", color: "#ef4444", unit: "V" },
                 { dataKey: "mppt2BatteryVoltage", name: "Charger 2", color: "#3b82f6", unit: "V" },
               ]}
               chartType="line"
@@ -2001,7 +1997,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               data={chartData}
               series={[
                 { dataKey: "mppt2SolarCurrent", name: "Solar Current", color: "#3b82f6", unit: "mA" },
-                ...(availableFields.mppt2LoadCurrent ? [{ dataKey: "mppt2LoadCurrent", name: "Load Current", color: "#3b82f6", unit: "mA" }] : []),
+                ...(availableFields.mppt2LoadCurrent ? [{ dataKey: "mppt2LoadCurrent", name: "Load Current", color: "#22c55e", unit: "mA" }] : []),
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2176,7 +2172,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               data={chartData}
               series={[
                 { dataKey: "temperatureSwitch", name: "Temp Switch", color: "#ef4444", unit: "mV" },
-                ...(availableFields.temperatureSwitchOutlet ? [{ dataKey: "temperatureSwitchOutlet", name: "Temp Switch Outlet", color: "#ef4444", unit: "mV" }] : []),
+                ...(availableFields.temperatureSwitchOutlet ? [{ dataKey: "temperatureSwitchOutlet", name: "Temp Switch Outlet", color: "#3b82f6", unit: "mV" }] : []),
               ]}
               chartType="line"
               xAxisLabel="Time"

@@ -31,6 +31,12 @@ import type { AlarmEmailData } from './services/emailService';
 // Check if PostgreSQL mode is enabled
 const usePostgres = postgres.isPostgresEnabled();
 
+// Clamp relative humidity to 0–100% (capacitive sensors can exceed 100% in saturated air)
+function clampHumidity(val: number | null | undefined): number | null {
+  if (val == null) return null;
+  return Math.min(100, Math.max(0, val));
+}
+
 // Storage logging utility (Issue #7 fix)
 const storageLog = {
   info: (message: string, ...args: any[]) => console.log(`[Storage] ${message}`, ...args),
@@ -860,7 +866,7 @@ export class DatabaseStorage {
       data: data.data,
       collectedAt: new Date(),
       temperature: data.data.temperature ?? data.data.AirTC_Avg ?? data.data.AirTemp ?? data.data.Temp_Avg ?? null,
-      humidity: data.data.humidity ?? data.data.RH_Avg ?? data.data.RH ?? null,
+      humidity: clampHumidity(data.data.humidity ?? data.data.RH_Avg ?? data.data.RH ?? null),
       pressure: data.data.pressure ?? data.data.BP_mbar ?? data.data.Pressure ?? data.data.Pressure_Avg ?? null,
       windSpeed: data.data.windSpeed ?? data.data.WS_ms_Avg ?? data.data.WindSpeed ?? data.data.Wind_Spd_S_WVT ?? null,
       windDirection: data.data.windDirection ?? data.data.WindDir ?? data.data.WindDir_D1_WVT ?? data.data.Wind_Dir_D1_WVT ?? null,
@@ -1950,7 +1956,7 @@ export class DatabaseStorage {
       collectedAt: new Date(record.collected_at),
       // Map data fields - support all Campbell Scientific field name variants
       temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? data.AirTemp_Avg ?? data.AirTC ?? data.Temp_C ?? data.Temperature ?? null,
-      humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? data.RelHumidity_Avg ?? data.RelHumidity ?? data.Humidity ?? null,
+      humidity: clampHumidity(data.humidity ?? data.RH_Avg ?? data.RH ?? data.RelHumidity_Avg ?? data.RelHumidity ?? data.Humidity ?? null),
       pressure: data.pressure ?? data.BP_mbar ?? data.Pressure ?? data.Pressure_Avg ?? data.BaroPressure_Avg ?? data.BP_Avg ?? data.BaroPres ?? data.BP_mbar_Avg ?? data.BPress_Avg ?? data.BPress ?? null,
       windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? data.WindSpeed_Avg ?? data.WS_ms ?? data.WS_Avg ?? data.WS_ms_S_WVT ?? data.WSpd_1_Avg ?? data.WSpd_Avg ?? data.WSpd_1_S_WVT ?? null,
       windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? data.WDir_1_Avg ?? data.WDir_Avg ?? data.WDir_1_D1_WVT ?? null,
@@ -2052,7 +2058,7 @@ export class DatabaseStorage {
       collectedAt: new Date(record.collectedAt ?? record.collected_at ?? new Date()),
       // Map data fields - support all Campbell Scientific field name variants
       temperature: data.temperature ?? data.AirTC_Avg ?? data.AirTemp ?? data.Temp_Avg ?? data.AirTemp_Avg ?? data.AirTC ?? data.Temp_C ?? data.Temperature ?? null,
-      humidity: data.humidity ?? data.RH_Avg ?? data.RH ?? data.RelHumidity_Avg ?? data.RelHumidity ?? data.Humidity ?? null,
+      humidity: clampHumidity(data.humidity ?? data.RH_Avg ?? data.RH ?? data.RelHumidity_Avg ?? data.RelHumidity ?? data.Humidity ?? null),
       pressure: data.pressure ?? data.BP_mbar ?? data.Pressure ?? data.Pressure_Avg ?? data.BaroPressure_Avg ?? data.BP_Avg ?? data.BaroPres ?? data.BP_mbar_Avg ?? data.BPress_Avg ?? data.BPress ?? null,
       windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? data.WindSpeed_Avg ?? data.WS_ms ?? data.WS_Avg ?? data.WS_ms_S_WVT ?? data.WSpd_1_Avg ?? data.WSpd_Avg ?? data.WSpd_1_S_WVT ?? null,
       windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? data.WDir_1_Avg ?? data.WDir_Avg ?? data.WDir_1_D1_WVT ?? null,

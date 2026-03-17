@@ -40,6 +40,7 @@ import type { WeatherData } from "@shared/schema";
 import { DEFAULT_SECTION_VISIBILITY, DASHBOARD_CATEGORIES, type SectionVisibility } from "../../../shared/dashboardConfig";
 import { 
   calculateSeaLevelPressure,
+  calculateStationPressure,
   calculateAirDensity,
   calculateETo,
   getDayOfYear,
@@ -138,7 +139,7 @@ const maxNonNull = (vals: (number | null)[]): number | null => {
 };
 const sumNonNull = (vals: (number | null)[]): number | null => {
   const nums = vals.filter((v): v is number => v != null);
-  return nums.length > 0 ? Math.round(nums.reduce((a, b) => a + b, 0) * 10) / 10 : null;
+  return nums.length > 0 ? Math.round(nums.reduce((a, b) => a + b, 0) * 100) / 100 : null;
 };
 
 const processChartData = (historicalData: WeatherData[], timeRangeHours?: number, stationLat?: number, stationAltitude?: number, windUnit: WindSpeedUnit = 'ms') => {
@@ -990,20 +991,23 @@ function SharedDashboardContent() {
     return { daily, weekly: weekly != null ? Math.round(weekly * 7 * 10) / 10 : null, monthly: monthly != null ? Math.round(monthly * 30 * 10) / 10 : null };
   }, [sortedStatsData, sortedHistoricalData, station?.latitude, station?.altitude, referenceNow, windSpeedUnit]);
 
-  // Trends
+  // Trends (use sorted data so first half = older records; filter nulls to avoid skewing averages)
   const trends = useMemo(() => {
-    if (historicalData.length < 2) return { temperature: null, humidity: null, pressure: null };
-    const halfLen = Math.floor(historicalData.length / 2);
-    const older = historicalData.slice(0, halfLen);
-    const avgOldT = older.reduce((s, d) => s + (d.temperature ?? 0), 0) / halfLen;
-    const avgOldH = older.reduce((s, d) => s + (d.humidity ?? 0), 0) / halfLen;
-    const avgOldP = older.reduce((s, d) => s + (d.pressure ?? 0), 0) / halfLen;
+    if (sortedHistoricalData.length < 2) return { temperature: null, humidity: null, pressure: null };
+    const halfLen = Math.floor(sortedHistoricalData.length / 2);
+    const older = sortedHistoricalData.slice(0, halfLen);
+    const olderTemps = older.map(d => d.temperature).filter((v): v is number => v != null);
+    const olderHums = older.map(d => d.humidity).filter((v): v is number => v != null);
+    const olderPress = older.map(d => d.pressure).filter((v): v is number => v != null);
+    const avgOldT = olderTemps.length > 0 ? olderTemps.reduce((s, v) => s + v, 0) / olderTemps.length : null;
+    const avgOldH = olderHums.length > 0 ? olderHums.reduce((s, v) => s + v, 0) / olderHums.length : null;
+    const avgOldP = olderPress.length > 0 ? olderPress.reduce((s, v) => s + v, 0) / olderPress.length : null;
     return {
-      temperature: avgOldT !== 0 ? (currentData.temperature ?? 0) - avgOldT : null,
-      humidity: avgOldH !== 0 ? (currentData.humidity ?? 0) - avgOldH : null,
-      pressure: avgOldP !== 0 ? (currentData.pressure ?? 0) - avgOldP : null,
+      temperature: avgOldT != null && currentData.temperature != null ? currentData.temperature - avgOldT : null,
+      humidity: avgOldH != null && currentData.humidity != null ? currentData.humidity - avgOldH : null,
+      pressure: avgOldP != null && currentData.pressure != null ? currentData.pressure - avgOldP : null,
     };
-  }, [historicalData, currentData]);
+  }, [sortedHistoricalData, currentData]);
 
   // Fire danger chart data
   const fireDangerChartData = useMemo(() => {
@@ -1016,8 +1020,11 @@ function SharedDashboardContent() {
   // Air density
   const calculatedAirDensity = useMemo(() => {
     if (currentData.temperature == null || currentData.pressure == null) return STANDARD_AIR_DENSITY_KGM3;
-    return calculateAirDensity(currentData.temperature, currentData.pressure, currentData.humidity ?? 50);
-  }, [currentData.temperature, currentData.pressure, currentData.humidity]);
+    const stationPress = pressureIsSLP
+      ? calculateStationPressure(currentData.pressure, station?.altitude || 0, currentData.temperature)
+      : currentData.pressure;
+    return calculateAirDensity(currentData.temperature, stationPress, currentData.humidity ?? 50);
+  }, [currentData.temperature, currentData.pressure, currentData.humidity, pressureIsSLP, station?.altitude]);
 
   // ETo
   const calculatedETo = useMemo(() => {
@@ -1434,12 +1441,12 @@ function SharedDashboardContent() {
           {sv.barometricPressure !== false && availableFields.pressure && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BarometricPressureCard
-              stationPressure={pressureIsSLP ? (currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA) - ((station?.altitude || 0) * 0.12) : currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA}
+              stationPressure={pressureIsSLP ? calculateStationPressure(currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA, station?.altitude || 0, currentData.temperature || DEFAULT_TEMPERATURE_C) : currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA}
               seaLevelPressure={seaLevelPressure}
               altitude={station?.altitude || 0}
               temperature={currentData.temperature || DEFAULT_TEMPERATURE_C}
               trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
-              sparklineDataStation={chartData.slice(-24).map(d => d.pressure ?? 0).filter((v): v is number => v != null)}
+              sparklineDataStation={pressureIsSLP ? chartData.slice(-24).map(d => calculateStationPressure(d.pressure ?? STANDARD_SEA_LEVEL_PRESSURE_HPA, station?.altitude || 0, d.temperature ?? DEFAULT_TEMPERATURE_C)).filter((v): v is number => v != null) : chartData.slice(-24).map(d => d.pressure ?? 0).filter((v): v is number => v != null)}
               sparklineDataSeaLevel={pressureIsSLP ? chartData.slice(-24).map(d => d.pressure ?? 0).filter((v): v is number => v != null) : chartData.slice(-24).map(d => calculateSeaLevelPressure(d.pressure ?? 0, station?.altitude || 0, d.temperature ?? 20)).filter((v): v is number => v != null)}
             />
             <Suspense fallback={<ChartFallback />}>

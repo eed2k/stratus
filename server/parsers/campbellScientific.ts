@@ -446,6 +446,11 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
       }
     }
 
+    // Clamp relative humidity to 0–100% (capacitive sensors can read slightly above 100% in saturated air)
+    if (result['humidity'] !== null && result['humidity'] !== undefined) {
+      result['humidity'] = Math.min(100, Math.max(0, result['humidity']));
+    }
+
   return result;
 }
 
