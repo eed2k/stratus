@@ -41,9 +41,9 @@ function getBatteryHealth(voltage: number | null): { label: string; color: strin
   if (voltage === null || voltage === undefined || voltage === 0) {
     return { label: "No Data", color: "text-gray-400", percentage: 0 };
   }
-  // 12V lead-acid battery range: 11.5V (empty) - 14.4V (full charge)
-  const min = 11.5;
-  const max = 14.4;
+  // 12V LiFePO4 (4S) battery range: 10.0V (empty) - 14.6V (full charge)
+  const min = 10.0;
+  const max = 14.6;
   const pct = Math.min(100, Math.max(0, ((voltage - min) / (max - min)) * 100));
   if (pct < 15) return { label: "Critical", color: "text-red-500", percentage: pct };
   if (pct < 30) return { label: "Low", color: "text-orange-500", percentage: pct };

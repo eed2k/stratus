@@ -755,6 +755,10 @@ function SharedDashboardContent() {
 
   // Process chart data
   const chartData = useMemo(() => processChartData(sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit), [sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit]);
+
+  // Wind chart always uses fixed 24h range regardless of user-selected chart time range
+  const windChartData24h = useMemo(() => processChartData(sortedHistoricalData, 24, station?.latitude, station?.altitude, windSpeedUnit), [sortedHistoricalData, station?.latitude, station?.altitude, windSpeedUnit]);
+
   // Derive 7-day dew point chart data from statsData (no separate query needed)
   const dewPointChartData = useMemo(() => {
     if (sortedStatsData.length === 0) return [];
@@ -929,7 +933,8 @@ function SharedDashboardContent() {
     const voltages = batteryReadings.map(d => d.batteryVoltage!);
     const maxV = Math.max(...voltages);
     const minV = Math.min(...voltages);
-    const didCharge = maxV > 13.0 || (maxV - minV) > 0.3;
+    // LiFePO4: voltage above 13.6V indicates charging
+    const didCharge = maxV > 13.6 || (maxV - minV) > 0.3;
     return { hasData: true, didCharge, maxVoltage: maxV, minVoltage: minV };
   }, [sortedHistoricalData]);
 
@@ -1467,9 +1472,9 @@ function SharedDashboardContent() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BatteryVoltageCard
               voltage={currentData.batteryVoltage || 0}
-              minVoltage={11.5}
-              maxVoltage={14.5}
-              isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.0 && ((currentData.solarRadiation ?? 0) > 0 || (currentData.mpptSolarPower != null ? Number(currentData.mpptSolarPower) > 0 : false)) : false}
+              minVoltage={10.0}
+              maxVoltage={14.6}
+              isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.6 && ((currentData.solarRadiation ?? 0) > 0 || (currentData.mpptSolarPower != null ? Number(currentData.mpptSolarPower) > 0 : false)) : false}
               sparklineData={batteryChartData.slice(-24).map(d => d.batteryVoltage)}
             />
             <Suspense fallback={<ChartFallback />}>
@@ -1648,7 +1653,7 @@ function SharedDashboardContent() {
             />
             )}
             {availableFields.windSpeed && (
-            <DataBlockChart title="Wind Speed vs Wind Gust (24h)" data={chartData}
+            <DataBlockChart title="Wind Speed vs Wind Gust (24h)" data={windChartData24h}
               series={[
                 { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
                 { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },

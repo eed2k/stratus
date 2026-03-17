@@ -18,18 +18,19 @@ function getBatteryStatus(voltage: number, min: number, max: number): {
   color: string; 
   percentage: number;
 } {
+  // LiFePO4 12V (4S): 10.0V empty – 14.6V full charge, nominal 12.8V
   const percentage = Math.min(100, Math.max(0, ((voltage - min) / (max - min)) * 100));
   
   if (voltage < min) {
     return { status: "Critical", color: "text-red-500", percentage: 0 };
   }
-  if (percentage < 20) {
+  if (percentage < 30) {
     return { status: "Low", color: "text-orange-500", percentage };
   }
-  if (percentage < 40) {
+  if (percentage < 50) {
     return { status: "Fair", color: "text-yellow-500", percentage };
   }
-  if (percentage < 80) {
+  if (percentage < 75) {
     return { status: "Good", color: "text-green-500", percentage };
   }
   return { status: "Excellent", color: "text-emerald-500", percentage };
@@ -37,8 +38,8 @@ function getBatteryStatus(voltage: number, min: number, max: number): {
 
 export function BatteryVoltageCard({
   voltage,
-  minVoltage = 11.5,
-  maxVoltage = 14.5,
+  minVoltage = 10.0,
+  maxVoltage = 14.6,
   isCharging = false,
   sparklineData = [],
   chartColor = "#22c55e",

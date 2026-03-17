@@ -881,6 +881,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Process historical data into chart format (pass time range for proper axis formatting)
   const chartData = useMemo(() => processChartData(sortedHistoricalData, dashboardConfig.chartTimeRange, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined, windSpeedUnit), [sortedHistoricalData, dashboardConfig.chartTimeRange, selectedStation?.latitude, selectedStation?.altitude, windSpeedUnit]);
+
+  // Wind chart always uses fixed 24h range regardless of user-selected chart time range
+  const windChartData24h = useMemo(() => processChartData(sortedHistoricalData, 24, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined, windSpeedUnit), [sortedHistoricalData, selectedStation?.latitude, selectedStation?.altitude, windSpeedUnit]);
   
   // Average daytime solar radiation from historical data (for Solar Power Harvesting card)
   const avgDaytimeRadiation = useMemo(() => {
@@ -1443,9 +1446,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const voltages = batteryReadings.map(d => d.batteryVoltage!);
     const maxV = Math.max(...voltages);
     const minV = Math.min(...voltages);
-    // Battery charges when voltage rises above 13.0V (solar panel active)
+    // LiFePO4: voltage above 13.6V indicates charging (resting full is ~13.4-13.6V)
     // A voltage swing of at least 0.3V also indicates charging activity
-    const didCharge = maxV > 13.0 || (maxV - minV) > 0.3;
+    const didCharge = maxV > 13.6 || (maxV - minV) > 0.3;
     return { hasData: true, didCharge, maxVoltage: maxV, minVoltage: minV };
   }, [sortedHistoricalData]);
 
@@ -1832,9 +1835,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BatteryVoltageCard
               voltage={currentData.batteryVoltage || 0}
-              minVoltage={11.5}
-              maxVoltage={14.5}
-              isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.0 && ((currentData.solarRadiation ?? 0) > 0 || (currentData.mpptSolarPower != null ? Number(currentData.mpptSolarPower) > 0 : false)) : false}
+              minVoltage={10.0}
+              maxVoltage={14.6}
+              isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.6 && ((currentData.solarRadiation ?? 0) > 0 || (currentData.mpptSolarPower != null ? Number(currentData.mpptSolarPower) > 0 : false)) : false}
               sparklineData={batteryChartData.slice(-24).map(d => d.batteryVoltage)}
             />
             <DataBlockChart
@@ -2273,7 +2276,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {availableFields.windSpeed && (
             <DataBlockChart
               title="Wind Speed vs Wind Gust (24h)"
-              data={chartData}
+              data={windChartData24h}
               series={[
                 { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
                 { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
@@ -2730,7 +2733,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <Suspense fallback={<ChartFallback />}>
           <DataBlockChart
             title="Wind Speed vs Wind Gust (24h)"
-            data={chartData}
+            data={windChartData24h}
             series={[
               { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
               { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
