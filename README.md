@@ -25,7 +25,7 @@ Real-Time Monitoring Dashboard
 - Air Density Calculations - Real-time air density from temperature, pressure, humidity
 - Reference Evapotranspiration - FAO Penman-Monteith ETo calculations
 - Barometric Pressure - Dual display showing station level and sea level QNH (hPa)
-- Battery Monitoring - Logger battery voltage with status indicators
+- Battery Monitoring - Logger battery voltage with LiFePO4 lithium status indicators and charging detection
 - Lowveld Fire Danger Index - Official SA/Namibia fire risk assessment (LFDI)
 - Connection Health - Monitor connection status and data freshness
 - Alerts and Alarms - Configurable alerts for data thresholds
@@ -36,6 +36,7 @@ Real-Time Monitoring Dashboard
 Wind Analysis (WMO/Beaufort Scale)
 
 - Wind Rose Charts - Traditional wind direction frequency distribution (60 min, 24h, 48h periods)
+- Wind Speed vs Gust (24h) - Always displays fixed 24-hour wind speed and gust comparison chart
 - Wind Speed Scatter Plots - Individual wind observations on polar chart with color-coded speed classes
 - Wind Compass - Real-time wind direction and speed display with cardinal directions
 - Wind Power Analysis - Wind energy potential and power density calculations
