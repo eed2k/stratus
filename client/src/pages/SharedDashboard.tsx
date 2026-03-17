@@ -256,6 +256,8 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         atmosphericVisibility: avgNonNull(dayData.map(d => d.atmosphericVisibility ?? null)),
         cloudBase: avgNonNull(dayData.map(d => d.cloudBase ?? null)),
         cloudCover: avgNonNull(dayData.map(d => d.cloudCover ?? null)),
+        temperature8m: avgNonNull(dayData.map(d => d.temperature8m ?? null)),
+        deltaTemperature: avgNonNull(dayData.map(d => d.deltaTemperature ?? null)),
         _readings: dayData.length,
       };
     });
@@ -359,6 +361,8 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       atmosphericVisibility: d.atmosphericVisibility ?? null,
       cloudBase: d.cloudBase ?? null,
       cloudCover: d.cloudCover ?? null,
+      temperature8m: d.temperature8m ?? null,
+      deltaTemperature: d.deltaTemperature ?? null,
     };
   });
 };
