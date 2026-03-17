@@ -1574,8 +1574,8 @@ function SharedDashboardContent() {
               chartColor={(currentData.levelSwitchStatus ?? 0) > 0 ? "#22c55e" : "#6b7280"} />
             )}
             {availableFields.lightning && (
-            <MetricCard title="Lightning (24h)" value={formatValue(chartData.slice(-144).reduce((sum, d) => sum + (d.lightning || 0), 0), 0)} unit="strikes"
-              sparklineData={chartData.slice(-24).map(d => d.lightning).filter((v): v is number => v != null)} chartColor="#f59e0b" />
+            <MetricCard title="Lightning Strikes" value={formatValue(currentData.lightning || 0, 0)} unit="strikes/10min"
+              sparklineData={chartData.slice(-144).map(d => d.lightning).filter((v): v is number => v != null)} chartColor="#f59e0b" />
             )}
             {availableFields.chargerVoltage && (
             <MetricCard title="Charger Voltage" value={formatValue(currentData.chargerVoltage || 0, 2)} unit="V"

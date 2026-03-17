@@ -2113,10 +2113,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.lightning && (
               <MetricCard
-                title="Lightning (24h)"
-                value={formatValue(chartData.slice(-144).reduce((sum, d) => sum + (d.lightning || 0), 0), 0)}
-                unit="strikes"
-                sparklineData={chartData.slice(-24).map(d => d.lightning).filter((v): v is number => v != null)}
+                title="Lightning Strikes"
+                value={formatValue(currentData.lightning || 0, 0)}
+                unit="strikes/10min"
+                sparklineData={chartData.slice(-144).map(d => d.lightning).filter((v): v is number => v != null)}
                 chartColor="#f59e0b"
               />
             )}
