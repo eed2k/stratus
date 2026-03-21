@@ -137,6 +137,8 @@ export interface WeatherData {
   levelSwitchStatus?: number | null;
   // Power & weather
   lightning?: number | null;
+  lightningDistance?: number | null;
+  lightningEnergy?: number | null;
   chargerVoltage?: number | null;
   // Wind direction std dev & SDI-12
   windDirStdDev?: number | null;
@@ -881,6 +883,8 @@ export class DatabaseStorage {
       levelSwitchStatus: data.data.levelSwitchStatus ?? data.data.Level_Switch_Status ?? null,
       // Power & weather
       lightning: data.data.lightning ?? data.data.Lightning_Tot ?? data.data.Lightning_Count ?? null,
+      lightningDistance: data.data.lightningDistance ?? data.data.LightningDist ?? data.data.Lightning_Dist ?? null,
+      lightningEnergy: data.data.lightningEnergy ?? data.data.LightningEnergy ?? data.data.Lightning_Energy ?? null,
       chargerVoltage: data.data.chargerVoltage ?? data.data.DC_Chg_Volts ?? data.data.ChgV_Avg ?? null,
       // Wind direction std dev & SDI-12
       windDirStdDev: data.data.windDirStdDev ?? data.data.Wind_Dir_SD1_WVT ?? null,
@@ -1981,6 +1985,8 @@ export class DatabaseStorage {
       levelSwitchStatus: data.levelSwitchStatus ?? data.Level_Switch_Status ?? data.LevelSwitchStatus ?? null,
       // Power & weather
       lightning: data.lightning ?? data.Lightning_Tot ?? data.Lightning_Count ?? data.Lightning ?? null,
+      lightningDistance: data.lightningDistance ?? data.LightningDist ?? data.Lightning_Dist ?? null,
+      lightningEnergy: data.lightningEnergy ?? data.LightningEnergy ?? data.Lightning_Energy ?? null,
       chargerVoltage: data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null,
       // Wind direction std dev & SDI-12
       windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,
@@ -2083,6 +2089,8 @@ export class DatabaseStorage {
       levelSwitchStatus: data.levelSwitchStatus ?? data.Level_Switch_Status ?? data.LevelSwitchStatus ?? null,
       // Power & weather
       lightning: data.lightning ?? data.Lightning_Tot ?? data.Lightning_Count ?? data.Lightning ?? null,
+      lightningDistance: data.lightningDistance ?? data.LightningDist ?? data.Lightning_Dist ?? null,
+      lightningEnergy: data.lightningEnergy ?? data.LightningEnergy ?? data.Lightning_Energy ?? null,
       chargerVoltage: sanitizeChargerVoltage(data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null),
       // Wind direction std dev & SDI-12
       windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,

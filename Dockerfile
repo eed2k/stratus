@@ -1,4 +1,4 @@
-# Stratus Weather Station - Production Dockerfile
+# Stratus Weather Server - Production Dockerfile
 FROM node:20-alpine AS builder
 
 WORKDIR /app

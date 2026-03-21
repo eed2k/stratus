@@ -2717,7 +2717,7 @@ export async function registerRoutes(
   'use strict';
   
   const StratusWidget = {
-    version: '1.1.0',
+    version: '1.3.1',
     
     styles: \`
       .stratus-widget {

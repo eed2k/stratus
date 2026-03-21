@@ -118,7 +118,7 @@ public partial class SetupWizardDialog : Window
             dynamic shortcut = shell.CreateShortcut(shortcutPath);
             shortcut.TargetPath = targetPath;
             shortcut.WorkingDirectory = Path.GetDirectoryName(targetPath);
-            shortcut.Description = "Stratus Weather Station Manager";
+            shortcut.Description = "Stratus Weather Server Manager";
             shortcut.Save();
             Log.Information("Created shortcut: {Path}", shortcutPath);
         }

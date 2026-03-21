@@ -9,8 +9,6 @@ interface BatteryVoltageCardProps {
   minVoltage?: number;         // Minimum acceptable voltage
   maxVoltage?: number;         // Maximum/charging voltage
   isCharging?: boolean;
-  sparklineData?: number[];
-  chartColor?: string;
 }
 
 function getBatteryStatus(voltage: number, min: number, max: number): { 
@@ -41,13 +39,8 @@ export function BatteryVoltageCard({
   minVoltage = 10.0,
   maxVoltage = 14.6,
   isCharging = false,
-  sparklineData = [],
-  chartColor = "#22c55e",
 }: BatteryVoltageCardProps) {
   const status = getBatteryStatus(voltage, minVoltage, maxVoltage);
-  
-  // Only use sparkline data if provided - no fake data generation
-  const chartData = sparklineData.length > 0 ? sparklineData : [];
 
   return (
     <Card className="border border-gray-300 bg-white" data-testid="card-battery-voltage">
@@ -57,7 +50,7 @@ export function BatteryVoltageCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Main value */}
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-2">
@@ -92,31 +85,6 @@ export function BatteryVoltageCard({
               />
             </div>
           </div>
-
-          {/* Voltage history chart */}
-          {chartData.length > 0 ? (
-            <div className="h-16 flex items-end gap-0.5">
-              {chartData.map((val, i) => {
-                const max = Math.max(...chartData, maxVoltage);
-                const min = Math.min(...chartData, minVoltage);
-                const range = max - min || 1;
-                const height = ((val - min) / range) * 100;
-                const barColor = val < minVoltage ? '#ef4444' : 
-                                val < minVoltage + 0.5 ? '#f97316' : chartColor;
-                return (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t-sm transition-all duration-300"
-                    style={{ height: `${Math.max(height, 5)}%`, backgroundColor: barColor }}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <div className="h-16 flex items-center justify-center text-xs text-muted-foreground">
-              No historical data available
-            </div>
-          )}
 
           {/* Voltage range info */}
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200">

@@ -34,7 +34,7 @@ public partial class HelpWindow : Window
         {
             case "start":
                 AddHeading(doc, "Getting Started");
-                AddPara(doc, "Welcome to Stratus Weather Station Manager — a research-grade desktop application for weather station data acquisition, monitoring, and analysis.");
+                AddPara(doc, "Welcome to Stratus Weather Server Manager — a research-grade desktop application for weather station data acquisition, monitoring, and analysis.");
                 AddSubheading(doc, "Quick Start");
                 AddBullet(doc, "1. Enter the server URL and your credentials in the left panel");
                 AddBullet(doc, "2. Click Connect to establish a server connection");

@@ -34,17 +34,17 @@ const adminNavItems = [
   { title: "Stations", url: "/" },
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
-  { title: "History", url: "/history" },
+  { title: "Historical Data Export", url: "/history" },
   { title: "Alarms", url: "/alarms" },
-  { title: "Reports", url: "/reports" },
+  { title: "Report Generation", url: "/reports" },
   { title: "Settings", url: "/settings" },
-  { title: "About", url: "/docs" },
+  { title: "About Stratus", url: "/docs" },
 ];
 
 // User navigation items - limited access (no docs, no config)
 const userNavItems = [
   { title: "Stations", url: "/" },
-  { title: "History", url: "/history" },
+  { title: "Historical Data Export", url: "/history" },
   { title: "Account Settings", url: "/account" },
 ];
 
@@ -58,7 +58,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
     const base = isAdmin ? [...adminNavItems] : [...userNavItems];
     if (isDesktop) {
       // Insert Serial Monitor before Documentation (or at end for users)
-      const docsIdx = base.findIndex(item => item.title === 'About');
+      const docsIdx = base.findIndex(item => item.title === 'About Stratus');
       const serialItem = { title: 'Serial Monitor', url: '/serial-monitor' };
       if (docsIdx >= 0) {
         base.splice(docsIdx, 0, serialItem);

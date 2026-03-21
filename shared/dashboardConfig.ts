@@ -664,6 +664,28 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
         precision: 0
       },
       {
+        id: 'lightningDistance',
+        name: 'Lightning Distance',
+        category: 'water',
+        unit: 'km',
+        description: 'Distance to lightning strike',
+        dataField: 'lightningDistance',
+        chartType: 'line',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
+        id: 'lightningEnergy',
+        name: 'Lightning Energy',
+        category: 'water',
+        unit: '',
+        description: 'Relative lightning strike energy',
+        dataField: 'lightningEnergy',
+        chartType: 'bar',
+        defaultEnabled: true,
+        precision: 0
+      },
+      {
         id: 'chargerVoltage',
         name: 'Charger Voltage',
         category: 'water',

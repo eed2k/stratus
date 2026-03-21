@@ -31,7 +31,7 @@
                 <GroupBox Style="{StaticResource StratusGroupBox}" Header="Licence Agreement" Margin="0,0,0,8">
                     <StackPanel>
                         <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8">
-                            Stratus Weather Station Manager is proprietary software distributed under 
+                            Stratus Weather Server Manager is proprietary software distributed under 
                             a commercial End User Licence Agreement (EULA). By using this software you 
                             agree to the terms of the licence. The software is provided "as is" without 
                             warranty of any kind.

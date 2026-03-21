@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Stratus Weather Station - Server Setup Script
+# Stratus Weather Server - Server Setup Script
 # For Ubuntu 22.04 on Vultr VPS
 # =============================================================================
 
@@ -33,7 +33,7 @@ APP_DIR="/opt/stratus"
 
 echo ""
 echo "=============================================="
-echo "  Stratus Weather Station - Server Setup"
+echo "  Stratus Weather Server - Server Setup"
 echo "=============================================="
 echo ""
 
@@ -256,7 +256,7 @@ log_success "Docker Compose file created"
 log_info "Creating systemd service..."
 cat > /etc/systemd/system/stratus.service << EOF
 [Unit]
-Description=Stratus Weather Station
+Description=Stratus Weather Server
 Requires=docker.service
 After=docker.service
 

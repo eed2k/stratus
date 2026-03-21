@@ -130,6 +130,7 @@ const CHART_TIME_RANGE_OPTIONS = [
   { value: 48, label: '48 hours' },
   { value: 72, label: '3 days' },
   { value: 168, label: '7 days' },
+  { value: 720, label: '30 days' },
 ];
 
 interface DashboardConfigPanelProps {

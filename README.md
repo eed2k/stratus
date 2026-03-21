@@ -1,6 +1,6 @@
-Stratus Weather Station
+Stratus Weather Server
 
-Version 1.1.0
+Version 1.3.1
 Developer: Lukas Esterhuizen
 Contact: esterhuizen2k@proton.me
 
@@ -134,7 +134,7 @@ Shared Dashboards
 
 Hosting
 
-Stratus Weather Station is designed for cloud VPS deployment for 24/7 availability.
+Stratus Weather Server is designed for cloud VPS deployment for 24/7 availability.
 
 - Recommended: Vultr, Hetzner, Linode, DigitalOcean
 - 1-2 vCPU, 2-4 GB RAM sufficient

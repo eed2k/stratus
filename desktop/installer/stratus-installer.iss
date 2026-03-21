@@ -1,10 +1,10 @@
 ; ────────────────────────────────────────────────────────────────────
-; Stratus Weather Station Manager — Inno Setup Installer Script
+; Stratus Weather Server Manager — Inno Setup Installer Script
 ; Requires Inno Setup 6.x (https://jrsoftware.org/isinfo.php)
 ; Build: iscc stratus-installer.iss
 ; ────────────────────────────────────────────────────────────────────
 
-#define MyAppName "Stratus Weather Station Manager"
+#define MyAppName "Stratus Weather Server Manager"
 #define MyAppVersion "1.1.0"
 #define MyAppPublisher "Lukas Esterhuizen"
 #define MyAppURL "https://github.com/eed2k/stratus"
@@ -58,7 +58,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 ; Signing (uncomment and configure for production)
-; SignTool=signtool sign /f "$path_to_pfx" /p "$password" /t http://timestamp.digicert.com /d "Stratus Weather Station Manager" $f
+; SignTool=signtool sign /f "$path_to_pfx" /p "$password" /t http://timestamp.digicert.com /d "Stratus Weather Server Manager" $f
 
 ; Uninstaller
 UninstallDisplayName={#MyAppName}

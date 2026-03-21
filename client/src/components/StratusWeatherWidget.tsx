@@ -36,7 +36,7 @@ interface StratusWeatherWidgetProps {
 /**
  * Stratus Weather Widget - React Component
  * 
- * Embeds a Stratus weather station widget in your React application.
+ * Embeds a Stratus weather server widget in your React application.
  * 
  * Example:
  * ```tsx

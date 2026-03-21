@@ -158,7 +158,7 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
     <div className="flex flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Historical Data</h1>
+          <h1 className="text-2xl font-semibold">Historical Data Export</h1>
           <p className="text-sm text-muted-foreground">
             View and export historical weather records
           </p>

@@ -250,6 +250,8 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           return Math.round((netNeed / 5) * 60);
         })(),
         lightning: sumNonNull(dayData.map(d => d.lightning ?? null)),
+        lightningDistance: minNonNull(dayData.map(d => d.lightningDistance ?? null)),
+        lightningEnergy: maxNonNull(dayData.map(d => d.lightningEnergy ?? null)),
         levelSwitch: avgNonNull(dayData.map(d => d.levelSwitch ?? null)),
         levelSwitchStatus: avgNonNull(dayData.map(d => d.levelSwitchStatus ?? null)),
         visibility: avgNonNull(dayData.map(d => d.visibility ?? null)),
@@ -258,6 +260,13 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         cloudCover: avgNonNull(dayData.map(d => d.cloudCover ?? null)),
         temperature8m: avgNonNull(dayData.map(d => d.temperature8m ?? null)),
         deltaTemperature: avgNonNull(dayData.map(d => d.deltaTemperature ?? null)),
+        airDensity: (() => {
+          const t = avgNonNull(dayData.map(d => d.temperature ?? null));
+          const p = avgNonNull(dayData.map(d => d.pressure ?? null));
+          const rh = avgNonNull(dayData.map(d => d.humidity ?? null));
+          if (t == null || p == null || rh == null) return null;
+          return Math.round(calculateAirDensity(t, p, rh) * 1000) / 1000;
+        })(),
         _readings: dayData.length,
       };
     });
@@ -302,6 +311,8 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       temperatureSwitchOutlet: d.temperatureSwitchOutlet ?? null,
       chargerVoltage: d.chargerVoltage ?? null,
       lightning: d.lightning ?? null,
+      lightningDistance: d.lightningDistance ?? null,
+      lightningEnergy: d.lightningEnergy ?? null,
       levelSwitch: d.levelSwitch ?? null,
       levelSwitchStatus: d.levelSwitchStatus ?? null,
       mpptSolarVoltage: toNum(d.mpptSolarVoltage),
@@ -363,6 +374,9 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       cloudCover: d.cloudCover ?? null,
       temperature8m: d.temperature8m ?? null,
       deltaTemperature: d.deltaTemperature ?? null,
+      airDensity: (d.temperature != null && d.pressure != null && d.humidity != null)
+        ? Math.round(calculateAirDensity(d.temperature, d.pressure, d.humidity) * 1000) / 1000
+        : null,
     };
   });
 };
@@ -522,7 +536,7 @@ function SharedDashboardContent() {
   const { data: historicalData = [] } = useQuery<WeatherData[]>({
     queryKey: ['shared-weather', shareToken, 'history', chartTimeRange, dataRange?.latest],
     queryFn: async () => {
-      const limit = chartTimeRange > 72 ? 2000 : 1000;
+      const limit = chartTimeRange > 168 ? 3000 : chartTimeRange > 72 ? 2000 : 1000;
       // Use dataRange to pick the right time window upfront
       let endTime: Date;
       let startTime: Date;
@@ -625,7 +639,7 @@ function SharedDashboardContent() {
   const { data: historicalSectionData = [], isLoading: historicalSectionLoading } = useQuery<WeatherData[]>({
     queryKey: ['shared-weather', shareToken, 'historical-section', historicalChartRange, dataRange?.latest],
     queryFn: async () => {
-      const limit = historicalChartRange > 72 ? 2000 : 1000;
+      const limit = historicalChartRange > 168 ? 3000 : historicalChartRange > 72 ? 2000 : 1000;
       let endTime: Date;
       let startTime: Date;
       if (dataRange?.latest) {
@@ -727,6 +741,8 @@ function SharedDashboardContent() {
       temperatureSwitch: hasData('temperatureSwitch'),
       chargerVoltage: hasData('chargerVoltage'),
       lightning: hasData('lightning'),
+      lightningDistance: hasData('lightningDistance'),
+      lightningEnergy: hasData('lightningEnergy'),
       levelSwitch: hasData('levelSwitch'),
       temperatureSwitchOutlet: hasData('temperatureSwitchOutlet'),
       levelSwitchStatus: hasData('levelSwitchStatus'),
@@ -948,9 +964,19 @@ function SharedDashboardContent() {
     const now = referenceNow;
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
-    const last24h = dataSource.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
-    const last7d = dataSource.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    // Merge stats + historical data for widest coverage
+    const seen = new Set<string>();
+    const allData: WeatherData[] = [];
+    for (const d of [...(sortedStatsData.length > 0 ? sortedStatsData : []), ...sortedHistoricalData]) {
+      const ts = String(d.timestamp);
+      if (!seen.has(ts)) { seen.add(ts); allData.push(d); }
+    }
+    const last24h = allData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    const last7d = allData.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    const last14d = allData.filter(d => new Date(d.timestamp).getTime() > fourteenDaysAgo);
+    const last30d = allData.filter(d => new Date(d.timestamp).getTime() > thirtyDaysAgo);
     const calc = (data: WeatherData[]) => {
       const temps = data.map(d => d.temperature).filter((t): t is number => t != null && !isNaN(t));
       if (temps.length === 0) return { min: null, max: null, avg: null, range: null };
@@ -958,7 +984,14 @@ function SharedDashboardContent() {
       const max = Math.max(...temps);
       return { min: Math.round(min * 10) / 10, max: Math.round(max * 10) / 10, avg: Math.round((temps.reduce((s, t) => s + t, 0) / temps.length) * 10) / 10, range: Math.round((max - min) * 10) / 10 };
     };
-    return { '24h': calc(last24h), '7d': calc(last7d) };
+    return {
+      '24h': calc(last24h),
+      '7d': calc(last7d),
+      '14d': calc(last14d),
+      '30d': calc(last30d),
+      has14d: last14d.some(d => d.temperature != null && new Date(d.timestamp).getTime() < sevenDaysAgo),
+      has30d: last30d.some(d => d.temperature != null && new Date(d.timestamp).getTime() < fourteenDaysAgo),
+    };
   }, [sortedStatsData, sortedHistoricalData, referenceNow]);
 
   // Solar stats
@@ -1278,6 +1311,7 @@ function SharedDashboardContent() {
             { label: '24h', hours: 24 },
             { label: '48h', hours: 48 },
             { label: '7d', hours: 168 },
+            { label: '30d', hours: 720 },
           ].map(({ label, hours }) => (
             <Button
               key={hours}
@@ -1356,8 +1390,6 @@ function SharedDashboardContent() {
               unit="°C"
               trend={trends.temperature !== null ? { value: parseFloat(safeFixed(trends.temperature, 1, "0")), label: "vs avg" } : undefined}
               subMetrics={effectiveDewPoint != null ? [{ label: "Dew Point", value: `${formatValue(effectiveDewPoint, 1)} °C` }] : undefined}
-              sparklineData={chartData.slice(-12).map(d => d.temperature).filter((v): v is number => v != null)}
-              chartColor="#ef4444"
             />
             )}
             {availableFields.humidity && (
@@ -1366,8 +1398,6 @@ function SharedDashboardContent() {
               value={formatValue(currentData.humidity || 0, 1)}
               unit="%"
               trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
-              sparklineData={chartData.slice(-12).map(d => d.humidity).filter((v): v is number => v != null)}
-              chartColor="#3b82f6"
             />
             )}
             {availableFields.windDirection && (
@@ -1385,7 +1415,6 @@ function SharedDashboardContent() {
                 const dominant = bins.indexOf(Math.max(...bins)) * 22.5;
                 return [{ label: "Dominant 24h", value: `${getWindDirectionLabel(dominant)} (${Math.round(dominant)}°)` }];
               })()}
-              chartColor="#22c55e"
             />
             )}
             {availableFields.pressure && (
@@ -1394,8 +1423,6 @@ function SharedDashboardContent() {
               value={formatValue(currentData.pressure || 0, 1)}
               unit="hPa"
               trend={trends.pressure !== null ? { value: parseFloat(safeFixed(trends.pressure, 1, "0")), label: "vs avg" } : undefined}
-              sparklineData={chartData.slice(-12).map(d => d.pressure).filter((v): v is number => v != null)}
-              chartColor="#3b82f6"
             />
             )}
             {availableFields.windSpeed && (
@@ -1404,8 +1431,6 @@ function SharedDashboardContent() {
               value={formatValue(currentData.windSpeed || 0, 1)}
               unit={windUnitLabel}
               subMetrics={[{ label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} ${windUnitLabel}` }]}
-              sparklineData={chartData.slice(-12).map(d => d.windSpeed).filter((v): v is number => v != null)}
-              chartColor="#22c55e"
             />
             )}
             {availableFields.rainfall && (
@@ -1413,8 +1438,6 @@ function SharedDashboardContent() {
               title="Rainfall (24h)"
               value={formatValue(effectiveRainfall, 2)}
               unit="mm"
-              sparklineData={chartData.slice(-12).map(d => d.rain)}
-              chartColor="#3b82f6"
             />
             )}
           </div>
@@ -1486,7 +1509,6 @@ function SharedDashboardContent() {
               minVoltage={10.0}
               maxVoltage={14.6}
               isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.6 && ((currentData.solarRadiation ?? 0) > 0 || (currentData.mpptSolarPower != null ? Number(currentData.mpptSolarPower) > 0 : false)) : false}
-              sparklineData={batteryChartData.slice(-24).map(d => d.batteryVoltage)}
             />
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Battery Voltage History" data={batteryChartData}
@@ -1568,47 +1590,124 @@ function SharedDashboardContent() {
         )}
 
         {/* Water & Sensors */}
-        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet || availableFields.temperature8m || availableFields.deltaTemperature) && (
+        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet || availableFields.temperature8m || availableFields.deltaTemperature) && (
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
+          <h2 className="text-base font-normal text-foreground">Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {availableFields.waterLevel && (
-            <MetricCard title="Water Level" value={formatValue(currentData.waterLevel || 0, 1)} unit="mm"
-              sparklineData={chartData.slice(-24).map(d => d.waterLevel).filter((v): v is number => v != null)} chartColor="#3b82f6" />
+            <MetricCard title="Water Level" value={formatValue(currentData.waterLevel || 0, 1)} unit="mm" />
             )}
             {availableFields.temperatureSwitch && (
-            <MetricCard title="Temp Switch" value={formatValue(currentData.temperatureSwitch || 0, 1)} unit="mV"
-              sparklineData={chartData.slice(-24).map(d => d.temperatureSwitch).filter((v): v is number => v != null)} chartColor="#ef4444" />
+            <MetricCard title="Temp Switch" value={formatValue(currentData.temperatureSwitch || 0, 1)} unit="mV" />
             )}
             {availableFields.temperatureSwitchOutlet && (
-            <MetricCard title="Temp Switch Outlet" value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)} unit="mV"
-              sparklineData={chartData.slice(-24).map(d => d.temperatureSwitchOutlet).filter((v): v is number => v != null)} chartColor="#ef4444" />
+            <MetricCard title="Temp Switch Outlet" value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)} unit="mV" />
             )}
             {availableFields.levelSwitch && (
-            <MetricCard title="Level Switch" value={formatValue(currentData.levelSwitch || 0, 1)} unit=""
-              sparklineData={chartData.slice(-24).map(d => d.levelSwitch).filter((v): v is number => v != null)} chartColor="#06b6d4" />
+            <MetricCard title="Level Switch" value={formatValue(currentData.levelSwitch || 0, 1)} unit="" />
             )}
             {availableFields.levelSwitchStatus && (
-            <MetricCard title="Level Switch Status" value={(currentData.levelSwitchStatus ?? 0) > 0 ? "On" : "Off"} unit=""
-              chartColor={(currentData.levelSwitchStatus ?? 0) > 0 ? "#22c55e" : "#6b7280"} />
+            <MetricCard title="Level Switch Status" value={(currentData.levelSwitchStatus ?? 0) > 0 ? "On" : "Off"} unit="" />
             )}
             {availableFields.lightning && (
-            <MetricCard title="Lightning Strikes" value={formatValue(currentData.lightning || 0, 0)} unit="strikes/10min"
-              sparklineData={chartData.slice(-144).map(d => d.lightning).filter((v): v is number => v != null)} chartColor="#f59e0b" />
+            <MetricCard title="Lightning Strikes" value={formatValue(currentData.lightning || 0, 0)} unit="strikes" />
+            )}
+            {availableFields.lightningDistance && (
+            <MetricCard title="Strike Distance" value={formatValue(currentData.lightningDistance != null && currentData.lightningDistance > 0 ? currentData.lightningDistance : 0, 0)} unit="km" />
+            )}
+            {availableFields.lightningEnergy && (
+            <MetricCard title="Strike Energy" value={formatValue(currentData.lightningEnergy || 0, 0)} unit="" />
             )}
             {availableFields.chargerVoltage && (
-            <MetricCard title="Charger Voltage" value={formatValue(currentData.chargerVoltage || 0, 2)} unit="V"
-              sparklineData={chartData.slice(-24).map(d => d.chargerVoltage).filter((v): v is number => v != null)} chartColor="#22c55e" />
+            <MetricCard title="Charger Voltage" value={formatValue(currentData.chargerVoltage || 0, 2)} unit="V" />
             )}
             {availableFields.temperature8m && (
-            <MetricCard title="Temperature (8m)" value={formatValue(currentData.temperature8m || 0, 1)} unit="°C"
-              sparklineData={chartData.slice(-24).map(d => d.temperature8m).filter((v): v is number => v != null)} chartColor="#ef4444" />
+            <MetricCard title="Temperature (8m)" value={formatValue(currentData.temperature8m || 0, 1)} unit="°C" />
             )}
             {availableFields.deltaTemperature && (
-            <MetricCard title="Delta Temperature" value={formatValue(currentData.deltaTemperature || 0, 2)} unit="°C"
-              sparklineData={chartData.slice(-24).map(d => d.deltaTemperature).filter((v): v is number => v != null)} chartColor="#8b5cf6" />
+            <MetricCard title="Delta Temperature" value={formatValue(currentData.deltaTemperature || 0, 2)} unit="°C" />
             )}
           </div>
+          {/* Temperature (8m), Delta Temperature, Lightning Charts */}
+          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy) && (
+          <Suspense fallback={<ChartFallback />}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {availableFields.temperature8m && (
+            <DataBlockChart
+              title="Temperature (8m) History"
+              data={chartData}
+              series={[
+                { dataKey: "temperature8m", name: "Temperature (8m)", color: "#ef4444", unit: "°C" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Temperature (°C)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.temperature8m || 0}
+            />
+            )}
+            {availableFields.deltaTemperature && (
+            <DataBlockChart
+              title="Delta Temperature History"
+              data={chartData}
+              series={[
+                { dataKey: "deltaTemperature", name: "Delta Temperature", color: "#f97316", unit: "°C" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Delta T (°C)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.deltaTemperature || 0}
+            />
+            )}
+            {availableFields.lightning && (
+            <DataBlockChart
+              title="Lightning Strikes"
+              data={chartData}
+              series={[
+                { dataKey: "lightning", name: "Lightning Strikes", color: "#f59e0b", unit: "strikes" },
+              ]}
+              chartType="bar"
+              xAxisLabel="Time"
+              yAxisLabel="Strikes"
+              showAverage={false}
+              showMinMax={true}
+            />
+            )}
+            {availableFields.lightningDistance && (
+            <DataBlockChart
+              title="Lightning Strike Distance"
+              data={chartData}
+              series={[
+                { dataKey: "lightningDistance", name: "Strike Distance", color: "#ef4444", unit: "km" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Distance (km)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.lightningDistance != null && currentData.lightningDistance > 0 ? currentData.lightningDistance : 0}
+            />
+            )}
+            {availableFields.lightningEnergy && (
+            <DataBlockChart
+              title="Lightning Strike Energy"
+              data={chartData}
+              series={[
+                { dataKey: "lightningEnergy", name: "Strike Energy", color: "#f97316", unit: "" },
+              ]}
+              chartType="bar"
+              xAxisLabel="Time"
+              yAxisLabel="Energy (relative)"
+              showAverage={false}
+              showMinMax={true}
+            />
+            )}
+          </div>
+          </Suspense>
+          )}
         </section>
         )}
 
@@ -1642,6 +1741,22 @@ function SharedDashboardContent() {
           </div>
           <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Air Density History Chart */}
+            {(availableFields.temperature && availableFields.pressure) && (
+            <DataBlockChart
+              title="Air Density History"
+              data={chartData}
+              series={[
+                { dataKey: "airDensity", name: "Air Density", color: "#3b82f6", unit: "kg/m³" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Density (kg/m³)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.airDensity || calculatedAirDensity}
+            />
+            )}
             {availableFields.solarRadiation && (
             <DataBlockChart title="Solar Radiation" data={chartData}
               series={[{ dataKey: "solar", name: "Solar Radiation", color: "#ef4444", unit: "W/m²" }]}
@@ -1657,11 +1772,14 @@ function SharedDashboardContent() {
             />
             )}
             {availableFields.solarRadiation && availableFields.rainfall && (
+            <div>
             <DataBlockChart title="Irrigation Time (Estimated)" data={chartData}
-              series={[{ dataKey: "irrigationTime", name: "Irrigation Time", color: "#0ea5e9", unit: "min" }]}
+              series={[{ dataKey: "irrigationTime", name: "Irrigation Time", color: "#3b82f6", unit: "min" }]}
               chartType="bar" xAxisLabel="Time" yAxisLabel="Minutes"
               showAverage={true} showMinMax={true}
             />
+            <p className="text-xs text-muted-foreground mt-1 px-2">Formula: (ETo − rainfall) × crop factor × valve flow factor</p>
+            </div>
             )}
             {availableFields.windSpeed && (
             <DataBlockChart title="Wind Speed vs Wind Gust (24h)" data={windChartData24h}
@@ -1811,20 +1929,18 @@ function SharedDashboardContent() {
           <h2 className="text-base font-normal text-foreground">Soil & Environment</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {availableFields.soilTemperature && (
-            <MetricCard title="Soil Temperature" value={formatValue(currentData.soilTemperature || 0, 1)} unit="°C" chartColor="#ef4444" />
+            <MetricCard title="Soil Temperature" value={formatValue(currentData.soilTemperature || 0, 1)} unit="°C" />
             )}
             {availableFields.soilMoisture && (
             <MetricCard title="Soil Moisture" value={formatValue(currentData.soilMoisture || 0, 1)} unit="%"
-              subMetrics={[{ label: "Status", value: (currentData.soilMoisture || 0) < 20 ? "Dry" : (currentData.soilMoisture || 0) < 40 ? "Optimal" : "Wet" }]}
-              chartColor="#22c55e" />
+              subMetrics={[{ label: "Status", value: (currentData.soilMoisture || 0) < 20 ? "Dry" : (currentData.soilMoisture || 0) < 40 ? "Optimal" : "Wet" }]} />
             )}
             {availableFields.pm25 && (
             <MetricCard title="PM2.5" value={formatValue(currentData.pm25 || 0, 1)} unit="µg/m³"
-              subMetrics={[{ label: "AQI", value: (currentData.pm25 || 0) < 12 ? "Good" : (currentData.pm25 || 0) < 35 ? "Moderate" : "Unhealthy" }]}
-              chartColor="#3b82f6" />
+              subMetrics={[{ label: "AQI", value: (currentData.pm25 || 0) < 12 ? "Good" : (currentData.pm25 || 0) < 35 ? "Moderate" : "Unhealthy" }]} />
             )}
             {availableFields.pm10 && (
-            <MetricCard title="PM10" value={formatValue(currentData.pm10 || 0, 1)} unit="µg/m³" chartColor="#22c55e" />
+            <MetricCard title="PM10" value={formatValue(currentData.pm10 || 0, 1)} unit="µg/m³" />
             )}
           </div>
           {(availableFields.soilTemperature || availableFields.soilMoisture) && (
@@ -2097,6 +2213,7 @@ function SharedDashboardContent() {
                   { label: "24h", hours: 24 },
                   { label: "48h", hours: 48 },
                   { label: "7d", hours: 168 },
+                  { label: "30d", hours: 720 },
                 ].map(({ label, hours }) => (
                   <Button
                     key={hours}
@@ -2216,6 +2333,24 @@ function SharedDashboardContent() {
                   { label: "Avg", value: temperatureStats['7d'].avg ?? '--', unit: "°C" },
                   { label: "Range", value: temperatureStats['7d'].range ?? '--', unit: "°C" },
                 ]},
+                ...(temperatureStats.has14d ? [{
+                  period: "14d",
+                  stats: [
+                    { label: "Min", value: temperatureStats['14d'].min ?? '--', unit: "°C" },
+                    { label: "Max", value: temperatureStats['14d'].max ?? '--', unit: "°C" },
+                    { label: "Avg", value: temperatureStats['14d'].avg ?? '--', unit: "°C" },
+                    { label: "Range", value: temperatureStats['14d'].range ?? '--', unit: "°C" },
+                  ],
+                }] : []),
+                ...(temperatureStats.has30d ? [{
+                  period: "30d",
+                  stats: [
+                    { label: "Min", value: temperatureStats['30d'].min ?? '--', unit: "°C" },
+                    { label: "Max", value: temperatureStats['30d'].max ?? '--', unit: "°C" },
+                    { label: "Avg", value: temperatureStats['30d'].avg ?? '--', unit: "°C" },
+                    { label: "Range", value: temperatureStats['30d'].range ?? '--', unit: "°C" },
+                  ],
+                }] : []),
               ]}
             />
           </div>

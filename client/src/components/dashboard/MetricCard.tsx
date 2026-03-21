@@ -2,7 +2,7 @@
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useMemo, memo } from "react";
+import { memo } from "react";
 
 interface MetricCardProps {
   title: string;
@@ -19,7 +19,7 @@ interface MetricCardProps {
   sparklineData?: number[];
   isFaulty?: boolean;
   chartColor?: string;
-  showChart?: boolean; // Control whether to show the mini chart
+  showChart?: boolean;
 }
 
 export const MetricCard = memo(function MetricCard({
@@ -28,29 +28,8 @@ export const MetricCard = memo(function MetricCard({
   unit,
   trend,
   subMetrics,
-  sparklineData,
   isFaulty = false,
-  chartColor = "#3b82f6",
-  showChart = true, // Default to showing chart for backward compatibility
 }: MetricCardProps) {
-  // Only use sparkline data if provided - no fake data generation
-  const chartData = useMemo(() => {
-    if (!showChart) return [];
-    // Only use real data that was passed in
-    if (sparklineData && sparklineData.length > 0) {
-      // Filter out any zero or null values for cleaner display
-      const validData = sparklineData.filter(v => v !== null && v !== undefined);
-      if (validData.length === 0) return [];
-      // Cap at 24 data points max to prevent bars becoming too thin on longer ranges
-      if (validData.length > 24) {
-        const step = validData.length / 24;
-        return Array.from({ length: 24 }, (_, i) => validData[Math.min(Math.floor(i * step), validData.length - 1)]);
-      }
-      return validData;
-    }
-    return [];
-  }, [sparklineData, showChart]);
-
   if (isFaulty) {
     return (
       <Card 
@@ -103,24 +82,6 @@ export const MetricCard = memo(function MetricCard({
           </div>
         )}
 
-        {/* Mini chart – always at bottom, fixed height */}
-        {showChart && chartData.length > 0 && (
-          <div className="mt-auto pt-3 h-12 flex items-end gap-0.5">
-            {chartData.map((val, i) => {
-              const max = Math.max(...chartData);
-              const min = Math.min(...chartData);
-              const range = max - min || 1;
-              const height = ((val - min) / range) * 100;
-              return (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t-sm"
-                  style={{ height: `${Math.max(height, 5)}%`, backgroundColor: chartColor, maxWidth: 12 }}
-                />
-              );
-            })}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

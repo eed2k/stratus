@@ -233,6 +233,8 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         temperatureSwitchOutlet: avgNonNull(dayData.map(d => d.temperatureSwitchOutlet ?? null)),
         levelSwitchStatus: avgNonNull(dayData.map(d => d.levelSwitchStatus ?? null)),
         lightning: sumNonNull(dayData.map(d => d.lightning ?? null)),
+        lightningDistance: minNonNull(dayData.map(d => d.lightningDistance ?? null)),
+        lightningEnergy: maxNonNull(dayData.map(d => d.lightningEnergy ?? null)),
         chargerVoltage: avgNonNull(dayData.map(d => d.chargerVoltage ?? null)),
         windDirStdDev: avgNonNull(dayData.map(d => d.windDirStdDev ?? null)),
         sdi12WindVector: avgNonNull(dayData.map(d => d.sdi12WindVector ?? null)),
@@ -306,6 +308,13 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         cloudCover: avgNonNull(dayData.map(d => d.cloudCover ?? null)),
         temperature8m: avgNonNull(dayData.map(d => d.temperature8m ?? null)),
         deltaTemperature: avgNonNull(dayData.map(d => d.deltaTemperature ?? null)),
+        airDensity: (() => {
+          const t = avgNonNull(dayData.map(d => d.temperature ?? null));
+          const p = avgNonNull(dayData.map(d => d.pressure ?? null));
+          const rh = avgNonNull(dayData.map(d => d.humidity ?? null));
+          if (t == null || p == null || rh == null) return null;
+          return Math.round(calculateAirDensity(t, p, rh) * 1000) / 1000;
+        })(),
         _readings: dayData.length,
       };
     });
@@ -361,6 +370,8 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       temperatureSwitchOutlet: d.temperatureSwitchOutlet ?? null,
       levelSwitchStatus: d.levelSwitchStatus ?? null,
       lightning: d.lightning ?? null,
+      lightningDistance: d.lightningDistance ?? null,
+      lightningEnergy: d.lightningEnergy ?? null,
       chargerVoltage: d.chargerVoltage ?? null,
       windDirStdDev: d.windDirStdDev ?? null,
       sdi12WindVector: d.sdi12WindVector ?? null,
@@ -435,6 +446,9 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       cloudCover: d.cloudCover ?? null,
       temperature8m: d.temperature8m ?? null,
       deltaTemperature: d.deltaTemperature ?? null,
+      airDensity: (d.temperature != null && d.pressure != null && d.humidity != null)
+        ? Math.round(calculateAirDensity(d.temperature, d.pressure, d.humidity) * 1000) / 1000
+        : null,
     };
   });
 };
@@ -550,7 +564,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       const stationSaved = localStorage.getItem(`dashboardConfig_${stationId}`);
       if (stationSaved) {
         const parsed = JSON.parse(stationSaved);
-        if (parsed.chartTimeRange > 168) parsed.chartTimeRange = 168;
+        if (parsed.chartTimeRange > 720) parsed.chartTimeRange = 720;
         return parsed;
       }
     }
@@ -582,7 +596,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const stationSaved = localStorage.getItem(`dashboardConfig_${activeStationId}`);
     if (stationSaved) {
       const parsed = JSON.parse(stationSaved);
-      if (parsed.chartTimeRange > 168) parsed.chartTimeRange = 168;
+      if (parsed.chartTimeRange > 720) parsed.chartTimeRange = 720;
       setDashboardConfig(parsed);
     } else {
       // No config saved for this station. use clean defaults (not another station's config)
@@ -615,7 +629,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange, dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
-      const limit = dashboardConfig.chartTimeRange > 72 ? 2000 : 1000;
+      const limit = dashboardConfig.chartTimeRange > 168 ? 3000 : dashboardConfig.chartTimeRange > 72 ? 2000 : 1000;
       // Use dataRange to pick the right time window upfront (avoids sequential fallback calls)
       let endTime: Date;
       let startTime: Date;
@@ -691,7 +705,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     queryKey: ["/api/stations", activeStationId, "data", "historical-section", historicalChartRange, dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
-      const limit = historicalChartRange > 72 ? 2000 : 1000;
+      const limit = historicalChartRange > 168 ? 3000 : historicalChartRange > 72 ? 2000 : 1000;
       // Use dataRange to pick the right time window upfront
       let endTime: Date;
       let startTime: Date;
@@ -825,6 +839,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       temperatureSwitchOutlet: hasData('temperatureSwitchOutlet'),
       levelSwitchStatus: hasData('levelSwitchStatus'),
       lightning: hasData('lightning'),
+      lightningDistance: hasData('lightningDistance'),
+      lightningEnergy: hasData('lightningEnergy'),
       chargerVoltage: hasData('chargerVoltage'),
       windDirStdDev: hasData('windDirStdDev'),
       sdi12WindVector: hasData('sdi12WindVector'),
@@ -947,16 +963,25 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     };
   }, [sortedHistoricalData, sortedStatsData, windRoseData, windScatterData, referenceNow]);
 
-  // Calculate temperature statistics for 24h and 7d periods (uses 7-day stats data)
+  // Calculate temperature statistics for 24h, 7d, 14d and 30d periods
   const temperatureStats = useMemo(() => {
     const now = referenceNow;
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-    // Use sortedStatsData (7-day dataset) so 7d stats are accurate
-    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
-    const last24h = dataSource.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
-    const last7d = dataSource.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    // Merge stats + historical data for widest coverage, deduplicate by timestamp
+    const seen = new Set<string>();
+    const allData: WeatherData[] = [];
+    for (const d of [...sortedStatsData, ...sortedHistoricalData]) {
+      const ts = String(d.timestamp);
+      if (!seen.has(ts)) { seen.add(ts); allData.push(d); }
+    }
+    const last24h = allData.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
+    const last7d = allData.filter(d => new Date(d.timestamp).getTime() > sevenDaysAgo);
+    const last14d = allData.filter(d => new Date(d.timestamp).getTime() > fourteenDaysAgo);
+    const last30d = allData.filter(d => new Date(d.timestamp).getTime() > thirtyDaysAgo);
 
     const calculateStats = (data: WeatherData[]) => {
       const temps = data
@@ -983,6 +1008,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     return {
       '24h': calculateStats(last24h),
       '7d': calculateStats(last7d),
+      '14d': calculateStats(last14d),
+      '30d': calculateStats(last30d),
+      has14d: last14d.some(d => d.temperature != null && new Date(d.timestamp).getTime() < sevenDaysAgo),
+      has30d: last30d.some(d => d.temperature != null && new Date(d.timestamp).getTime() < fourteenDaysAgo),
     };
   }, [sortedStatsData, sortedHistoricalData, referenceNow]);
 
@@ -1157,6 +1186,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         temperatureSwitchOutlet: null,
         levelSwitchStatus: null,
         lightning: null,
+        lightningDistance: null,
+        lightningEnergy: null,
         chargerVoltage: null,
         windDirStdDev: null,
         sdi12WindVector: null,
@@ -1454,8 +1485,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     return { hasData: true, didCharge, maxVoltage: maxV, minVoltage: minV };
   }, [sortedHistoricalData]);
 
-  const sparkline = chartData.slice(-12).map(d => d.temperature).filter((v): v is number => v != null);
-  
   // Calculate max wind speed from actual observations, not from wind rose bin counts
   const maxWindSpeed = useMemo(() => {
     const speeds = historicalData
@@ -1663,8 +1692,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               unit="°C"
               trend={trends.temperature !== null ? { value: parseFloat(safeFixed(trends.temperature, 1, "0")), label: "vs avg" } : undefined}
               subMetrics={effectiveDewPoint != null ? [{ label: "Dew Point", value: `${formatValue(effectiveDewPoint, 1)} °C` }] : undefined}
-              sparklineData={sparkline}
-              chartColor="#ef4444"
             />
             )}
             {availableFields.humidity && (
@@ -1673,8 +1700,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               value={formatValue(currentData.humidity || 0, 1)}
               unit="%"
               trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
-              sparklineData={chartData.slice(-12).map(d => d.humidity).filter((v): v is number => v != null)}
-              chartColor="#3b82f6"
             />
             )}
             {availableFields.windDirection && currentData.windDirection != null && (
@@ -1682,7 +1707,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Wind Direction"
                 value={getWindDirectionLabel(currentData.windDirection)}
                 unit={`${Math.round(currentData.windDirection)}°`}
-                chartColor="#22c55e"
               />
             )}
             {availableFields.pressure && (
@@ -1691,8 +1715,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               value={formatValue(currentData.pressure || 0, 1)}
               unit="hPa"
               trend={trends.pressure !== null ? { value: parseFloat(safeFixed(trends.pressure, 1, "0")), label: "vs avg" } : undefined}
-              sparklineData={chartData.slice(-12).map(d => d.pressure).filter((v): v is number => v != null)}
-              chartColor="#3b82f6"
             />
             )}
             {availableFields.windSpeed && (
@@ -1703,8 +1725,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               subMetrics={[
                 { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} ${windUnitLabel}` },
               ]}
-              sparklineData={chartData.slice(-12).map(d => d.windSpeed).filter((v): v is number => v != null)}
-              chartColor="#22c55e"
             />
             )}
             {availableFields.rainfall && (
@@ -1712,8 +1732,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Rainfall (24h)"
               value={formatValue(effectiveRainfall, 2)}
               unit="mm"
-              sparklineData={chartData.slice(-12).map(d => d.rain)}
-              chartColor="#3b82f6"
             />
             )}
           </div>
@@ -1840,7 +1858,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               minVoltage={10.0}
               maxVoltage={14.6}
               isCharging={currentData.batteryVoltage ? currentData.batteryVoltage > 13.6 && ((currentData.solarRadiation ?? 0) > 0 || (currentData.mpptSolarPower != null ? Number(currentData.mpptSolarPower) > 0 : false)) : false}
-              sparklineData={batteryChartData.slice(-24).map(d => d.batteryVoltage)}
             />
             <DataBlockChart
               title="Battery Voltage History"
@@ -1861,7 +1878,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Panel Temperature"
               value={formatValue(currentData.panelTemperature || 0, 1)}
               unit="°C"
-              chartColor="#ef4444"
             />
             )}
           </div>
@@ -2072,17 +2088,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Water & Sensors Section - Only show if any water/sensor data exists AND section enabled */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.chargerVoltage || availableFields.temperature8m || availableFields.deltaTemperature) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.chargerVoltage || availableFields.temperature8m || availableFields.deltaTemperature) && (
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Water & Sensors</h2>
+          <h2 className="text-base font-normal text-foreground">Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {availableFields.waterLevel && (
               <MetricCard
                 title="Water Level"
                 value={formatValue(currentData.waterLevel || 0, 1)}
                 unit="mm"
-                sparklineData={chartData.slice(-24).map(d => d.waterLevel).filter((v): v is number => v != null)}
-                chartColor="#3b82f6"
               />
             )}
             {availableFields.temperatureSwitch && (
@@ -2090,8 +2104,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Temp Switch"
                 value={formatValue(currentData.temperatureSwitch || 0, 1)}
                 unit="mV"
-                sparklineData={chartData.slice(-24).map(d => d.temperatureSwitch).filter((v): v is number => v != null)}
-                chartColor="#ef4444"
               />
             )}
             {availableFields.levelSwitch && (
@@ -2099,7 +2111,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Level Switch"
                 value={(currentData.levelSwitch ?? 0) > 100 ? "On" : "Off"}
                 unit=""
-                chartColor={(currentData.levelSwitch ?? 0) > 100 ? "#22c55e" : "#6b7280"}
               />
             )}
             {availableFields.temperatureSwitchOutlet && (
@@ -2107,8 +2118,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Temp Switch Outlet"
                 value={formatValue(currentData.temperatureSwitchOutlet || 0, 1)}
                 unit="mV"
-                sparklineData={chartData.slice(-24).map(d => d.temperatureSwitchOutlet).filter((v): v is number => v != null)}
-                chartColor="#ef4444"
               />
             )}
             {availableFields.levelSwitchStatus && (
@@ -2116,16 +2125,27 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Level Switch Status"
                 value={(currentData.levelSwitchStatus ?? 0) > 0 ? "On" : "Off"}
                 unit=""
-                chartColor={(currentData.levelSwitchStatus ?? 0) > 0 ? "#22c55e" : "#6b7280"}
               />
             )}
             {availableFields.lightning && (
               <MetricCard
                 title="Lightning Strikes"
                 value={formatValue(currentData.lightning || 0, 0)}
-                unit="strikes/10min"
-                sparklineData={chartData.slice(-144).map(d => d.lightning).filter((v): v is number => v != null)}
-                chartColor="#f59e0b"
+                unit="strikes"
+              />
+            )}
+            {availableFields.lightningDistance && (
+              <MetricCard
+                title="Strike Distance"
+                value={formatValue(currentData.lightningDistance != null && currentData.lightningDistance > 0 ? currentData.lightningDistance : 0, 0)}
+                unit="km"
+              />
+            )}
+            {availableFields.lightningEnergy && (
+              <MetricCard
+                title="Strike Energy"
+                value={formatValue(currentData.lightningEnergy || 0, 0)}
+                unit=""
               />
             )}
             {availableFields.chargerVoltage && (
@@ -2133,8 +2153,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Charger Voltage"
                 value={formatValue(currentData.chargerVoltage || 0, 2)}
                 unit="V"
-                sparklineData={chartData.slice(-24).map(d => d.chargerVoltage).filter((v): v is number => v != null)}
-                chartColor="#22c55e"
               />
             )}
             {availableFields.temperature8m && (
@@ -2142,8 +2160,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Temperature (8m)"
                 value={formatValue(currentData.temperature8m || 0, 1)}
                 unit="°C"
-                sparklineData={chartData.slice(-24).map(d => d.temperature8m).filter((v): v is number => v != null)}
-                chartColor="#ef4444"
               />
             )}
             {availableFields.deltaTemperature && (
@@ -2151,8 +2167,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Delta Temperature"
                 value={formatValue(currentData.deltaTemperature || 0, 2)}
                 unit="°C"
-                sparklineData={chartData.slice(-24).map(d => d.deltaTemperature).filter((v): v is number => v != null)}
-                chartColor="#8b5cf6"
               />
             )}
           </div>
@@ -2186,6 +2200,84 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.temperatureSwitch || 0}
+            />
+            )}
+          </div>
+          )}
+          {/* Temperature (8m), Delta Temperature, Lightning Charts */}
+          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {availableFields.temperature8m && (
+            <DataBlockChart
+              title="Temperature (8m) History"
+              data={chartData}
+              series={[
+                { dataKey: "temperature8m", name: "Temperature (8m)", color: "#ef4444", unit: "°C" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Temperature (°C)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.temperature8m || 0}
+            />
+            )}
+            {availableFields.deltaTemperature && (
+            <DataBlockChart
+              title="Delta Temperature History"
+              data={chartData}
+              series={[
+                { dataKey: "deltaTemperature", name: "Delta Temperature", color: "#f97316", unit: "°C" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Delta T (°C)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.deltaTemperature || 0}
+            />
+            )}
+            {availableFields.lightning && (
+            <DataBlockChart
+              title="Lightning Strikes"
+              data={chartData}
+              series={[
+                { dataKey: "lightning", name: "Lightning Strikes", color: "#f59e0b", unit: "strikes" },
+              ]}
+              chartType="bar"
+              xAxisLabel="Time"
+              yAxisLabel="Strikes"
+              showAverage={false}
+              showMinMax={true}
+            />
+            )}
+            {availableFields.lightningDistance && (
+            <DataBlockChart
+              title="Lightning Strike Distance"
+              data={chartData}
+              series={[
+                { dataKey: "lightningDistance", name: "Strike Distance", color: "#ef4444", unit: "km" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Distance (km)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.lightningDistance != null && currentData.lightningDistance > 0 ? currentData.lightningDistance : 0}
+            />
+            )}
+            {availableFields.lightningEnergy && (
+            <DataBlockChart
+              title="Lightning Strike Energy"
+              data={chartData}
+              series={[
+                { dataKey: "lightningEnergy", name: "Strike Energy", color: "#f97316", unit: "" },
+              ]}
+              chartType="bar"
+              xAxisLabel="Time"
+              yAxisLabel="Energy (relative)"
+              showAverage={false}
+              showMinMax={true}
             />
             )}
           </div>
@@ -2227,6 +2319,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           
           {/* Solar Position Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Air Density History Chart */}
+            {(availableFields.temperature && availableFields.pressure) && (
+            <DataBlockChart
+              title="Air Density History"
+              data={chartData}
+              series={[
+                { dataKey: "airDensity", name: "Air Density", color: "#3b82f6", unit: "kg/m³" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Density (kg/m³)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.airDensity || calculatedAirDensity}
+            />
+            )}
             {/* Solar Radiation Chart */}
             {availableFields.solarRadiation && (
             <DataBlockChart
@@ -2261,11 +2369,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {/* Irrigation Time Chart */}
             {availableFields.solarRadiation && availableFields.rainfall && (
+            <div>
             <DataBlockChart
               title="Irrigation Time (Estimated)"
               data={chartData}
               series={[
-                { dataKey: "irrigationTime", name: "Irrigation Time", color: "#0ea5e9", unit: "min" },
+                { dataKey: "irrigationTime", name: "Irrigation Time", color: "#3b82f6", unit: "min" },
               ]}
               chartType="bar"
               xAxisLabel="Time"
@@ -2273,6 +2382,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
             />
+            <p className="text-xs text-muted-foreground mt-1 px-2">Formula: (ETo − rainfall) × crop factor × valve flow factor</p>
+            </div>
             )}
             {/* Wind Speed vs Wind Gust (24h) - next to Irrigation Time */}
             {availableFields.windSpeed && (
@@ -2432,7 +2543,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Soil Temperature"
               value={formatValue(currentData.soilTemperature || 0, 1)}
               unit="°C"
-              chartColor="#ef4444"
             />
             )}
             {availableFields.soilMoisture && (
@@ -2443,7 +2553,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               subMetrics={[
                 { label: "Status", value: (currentData.soilMoisture || 0) < 20 ? "Dry" : (currentData.soilMoisture || 0) < 40 ? "Optimal" : "Wet" },
               ]}
-              chartColor="#22c55e"
             />
             )}
             {availableFields.pm25 && (
@@ -2454,7 +2563,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               subMetrics={[
                 { label: "AQI", value: (currentData.pm25 || 0) < 12 ? "Good" : (currentData.pm25 || 0) < 35 ? "Moderate" : "Unhealthy" },
               ]}
-              chartColor="#3b82f6"
             />
             )}
             {availableFields.pm10 && (
@@ -2462,7 +2570,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="PM10"
               value={formatValue(currentData.pm10 || 0, 1)}
               unit="µg/m³"
-              chartColor="#22c55e"
             />
             )}
           </div>
@@ -2870,6 +2977,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                   { label: "24h", hours: 24 },
                   { label: "48h", hours: 48 },
                   { label: "7d", hours: 168 },
+                  { label: "30d", hours: 720 },
                 ].map(({ label, hours }) => (
                   <Button
                     key={hours}
@@ -3019,6 +3127,24 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                     { label: "Range", value: temperatureStats['7d'].range ?? '--', unit: "°C" },
                   ],
                 },
+                ...(temperatureStats.has14d ? [{
+                  period: "14d",
+                  stats: [
+                    { label: "Min", value: temperatureStats['14d'].min ?? '--', unit: "°C" },
+                    { label: "Max", value: temperatureStats['14d'].max ?? '--', unit: "°C" },
+                    { label: "Avg", value: temperatureStats['14d'].avg ?? '--', unit: "°C" },
+                    { label: "Range", value: temperatureStats['14d'].range ?? '--', unit: "°C" },
+                  ],
+                }] : []),
+                ...(temperatureStats.has30d ? [{
+                  period: "30d",
+                  stats: [
+                    { label: "Min", value: temperatureStats['30d'].min ?? '--', unit: "°C" },
+                    { label: "Max", value: temperatureStats['30d'].max ?? '--', unit: "°C" },
+                    { label: "Avg", value: temperatureStats['30d'].avg ?? '--', unit: "°C" },
+                    { label: "Range", value: temperatureStats['30d'].range ?? '--', unit: "°C" },
+                  ],
+                }] : []),
               ]}
             />
           </div>

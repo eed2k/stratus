@@ -195,6 +195,7 @@ export const DataBlockChart = memo(function DataBlockChart({
       if (data.length > 200) return Math.ceil(data.length / 6); // 6 ticks max
       if (data.length > 100) return Math.ceil(data.length / 6);
       if (data.length > 50) return Math.ceil(data.length / 5);
+      if (data.length >= 25 && data.length <= 35) return 1; // 30-day daily: every 2nd day labeled
       if (data.length > 20) return Math.ceil(data.length / 8); // 3 ticks for 24 points
       if (data.length > 10) return 3; // Every 4th tick
       return 0; // Show all for very small datasets
@@ -202,12 +203,12 @@ export const DataBlockChart = memo(function DataBlockChart({
 
     const xAxisProps = {
       dataKey: "timestamp",
-      tick: { fontSize: 9, angle: data.length > 100 ? -45 : 0, textAnchor: (data.length > 100 ? 'end' : 'middle') as 'start' | 'middle' | 'end' },
+      tick: { fontSize: 9, angle: data.length > 20 ? -90 : 0, textAnchor: (data.length > 20 ? 'end' : 'middle') as 'start' | 'middle' | 'end', dy: data.length > 20 ? -4 : 0 },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
       interval: getTickInterval() as number,
       label: !compact && xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fontSize: 11, fill: 'hsl(var(--muted-foreground))' } : undefined,
-      height: data.length > 100 ? 60 : 30,
+      height: data.length > 20 ? 70 : 30,
     };
 
     const yAxisProps: Record<string, any> = {
@@ -269,6 +270,7 @@ export const DataBlockChart = memo(function DataBlockChart({
                 fill={`url(#gradient-${s.dataKey})`}
                 strokeWidth={2}
                 connectNulls={true}
+                isAnimationActive={false}
               />
             ))}
           </AreaChart>
@@ -289,6 +291,7 @@ export const DataBlockChart = memo(function DataBlockChart({
                 name={s.name}
                 fill={s.color}
                 radius={[4, 4, 0, 0]}
+                isAnimationActive={false}
               />
             ))}
           </BarChart>
@@ -320,6 +323,7 @@ export const DataBlockChart = memo(function DataBlockChart({
                 dot={false}
                 activeDot={{ r: 5, strokeWidth: 2 }}
                 connectNulls={true}
+                isAnimationActive={false}
               />
             ))}
           </LineChart>

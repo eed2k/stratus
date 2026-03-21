@@ -1,0 +1,22 @@
+[Unit]
+Description=Lightning Detection System (AS3935)
+Documentation=https://www.sciosense.com/as3935-franklin-lightning-sensor-ic/
+After=multi-user.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+ExecStart=/usr/bin/python3 /home/pi/lightning_detector.py
+Restart=always
+RestartSec=10
+WatchdogSec=120
+StandardOutput=journal
+StandardError=journal
+# Allow GPIO and SPI access
+SupplementaryGroups=spi gpio
+
+[Install]
+WantedBy=multi-user.target

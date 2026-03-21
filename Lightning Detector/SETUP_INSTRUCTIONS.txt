@@ -1,0 +1,917 @@
+================================================================================
+     LIGHTNING DETECTION SYSTEM - SETUP AND CONNECTION INSTRUCTIONS
+================================================================================
+
+Project:     Wonderkop Smelter Lightning Detector
+Client:      Wonderkop Smelter
+Developer:   LJ Esterhizen, METRON (PTY) LTD
+Hardware:    AS3935 / Thunder Click / Pi Zero 2W / Solar Power Manager (D)
+Date:        19 March 2026
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+1.  Component Checklist
+2.  Raspberry Pi Zero 2W Preparation
+3.  Hardware Assembly - Click Shield and Thunder Click
+4.  Waveshare Solar Power Manager (D) Setup
+5.  Battery Installation
+6.  Wiring Connections
+7.  Enclosure Assembly
+8.  Mounting Plate and U-Bolt Installation
+9.  Software Installation
+10. Configuration
+11. Stratus Weather Cloud Setup
+12. Antenna Calibration
+13. System Testing
+14. Field Installation
+15. Commissioning at Smelting Plant
+16. Troubleshooting
+
+================================================================================
+1. COMPONENT CHECKLIST
+================================================================================
+
+Before starting assembly, verify you have all components:
+
+  [ ] 1x Raspberry Pi Zero 2W
+  [ ] 1x MikroE Pi 2 Click Shield (MIKROE-1879)
+  [ ] 1x MikroE Thunder Click (MIKROE-1444)
+  [ ] 1x Waveshare Solar Power Manager (D) with battery holder
+  [ ] 3x 18650 Li-ion batteries (3000-3500 mAh, e.g., Samsung 30Q)
+  [ ] 1x 32 GB micro-SD card (industrial grade recommended)
+  [ ] 1x IP65/IP67 ABS enclosure (see enclosure recommendations)
+  [ ] 1x Aluminium mounting plate (3mm, 250x120mm)
+  [ ] 2x Stainless steel U-bolt sets (sized for mast diameter)
+  [ ] 2x PG9 or M16 IP68 cable glands
+  [ ] 1x 2-core shielded cable (for solar panel, ~2-5m)
+  [ ] 1x Micro-USB cable or USB power cable (short, for internal power)
+  [ ] Assorted M2.5 and M3 standoffs, screws, nuts
+  [ ] Silica gel desiccant packets
+  [ ] Heat-shrink tubing, cable ties
+  [ ] TVS diode (e.g., P6KE18CA) for solar input protection
+
+  TOOLS NEEDED:
+  [ ] Soldering iron (for optional direct power wiring)
+  [ ] Screwdriver set (Phillips #1, flat 3mm)
+  [ ] Drill with step drill bit (for cable gland holes)
+  [ ] Hex key set (M2.5, M3)
+  [ ] Wire strippers
+  [ ] Multimeter
+  [ ] Laptop with SD card writer
+  [ ] Ethernet to USB adapter (optional, for headless setup)
+
+================================================================================
+2. RASPBERRY PI ZERO 2W PREPARATION
+================================================================================
+
+2.1 Flash the SD Card
+----------------------
+a) Download Raspberry Pi Imager from: https://www.raspberrypi.com/software/
+b) Insert the 32 GB micro-SD card into your computer.
+c) Open Raspberry Pi Imager.
+d) Select OS: Raspberry Pi OS Lite (64-bit) - NO desktop.
+e) Select your SD card.
+f) Click the gear icon (Advanced Settings) BEFORE writing:
+   - Set hostname:        lightning-detector
+   - Enable SSH:          Yes (use password authentication)
+   - Set username:        pi
+   - Set password:        [choose a strong password]
+   - Configure Wi-Fi:     Yes
+     - SSID:              [your site Wi-Fi network name]
+     - Password:          [your site Wi-Fi password]
+     - Country:           ZA
+   - Set locale:          Africa/Johannesburg, keyboard: us
+g) Click WRITE and wait for completion.
+h) Eject the SD card safely.
+
+2.2 First Boot
+---------------
+a) Insert the SD card into the Pi Zero 2W.
+b) Connect power via micro-USB (use a 5V 2A supply for initial setup).
+c) Wait 2-3 minutes for the first boot to complete.
+d) Find the Pi on your network:
+   - From your laptop, try:  ping lightning-detector.local
+   - Or check your router's DHCP client list for the IP address.
+   - Or use:  nmap -sn 192.168.1.0/24  (adjust for your subnet)
+e) SSH into the Pi:
+     ssh pi@lightning-detector.local
+   Enter the password you set in step 2.1.
+
+2.3 Enable SPI Interface
+--------------------------
+a) On the Pi, run:
+     sudo raspi-config
+b) Navigate to: Interface Options -> SPI -> Enable
+c) Exit raspi-config.
+d) Reboot:
+     sudo reboot
+e) After reboot, verify SPI is enabled:
+     ls /dev/spidev*
+   You should see: /dev/spidev0.0 and /dev/spidev0.1
+
+2.4 Update the System
+-----------------------
+     sudo apt update
+     sudo apt upgrade -y
+
+================================================================================
+3. HARDWARE ASSEMBLY - CLICK SHIELD AND THUNDER CLICK
+================================================================================
+
+3.1 GPIO Header on Pi Zero 2W
+-------------------------------
+The Pi Zero 2W comes WITHOUT pin headers soldered. You need a 2x20 pin
+male header soldered onto the GPIO pads.
+
+  Option A: Buy a Pi Zero 2W WH (with headers pre-soldered).
+  Option B: Solder a 2x20 pin header yourself:
+    - Use a standard 2.54mm pitch 2x20 male header
+    - Solder from the TOP side of the Pi (pins pointing UP)
+    - Ensure all 40 pins are solidly soldered with no bridges
+
+3.2 Attach the Click Shield
+-----------------------------
+a) Take the MikroE Pi 2 Click Shield (MIKROE-1879).
+b) Align the Pi 2 Click Shield's 40-pin female header with the Pi's
+   GPIO pins. The shield sits ON TOP of the Pi.
+c) Press firmly and evenly until fully seated. All 40 pins must be
+   engaged.
+d) The shield should sit parallel to the Pi board with no tilting.
+
+   ORIENTATION: The mikroBUS sockets on the Click Shield should face
+   UPWARD (away from the Pi board). The Raspberry Pi logo/text should
+   be readable from below.
+
+3.3 Install the Thunder Click
+-------------------------------
+a) Take the MikroE Thunder Click board (MIKROE-1444).
+b) IMPORTANT: Check the PWR SEL jumper on the Thunder Click:
+   - It MUST be in the LEFT position (3.3V).
+   - If it is in the RIGHT position (5V), move it to the LEFT.
+   - Using 5V with the Pi could damage the GPIO pins.
+c) Locate mikroBUS Socket 1 on the Click Shield.
+   - Socket 1 is typically the one closest to the Pi's USB connector end.
+   - The socket has 2 rows of 8 pins (16 pins total).
+d) Align the Thunder Click's dual 8-pin headers with Socket 1.
+e) Press the Thunder Click firmly into Socket 1 until fully seated.
+
+   The complete stack from bottom to top should be:
+     [Pi Zero 2W] -> [Click Shield] -> [Thunder Click in Socket 1]
+
+3.4 Verify Connections
+-----------------------
+The Click Shield automatically routes these connections:
+
+  Signal      Thunder Click    Click Shield     Pi GPIO (BCM)    Physical Pin
+  ----------  ---------------  ---------------  ---------------  ------------
+  CS          Pin 3 (CS)       mikroBUS CS      GPIO 8 (CE0)     Pin 24
+  SCK         Pin 4 (SCK)      mikroBUS SCK     GPIO 11 (SCLK)   Pin 23
+  MISO        Pin 5 (SDO)      mikroBUS MISO    GPIO 9 (MISO)    Pin 21
+  MOSI        Pin 6 (SDI)      mikroBUS MOSI    GPIO 10 (MOSI)   Pin 19
+  IRQ         Pin 15 (INT)     mikroBUS INT     GPIO 25          Pin 22
+  3.3V        Pin 7 (3.3V)     mikroBUS 3.3V    3.3V             Pin 1
+  GND         Pin 8 (GND)      mikroBUS GND     GND              Pin 6
+
+  NO MANUAL WIRING IS NEEDED. The Click Shield handles all connections.
+
+================================================================================
+4. WAVESHARE SOLAR POWER MANAGER (D) SETUP
+================================================================================
+
+4.1 Board Overview
+-------------------
+The Solar Power Manager (D) board has these key connectors:
+
+  TOP SIDE:
+    - DC-002 jack: Solar panel input (6-24V DC)
+    - Screw terminal (2-pin): Alternative solar panel input
+    - Type-C connector: USB-C charging input / 5V output
+    - Screw terminal (2-pin): 5V/3A output
+
+  BOTTOM SIDE:
+    - Screw terminal (2-pin): Battery connection
+    - PH2.0 4P connector: Alternative battery connection
+
+  INDICATORS:
+    - Battery capacity LEDs (4 LEDs, show charge level)
+    - CHARGE LED: On when solar charging
+    - DONE LED: On when fully charged
+
+4.2 Solar Panel Connection
+----------------------------
+The existing Campbell Scientific station solar panel output will be
+tapped to provide charging power. The Waveshare SPM (D) accepts 6-24V.
+
+  a) Identify the solar panel voltage of the Campbell station:
+     - Typical Campbell panels: 10W/20W at 12V or 18V nominal
+     - The SPM (D) accepts 6-24V, so any standard panel will work
+
+  b) Run shielded 2-core cable from the Campbell station's solar panel:
+     - Use a T-connector or junction block at the panel's output
+     - Do NOT disconnect the panel from the Campbell station
+     - Tap in parallel so both systems charge simultaneously
+     - Use appropriate wire gauge (18-22 AWG for the short run)
+
+  c) Install a TVS diode (P6KE18CA or similar) across the solar input
+     wires at the enclosure entry point for surge protection.
+
+  d) Connect the solar cable to the SPM (D):
+     - Option 1: Screw terminal (recommended for field use)
+       Positive (+) to VIN+ terminal
+       Negative (-) to VIN- terminal
+     - Option 2: DC-002 barrel jack
+       Centre pin = positive, outer barrel = negative
+
+================================================================================
+5. BATTERY INSTALLATION
+================================================================================
+
+5.1 Battery Holder
+--------------------
+The Waveshare SPM (D) version with battery holder (Acce A variant)
+includes a 3x 18650 battery holder that connects via the PH2.0 4P
+connector or screw terminal.
+
+  a) Insert 3x 18650 batteries into the holder:
+     - Observe correct polarity (+ and - markings on holder)
+     - All 3 cells are wired in PARALLEL (3.7V, ~10500 mAh total)
+     - Use MATCHED cells (same brand, same age, same capacity)
+     - RECOMMENDED: Samsung 30Q, LG MJ1, or Panasonic NCR18650B
+
+  b) Connect the battery holder to the SPM (D):
+     - Via PH2.0 4P connector (plug-in) OR
+     - Via screw terminal (BATT+ and BATT-)
+     - Double-check polarity before connecting!
+
+  WARNING: NEVER reverse battery polarity. The board has reverse-
+  protection but it is always best practice to verify.
+
+  c) The battery capacity LEDs should light briefly when batteries are
+     first connected, showing current charge level.
+
+================================================================================
+6. WIRING CONNECTIONS
+================================================================================
+
+6.1 Power: SPM (D) to Raspberry Pi
+-------------------------------------
+The SPM (D) provides 5V/3A regulated output. Connect to the Pi:
+
+  METHOD 1 (Recommended): USB cable
+    - Use a short micro-USB cable from the SPM (D) Type-C output
+      to the Pi Zero 2W's micro-USB POWER port (the one marked PWR,
+      closest to the edge of the board).
+    - This is the simplest and safest method.
+
+  METHOD 2 (Alternative): Direct GPIO power
+    - Connect the SPM (D) 5V screw terminal output directly to the
+      Pi's GPIO header:
+        5V+  -> Pi Pin 2 or Pin 4 (5V)
+        GND  -> Pi Pin 6 (GND)
+    - WARNING: This bypasses the Pi's polarity protection. Double-check
+      polarity. Reversed connections WILL destroy the Pi.
+    - Use short, solid wires. Solder or use proper crimped connectors.
+
+6.2 Signal Connections
+------------------------
+  NO additional signal wiring is needed. The Click Shield handles all
+  SPI and interrupt connections between the Pi and Thunder Click.
+
+6.3 Wiring Summary Diagram
+-----------------------------
+
+  CAMPBELL SOLAR PANEL
+        |
+        | 2-core shielded cable (6-24V)
+        |
+  [Cable gland] --- [TVS diode] --- [SPM (D) solar screw terminal]
+                                        |
+                                   [SPM (D) Board]
+                                        |
+                                   [3x 18650 batteries]
+                                        |
+                                   5V regulated output
+                                        |
+                                   [Micro-USB cable]
+                                        |
+                                   [Pi Zero 2W PWR port]
+                                        |
+                                   [Click Shield on GPIO]
+                                        |
+                                   [Thunder Click in Socket 1]
+
+================================================================================
+7. ENCLOSURE ASSEMBLY
+================================================================================
+
+7.1 Prepare the Enclosure
+----------------------------
+Using your selected IP65/IP67 ABS enclosure:
+
+  a) Mark and drill 2 holes in the BOTTOM of the enclosure for cable
+     glands (PG9 or M16):
+     - Hole 1: Solar panel cable entry
+     - Hole 2: Spare (future use)
+     - Use a step drill or chassis punch for clean holes
+     - PG9 requires a 15.2mm hole
+     - M16 requires a 16mm hole
+     - Deburr the holes cleanly
+
+  b) Install the cable glands from outside, with rubber gaskets seated
+     properly. Tighten the locking nut from inside.
+
+7.2 Mount Internal Components
+-------------------------------
+Use M2.5 or M3 standoffs to mount components to the enclosure base:
+
+  LAYER 1 (Bottom):
+    - Waveshare Solar Power Manager (D)
+    - Mount using M3 standoffs (10mm height) through the board's
+      mounting holes
+    - Place the battery holder next to or below the SPM (D)
+    - Secure battery holder with double-sided tape or cable ties
+      to prevent movement
+
+  LAYER 2 (Middle/Top):
+    - Raspberry Pi Zero 2W + Click Shield + Thunder Click stack
+    - Mount using M2.5 standoffs (10-15mm height)
+    - Position so the Thunder Click (with antenna) is at the TOP
+      of the enclosure, as close to the lid/wall as practical
+    - The antenna coil on the Thunder Click should face the OUTSIDE
+      wall of the enclosure (not toward internal electronics)
+
+  WIRING:
+    - Route USB power cable neatly between SPM (D) and Pi
+    - Use small cable ties to secure wires
+    - Keep wires away from the Thunder Click antenna
+
+  IMPORTANT: Position the Thunder Click antenna (the small coil
+  component on the board) as far as possible from:
+    - The SPM (D) switching regulators
+    - Battery holder
+    - Any metal parts
+  This minimises self-generated interference.
+
+7.3 Add Desiccant
+-------------------
+  - Place 2-3 silica gel desiccant sachets inside the enclosure
+  - Position them away from the electronics (in a corner)
+  - These absorb residual moisture and condensation
+  - Replace annually or when indicator changes colour
+
+7.4 Seal the Enclosure
+-------------------------
+  a) Route the solar cable through the cable gland.
+  b) Tighten the cable gland compression nut to grip the cable firmly.
+  c) Ensure the enclosure lid gasket/seal is clean and seated properly.
+  d) Close and secure the lid with the provided screws or clips.
+  e) For extra sealing in harsh weather, apply a thin bead of silicone
+     sealant around the cable gland threads (exterior side only).
+
+================================================================================
+8. MOUNTING PLATE AND U-BOLT INSTALLATION
+================================================================================
+
+8.1 Prepare the Mounting Plate
+---------------------------------
+  a) Cut 3mm aluminium plate to 250mm x 120mm (or size to suit enclosure).
+  b) Mark and cut 4 slots for U-bolt legs:
+     - 2 slots at top, 2 slots at bottom
+     - Slot dimensions: 10mm wide x 25mm long
+     - Spacing between slot pairs: ~180mm vertically
+     - Horizontal spacing matches the U-bolt leg width
+  c) Drill 4 mounting holes to match the enclosure's mounting lugs:
+     - Use M4 holes (4.2mm drill)
+     - Position to align with enclosure mounting bosses/ears
+  d) Deburr all holes and edges.
+  e) Optionally anodise or paint for corrosion protection.
+
+8.2 Attach Enclosure to Mounting Plate
+-----------------------------------------
+  a) Place the enclosure on the mounting plate.
+  b) Align the enclosure mounting holes with the plate holes.
+  c) Secure with M4 x 16mm stainless steel bolts, spring washers,
+     and nyloc nuts.
+  d) The enclosure should be firmly attached with no play.
+
+8.3 Mount Assembly to Mast
+-----------------------------
+  a) Select stainless steel U-bolts sized for the mast diameter:
+     - 30mm mast: M8 U-bolt with 30mm internal width
+     - 40mm mast: M8 U-bolt with 40mm internal width
+     - 50mm mast: M10 U-bolt with 50mm internal width
+  b) Pass U-bolt legs through the mounting plate slots.
+  c) Place stainless steel saddle plates (backing plates) on the
+     inside of the U-bolt legs.
+  d) Thread on flat washers, spring washers, and nyloc nuts.
+  e) Position the assembly on the mast:
+     - Below the Campbell station sensor array
+     - Thunder Click antenna facing AWAY from the mast
+     - And AWAY from the smelter buildings
+  f) Tighten the nyloc nuts evenly with a spanner.
+  g) Check that the assembly is firm and does not rotate on the mast.
+
+================================================================================
+9. SOFTWARE INSTALLATION
+================================================================================
+
+SSH into the Pi and run these commands:
+
+9.1 Install System Dependencies
+----------------------------------
+     sudo apt update
+     sudo apt install -y python3-pip python3-spidev python3-rpi.gpio git
+
+9.2 Install Python Packages
+------------------------------
+     No additional Python packages are required beyond system packages.
+     The system uses only Python standard library modules (urllib, json, etc.)
+     plus spidev and RPi.GPIO which were installed in step 9.1.
+
+9.3 Copy Project Files
+------------------------
+From your computer, copy the project files to the Pi:
+
+     scp lightning_detector.py pi@lightning-detector.local:/home/pi/
+     scp calibrate_antenna.py pi@lightning-detector.local:/home/pi/
+     scp lightning_config.json pi@lightning-detector.local:/home/pi/
+     scp lightning-detector.service pi@lightning-detector.local:/home/pi/
+
+9.4 Install the systemd Service
+----------------------------------
+On the Pi:
+
+     sudo cp /home/pi/lightning-detector.service /etc/systemd/system/
+     sudo systemctl daemon-reload
+     sudo systemctl enable lightning-detector.service
+
+This configures the lightning detector to start automatically on boot.
+
+DO NOT start the service yet - complete configuration and calibration first.
+
+================================================================================
+10. CONFIGURATION
+================================================================================
+
+10.1 Edit the Configuration File
+-----------------------------------
+     nano /home/pi/lightning_config.json
+
+Update these values for your deployment:
+
+     {
+         "station_id": "WONDERKOP-LD-001",
+
+         "stratus_enabled": true,
+         "stratus_endpoint": "https://stratusweather.co.za/api/ingest/HGA5QO3K",
+         "stratus_api_key": "",
+         "stratus_timeout": 10,
+
+         "noise_floor": 5,
+         "watchdog_thresh": 5,
+         "spike_reject": 5,
+         "min_strikes": 5,
+         "tune_cap": 0,
+         "mask_disturber": true,
+
+         "heartbeat_interval": 600
+     }
+
+NOTES:
+  - station_id: A unique identifier for this detector station.
+  - stratus_endpoint: The Stratus Weather ingest URL assigned to this
+    station. Do not change the ingest ID (HGA5QO3K) unless reassigned.
+  - stratus_api_key: Optional. If set on the Stratus station config,
+    enter the secret key here. The system sends it as X-API-Key header.
+  - noise_floor 5, watchdog 5, spike_reject 5: These are the hardened
+    defaults for smelting plant deployment. Start here and reduce
+    incrementally only if you need more sensitivity and are seeing
+    no false positives.
+  - min_strikes 5: Requires 5 valid lightning events before generating
+    an interrupt. Prevents single EMI transients from causing alerts.
+  - tune_cap: Will be determined by calibration (see Section 12).
+  - mask_disturber: true suppresses disturber interrupts from being
+    logged. The sensor still internally rejects them.
+
+10.2 Sensor Setting Guide for Smelter Environment
+----------------------------------------------------
+If you experience too many false triggers, increase these values:
+
+  PARAMETER         RANGE    LESS SENSITIVE ->  MORE SENSITIVE
+  ----------------------------------------------------------------
+  noise_floor       0-7      7 (aggressive)     2 (quiet area)
+  watchdog_thresh   0-15     10 (aggressive)    2 (quiet area)
+  spike_reject      0-15     10 (aggressive)    2 (quiet area)
+  min_strikes       1/5/9/16 16 (most strict)   1 (every event)
+
+If you are NOT detecting real lightning, decrease these values
+gradually. The smelter defaults (all at 5) are a reasonable starting
+point for industrial environments.
+
+================================================================================
+11. STRATUS WEATHER CLOUD SETUP
+================================================================================
+
+11.1 About Stratus Weather
+----------------------------
+Stratus Weather (stratusweather.co.za) is the cloud platform used to
+receive and visualise lightning detection data from this system. Data
+is sent via simple HTTP POST requests to a unique ingest endpoint.
+
+  - No broker or message queue infrastructure required
+  - Uses standard HTTPS (TLS encrypted by default)
+  - JSON payload format
+  - Rate limit: 60 requests per minute
+  - Data appears on the Stratus station dashboard in real time
+
+11.2 Station Details
+-----------------------
+  Station Name:    Wonderkop Smelter
+  Connection Type: HTTP POST (Compatible Stations)
+  Ingest Endpoint: POST https://stratusweather.co.za/api/ingest/HGA5QO3K
+  API Key:         (optional - set in Stratus station settings if needed)
+
+  The ingest ID (HGA5QO3K) is unique to this station and is already
+  configured in lightning_config.json and lightning_detector.py.
+
+11.3 Configuration
+--------------------
+The Stratus connection is configured in lightning_config.json:
+
+     "stratus_enabled": true,
+     "stratus_endpoint": "https://stratusweather.co.za/api/ingest/HGA5QO3K",
+     "stratus_api_key": "",
+     "stratus_timeout": 10
+
+  - stratus_enabled: Set to false to disable cloud posting (local CSV
+    logging continues regardless).
+  - stratus_api_key: If you configure an API key on the Stratus station
+    settings page, enter it here. The system sends it as the X-API-Key
+    header with every request.
+  - stratus_timeout: HTTP request timeout in seconds.
+
+11.4 Data Sent to Stratus
+---------------------------
+The system sends two types of HTTP POST payloads:
+
+  LIGHTNING EVENT (on each detection):
+    POST /api/ingest/HGA5QO3K
+    Content-Type: application/json
+    X-API-Key: your-key (if configured)
+
+    {
+      "data": {
+        "lightning": 12
+      }
+    }
+
+    The "lightning" field is the estimated distance in km to the storm
+    front. A value of -1 indicates out-of-range detection.
+
+  HEARTBEAT (every 10 minutes):
+    {
+      "data": {
+        "batteryVoltage": 45.1
+      }
+    }
+
+    The CPU temperature is sent as a system health proxy using the
+    batteryVoltage field (Stratus supported field).
+
+  Additional Stratus-supported fields that could be added:
+    temperature, humidity, pressure, windSpeed, windDirection, windGust,
+    rainfall, solarRadiation, uvIndex, dewPoint, soilTemperature,
+    soilMoisture, waterLevel, pm25, pm10, co2, chargerVoltage.
+
+11.5 Testing Stratus Connection
+---------------------------------
+Before field deployment, test the Stratus endpoint from the Pi:
+
+  a) Test with curl:
+       curl -X POST https://stratusweather.co.za/api/ingest/HGA5QO3K \
+         -H "Content-Type: application/json" \
+         -d '{"data": {"lightning": 25}}'
+
+  b) If an API key is configured:
+       curl -X POST https://stratusweather.co.za/api/ingest/HGA5QO3K \
+         -H "Content-Type: application/json" \
+         -H "X-API-Key: your-key" \
+         -d '{"data": {"lightning": 25}}'
+
+  c) A successful response returns HTTP 200. Check the Stratus station
+     dashboard to verify the data point appeared.
+
+  d) Test from Python directly:
+       sudo python3 -c "
+import urllib.request, json
+data = json.dumps({'data': {'lightning': 99}}).encode()
+req = urllib.request.Request(
+    'https://stratusweather.co.za/api/ingest/HGA5QO3K',
+    data=data, method='POST')
+req.add_header('Content-Type', 'application/json')
+resp = urllib.request.urlopen(req, timeout=10)
+print('HTTP', resp.status)
+"
+
+================================================================================
+12. ANTENNA CALIBRATION
+================================================================================
+
+12.1 Purpose
+--------------
+The AS3935 antenna must resonate at 500 kHz (+/- 3.5%) for reliable
+lightning detection. The calibration utility cycles through all 16
+internal capacitor settings and measures the output frequency to find
+the optimal value.
+
+12.2 Run the Calibration
+--------------------------
+  a) Ensure the hardware stack is assembled and powered.
+  b) SSH into the Pi.
+  c) Run:
+       sudo python3 /home/pi/calibrate_antenna.py
+
+  d) The script will test capacitor values 0-15 and display results:
+
+     Cap Value    Cap (pF)    Freq (Hz)    Error (%)     Status
+     ----------------------------------------------------------------
+          0           0        515200        3.04          OK
+          1           8        512800        2.56          OK
+          2          16        510400        2.08          OK
+          ...
+          9          72        500400        0.08          OK    <-- BEST
+          ...
+
+  e) The script will recommend the best TUNE_CAP value.
+  f) Update lightning_config.json with the recommended value:
+       "tune_cap": 9
+
+  NOTE: The frequency measurement uses GPIO edge counting on the Pi.
+  For highest accuracy, you can also measure the IRQ pin frequency
+  with an oscilloscope or frequency counter. The IRQ pin outputs at
+  the antenna frequency divided by the division ratio (default 16).
+  So 500 kHz / 16 = 31.25 kHz on the IRQ pin.
+
+12.3 Calibration Tips
+-----------------------
+  - Run calibration with the system in its final enclosure position
+    (nearby metal affects antenna tuning).
+  - Run calibration with the enclosure lid closed if possible.
+  - The acceptable range is 482,500 Hz to 517,500 Hz.
+  - If no setting achieves acceptable frequency, the antenna or
+    external capacitors on the Thunder Click may need inspection.
+
+================================================================================
+13. SYSTEM TESTING
+================================================================================
+
+13.1 Manual Test Run
+----------------------
+  a) SSH into the Pi.
+  b) Start the detector manually:
+       sudo python3 /home/pi/lightning_detector.py
+
+  c) You should see output like:
+       ============================================================
+       Lightning Detection System Starting
+       ============================================================
+       AS3935 calibration: PASSED
+       Configuration:
+         AFE Mode:       OUTDOOR
+         Noise Floor:    5
+         Watchdog:       5
+         Spike Reject:   5
+         Min Strikes:    5
+         Tune Cap:       9 (72 pF)
+         Mask Disturber: True
+         IRQ Pin:        GPIO 25
+         Station ID:     WONDERKOP-LD-001
+         Stratus:        enabled
+         Endpoint:       https://stratusweather.co.za/api/ingest/HGA5QO3K
+         Log Directory:  /home/pi/lightning_data
+       System ready - listening for lightning events...
+
+  d) Wait for a heartbeat message (default every 10 minutes) to confirm
+     the system is running.
+
+  e) Press Ctrl+C to stop the manual test.
+
+13.2 Simulating Lightning (Bench Test)
+-----------------------------------------
+  The AS3935 can be triggered by a piezoelectric lighter (gas lighter)
+  clicked within 1-5 cm of the sensor antenna. This is useful for
+  bench testing but is not a definitive test of real lightning detection.
+
+  a) Start the detector script manually.
+  b) Hold a piezo gas lighter near the Thunder Click antenna coil.
+  c) Click the lighter rapidly.
+  d) Watch for "LIGHTNING detected" messages in the output.
+  e) If the noise floor is too high for the lighter to trigger, you can
+     temporarily lower the settings for testing:
+       "noise_floor": 2, "watchdog_thresh": 2, "spike_reject": 2, "min_strikes": 1
+     IMPORTANT: Reset to smelter values (all 5) before field deployment!
+
+13.3 Verify Data Logging
+--------------------------
+  a) Check the CSV log directory:
+       ls -la /home/pi/lightning_data/
+  b) View the latest log:
+       cat /home/pi/lightning_data/lightning_YYYY-MM-DD.csv
+  c) Check the system log:
+       cat /home/pi/lightning_data/system.log
+
+13.4 Verify Stratus Publishing
+---------------------------------
+  a) Open the Stratus Weather Server dashboard for Wonderkop Smelter.
+  b) Verify that lightning data points and heartbeat values appear.
+  c) Check the system log for "Stratus POST" messages:
+       grep -i stratus /home/pi/lightning_data/system.log
+
+13.5 Start the Service
+-------------------------
+When testing is complete and everything is working:
+
+  a) Start the systemd service:
+       sudo systemctl start lightning-detector.service
+
+  b) Check status:
+       sudo systemctl status lightning-detector.service
+
+  c) View live logs:
+       sudo journalctl -u lightning-detector.service -f
+
+  d) The service will now start automatically on every boot.
+
+================================================================================
+14. FIELD INSTALLATION
+================================================================================
+
+14.1 Pre-Installation Checklist
+---------------------------------
+  [ ] System tested on bench with simulated lightning.
+  [ ] Stratus Weather HTTP POST verified.
+  [ ] Antenna calibrated and tune_cap value set.
+  [ ] Smelter-hardened configuration values confirmed.
+  [ ] Enclosure sealed with cable glands and desiccant.
+  [ ] Batteries fully charged.
+  [ ] Solar cable prepared with TVS diode installed.
+  [ ] Mounting plate and U-bolts ready.
+  [ ] Tools for mast mounting available.
+
+14.2 Installation Procedure
+------------------------------
+  a) Transport the assembled enclosure to the mast location.
+
+  b) Mount the assembly to the mast using U-bolts:
+     - Position BELOW the Campbell station's sensor array
+     - Thunder Click antenna should face AWAY from the mast AND
+       away from the smelter buildings
+     - Aim for maximum distance from arc furnaces, transformers,
+       and high-current bus bars
+     - Minimum 5-10 metres from major EMI sources (the elevated
+       mast position typically provides this)
+
+  c) Connect the solar cable:
+     - Run the shielded cable from the Campbell station's solar panel
+       junction to the enclosure cable gland
+     - Secure the cable to the mast with UV-rated cable ties
+     - Use a drip loop before the cable gland entry (prevents water
+       running along the cable into the enclosure)
+
+  d) Connect solar cable to the SPM (D) screw terminal inside the
+     enclosure (if not already connected during assembly).
+
+  e) Seal the enclosure.
+
+  f) Verify the system powers up:
+     - SPM (D) LEDs should indicate battery status and solar charging
+     - SSH into the Pi after 2-3 minutes to confirm boot
+     - Check systemd service is running:
+         sudo systemctl status lightning-detector.service
+
+14.3 Final Checks
+-------------------
+  [ ] Enclosure securely mounted, no wobble.
+  [ ] Cable glands tight, cables secured.
+  [ ] Solar charging LED lit (during daylight).
+  [ ] Pi accessible via SSH over Wi-Fi.
+  [ ] Stratus Weather dashboard showing heartbeat data.
+  [ ] System log shows no errors.
+
+================================================================================
+15. COMMISSIONING AT SMELTING PLANT
+================================================================================
+
+15.1 Initial Monitoring Period
+---------------------------------
+After installation, monitor the system for 24-48 hours:
+
+  a) Watch for false positive lightning detections:
+     - If the system reports lightning when there is no storm activity,
+       false triggers are occurring from smelter EMI.
+     - Check weather radar to confirm no actual storm activity.
+
+  b) If false positives occur, increase the following in
+     lightning_config.json:
+       "noise_floor": 6  (or 7 for extreme EMI)
+       "watchdog_thresh": 7
+       "spike_reject": 7
+       "min_strikes": 9  (or 16 for very noisy environments)
+
+  c) After changing config, restart the service:
+       sudo systemctl restart lightning-detector.service
+
+  d) If the system is TOO insensitive (misses real thunderstorms),
+     reduce values gradually.
+
+15.2 Noise Assessment
+-----------------------
+During the initial monitoring period, check the system log for
+NOISE and DISTURBER events:
+
+  - Frequent "Noise level too high" messages indicate the noise floor
+    should be raised.
+  - Frequent "Disturber detected" messages (if mask_disturber is false)
+    are expected near a smelter and confirm the sensor is working.
+  - Set mask_disturber to true (default) to suppress disturber logging.
+
+15.3 Ongoing Tuning
+----------------------
+The optimal sensor settings depend on:
+  - Distance from the smelter's EMI sources
+  - Operational state of furnaces (running vs idle)
+  - Time of day (some EMI sources may cycle)
+  - Season (thunderstorm season vs dry season)
+
+Document the final tuned values after the commissioning period and
+store them in the project records.
+
+================================================================================
+16. TROUBLESHOOTING
+================================================================================
+
+PROBLEM: Pi does not boot / no SSH connection
+  - Check power: SPM (D) capacity LEDs should light
+  - Check SD card is properly inserted
+  - Try direct power via micro-USB cable and wall adapter
+  - Check Wi-Fi credentials in wpa_supplicant.conf
+  - Connect a monitor via mini-HDMI to see boot messages
+
+PROBLEM: SPI device not found (/dev/spidev0.0 missing)
+  - Run: sudo raspi-config -> Interface Options -> SPI -> Enable
+  - Reboot and check again: ls /dev/spidev*
+
+PROBLEM: AS3935 calibration FAILED
+  - Check Thunder Click is firmly seated in Socket 1
+  - Check PWR SEL jumper is on 3.3V (LEFT position)
+  - Try power cycling the system
+  - Check SPI wiring with a multimeter (continuity test)
+
+PROBLEM: No lightning detected (even in thunderstorm)
+  - Verify antenna calibration (run calibrate_antenna.py)
+  - Reduce noise_floor:  try 3 or 4
+  - Reduce watchdog_thresh:  try 3
+  - Reduce min_strikes:  try 1
+  - Ensure the enclosure is ABS/plastic, not metal
+  - Check antenna is not shielded by metal nearby
+  - Ensure AFE_MODE is OUTDOOR (not indoor)
+
+PROBLEM: Too many false positives (detections with clear sky)
+  - Increase noise_floor:  try 6 or 7
+  - Increase watchdog_thresh:  try 7 or 8
+  - Increase spike_reject:  try 7 or 8
+  - Increase min_strikes:  try 9 or 16
+  - Move sensor further from smelter EMI sources
+  - Ensure mask_disturber is true
+
+PROBLEM: Stratus Weather POST failing
+  - Check Wi-Fi is connected: iwconfig wlan0
+  - Test DNS: ping stratusweather.co.za
+  - Test HTTPS: curl -I https://stratusweather.co.za
+  - Test endpoint manually:
+      curl -X POST https://stratusweather.co.za/api/ingest/HGA5QO3K \
+        -H "Content-Type: application/json" \
+        -d '{"data": {"lightning": 1}}'
+  - If API key is set, verify it matches: check lightning_config.json
+  - Check system log: grep -i stratus /home/pi/lightning_data/system.log
+  - Rate limit is 60 req/min - unlikely to be hit under normal operation
+
+PROBLEM: Batteries draining too fast
+  - Check solar panel is providing power (CHARGE LED on SPM (D))
+  - Check solar cable connections
+  - Verify panel voltage with multimeter (should be 6-24V under load)
+  - Consider a larger or dedicated solar panel (12V 10W minimum)
+  - Reduce heartbeat_interval if not needed frequently
+
+PROBLEM: SD card corruption / system won't boot after power loss
+  - Use industrial-grade micro-SD card (SanDisk Industrial, Transcend,
+    or SwissbitIN)
+  - Consider setting up a read-only root filesystem:
+      sudo raspi-config -> Performance Options -> Overlay FS -> Enable
+  - Keep a backup SD card with the same image flashed
+
+================================================================================
+END OF SETUP INSTRUCTIONS
+================================================================================

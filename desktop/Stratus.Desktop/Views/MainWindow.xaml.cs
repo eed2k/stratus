@@ -130,7 +130,7 @@ public partial class MainWindow : Window
     {
         var version = typeof(App).Assembly.GetName().Version;
         MessageBox.Show(
-            $"Stratus Weather Station Manager\n" +
+            $"Stratus Weather Server Manager\n" +
             $"Version {version}\n\n" +
             $"Research-grade weather station data acquisition\n" +
             $"and monitoring software.\n\n" +

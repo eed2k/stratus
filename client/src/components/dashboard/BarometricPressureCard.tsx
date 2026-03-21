@@ -110,7 +110,7 @@ export function BarometricPressureCard({
                 </span>
                 <span className="text-sm text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>hPa</span>
               </div>
-              {renderSparkline(stationChartData, "#8b5cf6")}
+              {renderSparkline(stationChartData, "#ef4444")}
             </div>
 
             {/* Sea Level Pressure */}
@@ -144,7 +144,7 @@ export function BarometricPressureCard({
           </div>
 
           {/* Weather outlook */}
-          <div className="text-center py-2 px-3 rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
+          <div className="text-center py-2 px-3 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100">
             <p className="text-sm text-gray-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{weatherOutlook}</p>
           </div>
 

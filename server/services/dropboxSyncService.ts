@@ -504,8 +504,8 @@ export class DropboxSyncService extends EventEmitter {
         }
       }
 
-      // List files in Dropbox folder
-      const files = await this.listFiles(this.config.folderPath);
+      // List files in Dropbox folder (recursive to catch subfolders)
+      const files = await this.listFiles(this.config.folderPath, false, true);
       console.log(`[DropboxSync] Found ${files.length} files in Dropbox`);
 
       // Use the same folder name extracted earlier for matching
@@ -537,8 +537,8 @@ export class DropboxSyncService extends EventEmitter {
         return bTime - aTime;
       });
 
-      // Only process the most recently modified .dat file (the one being updated hourly)
-      const filesToProcess = datFiles.slice(0, 3); // Process up to 3 most recent files
+      // Process all matching .dat files — rev check skips unchanged files efficiently
+      const filesToProcess = datFiles;
       console.log(`[DropboxSync] Processing ${filesToProcess.length} matching .dat files`);
 
       for (const file of filesToProcess) {
@@ -1069,7 +1069,7 @@ export class DropboxSyncService extends EventEmitter {
   /**
    * List files in Dropbox folder
    */
-  private async listFiles(folderPath: string, retried = false): Promise<DropboxEntry[]> {
+  private async listFiles(folderPath: string, retried = false, recursive = false): Promise<DropboxEntry[]> {
     // Ensure we have a valid token before making API calls
     await this.ensureValidToken();
     
@@ -1081,7 +1081,7 @@ export class DropboxSyncService extends EventEmitter {
       },
       body: JSON.stringify({
         path: folderPath || '', // Empty string = app folder root
-        recursive: false,
+        recursive: recursive,
         include_media_info: false,
         include_deleted: false,
         include_has_explicit_shared_members: false,
@@ -1098,7 +1098,7 @@ export class DropboxSyncService extends EventEmitter {
         const refreshed = await this.refreshAccessToken();
         if (refreshed) {
           // Retry the request with the new token (only once)
-          return this.listFiles(folderPath, true);
+          return this.listFiles(folderPath, true, recursive);
         }
       }
       

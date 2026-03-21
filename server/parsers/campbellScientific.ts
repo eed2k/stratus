@@ -343,6 +343,8 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     pm10: ["PM10_Avg", "PM10", "PM_10_Avg"],
     uvIndex: ["UV_Index_Avg", "UV_Index", "UVI", "UV_Avg"],
     lightning: ["Lightning_Tot", "Lightning_Count", "Lightning"],
+    lightningDistance: ["LightningDist", "Lightning_Dist", "LightningDist_Avg", "Lightning_Distance"],
+    lightningEnergy: ["LightningEnergy", "Lightning_Energy", "LightningEnergy_Avg"],
     waterLevel: ["Water_Level_Avg", "WaterLevel", "Water_Level"],
     chargerVoltage: ["DC_Chg_Volts", "ChgV_Avg", "Charger_V", "SolarCharger_V"],
     temperatureSwitch: ["Temp_Switch_Avg", "TempSwitch", "Temp_Switch"],

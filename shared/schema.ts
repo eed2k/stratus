@@ -304,6 +304,8 @@ export const weatherData = pgTable(
     deltaTemperature: real("delta_temperature"),
     // Lightning
     lightning: real("lightning"),
+    lightningDistance: real("lightning_distance"),
+    lightningEnergy: real("lightning_energy"),
     // Charger
     chargerVoltage: real("charger_voltage"),
     // Wind direction standard deviation & SDI-12 wind vector

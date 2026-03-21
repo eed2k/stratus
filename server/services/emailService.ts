@@ -246,12 +246,12 @@ export async function sendAlarmEmail(
     
     <!-- Footer -->
     <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
-      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather Station Server</p>
+      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather Server</p>
       <p style="margin: 0;">Station ID: ${data.stationId}</p>
       <p style="margin: 8px 0 0 0;">
         You're receiving this because you're subscribed to alerts for ${data.stationName}.
       </p>
-      <p style="margin: 12px 0 0 0; font-size: 11px;">Stratus Weather Station Server</p>
+      <p style="margin: 12px 0 0 0; font-size: 11px;">Stratus Weather Server</p>
     </div>
   </div>
 </body>
@@ -349,7 +349,7 @@ export async function sendAlarmResolvedEmail(
     <!-- Footer -->
     <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
       <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather Server</p>
-      <p style="margin: 0; font-size: 11px;">Stratus Weather Station Server</p>
+      <p style="margin: 0; font-size: 11px;">Stratus Weather Server</p>
     </div>
   </div>
 </body>
@@ -459,7 +459,7 @@ export async function sendUserInvitationEmail(
     
     <!-- Footer -->
     <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
-      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather Station Server</p>
+      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather Server</p>
     </div>
   </div>
 </body>
@@ -561,7 +561,7 @@ export async function sendPasswordResetEmail(
     
     <!-- Footer -->
     <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
-      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather Station Server</p>
+      <p style="margin: 0 0 8px 0; color: #6b7280;">Stratus Weather Server</p>
     </div>
   </div>
 </body>
@@ -609,7 +609,7 @@ export async function sendTestEmail(to: string): Promise<boolean> {
       Sent at: ${new Date().toLocaleString()}
     </p>
     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0 12px 0;">
-    <p style="color: #9ca3af; font-size: 11px; margin: 0;">Stratus Weather Station Server</p>
+    <p style="color: #9ca3af; font-size: 11px; margin: 0;">Stratus Weather Server</p>
   </div>
 </body>
 </html>

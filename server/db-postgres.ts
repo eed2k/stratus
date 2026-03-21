@@ -448,6 +448,9 @@ async function createTables(): Promise<void> {
     `ALTER TABLE stations ADD COLUMN IF NOT EXISTS wind_speed_unit TEXT DEFAULT 'ms'`,
     // Dashboard configuration (section visibility, parameters, etc.)
     `ALTER TABLE stations ADD COLUMN IF NOT EXISTS dashboard_config JSONB`,
+    // Lightning distance and energy columns
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS lightning_distance REAL`,
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS lightning_energy REAL`,
   ];
   for (const sql of migrations) {
     try {

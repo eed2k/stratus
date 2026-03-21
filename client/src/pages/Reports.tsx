@@ -21,7 +21,7 @@ export default function Reports() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Reports</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Report Generation</h1>
         <p className="text-muted-foreground">Generate and export weather data reports</p>
       </div>
 

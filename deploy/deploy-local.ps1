@@ -1,5 +1,5 @@
 # =============================================================================
-# Stratus Weather Station - Local Deployment Script (Windows PowerShell)
+# Stratus Weather Server - Local Deployment Script (Windows PowerShell)
 # Run this from your local machine to deploy to the Vultr server
 # =============================================================================
 

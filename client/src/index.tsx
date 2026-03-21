@@ -6,7 +6,7 @@ import ReactDOM from 'react-dom/client'
 import './index.css'
 
 /**
- * Stratus Weather Station App
+ * Stratus Weather Server App
  * © 2025-2026 Lukas Esterhuizen
  */
 

@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:Stratus.Desktop.ViewModels"
         xmlns:controls="clr-namespace:Stratus.Desktop.Controls"
         xmlns:views="clr-namespace:Stratus.Desktop.Views"
-        Title="Stratus Weather Station Manager" 
+        Title="Stratus Weather Server Manager" 
         Height="768" Width="1200"
         MinHeight="600" MinWidth="900"
         WindowState="Maximized"

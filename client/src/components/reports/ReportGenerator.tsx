@@ -36,6 +36,15 @@ interface ReportConfig {
   includeSoilMoisture: boolean;
   includePM10: boolean;
   includePM25: boolean;
+  includeWaterLevel: boolean;
+  includeLightning: boolean;
+  includeVisibility: boolean;
+  includeAirDensity: boolean;
+  includeChargerVoltage: boolean;
+  includePanelTemp: boolean;
+  includeTemp8m: boolean;
+  includeDeltaTemp: boolean;
+  includeMPPT: boolean;
   includeStatistics: boolean;
 }
 
@@ -69,6 +78,15 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
     includeSoilMoisture: false,
     includePM10: false,
     includePM25: false,
+    includeWaterLevel: false,
+    includeLightning: false,
+    includeVisibility: false,
+    includeAirDensity: false,
+    includeChargerVoltage: false,
+    includePanelTemp: false,
+    includeTemp8m: false,
+    includeDeltaTemp: false,
+    includeMPPT: false,
     includeStatistics: true,
   });
 
@@ -151,6 +169,19 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         { title: "Soil Moisture", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture, unit: "%" },
         { title: "PM10", enabled: config.includePM10, getValue: (d) => d.pm10, unit: "µg/m³" },
         { title: "PM2.5", enabled: config.includePM25, getValue: (d) => d.pm25, unit: "µg/m³" },
+        { title: "Water Level", enabled: config.includeWaterLevel, getValue: (d) => d.waterLevel, unit: "m" },
+        { title: "Lightning Strikes", enabled: config.includeLightning, getValue: (d) => d.lightning, unit: "" },
+        { title: "Lightning Distance", enabled: config.includeLightning, getValue: (d) => d.lightningDistance, unit: "km" },
+        { title: "Lightning Energy", enabled: config.includeLightning, getValue: (d) => d.lightningEnergy, unit: "" },
+        { title: "Visibility", enabled: config.includeVisibility, getValue: (d) => d.visibility, unit: "m" },
+        { title: "Air Density", enabled: config.includeAirDensity, getValue: (d) => d.airDensity, unit: "kg/m³" },
+        { title: "Charger Voltage", enabled: config.includeChargerVoltage, getValue: (d) => d.chargerVoltage, unit: "V" },
+        { title: "Panel Temperature", enabled: config.includePanelTemp, getValue: (d) => d.panelTemperature, unit: "°C" },
+        { title: "Temperature 8m", enabled: config.includeTemp8m, getValue: (d) => d.temperature8m, unit: "°C" },
+        { title: "Delta Temperature", enabled: config.includeDeltaTemp, getValue: (d) => d.deltaTemperature, unit: "°C" },
+        { title: "MPPT Solar Power", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarPower, unit: "W" },
+        { title: "MPPT Battery Voltage", enabled: config.includeMPPT, getValue: (d) => d.mpptBatteryVoltage, unit: "V" },
+        { title: "MPPT Solar Voltage", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarVoltage, unit: "V" },
       ];
 
       // Filter: only include sections that are enabled AND have actual data
@@ -255,6 +286,19 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       { key: "soilMoisture", header: "Soil Moisture (%)", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture },
       { key: "pm10", header: "PM10 (µg/m³)", enabled: config.includePM10, getValue: (d) => d.pm10 },
       { key: "pm25", header: "PM2.5 (µg/m³)", enabled: config.includePM25, getValue: (d) => d.pm25 },
+      { key: "waterLevel", header: "Water Level (m)", enabled: config.includeWaterLevel, getValue: (d) => d.waterLevel },
+      { key: "lightning", header: "Lightning Strikes", enabled: config.includeLightning, getValue: (d) => d.lightning },
+      { key: "lightningDistance", header: "Lightning Distance (km)", enabled: config.includeLightning, getValue: (d) => d.lightningDistance },
+      { key: "lightningEnergy", header: "Lightning Energy", enabled: config.includeLightning, getValue: (d) => d.lightningEnergy },
+      { key: "visibility", header: "Visibility (m)", enabled: config.includeVisibility, getValue: (d) => d.visibility },
+      { key: "airDensity", header: "Air Density (kg/m³)", enabled: config.includeAirDensity, getValue: (d) => d.airDensity },
+      { key: "chargerVoltage", header: "Charger Voltage (V)", enabled: config.includeChargerVoltage, getValue: (d) => d.chargerVoltage },
+      { key: "panelTemperature", header: "Panel Temp (°C)", enabled: config.includePanelTemp, getValue: (d) => d.panelTemperature },
+      { key: "temperature8m", header: "Temp 8m (°C)", enabled: config.includeTemp8m, getValue: (d) => d.temperature8m },
+      { key: "deltaTemperature", header: "Delta Temp (°C)", enabled: config.includeDeltaTemp, getValue: (d) => d.deltaTemperature },
+      { key: "mpptSolarPower", header: "MPPT Solar Power (W)", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarPower },
+      { key: "mpptBatteryVoltage", header: "MPPT Battery (V)", enabled: config.includeMPPT, getValue: (d) => d.mpptBatteryVoltage },
+      { key: "mpptSolarVoltage", header: "MPPT Solar Voltage (V)", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarVoltage },
     ];
 
     // Filter: only include columns that are enabled AND have actual data
@@ -396,6 +440,15 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
               { key: "includeSoilMoisture", label: "Soil Moisture" },
               { key: "includePM10", label: "PM10 (Air Quality)" },
               { key: "includePM25", label: "PM2.5 (Air Quality)" },
+              { key: "includeWaterLevel", label: "Water Level" },
+              { key: "includeLightning", label: "Lightning" },
+              { key: "includeVisibility", label: "Visibility" },
+              { key: "includeAirDensity", label: "Air Density" },
+              { key: "includeChargerVoltage", label: "Charger Voltage" },
+              { key: "includePanelTemp", label: "Panel Temperature" },
+              { key: "includeTemp8m", label: "Temperature 8m" },
+              { key: "includeDeltaTemp", label: "Delta Temperature" },
+              { key: "includeMPPT", label: "MPPT Solar Charger" },
               { key: "includeStatistics", label: "Statistics (PDF)" },
             ].map((item) => (
               <div key={item.key} className="flex items-center gap-2">
