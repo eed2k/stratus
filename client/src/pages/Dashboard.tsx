@@ -235,6 +235,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         lightning: sumNonNull(dayData.map(d => d.lightning ?? null)),
         lightningDistance: minNonNull(dayData.map(d => d.lightningDistance ?? null)),
         lightningEnergy: maxNonNull(dayData.map(d => d.lightningEnergy ?? null)),
+        lightningRaw: avgNonNull(dayData.map(d => d.lightningRaw ?? null)),
         chargerVoltage: avgNonNull(dayData.map(d => d.chargerVoltage ?? null)),
         windDirStdDev: avgNonNull(dayData.map(d => d.windDirStdDev ?? null)),
         sdi12WindVector: avgNonNull(dayData.map(d => d.sdi12WindVector ?? null)),
@@ -303,6 +304,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           return Math.round((netNeed / 5) * 60);
         })(),
         visibility: avgNonNull(dayData.map(d => d.visibility ?? null)),
+        visibilityVolt: avgNonNull(dayData.map(d => d.visibilityVolt ?? null)),
         atmosphericVisibility: avgNonNull(dayData.map(d => d.atmosphericVisibility ?? null)),
         cloudBase: avgNonNull(dayData.map(d => d.cloudBase ?? null)),
         cloudCover: avgNonNull(dayData.map(d => d.cloudCover ?? null)),
@@ -372,6 +374,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       lightning: d.lightning ?? null,
       lightningDistance: d.lightningDistance ?? null,
       lightningEnergy: d.lightningEnergy ?? null,
+      lightningRaw: d.lightningRaw ?? null,
       chargerVoltage: d.chargerVoltage ?? null,
       windDirStdDev: d.windDirStdDev ?? null,
       sdi12WindVector: d.sdi12WindVector ?? null,
@@ -441,6 +444,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         return Math.round((netNeed / 5) * 60);
       })(),
       visibility: d.visibility ?? null,
+      visibilityVolt: d.visibilityVolt ?? null,
       atmosphericVisibility: d.atmosphericVisibility ?? null,
       cloudBase: d.cloudBase ?? null,
       cloudCover: d.cloudCover ?? null,
@@ -841,6 +845,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       lightning: hasData('lightning'),
       lightningDistance: hasData('lightningDistance'),
       lightningEnergy: hasData('lightningEnergy'),
+      lightningRaw: hasData('lightningRaw'),
       chargerVoltage: hasData('chargerVoltage'),
       windDirStdDev: hasData('windDirStdDev'),
       sdi12WindVector: hasData('sdi12WindVector'),
@@ -870,6 +875,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       mppt2Mode: hasData('mppt2Mode'),
       // Visibility
       visibility: hasData('visibility'),
+      visibilityVolt: hasData('visibilityVolt'),
       atmosphericVisibility: hasData('atmosphericVisibility'),
       cloudBase: hasData('cloudBase'),
       cloudCover: hasData('cloudCover'),
@@ -1169,6 +1175,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         pm25: null,
         pm10: null,
         visibility: null,
+        visibilityVolt: null,
         atmosphericVisibility: null,
         cloudBase: null,
         cloudCover: null,
@@ -1188,6 +1195,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         lightning: null,
         lightningDistance: null,
         lightningEnergy: null,
+        lightningRaw: null,
         chargerVoltage: null,
         windDirStdDev: null,
         sdi12WindVector: null,
@@ -1814,8 +1822,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               altitude={selectedStation?.altitude || 0}
               temperature={currentData.temperature || DEFAULT_TEMPERATURE_C}
               trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
-              sparklineDataStation={chartData.slice(-24).map(d => pressureIsSLP ? calculateStationPressure(d.pressure ?? 0, selectedStation?.altitude || 0, d.temperature ?? 20) : (d.pressure ?? 0)).filter((v): v is number => v != null)}
-              sparklineDataSeaLevel={chartData.slice(-24).map(d => pressureIsSLP ? (d.pressure ?? 0) : calculateSeaLevelPressure(d.pressure ?? 0, selectedStation?.altitude || 0, d.temperature ?? 20)).filter((v): v is number => v != null)}
             />
             <DataBlockChart
               title="Barometric Pressure History"
@@ -2088,7 +2094,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Water & Sensors Section - Only show if any water/sensor data exists AND section enabled */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.chargerVoltage || availableFields.temperature8m || availableFields.deltaTemperature) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.chargerVoltage || availableFields.temperature8m || availableFields.deltaTemperature || availableFields.visibility || availableFields.visibilityVolt) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -2134,6 +2140,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 unit="strikes"
               />
             )}
+            {availableFields.lightningRaw && (
+              <MetricCard
+                title="Lightning Raw"
+                value={formatValue(currentData.lightningRaw || 0, 2)}
+                unit="mA"
+              />
+            )}
             {availableFields.lightningDistance && (
               <MetricCard
                 title="Strike Distance"
@@ -2152,6 +2165,20 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               <MetricCard
                 title="Charger Voltage"
                 value={formatValue(currentData.chargerVoltage || 0, 2)}
+                unit="V"
+              />
+            )}
+            {availableFields.visibility && (
+              <MetricCard
+                title="Visibility"
+                value={formatValue(currentData.visibility || 0, 1)}
+                unit="km"
+              />
+            )}
+            {availableFields.visibilityVolt && (
+              <MetricCard
+                title="Visibility Volt"
+                value={formatValue(currentData.visibilityVolt || 0, 2)}
                 unit="V"
               />
             )}
@@ -2205,8 +2232,24 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           </div>
           )}
           {/* Temperature (8m), Delta Temperature, Lightning Charts */}
-          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy) && (
+          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.visibility || availableFields.visibilityVolt) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {availableFields.visibility && (
+            <DataBlockChart
+              title="Visibility History"
+              data={chartData}
+              series={[
+                { dataKey: "visibility", name: "Visibility", color: "#3b82f6", unit: "km" },
+                ...(availableFields.visibilityVolt ? [{ dataKey: "visibilityVolt", name: "Visibility Volt", color: "#f97316", unit: "V" }] : []),
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Visibility"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.visibility || 0}
+            />
+            )}
             {availableFields.temperature8m && (
             <DataBlockChart
               title="Temperature (8m) History"
@@ -2278,6 +2321,21 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisLabel="Energy (relative)"
               showAverage={false}
               showMinMax={true}
+            />
+            )}
+            {availableFields.lightningRaw && (
+            <DataBlockChart
+              title="Lightning Raw"
+              data={chartData}
+              series={[
+                { dataKey: "lightningRaw", name: "Lightning Raw", color: "#eab308", unit: "mA" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Current (mA)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.lightningRaw || 0}
             />
             )}
           </div>

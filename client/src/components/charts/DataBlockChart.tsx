@@ -192,26 +192,32 @@ export const DataBlockChart = memo(function DataBlockChart({
     };
 
     // Calculate optimal tick interval based on data length
-    // For 24 points (e.g., hourly data): show only 2-3 labels
-    // For larger datasets: minimum 6 ticks
+    // Short ranges (1h-24h): show many labels with horizontal/45° text
+    // Medium ranges (7d): moderate labels with -45° text
+    // Long ranges (15d/30d aggregated): fewer labels, can be horizontal (small datasets)
     const getTickInterval = () => {
-      if (data.length > 200) return Math.ceil(data.length / 6);
-      if (data.length > 100) return Math.ceil(data.length / 6);
-      if (data.length > 50) return Math.ceil(data.length / 8);
+      if (data.length > 500) return Math.ceil(data.length / 8);
+      if (data.length > 200) return Math.ceil(data.length / 10);
+      if (data.length > 100) return Math.ceil(data.length / 12);
+      if (data.length > 50) return Math.ceil(data.length / 10);
       if (data.length >= 25 && data.length <= 35) return 1;
-      if (data.length > 20) return Math.ceil(data.length / 10);
       if (data.length > 10) return 2;
       return 0;
     };
 
+    // X-axis label rotation: keep horizontal/45° for short ranges (1h-24h),
+    // only go vertical for very large raw datasets (7d+)
+    const xAngle = data.length > 500 ? -90 : (data.length > 200 ? -45 : 0);
+    const xAnchor: 'start' | 'middle' | 'end' = data.length > 200 ? 'end' : 'middle';
+
     const xAxisProps = {
       dataKey: "timestamp",
-      tick: { fontSize: 9, angle: data.length > 100 ? -90 : (data.length > 50 ? -45 : 0), textAnchor: (data.length > 100 ? 'end' : data.length > 50 ? 'end' : 'middle') as 'start' | 'middle' | 'end', dy: data.length > 50 ? -4 : 0 },
+      tick: { fontSize: 9, angle: xAngle, textAnchor: xAnchor, dy: data.length > 200 ? -4 : 0 },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
       interval: getTickInterval() as number,
       label: !compact && xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fontSize: 11, fill: 'hsl(var(--muted-foreground))' } : undefined,
-      height: data.length > 100 ? 70 : (data.length > 50 ? 50 : 30),
+      height: data.length > 500 ? 70 : (data.length > 200 ? 50 : 30),
     };
 
     const yAxisProps: Record<string, any> = {

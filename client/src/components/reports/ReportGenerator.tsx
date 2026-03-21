@@ -139,6 +139,14 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       y += 7;
       doc.text(`Location: ${selectedStation?.location || "N/A"}`, 20, y);
       y += 7;
+      if (selectedStation?.latitude && selectedStation?.longitude) {
+        doc.text(`Coordinates: ${selectedStation.latitude.toFixed(4)}°, ${selectedStation.longitude.toFixed(4)}°`, 20, y);
+        y += 7;
+      }
+      if (selectedStation?.altitude) {
+        doc.text(`Altitude: ${selectedStation.altitude} m`, 20, y);
+        y += 7;
+      }
       doc.text(`Period: ${config.startDate} to ${config.endDate}`, 20, y);
       y += 7;
       doc.text(`Generated: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`, 20, y);
@@ -159,12 +167,13 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         { title: "Dew Point", enabled: config.includeDewPoint, getValue: (d) => d.dewPoint, unit: "°C" },
         { title: "Pressure", enabled: config.includePressure, getValue: (d) => d.pressure, unit: "hPa" },
         { title: "Wind Speed", enabled: config.includeWind, getValue: (d) => d.windSpeed, unit: windUnitLabel },
+        { title: "Wind Direction", enabled: config.includeWind, getValue: (d) => d.windDirection, unit: "°" },
         { title: "Wind Gust", enabled: config.includeWind, getValue: (d) => d.windGust, unit: windUnitLabel },
         { title: "Rainfall", enabled: config.includeRainfall, getValue: (d) => d.rainfall, unit: "mm" },
         { title: "Solar Radiation", enabled: config.includeSolar, getValue: (d) => d.solarRadiation, unit: "W/m²" },
         { title: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex, unit: "" },
         { title: "Battery Voltage", enabled: config.includeBattery, getValue: (d) => d.batteryVoltage, unit: "V" },
-        { title: "Evapotranspiration (ETo)", enabled: config.includeETo, getValue: (d) => (d as any).evapotranspiration ?? (d as any).data?.evapotranspiration, unit: "mm/day" },
+        { title: "Evapotranspiration (ETo)", enabled: config.includeETo, getValue: (d) => d.eto, unit: "mm/day" },
         { title: "Soil Temperature", enabled: config.includeSoilTemp, getValue: (d) => d.soilTemperature, unit: "°C" },
         { title: "Soil Moisture", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture, unit: "%" },
         { title: "PM10", enabled: config.includePM10, getValue: (d) => d.pm10, unit: "µg/m³" },
@@ -173,7 +182,9 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         { title: "Lightning Strikes", enabled: config.includeLightning, getValue: (d) => d.lightning, unit: "" },
         { title: "Lightning Distance", enabled: config.includeLightning, getValue: (d) => d.lightningDistance, unit: "km" },
         { title: "Lightning Energy", enabled: config.includeLightning, getValue: (d) => d.lightningEnergy, unit: "" },
-        { title: "Visibility", enabled: config.includeVisibility, getValue: (d) => d.visibility, unit: "m" },
+        { title: "Lightning Raw", enabled: config.includeLightning, getValue: (d) => d.lightningRaw, unit: "mA" },
+        { title: "Visibility", enabled: config.includeVisibility, getValue: (d) => d.visibility, unit: "km" },
+        { title: "Visibility Volt", enabled: config.includeVisibility, getValue: (d) => d.visibilityVolt, unit: "V" },
         { title: "Air Density", enabled: config.includeAirDensity, getValue: (d) => d.airDensity, unit: "kg/m³" },
         { title: "Charger Voltage", enabled: config.includeChargerVoltage, getValue: (d) => d.chargerVoltage, unit: "V" },
         { title: "Panel Temperature", enabled: config.includePanelTemp, getValue: (d) => d.panelTemperature, unit: "°C" },
@@ -281,7 +292,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       { key: "solarRadiation", header: "Solar Radiation (W/m²)", enabled: config.includeSolar, getValue: (d) => d.solarRadiation },
       { key: "uvIndex", header: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex },
       { key: "batteryVoltage", header: "Battery Voltage (V)", enabled: config.includeBattery, getValue: (d) => d.batteryVoltage },
-      { key: "eto", header: "ETo (mm/day)", enabled: config.includeETo, getValue: (d) => (d as any).evapotranspiration ?? (d as any).data?.evapotranspiration },
+      { key: "eto", header: "ETo (mm/day)", enabled: config.includeETo, getValue: (d) => d.eto },
       { key: "soilTemperature", header: "Soil Temp (°C)", enabled: config.includeSoilTemp, getValue: (d) => d.soilTemperature },
       { key: "soilMoisture", header: "Soil Moisture (%)", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture },
       { key: "pm10", header: "PM10 (µg/m³)", enabled: config.includePM10, getValue: (d) => d.pm10 },
@@ -290,7 +301,9 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       { key: "lightning", header: "Lightning Strikes", enabled: config.includeLightning, getValue: (d) => d.lightning },
       { key: "lightningDistance", header: "Lightning Distance (km)", enabled: config.includeLightning, getValue: (d) => d.lightningDistance },
       { key: "lightningEnergy", header: "Lightning Energy", enabled: config.includeLightning, getValue: (d) => d.lightningEnergy },
-      { key: "visibility", header: "Visibility (m)", enabled: config.includeVisibility, getValue: (d) => d.visibility },
+      { key: "lightningRaw", header: "Lightning Raw (mA)", enabled: config.includeLightning, getValue: (d) => d.lightningRaw },
+      { key: "visibility", header: "Visibility (km)", enabled: config.includeVisibility, getValue: (d) => d.visibility },
+      { key: "visibilityVolt", header: "Visibility Volt (V)", enabled: config.includeVisibility, getValue: (d) => d.visibilityVolt },
       { key: "airDensity", header: "Air Density (kg/m³)", enabled: config.includeAirDensity, getValue: (d) => d.airDensity },
       { key: "chargerVoltage", header: "Charger Voltage (V)", enabled: config.includeChargerVoltage, getValue: (d) => d.chargerVoltage },
       { key: "panelTemperature", header: "Panel Temp (°C)", enabled: config.includePanelTemp, getValue: (d) => d.panelTemperature },

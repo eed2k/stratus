@@ -362,6 +362,9 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     deltaTemperature: ["DeltaTemp_Avg", "Delta_Temp_Avg", "DeltaTemp", "Delta_T_Avg"],
     // Visibility
     visibility: ["Visibility_km", "Visibility", "Vis_km", "Visibility_Avg"],
+    visibilityVolt: ["Visibility_Volt", "Vis_Volt", "Visibility_V"],
+    // Lightning Raw
+    lightningRaw: ["Lightning_Raw", "LightningRaw", "Lightning_mA"],
     // MPPT Solar Charge Controller fields (Charger 1)
     mpptSolarVoltage: ["MPPT_SolV_Avg", "MPPT_SolarVoltage", "Solar_Voltage", "SolV_Avg", "MPPT_Vsol", "Vsol_Avg", "SolarCharger_PanelVoltage_1_Avg"],
     mpptSolarCurrent: ["MPPT_SolI_Avg", "MPPT_SolarCurrent", "Solar_Current", "SolI_Avg", "MPPT_Isol", "Isol_Avg", "SolarCharger_PanelCurrent_1_Avg"],

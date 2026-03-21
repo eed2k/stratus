@@ -252,9 +252,11 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         lightning: sumNonNull(dayData.map(d => d.lightning ?? null)),
         lightningDistance: minNonNull(dayData.map(d => d.lightningDistance ?? null)),
         lightningEnergy: maxNonNull(dayData.map(d => d.lightningEnergy ?? null)),
+        lightningRaw: avgNonNull(dayData.map(d => d.lightningRaw ?? null)),
         levelSwitch: avgNonNull(dayData.map(d => d.levelSwitch ?? null)),
         levelSwitchStatus: avgNonNull(dayData.map(d => d.levelSwitchStatus ?? null)),
         visibility: avgNonNull(dayData.map(d => d.visibility ?? null)),
+        visibilityVolt: avgNonNull(dayData.map(d => d.visibilityVolt ?? null)),
         atmosphericVisibility: avgNonNull(dayData.map(d => d.atmosphericVisibility ?? null)),
         cloudBase: avgNonNull(dayData.map(d => d.cloudBase ?? null)),
         cloudCover: avgNonNull(dayData.map(d => d.cloudCover ?? null)),
@@ -313,6 +315,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       lightning: d.lightning ?? null,
       lightningDistance: d.lightningDistance ?? null,
       lightningEnergy: d.lightningEnergy ?? null,
+      lightningRaw: d.lightningRaw ?? null,
       levelSwitch: d.levelSwitch ?? null,
       levelSwitchStatus: d.levelSwitchStatus ?? null,
       mpptSolarVoltage: toNum(d.mpptSolarVoltage),
@@ -369,6 +372,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         return Math.round((netNeed / 5) * 60);
       })(),
       visibility: d.visibility ?? null,
+      visibilityVolt: d.visibilityVolt ?? null,
       atmosphericVisibility: d.atmosphericVisibility ?? null,
       cloudBase: d.cloudBase ?? null,
       cloudCover: d.cloudCover ?? null,
@@ -743,6 +747,7 @@ function SharedDashboardContent() {
       lightning: hasData('lightning'),
       lightningDistance: hasData('lightningDistance'),
       lightningEnergy: hasData('lightningEnergy'),
+      lightningRaw: hasData('lightningRaw'),
       levelSwitch: hasData('levelSwitch'),
       temperatureSwitchOutlet: hasData('temperatureSwitchOutlet'),
       levelSwitchStatus: hasData('levelSwitchStatus'),
@@ -762,6 +767,7 @@ function SharedDashboardContent() {
       mppt2BoardTemp: hasData('mppt2BoardTemp'),
       // Visibility
       visibility: hasData('visibility'),
+      visibilityVolt: hasData('visibilityVolt'),
       atmosphericVisibility: hasData('atmosphericVisibility'),
       cloudBase: hasData('cloudBase'),
       cloudCover: hasData('cloudCover'),
@@ -1473,8 +1479,6 @@ function SharedDashboardContent() {
               altitude={station?.altitude || 0}
               temperature={currentData.temperature || DEFAULT_TEMPERATURE_C}
               trend={trends.pressure !== null ? parseFloat(safeFixed(trends.pressure, 1, "0")) : 0}
-              sparklineDataStation={pressureIsSLP ? chartData.slice(-24).map(d => calculateStationPressure(d.pressure ?? STANDARD_SEA_LEVEL_PRESSURE_HPA, station?.altitude || 0, d.temperature ?? DEFAULT_TEMPERATURE_C)).filter((v): v is number => v != null) : chartData.slice(-24).map(d => d.pressure ?? 0).filter((v): v is number => v != null)}
-              sparklineDataSeaLevel={pressureIsSLP ? chartData.slice(-24).map(d => d.pressure ?? 0).filter((v): v is number => v != null) : chartData.slice(-24).map(d => calculateSeaLevelPressure(d.pressure ?? 0, station?.altitude || 0, d.temperature ?? 20)).filter((v): v is number => v != null)}
             />
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Barometric Pressure History" data={chartData}
@@ -1590,7 +1594,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Water & Sensors */}
-        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet || availableFields.temperature8m || availableFields.deltaTemperature) && (
+        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet || availableFields.temperature8m || availableFields.deltaTemperature || availableFields.visibility || availableFields.visibilityVolt) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1612,6 +1616,9 @@ function SharedDashboardContent() {
             {availableFields.lightning && (
             <MetricCard title="Lightning Strikes" value={formatValue(currentData.lightning || 0, 0)} unit="strikes" />
             )}
+            {availableFields.lightningRaw && (
+            <MetricCard title="Lightning Raw" value={formatValue(currentData.lightningRaw || 0, 2)} unit="mA" />
+            )}
             {availableFields.lightningDistance && (
             <MetricCard title="Strike Distance" value={formatValue(currentData.lightningDistance != null && currentData.lightningDistance > 0 ? currentData.lightningDistance : 0, 0)} unit="km" />
             )}
@@ -1621,6 +1628,12 @@ function SharedDashboardContent() {
             {availableFields.chargerVoltage && (
             <MetricCard title="Charger Voltage" value={formatValue(currentData.chargerVoltage || 0, 2)} unit="V" />
             )}
+            {availableFields.visibility && (
+            <MetricCard title="Visibility" value={formatValue(currentData.visibility || 0, 1)} unit="km" />
+            )}
+            {availableFields.visibilityVolt && (
+            <MetricCard title="Visibility Volt" value={formatValue(currentData.visibilityVolt || 0, 2)} unit="V" />
+            )}
             {availableFields.temperature8m && (
             <MetricCard title="Temperature (8m)" value={formatValue(currentData.temperature8m || 0, 1)} unit="°C" />
             )}
@@ -1629,9 +1642,25 @@ function SharedDashboardContent() {
             )}
           </div>
           {/* Temperature (8m), Delta Temperature, Lightning Charts */}
-          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy) && (
+          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.visibility || availableFields.visibilityVolt) && (
           <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {availableFields.visibility && (
+            <DataBlockChart
+              title="Visibility History"
+              data={chartData}
+              series={[
+                { dataKey: "visibility", name: "Visibility", color: "#3b82f6", unit: "km" },
+                ...(availableFields.visibilityVolt ? [{ dataKey: "visibilityVolt", name: "Visibility Volt", color: "#f97316", unit: "V" }] : []),
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Visibility"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.visibility || 0}
+            />
+            )}
             {availableFields.temperature8m && (
             <DataBlockChart
               title="Temperature (8m) History"
@@ -1703,6 +1732,21 @@ function SharedDashboardContent() {
               yAxisLabel="Energy (relative)"
               showAverage={false}
               showMinMax={true}
+            />
+            )}
+            {availableFields.lightningRaw && (
+            <DataBlockChart
+              title="Lightning Raw"
+              data={chartData}
+              series={[
+                { dataKey: "lightningRaw", name: "Lightning Raw", color: "#eab308", unit: "mA" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Current (mA)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={currentData.lightningRaw || 0}
             />
             )}
           </div>

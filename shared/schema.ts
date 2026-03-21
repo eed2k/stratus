@@ -264,6 +264,7 @@ export const weatherData = pgTable(
     soilMoisture: real("soil_moisture"),
     leafWetness: real("leaf_wetness"),
     visibility: real("visibility"),
+    visibilityVolt: real("visibility_volt"),
     cloudBase: real("cloud_base"),
     batteryVoltage: real("battery_voltage"),
     panelTemperature: real("panel_temperature"),
@@ -306,6 +307,7 @@ export const weatherData = pgTable(
     lightning: real("lightning"),
     lightningDistance: real("lightning_distance"),
     lightningEnergy: real("lightning_energy"),
+    lightningRaw: real("lightning_raw"),
     // Charger
     chargerVoltage: real("charger_voltage"),
     // Wind direction standard deviation & SDI-12 wind vector
