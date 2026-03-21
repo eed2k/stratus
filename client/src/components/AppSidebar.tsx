@@ -86,7 +86,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
 
       <SidebarContent className="bg-sidebar-background">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground text-base font-semibold">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-base font-semibold" style={{ color: '#1e3a5f' }}>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -97,7 +97,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
                     data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     <Link href={item.url}>
-                      <span className="text-[15px] font-semibold text-black">{item.title}</span>
+                      <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
