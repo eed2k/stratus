@@ -569,12 +569,11 @@ export default function UserManagement() {
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Assigned Stations</TableHead>
-                  <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {users.filter(u => u.email.toLowerCase() !== 'admin@stratusweather.co.za').map((user) => (
                   <TableRow key={user.email}>
                     <TableCell className="font-medium">
                       {user.firstName} {user.lastName}
@@ -603,9 +602,6 @@ export default function UserManagement() {
                           )}
                         </span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(user.createdAt).toLocaleDateString('en-ZA', { timeZone: 'Africa/Johannesburg' })}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

@@ -31,7 +31,7 @@ interface AppSidebarProps {
 
 // Admin navigation items - full access
 const adminNavItems = [
-  { title: "Stations", url: "/" },
+  { title: "Active Stations", url: "/" },
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
   { title: "Historical Data Export", url: "/history" },
@@ -43,7 +43,7 @@ const adminNavItems = [
 
 // User navigation items - limited access (no docs, no config)
 const userNavItems = [
-  { title: "Stations", url: "/" },
+  { title: "Active Stations", url: "/" },
   { title: "Historical Data Export", url: "/history" },
   { title: "Account Settings", url: "/account" },
 ];
@@ -79,14 +79,14 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
           <div className="inline-flex flex-col items-center pt-[5px]">
             <h2 className="text-[20px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</h2>
-            <span className="text-[10px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.2.1</span>
+            <span className="text-[10px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.3.1</span>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent className="bg-sidebar-background">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground text-base font-semibold">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -97,7 +97,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
                     data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     <Link href={item.url}>
-                      <span>{item.title}</span>
+                      <span className="text-[15px] font-semibold text-black">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -139,7 +139,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
         )}
         <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">
-          <p>Stratus v1.2.1</p>
+          <p>Stratus v1.3.1</p>
         </div>
       </SidebarFooter>
     </Sidebar>

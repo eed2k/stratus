@@ -10,8 +10,7 @@ interface BarometricPressureCardProps {
   altitude?: number;            // meters
   temperature?: number;         // °C (for calculation if needed)
   trend?: number;               // Change in last 3 hours (hPa)
-  sparklineDataStation?: number[];
-  sparklineDataSeaLevel?: number[];
+
 }
 
 function getPressureTrend(trend: number): { label: string; symbol: string; color: string } {
@@ -45,8 +44,7 @@ export function BarometricPressureCard({
   altitude = 0,
   temperature = 15,
   trend = 0,
-  sparklineDataStation = [],
-  sparklineDataSeaLevel = [],
+
 }: BarometricPressureCardProps) {
   // Calculate sea level pressure if not provided
   const calculatedSeaLevel = seaLevelPressure ?? 
@@ -55,38 +53,9 @@ export function BarometricPressureCard({
   const pressureTrend = getPressureTrend(trend);
   const weatherOutlook = getWeatherOutlook(calculatedSeaLevel, trend);
 
-  // Only use sparkline data if provided - no fake data generation
-  const stationChartData = sparklineDataStation.length > 0 ? sparklineDataStation : [];
-  const seaLevelChartData = sparklineDataSeaLevel.length > 0 ? sparklineDataSeaLevel : [];
 
-  const renderSparkline = (data: number[], color: string) => {
-    if (data.length === 0) {
-      return (
-        <div className="h-12 flex items-center justify-center text-xs text-muted-foreground">
-          No historical data
-        </div>
-      );
-    }
-    
-    const max = Math.max(...data);
-    const min = Math.min(...data);
-    const range = max - min || 1;
-    
-    return (
-      <div className="h-12 flex items-end gap-0.5">
-        {data.map((val, i) => {
-          const height = ((val - min) / range) * 100;
-          return (
-            <div
-              key={i}
-              className="flex-1 rounded-t-sm transition-all duration-300"
-              style={{ height: `${Math.max(height, 5)}%`, backgroundColor: color }}
-            />
-          );
-        })}
-      </div>
-    );
-  };
+
+
 
   return (
     <Card className="border border-gray-300 bg-white" data-testid="card-barometric-pressure">
@@ -110,7 +79,7 @@ export function BarometricPressureCard({
                 </span>
                 <span className="text-sm text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>hPa</span>
               </div>
-              {renderSparkline(stationChartData, "#ef4444")}
+
             </div>
 
             {/* Sea Level Pressure */}
@@ -124,7 +93,7 @@ export function BarometricPressureCard({
                 </span>
                 <span className="text-sm text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>hPa</span>
               </div>
-              {renderSparkline(seaLevelChartData, "#3b82f6")}
+
             </div>
           </div>
 

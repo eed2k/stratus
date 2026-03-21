@@ -996,7 +996,12 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid station data", errors: parsed.error.errors });
       }
-      const station = await storage.createStation(parsed.data as any);
+      // Set default station image (Stratus logo) if none provided
+      const stationData = parsed.data as any;
+      if (!stationData.stationImage) {
+        stationData.stationImage = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="#1e3a5f"/><circle cx="16" cy="16" r="5" fill="white"/></svg>').toString('base64');
+      }
+      const station = await storage.createStation(stationData);
       
       // Auto-register with Protocol Manager if not demo
       if (station.connectionType !== 'demo' && station.isActive) {

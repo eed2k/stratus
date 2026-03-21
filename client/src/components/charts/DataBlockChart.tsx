@@ -129,6 +129,8 @@ interface DataBlockChartProps {
   defaultExpanded?: boolean;
   /** Y-axis domain [min, max] - use 'auto' for automatic, 'dataMin'/'dataMax' for data bounds */
   yAxisDomain?: [number | string, number | string];
+  /** Footer text to display below the chart inside the card */
+  footer?: string;
 }
 
 /**
@@ -159,6 +161,7 @@ export const DataBlockChart = memo(function DataBlockChart({
   height = 250,
   defaultExpanded = false,
   yAxisDomain,
+  footer,
 }: DataBlockChartProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedRange, setSelectedRange] = useState(defaultRange);
@@ -192,23 +195,23 @@ export const DataBlockChart = memo(function DataBlockChart({
     // For 24 points (e.g., hourly data): show only 2-3 labels
     // For larger datasets: minimum 6 ticks
     const getTickInterval = () => {
-      if (data.length > 200) return Math.ceil(data.length / 6); // 6 ticks max
+      if (data.length > 200) return Math.ceil(data.length / 6);
       if (data.length > 100) return Math.ceil(data.length / 6);
-      if (data.length > 50) return Math.ceil(data.length / 5);
-      if (data.length >= 25 && data.length <= 35) return 1; // 30-day daily: every 2nd day labeled
-      if (data.length > 20) return Math.ceil(data.length / 8); // 3 ticks for 24 points
-      if (data.length > 10) return 3; // Every 4th tick
-      return 0; // Show all for very small datasets
+      if (data.length > 50) return Math.ceil(data.length / 8);
+      if (data.length >= 25 && data.length <= 35) return 1;
+      if (data.length > 20) return Math.ceil(data.length / 10);
+      if (data.length > 10) return 2;
+      return 0;
     };
 
     const xAxisProps = {
       dataKey: "timestamp",
-      tick: { fontSize: 9, angle: data.length > 20 ? -90 : 0, textAnchor: (data.length > 20 ? 'end' : 'middle') as 'start' | 'middle' | 'end', dy: data.length > 20 ? -4 : 0 },
+      tick: { fontSize: 9, angle: data.length > 100 ? -90 : (data.length > 50 ? -45 : 0), textAnchor: (data.length > 100 ? 'end' : data.length > 50 ? 'end' : 'middle') as 'start' | 'middle' | 'end', dy: data.length > 50 ? -4 : 0 },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
       interval: getTickInterval() as number,
       label: !compact && xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fontSize: 11, fill: 'hsl(var(--muted-foreground))' } : undefined,
-      height: data.length > 20 ? 70 : 30,
+      height: data.length > 100 ? 70 : (data.length > 50 ? 50 : 30),
     };
 
     const yAxisProps: Record<string, any> = {
@@ -420,6 +423,9 @@ export const DataBlockChart = memo(function DataBlockChart({
             {renderChart()}
           </ResponsiveContainer>
         </div>
+        {footer && (
+          <p className="text-xs text-muted-foreground mt-1 px-2">{footer}</p>
+        )}
       </CardContent>
     </Card>
   );

@@ -2369,7 +2369,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {/* Irrigation Time Chart */}
             {availableFields.solarRadiation && availableFields.rainfall && (
-            <div>
             <DataBlockChart
               title="Irrigation Time (Estimated)"
               data={chartData}
@@ -2381,9 +2380,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisLabel="Minutes"
               showAverage={true}
               showMinMax={true}
+              footer="(ETo − rainfall) × crop factor × valve flow factor"
             />
-            <p className="text-xs text-muted-foreground mt-1 px-2">Formula: (ETo − rainfall) × crop factor × valve flow factor</p>
-            </div>
             )}
             {/* Wind Speed vs Wind Gust (24h) - next to Irrigation Time */}
             {availableFields.windSpeed && (
@@ -3135,7 +3133,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                     { label: "Avg", value: temperatureStats['14d'].avg ?? '--', unit: "°C" },
                     { label: "Range", value: temperatureStats['14d'].range ?? '--', unit: "°C" },
                   ],
-                }] : []),
+                }] : [{
+                  period: "14d",
+                  stats: [
+                    { label: "Min", value: '--', unit: "°C" },
+                    { label: "Max", value: '--', unit: "°C" },
+                    { label: "Avg", value: '--', unit: "°C" },
+                    { label: "Range", value: '--', unit: "°C" },
+                  ],
+                }]),
                 ...(temperatureStats.has30d ? [{
                   period: "30d",
                   stats: [
@@ -3144,7 +3150,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                     { label: "Avg", value: temperatureStats['30d'].avg ?? '--', unit: "°C" },
                     { label: "Range", value: temperatureStats['30d'].range ?? '--', unit: "°C" },
                   ],
-                }] : []),
+                }] : [{
+                  period: "30d",
+                  stats: [
+                    { label: "Min", value: '--', unit: "°C" },
+                    { label: "Max", value: '--', unit: "°C" },
+                    { label: "Avg", value: '--', unit: "°C" },
+                    { label: "Range", value: '--', unit: "°C" },
+                  ],
+                }]),
               ]}
             />
           </div>
