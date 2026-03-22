@@ -109,17 +109,24 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
   const stationWindUnit = (selectedStation as any)?.windSpeedUnit;
   const windUnitLabel = getWindUnitLabel((stationWindUnit as WindSpeedUnit) || 'ms');
 
-  const calculateStatistics = (values: number[]) => {
-    if (values.length === 0) return { min: 0, max: 0, avg: 0, count: 0 };
-    const valid = values.filter((v) => v !== null && !isNaN(v));
-    if (valid.length === 0) return { min: 0, max: 0, avg: 0, count: 0 };
+  const calculateStatistics = (values: (number | null | undefined)[]) => {
+    const valid = values.filter((v): v is number => v !== null && v !== undefined && !isNaN(v));
+    if (valid.length === 0) return { min: 0, max: 0, avg: 0, stdDev: 0, count: 0, total: values.length };
     
-    return {
-      min: Math.min(...valid),
-      max: Math.max(...valid),
-      avg: valid.reduce((a, b) => a + b, 0) / valid.length,
-      count: valid.length,
-    };
+    let min = valid[0], max = valid[0], sum = 0;
+    for (const v of valid) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+      sum += v;
+    }
+    const avg = sum / valid.length;
+    let sqDiffSum = 0;
+    for (const v of valid) {
+      sqDiffSum += (v - avg) ** 2;
+    }
+    const stdDev = Math.sqrt(sqDiffSum / valid.length);
+    
+    return { min, max, avg, stdDev, count: valid.length, total: values.length };
   };
 
   const generatePDFReport = async () => {
@@ -139,12 +146,12 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       y += 7;
       doc.text(`Location: ${selectedStation?.location || "N/A"}`, 20, y);
       y += 7;
-      if (selectedStation?.latitude && selectedStation?.longitude) {
-        doc.text(`Coordinates: ${selectedStation.latitude.toFixed(4)}°, ${selectedStation.longitude.toFixed(4)}°`, 20, y);
+      if (selectedStation?.latitude != null && selectedStation?.longitude != null) {
+        doc.text(`Coordinates: ${safeFixed(selectedStation.latitude, 4)}, ${safeFixed(selectedStation.longitude, 4)}`, 20, y);
         y += 7;
       }
-      if (selectedStation?.altitude) {
-        doc.text(`Altitude: ${selectedStation.altitude} m`, 20, y);
+      if (selectedStation?.altitude != null) {
+        doc.text(`Altitude: ${safeFixed(selectedStation.altitude, 0)} m`, 20, y);
         y += 7;
       }
       doc.text(`Period: ${config.startDate} to ${config.endDate}`, 20, y);
@@ -170,14 +177,14 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         { title: "Wind Direction", enabled: config.includeWind, getValue: (d) => d.windDirection, unit: "°" },
         { title: "Wind Gust", enabled: config.includeWind, getValue: (d) => d.windGust, unit: windUnitLabel },
         { title: "Rainfall", enabled: config.includeRainfall, getValue: (d) => d.rainfall, unit: "mm" },
-        { title: "Solar Radiation", enabled: config.includeSolar, getValue: (d) => d.solarRadiation, unit: "W/m²" },
+        { title: "Solar Radiation", enabled: config.includeSolar, getValue: (d) => d.solarRadiation, unit: "W/m2" },
         { title: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex, unit: "" },
         { title: "Battery Voltage", enabled: config.includeBattery, getValue: (d) => d.batteryVoltage, unit: "V" },
         { title: "Evapotranspiration (ETo)", enabled: config.includeETo, getValue: (d) => d.eto, unit: "mm/day" },
         { title: "Soil Temperature", enabled: config.includeSoilTemp, getValue: (d) => d.soilTemperature, unit: "°C" },
         { title: "Soil Moisture", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture, unit: "%" },
-        { title: "PM10", enabled: config.includePM10, getValue: (d) => d.pm10, unit: "µg/m³" },
-        { title: "PM2.5", enabled: config.includePM25, getValue: (d) => d.pm25, unit: "µg/m³" },
+        { title: "PM10", enabled: config.includePM10, getValue: (d) => d.pm10, unit: "ug/m3" },
+        { title: "PM2.5", enabled: config.includePM25, getValue: (d) => d.pm25, unit: "ug/m3" },
         { title: "Water Level", enabled: config.includeWaterLevel, getValue: (d) => d.waterLevel, unit: "m" },
         { title: "Lightning Strikes", enabled: config.includeLightning, getValue: (d) => d.lightning, unit: "" },
         { title: "Lightning Distance", enabled: config.includeLightning, getValue: (d) => d.lightningDistance, unit: "km" },
@@ -185,7 +192,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         { title: "Lightning Raw", enabled: config.includeLightning, getValue: (d) => d.lightningRaw, unit: "mA" },
         { title: "Visibility", enabled: config.includeVisibility, getValue: (d) => d.visibility, unit: "km" },
         { title: "Visibility Volt", enabled: config.includeVisibility, getValue: (d) => d.visibilityVolt, unit: "V" },
-        { title: "Air Density", enabled: config.includeAirDensity, getValue: (d) => d.airDensity, unit: "kg/m³" },
+        { title: "Air Density", enabled: config.includeAirDensity, getValue: (d) => d.airDensity, unit: "kg/m3" },
         { title: "Charger Voltage", enabled: config.includeChargerVoltage, getValue: (d) => d.chargerVoltage, unit: "V" },
         { title: "Panel Temperature", enabled: config.includePanelTemp, getValue: (d) => d.panelTemperature, unit: "°C" },
         { title: "Temperature 8m", enabled: config.includeTemp8m, getValue: (d) => d.temperature8m, unit: "°C" },
@@ -214,20 +221,20 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         y += 8;
 
         if (config.includeStatistics) {
-          const values = weatherData
-            .map(section.getValue)
-            .filter((v): v is number => v !== null);
+          const values = weatherData.map(section.getValue);
           const stats = calculateStatistics(values);
 
           doc.setFontSize(10);
           doc.setFont("helvetica", "normal");
-          doc.text(`Minimum: ${safeFixed(stats.min, 1)} ${section.unit}`, 25, y);
+          doc.text(`Minimum: ${safeFixed(stats.min, 2)} ${section.unit}`, 25, y);
           y += 5;
-          doc.text(`Maximum: ${safeFixed(stats.max, 1)} ${section.unit}`, 25, y);
+          doc.text(`Maximum: ${safeFixed(stats.max, 2)} ${section.unit}`, 25, y);
           y += 5;
-          doc.text(`Average: ${safeFixed(stats.avg, 1)} ${section.unit}`, 25, y);
+          doc.text(`Average: ${safeFixed(stats.avg, 2)} ${section.unit}`, 25, y);
           y += 5;
-          doc.text(`Data Points: ${stats.count}`, 25, y);
+          doc.text(`Std Dev: ${safeFixed(stats.stdDev, 3)} ${section.unit}`, 25, y);
+          y += 5;
+          doc.text(`Data Points: ${stats.count} / ${stats.total} (${safeFixed((stats.count / stats.total) * 100, 1)}%)`, 25, y);
           y += 10;
         }
       }
@@ -262,10 +269,11 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         title: "Report Generated",
         description: `Downloaded ${filename}`,
       });
-    } catch (error) {
+    } catch (err) {
+      console.error("PDF generation error:", err);
       toast({
         title: "Error",
-        description: "Failed to generate report",
+        description: `Failed to generate report: ${err instanceof Error ? err.message : String(err)}`,
         variant: "destructive",
       });
     } finally {
@@ -274,44 +282,55 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
   };
 
   const generateCSVReport = () => {
-    // Define all possible columns
+    // Helper: properly quote CSV values (RFC 4180 compliant)
+    const csvVal = (v: string | number | null | undefined): string => {
+      if (v === null || v === undefined) return "";
+      const s = String(v);
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+
+    // Define all possible columns with consistent precision per parameter type
     const allColumns: Array<{
       key: string;
       header: string;
       enabled: boolean;
       getValue: (d: WeatherData) => number | null | undefined;
+      decimals: number;
     }> = [
-      { key: "temperature", header: "Temperature (°C)", enabled: config.includeTemperature, getValue: (d) => d.temperature },
-      { key: "humidity", header: "Humidity (%)", enabled: config.includeHumidity, getValue: (d) => d.humidity },
-      { key: "dewPoint", header: "Dew Point (°C)", enabled: config.includeDewPoint, getValue: (d) => d.dewPoint },
-      { key: "pressure", header: "Pressure (hPa)", enabled: config.includePressure, getValue: (d) => d.pressure },
-      { key: "windSpeed", header: `Wind Speed (${windUnitLabel})`, enabled: config.includeWind, getValue: (d) => d.windSpeed },
-      { key: "windDirection", header: "Wind Direction (°)", enabled: config.includeWind, getValue: (d) => d.windDirection },
-      { key: "windGust", header: `Wind Gust (${windUnitLabel})`, enabled: config.includeWind, getValue: (d) => d.windGust },
-      { key: "rainfall", header: "Rainfall (mm)", enabled: config.includeRainfall, getValue: (d) => d.rainfall },
-      { key: "solarRadiation", header: "Solar Radiation (W/m²)", enabled: config.includeSolar, getValue: (d) => d.solarRadiation },
-      { key: "uvIndex", header: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex },
-      { key: "batteryVoltage", header: "Battery Voltage (V)", enabled: config.includeBattery, getValue: (d) => d.batteryVoltage },
-      { key: "eto", header: "ETo (mm/day)", enabled: config.includeETo, getValue: (d) => d.eto },
-      { key: "soilTemperature", header: "Soil Temp (°C)", enabled: config.includeSoilTemp, getValue: (d) => d.soilTemperature },
-      { key: "soilMoisture", header: "Soil Moisture (%)", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture },
-      { key: "pm10", header: "PM10 (µg/m³)", enabled: config.includePM10, getValue: (d) => d.pm10 },
-      { key: "pm25", header: "PM2.5 (µg/m³)", enabled: config.includePM25, getValue: (d) => d.pm25 },
-      { key: "waterLevel", header: "Water Level (m)", enabled: config.includeWaterLevel, getValue: (d) => d.waterLevel },
-      { key: "lightning", header: "Lightning Strikes", enabled: config.includeLightning, getValue: (d) => d.lightning },
-      { key: "lightningDistance", header: "Lightning Distance (km)", enabled: config.includeLightning, getValue: (d) => d.lightningDistance },
-      { key: "lightningEnergy", header: "Lightning Energy", enabled: config.includeLightning, getValue: (d) => d.lightningEnergy },
-      { key: "lightningRaw", header: "Lightning Raw (mA)", enabled: config.includeLightning, getValue: (d) => d.lightningRaw },
-      { key: "visibility", header: "Visibility (km)", enabled: config.includeVisibility, getValue: (d) => d.visibility },
-      { key: "visibilityVolt", header: "Visibility Volt (V)", enabled: config.includeVisibility, getValue: (d) => d.visibilityVolt },
-      { key: "airDensity", header: "Air Density (kg/m³)", enabled: config.includeAirDensity, getValue: (d) => d.airDensity },
-      { key: "chargerVoltage", header: "Charger Voltage (V)", enabled: config.includeChargerVoltage, getValue: (d) => d.chargerVoltage },
-      { key: "panelTemperature", header: "Panel Temp (°C)", enabled: config.includePanelTemp, getValue: (d) => d.panelTemperature },
-      { key: "temperature8m", header: "Temp 8m (°C)", enabled: config.includeTemp8m, getValue: (d) => d.temperature8m },
-      { key: "deltaTemperature", header: "Delta Temp (°C)", enabled: config.includeDeltaTemp, getValue: (d) => d.deltaTemperature },
-      { key: "mpptSolarPower", header: "MPPT Solar Power (W)", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarPower },
-      { key: "mpptBatteryVoltage", header: "MPPT Battery (V)", enabled: config.includeMPPT, getValue: (d) => d.mpptBatteryVoltage },
-      { key: "mpptSolarVoltage", header: "MPPT Solar Voltage (V)", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarVoltage },
+      { key: "temperature", header: "Temperature (°C)", enabled: config.includeTemperature, getValue: (d) => d.temperature, decimals: 2 },
+      { key: "humidity", header: "Humidity (%)", enabled: config.includeHumidity, getValue: (d) => d.humidity, decimals: 1 },
+      { key: "dewPoint", header: "Dew Point (°C)", enabled: config.includeDewPoint, getValue: (d) => d.dewPoint, decimals: 2 },
+      { key: "pressure", header: "Pressure (hPa)", enabled: config.includePressure, getValue: (d) => d.pressure, decimals: 2 },
+      { key: "windSpeed", header: `Wind Speed (${windUnitLabel})`, enabled: config.includeWind, getValue: (d) => d.windSpeed, decimals: 2 },
+      { key: "windDirection", header: "Wind Direction (deg)", enabled: config.includeWind, getValue: (d) => d.windDirection, decimals: 0 },
+      { key: "windGust", header: `Wind Gust (${windUnitLabel})`, enabled: config.includeWind, getValue: (d) => d.windGust, decimals: 2 },
+      { key: "rainfall", header: "Rainfall (mm)", enabled: config.includeRainfall, getValue: (d) => d.rainfall, decimals: 2 },
+      { key: "solarRadiation", header: "Solar Radiation (W/m2)", enabled: config.includeSolar, getValue: (d) => d.solarRadiation, decimals: 1 },
+      { key: "uvIndex", header: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex, decimals: 1 },
+      { key: "batteryVoltage", header: "Battery Voltage (V)", enabled: config.includeBattery, getValue: (d) => d.batteryVoltage, decimals: 3 },
+      { key: "eto", header: "ETo (mm/day)", enabled: config.includeETo, getValue: (d) => d.eto, decimals: 3 },
+      { key: "soilTemperature", header: "Soil Temperature (°C)", enabled: config.includeSoilTemp, getValue: (d) => d.soilTemperature, decimals: 2 },
+      { key: "soilMoisture", header: "Soil Moisture (%)", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture, decimals: 2 },
+      { key: "pm10", header: "PM10 (ug/m3)", enabled: config.includePM10, getValue: (d) => d.pm10, decimals: 1 },
+      { key: "pm25", header: "PM2.5 (ug/m3)", enabled: config.includePM25, getValue: (d) => d.pm25, decimals: 1 },
+      { key: "waterLevel", header: "Water Level (m)", enabled: config.includeWaterLevel, getValue: (d) => d.waterLevel, decimals: 3 },
+      { key: "lightning", header: "Lightning Strikes", enabled: config.includeLightning, getValue: (d) => d.lightning, decimals: 0 },
+      { key: "lightningDistance", header: "Lightning Distance (km)", enabled: config.includeLightning, getValue: (d) => d.lightningDistance, decimals: 1 },
+      { key: "lightningEnergy", header: "Lightning Energy", enabled: config.includeLightning, getValue: (d) => d.lightningEnergy, decimals: 0 },
+      { key: "lightningRaw", header: "Lightning Raw (mA)", enabled: config.includeLightning, getValue: (d) => d.lightningRaw, decimals: 3 },
+      { key: "visibility", header: "Visibility (km)", enabled: config.includeVisibility, getValue: (d) => d.visibility, decimals: 2 },
+      { key: "visibilityVolt", header: "Visibility Volt (V)", enabled: config.includeVisibility, getValue: (d) => d.visibilityVolt, decimals: 3 },
+      { key: "airDensity", header: "Air Density (kg/m3)", enabled: config.includeAirDensity, getValue: (d) => d.airDensity, decimals: 4 },
+      { key: "chargerVoltage", header: "Charger Voltage (V)", enabled: config.includeChargerVoltage, getValue: (d) => d.chargerVoltage, decimals: 3 },
+      { key: "panelTemperature", header: "Panel Temperature (°C)", enabled: config.includePanelTemp, getValue: (d) => d.panelTemperature, decimals: 2 },
+      { key: "temperature8m", header: "Temperature 8m (°C)", enabled: config.includeTemp8m, getValue: (d) => d.temperature8m, decimals: 2 },
+      { key: "deltaTemperature", header: "Delta Temperature (°C)", enabled: config.includeDeltaTemp, getValue: (d) => d.deltaTemperature, decimals: 3 },
+      { key: "mpptSolarPower", header: "MPPT Solar Power (W)", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarPower, decimals: 2 },
+      { key: "mpptBatteryVoltage", header: "MPPT Battery Voltage (V)", enabled: config.includeMPPT, getValue: (d) => d.mpptBatteryVoltage, decimals: 3 },
+      { key: "mpptSolarVoltage", header: "MPPT Solar Voltage (V)", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarVoltage, decimals: 3 },
     ];
 
     // Filter: only include columns that are enabled AND have actual data
@@ -323,18 +342,71 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       });
     });
 
-    const headers = ["Timestamp", ...columns.map(c => c.header)];
+    const lines: string[] = [];
 
-    const rows = weatherData.map((d) => {
-      const row: string[] = [String(d.timestamp)];
+    // --- Metadata Header Block ---
+    lines.push("# Stratus Weather Server - Data Export");
+    lines.push(`# Station: ${csvVal(selectedStation?.name || "Unknown")}`);
+    lines.push(`# Location: ${csvVal(selectedStation?.location || "N/A")}`);
+    if (selectedStation?.latitude != null && selectedStation?.longitude != null) {
+      lines.push(`# Coordinates: ${safeFixed(selectedStation.latitude, 6)}, ${safeFixed(selectedStation.longitude, 6)}`);
+    }
+    if (selectedStation?.altitude != null) {
+      lines.push(`# Altitude: ${safeFixed(selectedStation.altitude, 1)} m`);
+    }
+    lines.push(`# Period: ${config.startDate} to ${config.endDate}`);
+    lines.push(`# Export Date: ${new Date().toISOString()}`);
+    lines.push(`# Total Records: ${weatherData.length}`);
+    lines.push(`# Parameters: ${columns.length}`);
+    lines.push(`# Timestamp Format: ISO 8601 (UTC)`);
+    lines.push(`# Missing Values: (empty)`);
+    lines.push("#");
+
+    // --- Column Headers ---
+    const headers = ["Timestamp_UTC", ...columns.map(c => c.header)];
+    lines.push(headers.map(csvVal).join(","));
+
+    // --- Data Rows ---
+    for (const d of weatherData) {
+      const ts = new Date(d.timestamp).toISOString();
+      const vals: string[] = [ts];
       for (const col of columns) {
-        row.push(col.getValue(d)?.toString() || "");
+        const v = col.getValue(d);
+        if (v === null || v === undefined) {
+          vals.push("");
+        } else {
+          vals.push(Number(v).toFixed(col.decimals));
+        }
       }
-      return row.join(",");
-    });
+      lines.push(vals.join(","));
+    }
 
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    // --- Statistics Summary Block ---
+    if (config.includeStatistics) {
+      lines.push("#");
+      lines.push("# --- Statistics Summary ---");
+      const statRows: { label: string; fn: (stats: ReturnType<typeof calculateStatistics>, col: typeof columns[0]) => string }[] = [
+        { label: "# Minimum", fn: (s, c) => s.count > 0 ? Number(s.min).toFixed(c.decimals) : "" },
+        { label: "# Maximum", fn: (s, c) => s.count > 0 ? Number(s.max).toFixed(c.decimals) : "" },
+        { label: "# Mean", fn: (s, c) => s.count > 0 ? Number(s.avg).toFixed(c.decimals) : "" },
+        { label: "# Std Dev", fn: (s, c) => s.count > 0 ? Number(s.stdDev).toFixed(c.decimals + 1) : "" },
+        { label: "# Count", fn: (s) => String(s.count) },
+        { label: "# Completeness (%)", fn: (s) => s.total > 0 ? ((s.count / s.total) * 100).toFixed(1) : "0.0" },
+      ];
+      for (const sr of statRows) {
+        const vals = [sr.label];
+        for (const col of columns) {
+          const rawVals = weatherData.map(col.getValue);
+          const stats = calculateStatistics(rawVals);
+          vals.push(sr.fn(stats, col));
+        }
+        lines.push(vals.join(","));
+      }
+    }
+
+    // UTF-8 BOM for Excel compatibility + CSV content
+    const csv = "\uFEFF" + lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
