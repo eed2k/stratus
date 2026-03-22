@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { WeatherStation, WeatherData } from "@shared/schema";
-import { getWindUnitLabel, type WindSpeedUnit } from "@/lib/windConstants";
+import { getWindUnitLabel, getSimplifiedClasses, WIND_DIRECTIONS, type WindSpeedUnit } from "@/lib/windConstants";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 
@@ -234,9 +234,147 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           y += 5;
           doc.text(`Std Dev: ${safeFixed(stats.stdDev, 3)} ${section.unit}`, 25, y);
           y += 5;
-          doc.text(`Data Points: ${stats.count} / ${stats.total} (${safeFixed((stats.count / stats.total) * 100, 1)}%)`, 25, y);
+          doc.text(`Completeness: ${safeFixed((stats.count / stats.total) * 100, 1)}%`, 25, y);
           y += 10;
         }
+      }
+
+      // --- Wind Rose Diagrams (24H, 7D, 30D) ---
+      if (config.includeWind && weatherData.length > 0) {
+        const windUnit = (stationWindUnit as WindSpeedUnit) || 'ms';
+        const classes = getSimplifiedClasses(windUnit);
+        const classColors = ['#a8d5e2', '#6bb8d6', '#3b82f6', '#f59e0b', '#ef4444', '#7c3aed'];
+        const now = new Date(weatherData[weatherData.length - 1].timestamp).getTime();
+        const periods = [
+          { label: '24 Hour', hours: 24 },
+          { label: '7 Day', hours: 168 },
+          { label: '30 Day', hours: 720 },
+        ];
+
+        const processWindData = (subset: WeatherData[]) => {
+          const bins = Array.from({ length: 16 }, () => new Array(classes.length).fill(0));
+          subset.forEach(d => {
+            if (d.windDirection == null || d.windSpeed == null) return;
+            const dirBin = Math.round(d.windDirection / 22.5) % 16;
+            let sc = 0;
+            for (let i = classes.length - 1; i >= 0; i--) {
+              if (d.windSpeed >= classes[i].min) { sc = i; break; }
+            }
+            bins[dirBin][sc]++;
+          });
+          return bins;
+        };
+
+        const drawWindRose = (bins: number[][], cx: number, cy: number, radius: number, label: string) => {
+          // Find max total for scaling
+          let maxTotal = 0;
+          bins.forEach(b => { const t = b.reduce((a, v) => a + v, 0); if (t > maxTotal) maxTotal = t; });
+          if (maxTotal === 0) return;
+
+          // Title
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "bold");
+          doc.text(label, cx, cy - radius - 5, { align: 'center' });
+
+          // Concentric circles (guides)
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.2);
+          for (let r = 1; r <= 4; r++) {
+            doc.circle(cx, cy, (radius * r) / 4);
+          }
+
+          // Direction labels
+          doc.setFontSize(6);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80, 80, 80);
+          const dirs16 = WIND_DIRECTIONS;
+          for (let i = 0; i < 16; i++) {
+            const angle = (i * 22.5 - 90) * Math.PI / 180;
+            const lx = cx + Math.cos(angle) * (radius + 6);
+            const ly = cy + Math.sin(angle) * (radius + 6);
+            doc.text(dirs16[i], lx, ly + 1.5, { align: 'center' });
+          }
+          doc.setTextColor(0, 0, 0);
+
+          // Draw wedges (stacked per direction)
+          const wedgeHalf = (22.5 / 2) * Math.PI / 180;
+          for (let i = 0; i < 16; i++) {
+            const angle = (i * 22.5 - 90) * Math.PI / 180;
+            let cumulative = 0;
+            for (let s = classes.length - 1; s >= 0; s--) {
+              const total = bins[i].reduce((a, v) => a + v, 0);
+              if (total === 0) continue;
+              const outerR = (total / maxTotal) * radius;
+              const innerR = (cumulative / maxTotal) * radius;
+              // Draw simple triangular wedge
+              const [r, g, b] = hexToRgb(classColors[s] || '#999');
+              doc.setFillColor(r, g, b);
+              doc.setDrawColor(255, 255, 255);
+              doc.setLineWidth(0.3);
+              // Triangle from center to outer arc
+              const x1 = cx + Math.cos(angle - wedgeHalf) * outerR;
+              const y1 = cy + Math.sin(angle - wedgeHalf) * outerR;
+              const x2 = cx + Math.cos(angle + wedgeHalf) * outerR;
+              const y2 = cy + Math.sin(angle + wedgeHalf) * outerR;
+              doc.triangle(cx, cy, x1, y1, x2, y2, 'F');
+              cumulative = total; // Only draw full wedge (simplified stacking)
+              break; // Draw only top speed class color for simplicity
+            }
+          }
+
+          // Center calm circle
+          const totalObs = bins.flat().reduce((a, v) => a + v, 0);
+          const calmObs = bins.reduce((a, b) => a + (b[0] || 0), 0);
+          const calmPct = totalObs > 0 ? ((calmObs / totalObs) * 100).toFixed(1) : '0';
+          doc.setFillColor(255, 255, 255);
+          doc.setDrawColor(180, 180, 180);
+          doc.setLineWidth(0.3);
+          doc.circle(cx, cy, radius * 0.12, 'FD');
+          doc.setFontSize(5);
+          doc.setTextColor(80, 80, 80);
+          doc.text(`${calmPct}%`, cx, cy + 1.5, { align: 'center' });
+          doc.setTextColor(0, 0, 0);
+        };
+
+        // Helper to convert hex to RGB
+        const hexToRgb = (hex: string): [number, number, number] => {
+          const h = hex.replace('#', '');
+          return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+        };
+
+        doc.addPage();
+        y = 20;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Wind Rose Analysis", pageWidth / 2, y, { align: "center" });
+        y += 10;
+
+        const roseRadius = 35;
+        const roseSpacing = (pageWidth - 40) / 3;
+        
+        periods.forEach((p, idx) => {
+          const cutoff = now - p.hours * 60 * 60 * 1000;
+          const subset = weatherData.filter(d => new Date(d.timestamp).getTime() > cutoff);
+          const bins = processWindData(subset);
+          const cx = 20 + roseSpacing * idx + roseSpacing / 2;
+          drawWindRose(bins, cx, y + roseRadius + 15, roseRadius, `${p.label} Wind Rose`);
+        });
+
+        y += roseRadius * 2 + 35;
+
+        // Speed class legend
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        const legendY = y;
+        classes.forEach((cls, i) => {
+          const [r, g, b] = hexToRgb(classColors[i] || '#999');
+          doc.setFillColor(r, g, b);
+          const lx = 25 + (i % 3) * 60;
+          const ly = legendY + Math.floor(i / 3) * 8;
+          doc.rect(lx, ly - 3, 4, 4, 'F');
+          doc.text(`${cls.min}-${cls.max === Infinity ? '+' : cls.max} ${windUnitLabel}`, lx + 6, ly);
+        });
+        y = legendY + Math.ceil(classes.length / 3) * 8 + 10;
       }
 
       if (y > 250) {
@@ -251,9 +389,6 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Total Records: ${weatherData.length}`, 25, y);
-      y += 5;
-      
       if (weatherData.length > 0) {
         const firstDate = new Date(weatherData[0].timestamp);
         const lastDate = new Date(weatherData[weatherData.length - 1].timestamp);
@@ -390,7 +525,6 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         { label: "# Maximum", fn: (s, c) => s.count > 0 ? Number(s.max).toFixed(c.decimals) : "" },
         { label: "# Mean", fn: (s, c) => s.count > 0 ? Number(s.avg).toFixed(c.decimals) : "" },
         { label: "# Std Dev", fn: (s, c) => s.count > 0 ? Number(s.stdDev).toFixed(c.decimals + 1) : "" },
-        { label: "# Count", fn: (s) => String(s.count) },
         { label: "# Completeness (%)", fn: (s) => s.total > 0 ? ((s.count / s.total) * 100).toFixed(1) : "0.0" },
       ];
       for (const sr of statRows) {

@@ -580,23 +580,23 @@ function SharedDashboardContent() {
     refetchInterval: 60000,
   });
 
-  // Separate query for 7-day stats data (always fetches 7 days regardless of chart time range)
+  // Separate query for 30-day stats data (always fetches 30 days regardless of chart time range)
   const { data: statsData = [] } = useQuery<WeatherData[]>({
-    queryKey: ['shared-weather', shareToken, 'stats-7d', dataRange?.latest],
+    queryKey: ['shared-weather', shareToken, 'stats-30d', dataRange?.latest],
     queryFn: async () => {
       const endTime = new Date();
-      const startTime = new Date(endTime.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const startTime = new Date(endTime.getTime() - 30 * 24 * 60 * 60 * 1000);
       const res = await fetch(
-        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=1000`,
+        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=5000`,
         { headers: shareHeaders }
       );
       if (!res.ok) return [];
       const data = await res.json();
       if (Array.isArray(data) && data.length === 0 && dataRange?.latest) {
         const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
-        const rangeStart = new Date(rangeEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const rangeStart = new Date(rangeEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
         const fallback = await fetch(
-          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=1000`,
+          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=5000`,
           { headers: shareHeaders }
         );
         if (!fallback.ok) return [];
@@ -1594,7 +1594,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Water & Sensors */}
-        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet || availableFields.temperature8m || availableFields.deltaTemperature || availableFields.visibility || availableFields.visibilityVolt) && (
+        {sv.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.chargerVoltage || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.levelSwitch || availableFields.levelSwitchStatus || availableFields.temperatureSwitchOutlet || availableFields.temperature8m || availableFields.deltaTemperature) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1628,12 +1628,6 @@ function SharedDashboardContent() {
             {availableFields.chargerVoltage && (
             <MetricCard title="Charger Voltage" value={formatValue(currentData.chargerVoltage || 0, 2)} unit="V" />
             )}
-            {availableFields.visibility && (
-            <MetricCard title="Visibility" value={formatValue(currentData.visibility || 0, 1)} unit="km" />
-            )}
-            {availableFields.visibilityVolt && (
-            <MetricCard title="Visibility Volt" value={formatValue(currentData.visibilityVolt || 0, 2)} unit="V" />
-            )}
             {availableFields.temperature8m && (
             <MetricCard title="Temperature (8m)" value={formatValue(currentData.temperature8m || 0, 1)} unit="°C" />
             )}
@@ -1642,25 +1636,9 @@ function SharedDashboardContent() {
             )}
           </div>
           {/* Temperature (8m), Delta Temperature, Lightning Charts */}
-          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.visibility || availableFields.visibilityVolt) && (
+          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw) && (
           <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {availableFields.visibility && (
-            <DataBlockChart
-              title="Visibility History"
-              data={chartData}
-              series={[
-                { dataKey: "visibility", name: "Visibility", color: "#3b82f6", unit: "km" },
-                ...(availableFields.visibilityVolt ? [{ dataKey: "visibilityVolt", name: "Visibility Volt", color: "#f97316", unit: "V" }] : []),
-              ]}
-              chartType="line"
-              xAxisLabel="Time"
-              yAxisLabel="Visibility"
-              showAverage={true}
-              showMinMax={true}
-              currentValue={currentData.visibility || 0}
-            />
-            )}
             {availableFields.temperature8m && (
             <DataBlockChart
               title="Temperature (8m) History"

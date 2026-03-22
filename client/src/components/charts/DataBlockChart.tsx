@@ -205,19 +205,19 @@ export const DataBlockChart = memo(function DataBlockChart({
       return 0;
     };
 
-    // X-axis label rotation: keep horizontal/45° for short ranges (1h-24h),
-    // only go vertical for very large raw datasets (7d+)
-    const xAngle = data.length > 500 ? -90 : (data.length > 200 ? -45 : 0);
-    const xAnchor: 'start' | 'middle' | 'end' = data.length > 200 ? 'end' : 'middle';
+    // X-axis label rotation: always use -45° for any meaningful dataset to prevent text overlap
+    // Only use horizontal for very small datasets (≤10 points)
+    const xAngle = data.length > 200 ? -90 : (data.length > 10 ? -45 : 0);
+    const xAnchor: 'start' | 'middle' | 'end' = data.length > 10 ? 'end' : 'middle';
 
     const xAxisProps = {
       dataKey: "timestamp",
-      tick: { fontSize: 9, angle: xAngle, textAnchor: xAnchor, dy: data.length > 200 ? -4 : 0 },
+      tick: { fontSize: 9, angle: xAngle, textAnchor: xAnchor, dy: data.length > 10 ? -4 : 0 },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
       interval: getTickInterval() as number,
       label: !compact && xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fontSize: 11, fill: 'hsl(var(--muted-foreground))' } : undefined,
-      height: data.length > 500 ? 70 : (data.length > 200 ? 50 : 30),
+      height: data.length > 200 ? 70 : (data.length > 10 ? 55 : 30),
     };
 
     const yAxisProps: Record<string, any> = {

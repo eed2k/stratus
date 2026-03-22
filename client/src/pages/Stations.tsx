@@ -468,7 +468,7 @@ export default function Stations() {
                         onChange={(e) => updateForm({ dropboxFilePattern: e.target.value })}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Leave blank to import all .dat files in the folder. Enter a station prefix (e.g. <code>Inteltronics_SAWS_TestBed_5263</code>) to match all tables, or use wildcards like <code>*Table5m*</code> for specific tables.
+                        Leave blank to import all .dat files in the folder. Enter a station prefix to match all tables, or use wildcards like <code>*&nbsp;*</code> for specific tables.
                       </p>
                     </div>
                     <div className="space-y-2">

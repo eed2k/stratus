@@ -675,16 +675,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     placeholderData: keepPreviousData, // Show previous data while new range loads
   });
 
-  // Separate query for 7-day stats data (always fetches 7 days regardless of chart time range)
-  const statsTimeRangeHours = 7 * 24; // 168 hours = 7 days
+  // Separate query for 30-day stats data (always fetches 30 days regardless of chart time range)
+  const statsTimeRangeHours = 30 * 24; // 720 hours = 30 days
   const { data: statsData = [] } = useQuery<WeatherData[]>({
-    queryKey: ["/api/stations", activeStationId, "data", "stats-7d", dataRange?.latest],
+    queryKey: ["/api/stations", activeStationId, "data", "stats-30d", dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
       const endTime = new Date();
       const startTime = new Date(endTime.getTime() - statsTimeRangeHours * 60 * 60 * 1000);
       const response = await authFetch(
-        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=1000`
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=5000`
       );
       if (!response.ok) return [];
       const data = await response.json();
@@ -692,7 +692,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
         const rangeStart = new Date(rangeEnd.getTime() - statsTimeRangeHours * 60 * 60 * 1000);
         const fallback = await authFetch(
-          `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=1000`
+          `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=5000`
         );
         if (!fallback.ok) return [];
         return fallback.json();
@@ -2094,7 +2094,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Water & Sensors Section - Only show if any water/sensor data exists AND section enabled */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.chargerVoltage || availableFields.temperature8m || availableFields.deltaTemperature || availableFields.visibility || availableFields.visibilityVolt) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterSensors !== false && (availableFields.waterLevel || availableFields.temperatureSwitch || availableFields.levelSwitch || availableFields.temperatureSwitchOutlet || availableFields.levelSwitchStatus || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.chargerVoltage || availableFields.temperature8m || availableFields.deltaTemperature) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Sensors</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -2168,20 +2168,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 unit="V"
               />
             )}
-            {availableFields.visibility && (
-              <MetricCard
-                title="Visibility"
-                value={formatValue(currentData.visibility || 0, 1)}
-                unit="km"
-              />
-            )}
-            {availableFields.visibilityVolt && (
-              <MetricCard
-                title="Visibility Volt"
-                value={formatValue(currentData.visibilityVolt || 0, 2)}
-                unit="V"
-              />
-            )}
             {availableFields.temperature8m && (
               <MetricCard
                 title="Temperature (8m)"
@@ -2232,24 +2218,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           </div>
           )}
           {/* Temperature (8m), Delta Temperature, Lightning Charts */}
-          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw || availableFields.visibility || availableFields.visibilityVolt) && (
+          {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {availableFields.visibility && (
-            <DataBlockChart
-              title="Visibility History"
-              data={chartData}
-              series={[
-                { dataKey: "visibility", name: "Visibility", color: "#3b82f6", unit: "km" },
-                ...(availableFields.visibilityVolt ? [{ dataKey: "visibilityVolt", name: "Visibility Volt", color: "#f97316", unit: "V" }] : []),
-              ]}
-              chartType="line"
-              xAxisLabel="Time"
-              yAxisLabel="Visibility"
-              showAverage={true}
-              showMinMax={true}
-              currentValue={currentData.visibility || 0}
-            />
-            )}
             {availableFields.temperature8m && (
             <DataBlockChart
               title="Temperature (8m) History"
