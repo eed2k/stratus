@@ -53,7 +53,6 @@ import {
   Loader2,
   RefreshCw,
   ArrowLeft,
-  AlertTriangle,
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
 import { 
@@ -1848,7 +1847,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           {/* Battery Not Charging Warning */}
           {batteryChargingStatus.hasData && !batteryChargingStatus.didCharge && (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
-              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-500" />
               <div>
                 <p className="text-sm font-medium">Battery Not Charging</p>
                 <p className="text-xs text-amber-600">

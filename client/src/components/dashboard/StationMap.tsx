@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MapPin, Navigation, ExternalLink, Search, Loader2, X, AlertTriangle, RefreshCw } from "lucide-react";
+import { MapPin, Navigation, ExternalLink, Search, Loader2, X, RefreshCw } from "lucide-react";
 import { safeFixed } from "@/lib/utils";
 
 // BULLETPROOF LEAFLET LOADER - Multiple CDNs, retries, fallbacks
@@ -178,7 +178,6 @@ class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorBoundary
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center h-64 text-amber-600 gap-2">
-              <AlertTriangle className="h-8 w-8" />
               <p className="text-sm text-center">Map failed to load</p>
               <p className="text-xs text-muted-foreground text-center max-w-xs">
                 {this.state.error?.message || 'Unknown error'}

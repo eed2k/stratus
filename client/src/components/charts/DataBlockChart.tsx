@@ -20,7 +20,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import { Maximize2, Minimize2, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { Maximize2, Minimize2, TrendingUp, TrendingDown } from "lucide-react";
 
 /**
  * Format numbers with appropriate decimal precision
@@ -420,7 +420,6 @@ export const DataBlockChart = memo(function DataBlockChart({
             <div 
               className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-2 z-10 bg-background"
             >
-              <AlertCircle className="h-8 w-8 opacity-50" />
               <p className="text-sm">No data available for this time range</p>
               <p className="text-xs opacity-70">Try selecting a different time period or check station sync</p>
             </div>

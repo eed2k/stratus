@@ -8,8 +8,6 @@ import { safeFixed } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { 
   MapPin, 
-  AlertCircle,
-  CheckCircle2,
   Settings,
   ArrowRight,
   Camera
@@ -161,7 +159,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
     return (
       <div className="container mx-auto p-6">
         <div className="text-center space-y-4">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
           <h1 className="text-2xl font-bold">Error Loading Stations</h1>
           <p className="text-muted-foreground">Please try again later</p>
           <Button onClick={() => window.location.reload()}>Retry</Button>
@@ -262,7 +259,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     {station.name?.toUpperCase().includes('MPPT TEST') ? null : station.isActive ? (
                       <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 text-xs">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
                         Active
                       </Badge>
                     ) : (

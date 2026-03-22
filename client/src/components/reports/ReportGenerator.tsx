@@ -233,13 +233,11 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           doc.text(`Average: ${safeFixed(stats.avg, 2)} ${section.unit}`, 25, y);
           y += 5;
           doc.text(`Std Dev: ${safeFixed(stats.stdDev, 3)} ${section.unit}`, 25, y);
-          y += 5;
-          doc.text(`Completeness: ${safeFixed((stats.count / stats.total) * 100, 1)}%`, 25, y);
           y += 10;
         }
       }
 
-      // --- Wind Rose Diagrams (24H, 7D, 30D) ---
+      // --- Wind Rose Diagrams (24H, 7D, 30D) as PNG images ---
       if (config.includeWind && weatherData.length > 0) {
         const windUnit = (stationWindUnit as WindSpeedUnit) || 'ms';
         const classes = getSimplifiedClasses(windUnit);
@@ -265,110 +263,113 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           return bins;
         };
 
-        const drawWindRose = (bins: number[][], cx: number, cy: number, radius: number, label: string) => {
-          // Find max total for scaling
-          let maxTotal = 0;
-          bins.forEach(b => { const t = b.reduce((a, v) => a + v, 0); if (t > maxTotal) maxTotal = t; });
-          if (maxTotal === 0) return;
+        // Build a self-contained SVG string for a wind rose
+        const buildWindRoseSVG = (bins: number[][], label: string): string => {
+          const sz = 320;
+          const ctr = sz / 2;
+          const mxR = sz / 2 - 40;
+          const dirs = WIND_DIRECTIONS;
 
-          // Title
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "bold");
-          doc.text(label, cx, cy - radius - 5, { align: 'center' });
+          let maxValue = 0;
+          bins.forEach(b => { const t = b.reduce((a, v) => a + v, 0); if (t > maxValue) maxValue = t; });
+          if (maxValue === 0) maxValue = 1;
 
-          // Concentric circles (guides)
-          doc.setDrawColor(200, 200, 200);
-          doc.setLineWidth(0.2);
-          for (let r = 1; r <= 4; r++) {
-            doc.circle(cx, cy, (radius * r) / 4);
-          }
+          const polar = (deg: number, r: number) => {
+            const rad = ((deg - 90) * Math.PI) / 180;
+            return { x: ctr + r * Math.cos(rad), y: ctr + r * Math.sin(rad) };
+          };
+          const wedgePath = (di: number, ir: number, or2: number) => {
+            const a1 = di * 22.5 - 11.25, a2 = di * 22.5 + 11.25;
+            const p1 = polar(a1, ir), p2 = polar(a1, or2), p3 = polar(a2, or2), p4 = polar(a2, ir);
+            return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${or2} ${or2} 0 0 1 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${ir} ${ir} 0 0 0 ${p1.x} ${p1.y} Z`;
+          };
+
+          let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}">`;
+          s += `<rect width="${sz}" height="${sz}" fill="white"/>`;
+
+          // Concentric guide circles with % labels
+          [0.25, 0.5, 0.75, 1].forEach(ratio => {
+            s += `<circle cx="${ctr}" cy="${ctr}" r="${mxR * ratio}" fill="none" stroke="#e5e7eb" stroke-width="1"/>`;
+            s += `<text x="${ctr + 4}" y="${ctr - mxR * ratio + 12}" font-size="10" fill="#999" font-family="Arial,sans-serif">${Math.round(ratio * 100)}%</text>`;
+          });
 
           // Direction labels
-          doc.setFontSize(6);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(80, 80, 80);
-          const dirs16 = WIND_DIRECTIONS;
-          for (let i = 0; i < 16; i++) {
-            const angle = (i * 22.5 - 90) * Math.PI / 180;
-            const lx = cx + Math.cos(angle) * (radius + 6);
-            const ly = cy + Math.sin(angle) * (radius + 6);
-            doc.text(dirs16[i], lx, ly + 1.5, { align: 'center' });
-          }
-          doc.setTextColor(0, 0, 0);
+          dirs.forEach((d, i) => {
+            const p = polar(i * 22.5, mxR + 20);
+            s += `<text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="middle" font-size="11" fill="#333" font-family="Arial,sans-serif">${d}</text>`;
+          });
 
-          // Draw wedges (stacked per direction)
-          const wedgeHalf = (22.5 / 2) * Math.PI / 180;
-          for (let i = 0; i < 16; i++) {
-            const angle = (i * 22.5 - 90) * Math.PI / 180;
-            let cumulative = 0;
-            for (let s = classes.length - 1; s >= 0; s--) {
-              const total = bins[i].reduce((a, v) => a + v, 0);
-              if (total === 0) continue;
-              const outerR = (total / maxTotal) * radius;
-              const innerR = (cumulative / maxTotal) * radius;
-              // Draw simple triangular wedge
-              const [r, g, b] = hexToRgb(classColors[s] || '#999');
-              doc.setFillColor(r, g, b);
-              doc.setDrawColor(255, 255, 255);
-              doc.setLineWidth(0.3);
-              // Triangle from center to outer arc
-              const x1 = cx + Math.cos(angle - wedgeHalf) * outerR;
-              const y1 = cy + Math.sin(angle - wedgeHalf) * outerR;
-              const x2 = cx + Math.cos(angle + wedgeHalf) * outerR;
-              const y2 = cy + Math.sin(angle + wedgeHalf) * outerR;
-              doc.triangle(cx, cy, x1, y1, x2, y2, 'F');
-              cumulative = total; // Only draw full wedge (simplified stacking)
-              break; // Draw only top speed class color for simplicity
-            }
-          }
+          // Stacked wedges per direction
+          bins.forEach((dirBins, di) => {
+            let curR = 0;
+            dirBins.forEach((count, si) => {
+              if (count === 0) return;
+              const inner = curR;
+              const height = (count / maxValue) * mxR;
+              curR += height;
+              s += `<path d="${wedgePath(di, inner, curR)}" fill="${classColors[si] || '#3b82f6'}" stroke="white" stroke-width="0.5" opacity="0.85"/>`;
+            });
+          });
 
-          // Center calm circle
-          const totalObs = bins.flat().reduce((a, v) => a + v, 0);
-          const calmObs = bins.reduce((a, b) => a + (b[0] || 0), 0);
-          const calmPct = totalObs > 0 ? ((calmObs / totalObs) * 100).toFixed(1) : '0';
-          doc.setFillColor(255, 255, 255);
-          doc.setDrawColor(180, 180, 180);
-          doc.setLineWidth(0.3);
-          doc.circle(cx, cy, radius * 0.12, 'FD');
-          doc.setFontSize(5);
-          doc.setTextColor(80, 80, 80);
-          doc.text(`${calmPct}%`, cx, cy + 1.5, { align: 'center' });
-          doc.setTextColor(0, 0, 0);
+          // Calm center
+          s += `<circle cx="${ctr}" cy="${ctr}" r="8" fill="#ccc" opacity="0.3"/>`;
+          // Title at top
+          s += `<text x="${ctr}" y="18" text-anchor="middle" font-size="14" font-weight="bold" fill="#333" font-family="Arial,sans-serif">${label}</text>`;
+          s += '</svg>';
+          return s;
         };
 
-        // Helper to convert hex to RGB
-        const hexToRgb = (hex: string): [number, number, number] => {
-          const h = hex.replace('#', '');
-          return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
-        };
+        // Convert SVG string to PNG data URL via canvas
+        const svgToPng = (svg: string, w: number, h: number): Promise<string> =>
+          new Promise((resolve, reject) => {
+            const b64 = btoa(unescape(encodeURIComponent(svg)));
+            const img = new Image();
+            img.onload = () => {
+              const c = document.createElement('canvas');
+              const scale = 2;
+              c.width = w * scale; c.height = h * scale;
+              const ctx = c.getContext('2d');
+              if (!ctx) { reject(new Error('no ctx')); return; }
+              ctx.scale(scale, scale);
+              ctx.drawImage(img, 0, 0, w, h);
+              resolve(c.toDataURL('image/png'));
+            };
+            img.onerror = () => reject(new Error('SVG render failed'));
+            img.src = `data:image/svg+xml;base64,${b64}`;
+          });
+
+        // Generate all 3 wind rose PNGs
+        const rosePngs = await Promise.all(periods.map(p => {
+          const cutoff = now - p.hours * 60 * 60 * 1000;
+          const subset = weatherData.filter(d => new Date(d.timestamp).getTime() > cutoff);
+          const bins = processWindData(subset);
+          return svgToPng(buildWindRoseSVG(bins, `${p.label} Wind Rose`), 320, 320);
+        }));
 
         doc.addPage();
         y = 20;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("Wind Rose Analysis", pageWidth / 2, y, { align: "center" });
-        y += 10;
+        y += 5;
 
-        const roseRadius = 35;
-        const roseSpacing = (pageWidth - 40) / 3;
-        
-        periods.forEach((p, idx) => {
-          const cutoff = now - p.hours * 60 * 60 * 1000;
-          const subset = weatherData.filter(d => new Date(d.timestamp).getTime() > cutoff);
-          const bins = processWindData(subset);
-          const cx = 20 + roseSpacing * idx + roseSpacing / 2;
-          drawWindRose(bins, cx, y + roseRadius + 15, roseRadius, `${p.label} Wind Rose`);
+        const roseImgW = 55;
+        const roseImgH = 55;
+        const spacing = (pageWidth - 40) / 3;
+        rosePngs.forEach((png, idx) => {
+          const x = 20 + spacing * idx + (spacing - roseImgW) / 2;
+          doc.addImage(png, 'PNG', x, y, roseImgW, roseImgH);
         });
-
-        y += roseRadius * 2 + 35;
+        y += roseImgH + 5;
 
         // Speed class legend
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         const legendY = y;
         classes.forEach((cls, i) => {
-          const [r, g, b] = hexToRgb(classColors[i] || '#999');
-          doc.setFillColor(r, g, b);
+          const h = classColors[i] || '#999';
+          const hr = h.replace('#', '');
+          doc.setFillColor(parseInt(hr.substring(0, 2), 16), parseInt(hr.substring(2, 4), 16), parseInt(hr.substring(4, 6), 16));
           const lx = 25 + (i % 3) * 60;
           const ly = legendY + Math.floor(i / 3) * 8;
           doc.rect(lx, ly - 3, 4, 4, 'F');

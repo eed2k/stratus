@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getWindDirectionLabel } from "@/lib/windConstants";
 import { useState, useEffect, useMemo, memo } from "react";
-import { AlertTriangle } from "lucide-react";
 
 interface CurrentConditionsProps {
   stationName: string;
@@ -259,7 +258,6 @@ export const CurrentConditions = memo(function CurrentConditions({
       {dataStatus.isStale && (
         <div className="px-6 pb-4">
           <Alert variant="default" className="border-amber-200 bg-amber-50">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 text-sm">
               {dataStatus.message}. Historical data is still available below.
             </AlertDescription>

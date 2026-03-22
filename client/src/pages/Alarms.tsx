@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { authFetch } from "@/lib/queryClient";
-import { AlertTriangle, Trash2, Check } from "lucide-react";
+import { Trash2, Check } from "lucide-react";
 import type { WeatherStation } from "@shared/schema";
 import { getWindUnitLabel, type WindSpeedUnit } from "@/lib/windConstants";
 
@@ -468,7 +468,6 @@ export default function Alarms() {
         <Card className="border-amber-200 bg-amber-50">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2 text-amber-800">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
               Battery Charging Alert
             </CardTitle>
             <CardDescription className="text-amber-600">

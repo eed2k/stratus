@@ -28,13 +28,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   Lock,
-  AlertCircle,
   Eye,
   RefreshCw,
   Share2,
   Download,
   Loader2,
-  AlertTriangle,
 } from "lucide-react";
 import type { WeatherData } from "@shared/schema";
 import { DEFAULT_SECTION_VISIBILITY, DASHBOARD_CATEGORIES, type SectionVisibility } from "../../../shared/dashboardConfig";
@@ -1164,7 +1162,6 @@ function SharedDashboardContent() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
               Not Found
             </CardTitle>
           </CardHeader>
@@ -1202,7 +1199,6 @@ function SharedDashboardContent() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
               Access Denied
             </CardTitle>
           </CardHeader>
@@ -1498,7 +1494,6 @@ function SharedDashboardContent() {
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
           {batteryChargingStatus.hasData && !batteryChargingStatus.didCharge && (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
-              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-500" />
               <div>
                 <p className="text-sm font-medium">Battery Not Charging</p>
                 <p className="text-xs text-amber-600">
