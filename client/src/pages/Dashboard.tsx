@@ -2322,6 +2322,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <SolarPositionCard
               elevation={solarPosition.elevation}
               azimuth={solarPosition.azimuth}
+              latitude={selectedStation!.latitude!}
+              longitude={selectedStation!.longitude!}
               sunrise={solarPosition.sunrise}
               sunset={solarPosition.sunset}
               nauticalDawn={solarPosition.nauticalDawn}
@@ -2406,7 +2408,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisLabel="Minutes"
               showAverage={true}
               showMinMax={true}
-              footer="(ETo − rainfall) × crop factor × valve flow factor"
+              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only — does not account for soil type, crop stage, or irrigation system efficiency."
             />
             )}
             {/* Wind Speed vs Wind Gust (24h) - next to Irrigation Time */}

@@ -241,7 +241,6 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       if (config.includeWind && weatherData.length > 0) {
         const windUnit = (stationWindUnit as WindSpeedUnit) || 'ms';
         const classes = getSimplifiedClasses(windUnit);
-        const classColors = ['#a8d5e2', '#6bb8d6', '#3b82f6', '#f59e0b', '#ef4444', '#7c3aed'];
         const now = new Date(weatherData[weatherData.length - 1].timestamp).getTime();
         const periods = [
           { label: '24 Hour', hours: 24 },
@@ -263,12 +262,33 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           return bins;
         };
 
-        // Build a self-contained SVG string for a wind rose
+        // Calculate wind statistics from bins
+        const calcWindStats = (bins: number[][]) => {
+          let total = 0;
+          let calm = 0;
+          let dominant = 0;
+          let maxDirCount = 0;
+          bins.forEach((b, idx) => {
+            const t = b.reduce((a, v) => a + v, 0);
+            total += t;
+            calm += b[0] || 0;
+            if (t > maxDirCount) { maxDirCount = t; dominant = idx; }
+          });
+          return {
+            total,
+            calmPct: total > 0 ? ((calm / total) * 100).toFixed(1) : '0',
+            dominantDir: WIND_DIRECTIONS[dominant],
+            dominantPct: total > 0 ? ((maxDirCount / total) * 100).toFixed(1) : '0',
+          };
+        };
+
+        // Build SVG string matching dashboard WindRose exactly
         const buildWindRoseSVG = (bins: number[][], label: string): string => {
           const sz = 320;
           const ctr = sz / 2;
           const mxR = sz / 2 - 40;
           const dirs = WIND_DIRECTIONS;
+          const stats = calcWindStats(bins);
 
           let maxValue = 0;
           bins.forEach(b => { const t = b.reduce((a, v) => a + v, 0); if (t > maxValue) maxValue = t; });
@@ -284,22 +304,34 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
             return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${or2} ${or2} 0 0 1 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${ir} ${ir} 0 0 0 ${p1.x} ${p1.y} Z`;
           };
 
-          let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}">`;
-          s += `<rect width="${sz}" height="${sz}" fill="white"/>`;
+          // Extra height for title + stats + legend
+          const titleH = 30;
+          const statsH = 22;
+          const legendH = 20;
+          const totalH = sz + titleH + statsH + legendH;
+
+          let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${totalH}">`;
+          s += `<rect width="${sz}" height="${totalH}" fill="white"/>`;
+
+          // Title
+          s += `<text x="${ctr}" y="20" text-anchor="middle" font-size="14" font-weight="bold" fill="#333" font-family="Arial,sans-serif">${label}</text>`;
+
+          // Offset all chart content below title
+          s += `<g transform="translate(0,${titleH})">`;
 
           // Concentric guide circles with % labels
           [0.25, 0.5, 0.75, 1].forEach(ratio => {
             s += `<circle cx="${ctr}" cy="${ctr}" r="${mxR * ratio}" fill="none" stroke="#e5e7eb" stroke-width="1"/>`;
-            s += `<text x="${ctr + 4}" y="${ctr - mxR * ratio + 12}" font-size="10" fill="#999" font-family="Arial,sans-serif">${Math.round(ratio * 100)}%</text>`;
+            s += `<text x="${ctr + 5}" y="${ctr - mxR * ratio + 12}" font-size="10" fill="#999" font-family="Arial,sans-serif">${Math.round(ratio * 100)}%</text>`;
           });
 
           // Direction labels
           dirs.forEach((d, i) => {
             const p = polar(i * 22.5, mxR + 20);
-            s += `<text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="middle" font-size="11" fill="#333" font-family="Arial,sans-serif">${d}</text>`;
+            s += `<text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="middle" font-size="12" fill="#333" font-family="Arial,sans-serif">${d}</text>`;
           });
 
-          // Stacked wedges per direction
+          // Stacked wedges per direction (matching WindRose.tsx exactly)
           bins.forEach((dirBins, di) => {
             let curR = 0;
             dirBins.forEach((count, si) => {
@@ -307,14 +339,28 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
               const inner = curR;
               const height = (count / maxValue) * mxR;
               curR += height;
-              s += `<path d="${wedgePath(di, inner, curR)}" fill="${classColors[si] || '#3b82f6'}" stroke="white" stroke-width="0.5" opacity="0.85"/>`;
+              s += `<path d="${wedgePath(di, inner, curR)}" fill="${classes[si]?.color || '#3b82f6'}" stroke="white" stroke-width="0.5" opacity="0.85"/>`;
             });
           });
 
-          // Calm center
-          s += `<circle cx="${ctr}" cy="${ctr}" r="8" fill="#ccc" opacity="0.3"/>`;
-          // Title at top
-          s += `<text x="${ctr}" y="18" text-anchor="middle" font-size="14" font-weight="bold" fill="#333" font-family="Arial,sans-serif">${label}</text>`;
+          // Calm center circle
+          s += `<circle cx="${ctr}" cy="${ctr}" r="8" fill="#999" opacity="0.3"/>`;
+          s += `</g>`;
+
+          // Statistics below chart
+          const statsY = titleH + sz + 14;
+          s += `<text x="${ctr - 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Arial,sans-serif">Dominant: ${stats.dominantDir} (${stats.dominantPct}%)</text>`;
+          s += `<text x="${ctr + 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Arial,sans-serif">Calm: ${stats.calmPct}%</text>`;
+
+          // Speed class legend at bottom
+          const legendY = statsY + 14;
+          const legendW = sz / classes.length;
+          classes.forEach((cls, i) => {
+            const lx = i * legendW + legendW / 2;
+            s += `<rect x="${lx - 5}" y="${legendY - 5}" width="10" height="10" rx="2" fill="${cls.color}"/>`;
+            s += `<text x="${lx + 8}" y="${legendY + 4}" font-size="8" fill="#666" font-family="Arial,sans-serif">${cls.label.split('(')[0].trim()}</text>`;
+          });
+
           s += '</svg>';
           return s;
         };
@@ -338,12 +384,14 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
             img.src = `data:image/svg+xml;base64,${b64}`;
           });
 
+        const svgH = 320 + 30 + 22 + 20; // sz + titleH + statsH + legendH
+
         // Generate all 3 wind rose PNGs
         const rosePngs = await Promise.all(periods.map(p => {
           const cutoff = now - p.hours * 60 * 60 * 1000;
           const subset = weatherData.filter(d => new Date(d.timestamp).getTime() > cutoff);
           const bins = processWindData(subset);
-          return svgToPng(buildWindRoseSVG(bins, `${p.label} Wind Rose`), 320, 320);
+          return svgToPng(buildWindRoseSVG(bins, `${p.label} Wind Rose`), 320, svgH);
         }));
 
         doc.addPage();
@@ -354,28 +402,13 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
         y += 5;
 
         const roseImgW = 55;
-        const roseImgH = 55;
+        const roseImgH = roseImgW * (svgH / 320);
         const spacing = (pageWidth - 40) / 3;
         rosePngs.forEach((png, idx) => {
           const x = 20 + spacing * idx + (spacing - roseImgW) / 2;
           doc.addImage(png, 'PNG', x, y, roseImgW, roseImgH);
         });
-        y += roseImgH + 5;
-
-        // Speed class legend
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        const legendY = y;
-        classes.forEach((cls, i) => {
-          const h = classColors[i] || '#999';
-          const hr = h.replace('#', '');
-          doc.setFillColor(parseInt(hr.substring(0, 2), 16), parseInt(hr.substring(2, 4), 16), parseInt(hr.substring(4, 6), 16));
-          const lx = 25 + (i % 3) * 60;
-          const ly = legendY + Math.floor(i / 3) * 8;
-          doc.rect(lx, ly - 3, 4, 4, 'F');
-          doc.text(`${cls.min}-${cls.max === Infinity ? '+' : cls.max} ${windUnitLabel}`, lx + 6, ly);
-        });
-        y = legendY + Math.ceil(classes.length / 3) * 8 + 10;
+        y += roseImgH + 10;
       }
 
       if (y > 250) {

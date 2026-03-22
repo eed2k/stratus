@@ -61,7 +61,7 @@ function Router() {
   if (isSharedRoute || isSlugRoute) {
     return <Suspense fallback={<LoadingScreen />}><SharedDashboard /></Suspense>;
   }
-  
+
   if (isForgotPasswordRoute) {
     return <Suspense fallback={<LoadingScreen />}><ForgotPasswordPage /></Suspense>;
   }
@@ -236,7 +236,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
               <Route path="/docs">
                 <AdminRoute isAdmin={isAdmin}><Documentation /></AdminRoute>
               </Route>
-              
+
               <Route component={NotFound} />
             </Switch>
             </Suspense>

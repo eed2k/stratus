@@ -139,7 +139,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
         )}
         <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">
-          <p>Stratus v1.3.1</p>
+          <p>Stratus Weather Station Server V1.3.1 [2026]</p>
         </div>
       </SidebarFooter>
     </Sidebar>

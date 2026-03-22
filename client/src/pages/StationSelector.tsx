@@ -131,11 +131,8 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">
-            Stratus Weather
-          </h1>
+      <div className="container mx-auto p-6 pt-3 space-y-4">
+        <div className="text-center">
           <p className="text-muted-foreground">Loading stations...</p>
         </div>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -190,17 +187,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-      <div className="container mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-2 pt-4 sm:pt-8">
-          <h1 className="text-2xl sm:text-3xl font-bold">
-            Stratus Weather
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Select a station to view its dashboard
-          </p>
-        </div>
-
+      <div className="container mx-auto p-4 sm:p-6 pt-2 sm:pt-3 space-y-3 sm:space-y-4">
         {/* Station Cards */}
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {accessibleStations.map(station => (

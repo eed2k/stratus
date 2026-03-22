@@ -30,7 +30,6 @@ import {
   Lock,
   Eye,
   RefreshCw,
-  Share2,
   Download,
   Loader2,
 } from "lucide-react";
@@ -1737,6 +1736,8 @@ function SharedDashboardContent() {
             <SolarPositionCard
               elevation={solarPosition.elevation}
               azimuth={solarPosition.azimuth}
+              latitude={station!.latitude!}
+              longitude={station!.longitude!}
               sunrise={solarPosition.sunrise}
               sunset={solarPosition.sunset}
               nauticalDawn={solarPosition.nauticalDawn}
@@ -1793,7 +1794,7 @@ function SharedDashboardContent() {
               series={[{ dataKey: "irrigationTime", name: "Irrigation Time", color: "#3b82f6", unit: "min" }]}
               chartType="bar" xAxisLabel="Time" yAxisLabel="Minutes"
               showAverage={true} showMinMax={true}
-              footer="(ETo − rainfall) × crop factor × valve flow factor"
+              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only — does not account for soil type, crop stage, or irrigation system efficiency."
             />
             )}
             {availableFields.windSpeed && (
@@ -2389,15 +2390,15 @@ function SharedDashboardContent() {
         )}
 
         {/* Footer */}
-        <div className="text-center text-sm text-muted-foreground pt-4 border-t">
-          <p className="flex items-center justify-center gap-2">
-            <Share2 className="h-4 w-4" />
+        <div className="text-center text-sm text-muted-foreground pt-4 border-t space-y-1">
+          <p>
             Shared Dashboard • Station data: {(() => {
               const ts = new Date((currentData as any)?.collectedAt || currentData?.timestamp);
               if (!currentData?.timestamp || isNaN(ts.getTime())) return 'No data available';
               return ts.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
             })()}
           </p>
+          <p className="text-xs text-muted-foreground/70">Powered by Stratus Weather Server V1.3.1 [2026]</p>
         </div>
       </main>
     </div>

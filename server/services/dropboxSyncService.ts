@@ -424,8 +424,9 @@ export class DropboxSyncService extends EventEmitter {
     try {
       console.log('[DropboxSync] Starting sync...');
 
-      // Extract station name from folder path (e.g., /HOPEFIELD_CR300 -> "Hopefield CR300")
-      const folderName = this.config.folderPath.replace(/^\//, '').split('/')[0];
+      // Extract station name from folder path (e.g., /CAMPBELLSCI/PRIMARY/HOPEFIELD_CR300 -> "Hopefield CR300")
+      const pathSegments = this.config.folderPath.replace(/^\//, '').split('/');
+      const folderName = pathSegments[pathSegments.length - 1] || pathSegments[0];
       const stationName = folderName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
       // Find or create station

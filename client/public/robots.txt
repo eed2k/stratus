@@ -1,4 +1,2 @@
 User-agent: *
-Disallow: /api/
-
-Sitemap: https://stratusweather.co.za/sitemap.xml
+Disallow: /
