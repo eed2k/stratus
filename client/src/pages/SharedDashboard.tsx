@@ -679,6 +679,18 @@ function SharedDashboardContent() {
     refetchInterval: 5 * 60 * 1000,
   });
 
+  // Fetch yearly rainfall totals
+  const { data: rainfallYearly } = useQuery<{ year: number; total: number; readings: number; isCurrent: boolean }[]>({
+    queryKey: ['rainfall-yearly', access?.stationId],
+    queryFn: async () => {
+      const res = await fetch(`/api/stations/${access!.stationId}/data/rainfall-yearly`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!access?.stationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Sort historical data ascending
   const sortedHistoricalData = useMemo(() => {
     if (historicalData.length === 0) return [];
@@ -1794,7 +1806,7 @@ function SharedDashboardContent() {
               series={[{ dataKey: "irrigationTime", name: "Irrigation Time", color: "#3b82f6", unit: "min" }]}
               chartType="bar" xAxisLabel="Time" yAxisLabel="Minutes"
               showAverage={true} showMinMax={true}
-              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only — does not account for soil type, crop stage, or irrigation system efficiency."
+              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
             />
             )}
             {availableFields.windSpeed && (
@@ -2310,6 +2322,44 @@ function SharedDashboardContent() {
             )}
           </Tabs>
           </Suspense>
+            );
+          })()}
+        </section>
+        )}
+
+        {/* Yearly Rainfall Section */}
+        {availableFields.rainfall && access?.stationId && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Yearly Rainfall</h2>
+          {(() => {
+            const currentYear = new Date().getFullYear();
+            const years = [currentYear - 4, currentYear - 3, currentYear - 2, currentYear - 1, currentYear];
+            return (
+            <Card className="border border-gray-300 bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rainfall Totals</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {years.map(year => {
+                    const entry = rainfallYearly?.find((r: any) => r.year === year);
+                    const isCurrent = year === currentYear;
+                    return (
+                      <div key={year} className={`rounded-lg border p-3 ${isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{year}{isCurrent ? ' (YTD)' : ''}</p>
+                        <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                          {entry ? `${safeFixed(entry.total, 1)} mm` : '—'}
+                        </p>
+                        {entry && <p className="text-[10px] text-gray-400">{entry.readings.toLocaleString()} readings</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
+                </p>
+              </CardContent>
+            </Card>
             );
           })()}
         </section>

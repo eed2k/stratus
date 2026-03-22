@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch, queryClient } from "@/lib/queryClient";
-import { Trash2, Upload, ImageIcon, ZoomIn, ZoomOut, RotateCw, Check, Cloud } from "lucide-react";
+import { Trash2, Upload, ImageIcon, ZoomIn, ZoomOut, RotateCw, Check } from "lucide-react";
 
 interface StationImageUploadProps {
   stationId: number;
@@ -421,10 +421,14 @@ export function StationImageDisplay({
   lastSyncTime?: string | null;
 }) {
   if (!image) {
-    // Default placeholder with station name and last sync info
+    // Default placeholder with Stratus logo and station name
     return (
       <div className="w-full h-32 rounded-t-lg overflow-hidden bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-900 dark:to-blue-950 flex flex-col items-center justify-center gap-1 px-4">
-        <Cloud className="h-8 w-8 text-sky-500 dark:text-sky-400 opacity-60" />
+        <svg viewBox="0 0 256 256" fill="none" className="h-10 w-10 opacity-70">
+          <circle cx="128" cy="128" r="120" fill="#1e3a5f"/>
+          <circle cx="128" cy="128" r="32" fill="#ffffff"/>
+          <circle cx="128" cy="128" r="118" stroke="#ffffff" strokeWidth="2" fill="none" opacity="0.2"/>
+        </svg>
         <span className="text-xs text-sky-700 dark:text-sky-300 font-medium text-center truncate w-full">{stationName}</span>
         {lastSyncTime && (
           <span className="text-[10px] text-sky-600 dark:text-sky-400 opacity-75">

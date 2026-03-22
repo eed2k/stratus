@@ -38,10 +38,10 @@ export function AirDensityCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-2">
           {/* Main value */}
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               {safeFixed(airDensity, 3)}
             </span>
             <span className="text-sm font-normal text-gray-500">kg/m³</span>
@@ -52,38 +52,31 @@ export function AirDensityCard({
             <span className={`text-sm font-medium ${densityStatus.color}`}>
               {densityStatus.status}
             </span>
-            <span className={`text-sm ${deviationPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {deviationPercent >= 0 ? '+' : ''}{safeFixed(deviationPercent, 1)}% vs std
+            <span className={`text-xs ${deviationPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {deviationPercent >= 0 ? '+' : ''}{safeFixed(deviationPercent, 1)}% vs std ({standardDensity})
             </span>
           </div>
 
           {/* Contributing factors */}
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200">
+          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-gray-100">
             {temperature !== undefined && (
               <div className="text-center">
-                <p className="text-xs text-gray-500">Temperature</p>
-                <p className="text-sm font-normal text-black">{safeFixed(temperature, 1)}°C</p>
+                <p className="text-[10px] text-gray-400">Temperature</p>
+                <p className="text-xs font-normal text-black">{safeFixed(temperature, 1)}°C</p>
               </div>
             )}
             {pressure !== undefined && (
               <div className="text-center">
-                <p className="text-xs text-gray-500">Pressure</p>
-                <p className="text-sm font-normal text-black">{safeFixed(pressure, 0)} hPa</p>
+                <p className="text-[10px] text-gray-400">Pressure</p>
+                <p className="text-xs font-normal text-black">{safeFixed(pressure, 0)} hPa</p>
               </div>
             )}
             {humidity !== undefined && (
               <div className="text-center">
-                <p className="text-xs text-gray-500">Humidity</p>
-                <p className="text-sm font-normal text-black">{safeFixed(humidity, 0)}%</p>
+                <p className="text-[10px] text-gray-400">Humidity</p>
+                <p className="text-xs font-normal text-black">{safeFixed(humidity, 0)}%</p>
               </div>
             )}
-          </div>
-
-          {/* Standard reference */}
-          <div className="text-center pt-2 border-t border-gray-200">
-            <p className="text-xs text-gray-400">
-              Standard sea level: {standardDensity} kg/m³ (15°C, 1013.25 hPa)
-            </p>
           </div>
         </div>
       </CardContent>

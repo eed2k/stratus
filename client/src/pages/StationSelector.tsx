@@ -168,7 +168,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
     return (
       <div className="container mx-auto p-6">
         <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold">Welcome to Stratus Weather</h1>
           <p className="text-muted-foreground max-w-md mx-auto">
             {isAdmin 
               ? "No weather stations configured yet. Set up your first station to get started."

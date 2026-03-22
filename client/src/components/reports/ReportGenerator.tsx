@@ -307,7 +307,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           // Extra height for title + stats + legend
           const titleH = 30;
           const statsH = 22;
-          const legendH = 20;
+          const legendH = 40;
           const totalH = sz + titleH + statsH + legendH;
 
           let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${totalH}">`;
@@ -352,13 +352,14 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           s += `<text x="${ctr - 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Arial,sans-serif">Dominant: ${stats.dominantDir} (${stats.dominantPct}%)</text>`;
           s += `<text x="${ctr + 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Arial,sans-serif">Calm: ${stats.calmPct}%</text>`;
 
-          // Speed class legend at bottom
-          const legendY = statsY + 14;
-          const legendW = sz / classes.length;
+          // Speed class legend at bottom - centered with proper spacing
+          const legendY = statsY + 20;
+          const totalLegendW = classes.length * 50;
+          const legendStartX = (sz - totalLegendW) / 2;
           classes.forEach((cls, i) => {
-            const lx = i * legendW + legendW / 2;
-            s += `<rect x="${lx - 5}" y="${legendY - 5}" width="10" height="10" rx="2" fill="${cls.color}"/>`;
-            s += `<text x="${lx + 8}" y="${legendY + 4}" font-size="8" fill="#666" font-family="Arial,sans-serif">${cls.label.split('(')[0].trim()}</text>`;
+            const lx = legendStartX + i * 50;
+            s += `<rect x="${lx}" y="${legendY - 5}" width="10" height="10" rx="2" fill="${cls.color}"/>`;
+            s += `<text x="${lx + 14}" y="${legendY + 4}" font-size="8" fill="#666" font-family="Arial,sans-serif">${cls.label.split('(')[0].trim()}</text>`;
           });
 
           s += '</svg>';
@@ -372,7 +373,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
             const img = new Image();
             img.onload = () => {
               const c = document.createElement('canvas');
-              const scale = 2;
+              const scale = 3;
               c.width = w * scale; c.height = h * scale;
               const ctx = c.getContext('2d');
               if (!ctx) { reject(new Error('no ctx')); return; }
@@ -384,29 +385,34 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
             img.src = `data:image/svg+xml;base64,${b64}`;
           });
 
-        const svgH = 320 + 30 + 22 + 20; // sz + titleH + statsH + legendH
+        const svgH = 320 + 30 + 22 + 40; // sz + titleH + statsH + legendH
 
-        // Generate all 3 wind rose PNGs
+        // Generate all 3 wind rose PNGs at higher resolution
         const rosePngs = await Promise.all(periods.map(p => {
           const cutoff = now - p.hours * 60 * 60 * 1000;
           const subset = weatherData.filter(d => new Date(d.timestamp).getTime() > cutoff);
           const bins = processWindData(subset);
-          return svgToPng(buildWindRoseSVG(bins, `${p.label} Wind Rose`), 320, svgH);
+          return svgToPng(buildWindRoseSVG(bins, `${p.label} Wind Rose`), 640, svgH * 2);
         }));
 
+        // Wind roses stacked vertically, each on its own row
         doc.addPage();
         y = 20;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("Wind Rose Analysis", pageWidth / 2, y, { align: "center" });
-        y += 5;
+        y += 8;
 
-        const roseImgW = 55;
+        const roseImgW = 80;
         const roseImgH = roseImgW * (svgH / 320);
-        const spacing = (pageWidth - 40) / 3;
-        rosePngs.forEach((png, idx) => {
-          const x = 20 + spacing * idx + (spacing - roseImgW) / 2;
+        rosePngs.forEach((png) => {
+          if (y + roseImgH > 275) {
+            doc.addPage();
+            y = 20;
+          }
+          const x = (pageWidth - roseImgW) / 2;
           doc.addImage(png, 'PNG', x, y, roseImgW, roseImgH);
+          y += roseImgH + 5;
         });
         y += roseImgH + 10;
       }

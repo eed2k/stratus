@@ -748,6 +748,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     placeholderData: keepPreviousData,
   });
 
+  // Fetch yearly rainfall totals
+  const { data: rainfallYearly } = useQuery<{ year: number; total: number; readings: number; isCurrent: boolean }[]>({
+    queryKey: ['rainfall-yearly', activeStationId],
+    queryFn: async () => {
+      const res = await authFetch(`/api/stations/${activeStationId}/data/rainfall-yearly`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeStationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Process historical section chart data
   const historicalChartData = useMemo(() => {
     if (historicalSectionData.length === 0) return [];
@@ -1778,21 +1790,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
             />
             )}
-            {/* 7-Day Rainfall Chart */}
-            {availableFields.rainfall && (
-            <DataBlockChart
-              title="Rainfall (7 days)"
-              data={dewPointChartData.length > 0 ? dewPointChartData.map(d => ({ ...d, rain: (d as any).rain ?? 0 })) : chartData}
-              series={[
-                { dataKey: "rain", name: "Rainfall", color: "#3b82f6", unit: "mm" },
-              ]}
-              chartType="area"
-              xAxisLabel="Time"
-              yAxisLabel="Rainfall (mm)"
-              showMinMax={true}
-              currentValue={currentData.rainfall || 0}
-            />
-            )}
             {/* Dew Point 7-day Chart */}
             {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
             <DataBlockChart
@@ -2408,7 +2405,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisLabel="Minutes"
               showAverage={true}
               showMinMax={true}
-              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only — does not account for soil type, crop stage, or irrigation system efficiency."
+              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
             />
             )}
             {/* Wind Speed vs Wind Gust (24h) - next to Irrigation Time */}
@@ -3108,6 +3105,44 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
           </Tabs>
           </Suspense>
+            );
+          })()}
+        </section>
+        )}
+
+        {/* Yearly Rainfall Section */}
+        {!isMpptOnlyStation && availableFields.rainfall && activeStationId && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Yearly Rainfall</h2>
+          {(() => {
+            const currentYear = new Date().getFullYear();
+            const years = [currentYear - 4, currentYear - 3, currentYear - 2, currentYear - 1, currentYear];
+            return (
+            <Card className="border border-gray-300 bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rainfall Totals</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {years.map(year => {
+                    const entry = rainfallYearly?.find((r: any) => r.year === year);
+                    const isCurrent = year === currentYear;
+                    return (
+                      <div key={year} className={`rounded-lg border p-3 ${isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{year}{isCurrent ? ' (YTD)' : ''}</p>
+                        <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                          {entry ? `${safeFixed(entry.total, 1)} mm` : '—'}
+                        </p>
+                        {entry && <p className="text-[10px] text-gray-400">{entry.readings.toLocaleString()} readings</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
+                </p>
+              </CardContent>
+            </Card>
             );
           })()}
         </section>
