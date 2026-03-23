@@ -158,7 +158,7 @@ export const DataBlockChart = memo(function DataBlockChart({
   timeRanges = [],
   defaultRange = "24hr",
   onRangeChange,
-  height = 250,
+  height = 280,
   defaultExpanded = false,
   yAxisDomain,
   footer,

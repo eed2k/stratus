@@ -795,12 +795,6 @@ function SharedDashboardContent() {
   // Wind chart always uses fixed 24h range regardless of user-selected chart time range
   const windChartData24h = useMemo(() => processChartData(sortedHistoricalData, 24, station?.latitude, station?.altitude, windSpeedUnit), [sortedHistoricalData, station?.latitude, station?.altitude, windSpeedUnit]);
 
-  // Derive 7-day dew point chart data from statsData (no separate query needed)
-  const dewPointChartData = useMemo(() => {
-    if (sortedStatsData.length === 0) return [];
-    return processChartData(sortedStatsData, 168, station?.latitude, station?.altitude, windSpeedUnit);
-  }, [sortedStatsData, station?.latitude, station?.altitude, windSpeedUnit]);
-
   // Average daytime solar radiation from historical data (for Solar Power Harvesting card)
   const avgDaytimeRadiation = useMemo(() => {
     const nonZero = sortedHistoricalData
@@ -1857,9 +1851,9 @@ function SharedDashboardContent() {
               footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
             />
             )}
-            {/* Dew Point Temperature (7 days) */}
-            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
-            <DataBlockChart title="Dew Point Temperature (7 days)" data={dewPointChartData}
+            {/* Dew Point Temperature */}
+            {(availableFields.temperature && availableFields.humidity) && chartData.length > 0 && (
+            <DataBlockChart title={`Dew Point Temperature (${chartTimeRange >= 24 ? `${Math.round(chartTimeRange / 24)}d` : `${chartTimeRange}h`})`} data={chartData}
               series={[{ dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Dew Point (°C)"
               showAverage={true} showMinMax={true} currentValue={effectiveDewPoint ?? 0}

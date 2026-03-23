@@ -38,7 +38,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getAllUsers, addUser, updateUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/queryClient";
-import { UserPlus, Trash2, User, Edit, MapPin, Loader2, Mail, KeyRound } from "lucide-react";
+import { UserPlus, Trash2, Edit, MapPin, Loader2, Mail, KeyRound } from "lucide-react";
 
 interface WeatherStation {
   id: number;
@@ -73,7 +73,7 @@ export default function UserManagement() {
   useEffect(() => {
     const loadUsers = async () => {
       const fetchedUsers = await getAllUsers();
-      setUsers(fetchedUsers.filter(u => u.email.toLowerCase() !== 'admin@stratusweather.co.za'));
+      setUsers(fetchedUsers.filter(u => u.email.trim().toLowerCase() !== 'admin@stratusweather.co.za'));
     };
     loadUsers();
   }, []);
@@ -558,7 +558,6 @@ export default function UserManagement() {
         <CardContent>
           {users.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No users found. Add your first user to get started.</p>
             </div>
           ) : (
@@ -573,7 +572,7 @@ export default function UserManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.filter(u => u.email.toLowerCase() !== 'admin@stratusweather.co.za').map((user) => (
+                {users.filter(u => u.email.trim().toLowerCase() !== 'admin@stratusweather.co.za').map((user) => (
                   <TableRow key={user.email}>
                     <TableCell className="font-medium">
                       {user.firstName} {user.lastName}

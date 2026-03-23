@@ -777,12 +777,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     );
   }, [statsData]);
 
-  // Derive 7-day dew point / rainfall chart data from statsData (no separate query needed)
-  const dewPointChartData = useMemo(() => {
-    if (sortedStatsData.length === 0) return [];
-    return processChartData(sortedStatsData, 168, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined, windSpeedUnit);
-  }, [sortedStatsData, selectedStation?.latitude, selectedStation?.altitude, windSpeedUnit]);
-
   // Calculate actual data time range for display
   const dataTimeRange = useMemo(() => {
     if (historicalData.length === 0) return null;
@@ -2442,11 +2436,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
             />
             )}
-            {/* Dew Point Temperature (7 days) */}
-            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
+            {/* Dew Point Temperature */}
+            {(availableFields.temperature && availableFields.humidity) && chartData.length > 0 && (
             <DataBlockChart
-              title="Dew Point Temperature (7 days)"
-              data={dewPointChartData}
+              title={`Dew Point Temperature (${dashboardConfig.chartTimeRange >= 24 ? `${Math.round(dashboardConfig.chartTimeRange / 24)}d` : `${dashboardConfig.chartTimeRange}h`})`}
+              data={chartData}
               series={[
                 { dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" },
               ]}

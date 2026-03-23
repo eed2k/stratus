@@ -103,52 +103,9 @@ export function SolarPositionCard({
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-3">
-          {/* Top row: data blocks left, larger compass right */}
-          <div className="flex gap-4 items-start">
-            {/* Data blocks */}
-            <div className="flex-1 grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
-                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Elevation</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                    {safeFixed(elevation, 1)}
-                  </span>
-                  <span className="text-sm text-gray-500">°</span>
-                </div>
-                <span className="text-[10px] text-gray-400">
-                  {isDaytime ? (isGoldenHour ? "Golden Hour" : "Above Horizon") : (isNauticalTwilight ? "Twilight" : "Below Horizon")}
-                </span>
-              </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
-                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Azimuth</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                    {safeFixed(azimuth, 1)}
-                  </span>
-                  <span className="text-sm text-gray-500">°</span>
-                </div>
-                <span className="text-[10px] text-gray-400">{getAzimuthDirection(azimuth)}</span>
-              </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
-                <p className="text-[10px] text-gray-400">Sunrise</p>
-                <p className="text-sm font-normal text-black">{formatTime(sunrise)}</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
-                <p className="text-[10px] text-gray-400">Sunset</p>
-                <p className="text-sm font-normal text-black">{formatTime(sunset)}</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
-                <p className="text-[10px] text-gray-400">Solar Noon</p>
-                <p className="text-sm font-normal text-black">{formatTime(solarNoon)}</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
-                <p className="text-[10px] text-gray-400">Day Length</p>
-                <p className="text-sm font-normal text-black">{formatDayLength(dayLength)}</p>
-              </div>
-            </div>
-
-            {/* Larger polar compass */}
-            <svg viewBox="0 0 200 200" className="flex-shrink-0" style={{ width: 180, height: 180 }}>
+          {/* Compass animation - larger and centered */}
+          <div className="flex justify-center">
+            <svg viewBox="0 0 200 200" className="flex-shrink-0" style={{ width: 220, height: 220 }}>
               <defs>
                 <radialGradient id="compassSky">
                   <stop offset="0%" stopColor="#87ceeb" />
@@ -156,7 +113,7 @@ export function SolarPositionCard({
                   <stop offset="100%" stopColor="#dce8ef" />
                 </radialGradient>
                 <filter id="sunGlow">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feGaussianBlur stdDeviation="4" result="blur" />
                   <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                 </filter>
               </defs>
@@ -183,32 +140,70 @@ export function SolarPositionCard({
               {pathD && <path d={pathD} fill="none" stroke="#e8960066" strokeWidth="2.5" strokeLinecap="round" />}
               {sunPos && (
                 <g>
-                  <circle cx={sunPos.x} cy={sunPos.y} r="8" fill={isDaytime ? "#FFD700" : "#9aa8b4"} filter="url(#sunGlow)" opacity="0.85">
-                    <animate attributeName="r" values="7;9;7" dur="3s" repeatCount="indefinite" />
+                  <circle cx={sunPos.x} cy={sunPos.y} r="10" fill={isDaytime ? "#FFD700" : "#9aa8b4"} filter="url(#sunGlow)" opacity="0.85">
+                    <animate attributeName="r" values="8;11;8" dur="3s" repeatCount="indefinite" />
                   </circle>
-                  <circle cx={sunPos.x} cy={sunPos.y} r="4" fill={isDaytime ? "#FF8C00" : "#778899"} />
+                  <circle cx={sunPos.x} cy={sunPos.y} r="5" fill={isDaytime ? "#FF8C00" : "#778899"} />
                 </g>
               )}
             </svg>
           </div>
 
-          {/* Twilight times row */}
-          <div className="grid grid-cols-4 gap-x-3 gap-y-1 pt-2 border-t border-gray-100">
-            <div className="text-center">
+          {/* Data blocks in grey blocks - 4 columns */}
+          <div className="grid grid-cols-4 gap-2">
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Elevation</p>
+              <div className="flex items-baseline justify-center gap-0.5">
+                <span className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(elevation, 1)}</span>
+                <span className="text-xs text-gray-500">°</span>
+              </div>
+              <span className="text-[9px] text-gray-400">
+                {isDaytime ? (isGoldenHour ? "Golden Hour" : "Above Horizon") : (isNauticalTwilight ? "Twilight" : "Below Horizon")}
+              </span>
+            </div>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Azimuth</p>
+              <div className="flex items-baseline justify-center gap-0.5">
+                <span className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(azimuth, 1)}</span>
+                <span className="text-xs text-gray-500">°</span>
+              </div>
+              <span className="text-[9px] text-gray-400">{getAzimuthDirection(azimuth)}</span>
+            </div>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <p className="text-[10px] text-gray-400">Sunrise</p>
+              <p className="text-sm font-normal text-black">{formatTime(sunrise)}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <p className="text-[10px] text-gray-400">Sunset</p>
+              <p className="text-sm font-normal text-black">{formatTime(sunset)}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <p className="text-[10px] text-gray-400">Solar Noon</p>
+              <p className="text-sm font-normal text-black">{formatTime(solarNoon)}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <p className="text-[10px] text-gray-400">Day Length</p>
+              <p className="text-sm font-normal text-black">{formatDayLength(dayLength)}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
               <p className="text-[10px] text-gray-400">Naut. Dawn</p>
-              <p className="text-xs font-normal text-black">{formatTime(nauticalDawn)}</p>
+              <p className="text-sm font-normal text-black">{formatTime(nauticalDawn)}</p>
             </div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-400">Civil Dawn</p>
-              <p className="text-xs font-normal text-black">{formatTime(civilDawn)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-400">Civil Dusk</p>
-              <p className="text-xs font-normal text-black">{formatTime(civilDusk)}</p>
-            </div>
-            <div className="text-center">
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
               <p className="text-[10px] text-gray-400">Naut. Dusk</p>
-              <p className="text-xs font-normal text-black">{formatTime(nauticalDusk)}</p>
+              <p className="text-sm font-normal text-black">{formatTime(nauticalDusk)}</p>
+            </div>
+          </div>
+
+          {/* Civil twilight row */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <p className="text-[10px] text-gray-400">Civil Dawn</p>
+              <p className="text-sm font-normal text-black">{formatTime(civilDawn)}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <p className="text-[10px] text-gray-400">Civil Dusk</p>
+              <p className="text-sm font-normal text-black">{formatTime(civilDusk)}</p>
             </div>
           </div>
         </div>

@@ -735,7 +735,7 @@ export async function registerRoutes(
       const users = await storage.getAllUsers();
       // Remove password hashes and hide system admin from response
       const sanitizedUsers = users
-        .filter(u => u.email.toLowerCase() !== 'admin@stratusweather.co.za')
+        .filter(u => u.email.trim().toLowerCase() !== 'admin@stratusweather.co.za')
         .map(({ passwordHash, ...user }) => user);
       res.json(sanitizedUsers);
     } catch (error) {

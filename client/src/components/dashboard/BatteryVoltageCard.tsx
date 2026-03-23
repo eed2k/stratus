@@ -104,8 +104,8 @@ export function BatteryVoltageCard({
 
           {/* Battery technology note */}
           <p className="text-xs text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            Lead-acid batteries: 10.5V (empty) → 12.7V (full) → 14.4–14.8V (charging). Float voltage ~13.6V. Self-discharge ~3–5%/month. Typical lifespan 3–5 years.
-            LiFePO₄ (lithium): 10.0V (empty) → 13.2V (full) → 14.2–14.6V (charging). Flat discharge curve holds ~13.0–13.2V for ~80% of capacity. Minimal self-discharge (~2%/month). Lifespan 8–10+ years, 2000+ cycles.
+            Lead-acid: 10.5V (empty) → 12.7V (full) → 14.4–14.8V (charging). Float voltage ~13.6V. Self-discharge ~3–5%/month.{' '}
+            LiFePO₄ (lithium): 10.0V (empty) → 13.2V (full) → 14.2–14.6V (charging). Flat discharge curve holds ~13.0–13.2V for ~80% of capacity. Minimal self-discharge (~2%/month). Lifespan and cycle count vary by capacity and manufacturer.
           </p>
         </div>
       </CardContent>
