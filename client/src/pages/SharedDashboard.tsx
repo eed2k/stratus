@@ -681,13 +681,13 @@ function SharedDashboardContent() {
 
   // Fetch yearly rainfall totals
   const { data: rainfallYearly } = useQuery<{ year: number; total: number; readings: number; isCurrent: boolean }[]>({
-    queryKey: ['rainfall-yearly', access?.stationId],
+    queryKey: ['rainfall-yearly', shareToken],
     queryFn: async () => {
-      const res = await fetch(`/api/stations/${access!.stationId}/data/rainfall-yearly`);
+      const res = await fetch(`/api/shares/${shareToken}/data/rainfall-yearly`, { headers: shareHeaders });
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: !!access?.stationId,
+    enabled: !!shareToken,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -1743,8 +1743,8 @@ function SharedDashboardContent() {
         {sv.solarRadiation !== false && (availableFields.solarRadiation || availableFields.uvIndex || (availableFields.temperature && availableFields.pressure) || hasStationCoordinates) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar Position & Radiation</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {hasStationCoordinates && (
+          {/* Solar Position Card - full width */}
+          {hasStationCoordinates && (
             <SolarPositionCard
               elevation={solarPosition.elevation}
               azimuth={solarPosition.azimuth}
@@ -1759,7 +1759,9 @@ function SharedDashboardContent() {
               solarNoon={solarPosition.solarNoon}
               dayLength={solarPosition.dayLength}
             />
-            )}
+          )}
+          {/* Air Density Card + Chart in same row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {(availableFields.temperature && availableFields.pressure) && (
             <AirDensityCard
               airDensity={currentData.airDensity || calculatedAirDensity}
@@ -1768,9 +1770,6 @@ function SharedDashboardContent() {
               humidity={currentData.humidity ?? undefined}
             />
             )}
-          </div>
-          <Suspense fallback={<ChartFallback />}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Air Density History Chart */}
             {(availableFields.temperature && availableFields.pressure) && (
             <DataBlockChart
@@ -1787,50 +1786,9 @@ function SharedDashboardContent() {
               currentValue={currentData.airDensity || calculatedAirDensity}
             />
             )}
-            {availableFields.solarRadiation && (
-            <DataBlockChart title="Solar Radiation" data={chartData}
-              series={[{ dataKey: "solar", name: "Solar Radiation", color: "#ef4444", unit: "W/m²" }]}
-              chartType="area" xAxisLabel="Time" yAxisLabel="Radiation"
-              showAverage={true} showMinMax={true} currentValue={currentData.solarRadiation || 0}
-            />
-            )}
-            {availableFields.solarRadiation && (
-            <DataBlockChart title="Reference ETo" data={chartData}
-              series={[{ dataKey: "eto", name: "Reference ETo", color: "#22c55e", unit: "mm/day" }]}
-              chartType="line" xAxisLabel="Time" yAxisLabel="ETo (mm/day)"
-              showAverage={true} showMinMax={true} currentValue={currentData.eto ?? calculatedETo ?? 0}
-            />
-            )}
-            {availableFields.solarRadiation && availableFields.rainfall && (
-            <DataBlockChart title="Irrigation Time (Estimated)" data={chartData}
-              series={[{ dataKey: "irrigationTime", name: "Irrigation Time", color: "#3b82f6", unit: "min" }]}
-              chartType="bar" xAxisLabel="Time" yAxisLabel="Minutes"
-              showAverage={true} showMinMax={true}
-              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
-            />
-            )}
-            {availableFields.windSpeed && (
-            <DataBlockChart title="Wind Speed vs Wind Gust (24h)" data={windChartData24h}
-              series={[
-                { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
-                { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
-              ]}
-              chartType="line" xAxisLabel="Time" yAxisLabel={`Speed (${windUnitLabel})`}
-              showAverage={true} showMinMax={true} currentValue={currentData.windSpeed || 0}
-            />
-            )}
           </div>
-          </Suspense>
           <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Dew Point Chart (7 days) */}
-            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
-            <DataBlockChart title="Dew Point Temperature (7 days)" data={dewPointChartData}
-              series={[{ dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" }]}
-              chartType="line" xAxisLabel="Time" yAxisLabel="Dew Point (°C)"
-              showAverage={true} showMinMax={true} currentValue={effectiveDewPoint ?? 0}
-            />
-            )}
             {/* Sun Elevation & Azimuth Chart */}
             {hasStationCoordinates && (
             <DataBlockChart
@@ -1875,6 +1833,47 @@ function SharedDashboardContent() {
               yAxisDomain={[-80, 360]}
               showAverage={false} showMinMax={false}
               currentValue={solarPosition.elevation}
+            />
+            )}
+            {availableFields.solarRadiation && (
+            <DataBlockChart title="Solar Radiation" data={chartData}
+              series={[{ dataKey: "solar", name: "Solar Radiation", color: "#ef4444", unit: "W/m²" }]}
+              chartType="area" xAxisLabel="Time" yAxisLabel="Radiation"
+              showAverage={true} showMinMax={true} currentValue={currentData.solarRadiation || 0}
+            />
+            )}
+            {availableFields.solarRadiation && (
+            <DataBlockChart title="Reference ETo" data={chartData}
+              series={[{ dataKey: "eto", name: "Reference ETo", color: "#22c55e", unit: "mm/day" }]}
+              chartType="line" xAxisLabel="Time" yAxisLabel="ETo (mm/day)"
+              showAverage={true} showMinMax={true} currentValue={currentData.eto ?? calculatedETo ?? 0}
+            />
+            )}
+            {availableFields.solarRadiation && availableFields.rainfall && (
+            <DataBlockChart title="Irrigation Time (Estimated)" data={chartData}
+              series={[{ dataKey: "irrigationTime", name: "Irrigation Time", color: "#3b82f6", unit: "min" }]}
+              chartType="bar" xAxisLabel="Time" yAxisLabel="Minutes"
+              showAverage={true} showMinMax={true}
+              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
+            />
+            )}
+            {/* Dew Point Temperature (7 days) */}
+            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
+            <DataBlockChart title="Dew Point Temperature (7 days)" data={dewPointChartData}
+              series={[{ dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" }]}
+              chartType="line" xAxisLabel="Time" yAxisLabel="Dew Point (°C)"
+              showAverage={true} showMinMax={true} currentValue={effectiveDewPoint ?? 0}
+            />
+            )}
+            {/* Wind Speed vs Wind Gust (24h) */}
+            {availableFields.windSpeed && (
+            <DataBlockChart title="Wind Speed vs Wind Gust (24h)" data={windChartData24h}
+              series={[
+                { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
+                { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
+              ]}
+              chartType="line" xAxisLabel="Time" yAxisLabel={`Speed (${windUnitLabel})`}
+              showAverage={true} showMinMax={true} currentValue={currentData.windSpeed || 0}
             />
             )}
           </div>
@@ -2328,19 +2327,21 @@ function SharedDashboardContent() {
         )}
 
         {/* Yearly Rainfall Section */}
-        {availableFields.rainfall && access?.stationId && (
+        {availableFields.rainfall && shareToken && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Yearly Rainfall</h2>
           {(() => {
             const currentYear = new Date().getFullYear();
-            const years = [currentYear - 4, currentYear - 3, currentYear - 2, currentYear - 1, currentYear];
+            const activeYears = rainfallYearly?.filter((r: any) => r.total > 0 || r.readings > 0).map((r: any) => r.year) || [];
+            const years = [...new Set(activeYears)].sort((a, b) => a - b);
+            if (years.length === 0) return null;
             return (
             <Card className="border border-gray-300 bg-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rainfall Totals</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className={`grid gap-3 ${years.length <= 2 ? 'grid-cols-2' : years.length <= 3 ? 'grid-cols-3' : years.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'}`}>
                   {years.map(year => {
                     const entry = rainfallYearly?.find((r: any) => r.year === year);
                     const isCurrent = year === currentYear;

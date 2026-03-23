@@ -1790,22 +1790,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
             />
             )}
-            {/* Dew Point 7-day Chart */}
-            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
-            <DataBlockChart
-              title="Dew Point Temperature (7 days)"
-              data={dewPointChartData}
-              series={[
-                { dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" },
-              ]}
-              chartType="line"
-              xAxisLabel="Time"
-              yAxisLabel="Dew Point (°C)"
-              showAverage={true}
-              showMinMax={true}
-              currentValue={effectiveDewPoint ?? 0}
-            />
-            )}
           </div>
           </Suspense>
           
@@ -2313,9 +2297,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Solar Position & Radiation</h2>
           
-          {/* Solar Position and Air Density Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
+          {/* Solar Position Card - full width */}
+          {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
             <SolarPositionCard
               elevation={solarPosition.elevation}
               azimuth={solarPosition.azimuth}
@@ -2330,7 +2313,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               solarNoon={solarPosition.solarNoon}
               dayLength={solarPosition.dayLength}
             />
-            )}
+          )}
+          {/* Air Density Card + Chart in same row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {(availableFields.temperature && availableFields.pressure) && (
             <AirDensityCard
               airDensity={currentData.airDensity || calculatedAirDensity}
@@ -2339,11 +2324,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               humidity={currentData.humidity ?? undefined}
             />
             )}
-          </div>
-          
-          
-          {/* Solar Position Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Air Density History Chart */}
             {(availableFields.temperature && availableFields.pressure) && (
             <DataBlockChart
@@ -2358,6 +2338,60 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.airDensity || calculatedAirDensity}
+            />
+            )}
+          </div>
+          
+          
+          {/* Charts grid - paired rows */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sun Elevation & Azimuth Chart - Calculated from station coordinates */}
+            {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
+            <DataBlockChart
+              title="Sun Elevation & Azimuth (24h)"
+              data={(() => {
+                const lat = selectedStation?.latitude || 0;
+                const lon = selectedStation?.longitude || 0;
+                const now = new Date();
+                const points = [];
+                for (let h = 0; h < 24; h++) {
+                  for (let m = 0; m < 60; m += 30) {
+                    const time = new Date(now);
+                    time.setHours(h, m, 0, 0);
+                    const dayOfYear = Math.floor((time.getTime() - new Date(time.getFullYear(), 0, 0).getTime()) / 86400000);
+                    const declination = 23.45 * Math.sin((360 / 365) * (dayOfYear - 81) * Math.PI / 180);
+                    const hourAngle = 15 * (h + m / 60 - 12 + (lon / 15));
+                    const latRad = lat * Math.PI / 180;
+                    const declRad = declination * Math.PI / 180;
+                    const haRad = hourAngle * Math.PI / 180;
+                    const elevation = Math.asin(
+                      Math.sin(latRad) * Math.sin(declRad) +
+                      Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad)
+                    ) * 180 / Math.PI;
+                    const azimuth = (Math.atan2(
+                      Math.sin(haRad),
+                      Math.cos(haRad) * Math.sin(latRad) - Math.tan(declRad) * Math.cos(latRad)
+                    ) * 180 / Math.PI + 180) % 360;
+                    points.push({
+                      timestamp: time.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
+                      sunElevation: Math.round(elevation * 10) / 10,
+                      sunAzimuth: Math.round(azimuth * 10) / 10
+                    });
+                  }
+                }
+                return points;
+              })()}
+              series={[
+                { dataKey: "sunElevation", name: "Sun Elevation", color: "#3b82f6", unit: "°" },
+                { dataKey: "sunAzimuth", name: "Sun Azimuth", color: "#ef4444", unit: "°" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Degrees"
+              yAxisDomain={[-80, 360]}
+              showAverage={false}
+              showMinMax={false}
+              currentValue={solarPosition.elevation}
             />
             )}
             {/* Solar Radiation Chart */}
@@ -2408,7 +2442,23 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
             />
             )}
-            {/* Wind Speed vs Wind Gust (24h) - next to Irrigation Time */}
+            {/* Dew Point Temperature (7 days) */}
+            {(availableFields.temperature && availableFields.humidity) && dewPointChartData.length > 0 && (
+            <DataBlockChart
+              title="Dew Point Temperature (7 days)"
+              data={dewPointChartData}
+              series={[
+                { dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" },
+              ]}
+              chartType="line"
+              xAxisLabel="Time"
+              yAxisLabel="Dew Point (°C)"
+              showAverage={true}
+              showMinMax={true}
+              currentValue={effectiveDewPoint ?? 0}
+            />
+            )}
+            {/* Wind Speed vs Wind Gust (24h) */}
             {availableFields.windSpeed && (
             <DataBlockChart
               title="Wind Speed vs Wind Gust (24h)"
@@ -2423,55 +2473,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.windSpeed || 0}
-            />
-            )}
-            {/* Sun Elevation & Azimuth Chart - Calculated from station coordinates */}
-            {dashboardConfig.sectionVisibility?.solarPosition !== false && hasStationCoordinates && (
-            <DataBlockChart
-              title="Sun Elevation & Azimuth (24h)"
-              data={(() => {
-                const lat = selectedStation?.latitude || 0;
-                const lon = selectedStation?.longitude || 0;
-                const now = new Date();
-                const points = [];
-                for (let h = 0; h < 24; h++) {
-                  for (let m = 0; m < 60; m += 30) {
-                    const time = new Date(now);
-                    time.setHours(h, m, 0, 0);
-                    const dayOfYear = Math.floor((time.getTime() - new Date(time.getFullYear(), 0, 0).getTime()) / 86400000);
-                    const declination = 23.45 * Math.sin((360 / 365) * (dayOfYear - 81) * Math.PI / 180);
-                    const hourAngle = 15 * (h + m / 60 - 12 + (lon / 15));
-                    const latRad = lat * Math.PI / 180;
-                    const declRad = declination * Math.PI / 180;
-                    const haRad = hourAngle * Math.PI / 180;
-                    const elevation = Math.asin(
-                      Math.sin(latRad) * Math.sin(declRad) +
-                      Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad)
-                    ) * 180 / Math.PI;
-                    const azimuth = (Math.atan2(
-                      Math.sin(haRad),
-                      Math.cos(haRad) * Math.sin(latRad) - Math.tan(declRad) * Math.cos(latRad)
-                    ) * 180 / Math.PI + 180) % 360;
-                    points.push({
-                      timestamp: time.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
-                      sunElevation: Math.round(elevation * 10) / 10,
-                      sunAzimuth: Math.round(azimuth * 10) / 10
-                    });
-                  }
-                }
-                return points;
-              })()}
-              series={[
-                { dataKey: "sunElevation", name: "Sun Elevation", color: "#3b82f6", unit: "°" },
-                { dataKey: "sunAzimuth", name: "Sun Azimuth", color: "#ef4444", unit: "°" },
-              ]}
-              chartType="line"
-              xAxisLabel="Time"
-              yAxisLabel="Degrees"
-              yAxisDomain={[-80, 360]}
-              showAverage={false}
-              showMinMax={false}
-              currentValue={solarPosition.elevation}
             />
             )}
           </div>
@@ -2860,25 +2861,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
           </div>
 
-          {/* Wind Speed vs Wind Gust (24h) */}
-          {availableFields.windSpeed && (
-          <Suspense fallback={<ChartFallback />}>
-          <DataBlockChart
-            title="Wind Speed vs Wind Gust (24h)"
-            data={windChartData24h}
-            series={[
-              { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
-              { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
-            ]}
-            chartType="line"
-            xAxisLabel="Time"
-            yAxisLabel={`Speed (${windUnitLabel})`}
-            showAverage={true}
-            showMinMax={true}
-            currentValue={currentData.windSpeed || 0}
-          />
-          </Suspense>
-          )}
         </section>
         )}
 
@@ -3116,14 +3098,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <h2 className="text-base font-normal text-foreground">Yearly Rainfall</h2>
           {(() => {
             const currentYear = new Date().getFullYear();
-            const years = [currentYear - 4, currentYear - 3, currentYear - 2, currentYear - 1, currentYear];
+            const activeYears = rainfallYearly?.filter((r: any) => r.total > 0 || r.readings > 0).map((r: any) => r.year) || [];
+            const years = [...new Set(activeYears)].sort((a, b) => a - b);
+            if (years.length === 0) return null;
             return (
             <Card className="border border-gray-300 bg-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rainfall Totals</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className={`grid gap-3 ${years.length <= 2 ? 'grid-cols-2' : years.length <= 3 ? 'grid-cols-3' : years.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'}`}>
                   {years.map(year => {
                     const entry = rainfallYearly?.find((r: any) => r.year === year);
                     const isCurrent = year === currentYear;

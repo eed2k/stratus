@@ -621,6 +621,7 @@ export default function Organizations() {
                 </SelectTrigger>
                 <SelectContent>
                   {allUsers
+                    .filter((u: any) => u.email?.toLowerCase() !== 'admin@stratusweather.co.za')
                     .filter((u: any) => !members?.some(m => m.userId === u.id))
                     .map((u: any) => (
                       <SelectItem key={u.id} value={u.id}>

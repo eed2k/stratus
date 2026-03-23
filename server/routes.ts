@@ -733,8 +733,10 @@ export async function registerRoutes(
   app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
-      // Remove password hashes from response
-      const sanitizedUsers = users.map(({ passwordHash, ...user }) => user);
+      // Remove password hashes and hide system admin from response
+      const sanitizedUsers = users
+        .filter(u => u.email.toLowerCase() !== 'admin@stratusweather.co.za')
+        .map(({ passwordHash, ...user }) => user);
       res.json(sanitizedUsers);
     } catch (error) {
       console.error("Error fetching users:", error);

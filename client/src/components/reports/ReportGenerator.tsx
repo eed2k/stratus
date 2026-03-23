@@ -307,7 +307,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           // Extra height for title + stats + legend
           const titleH = 30;
           const statsH = 22;
-          const legendH = 40;
+          const legendH = 55;
           const totalH = sz + titleH + statsH + legendH;
 
           let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${totalH}">`;
@@ -352,14 +352,21 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           s += `<text x="${ctr - 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Arial,sans-serif">Dominant: ${stats.dominantDir} (${stats.dominantPct}%)</text>`;
           s += `<text x="${ctr + 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Arial,sans-serif">Calm: ${stats.calmPct}%</text>`;
 
-          // Speed class legend at bottom - centered with proper spacing
-          const legendY = statsY + 20;
-          const totalLegendW = classes.length * 50;
-          const legendStartX = (sz - totalLegendW) / 2;
+          // Speed class legend at bottom - 2 rows of 3
+          const legendY = statsY + 16;
+          const legendCols = 3;
+          const legendColW = sz / legendCols;
           classes.forEach((cls, i) => {
-            const lx = legendStartX + i * 50;
-            s += `<rect x="${lx}" y="${legendY - 5}" width="10" height="10" rx="2" fill="${cls.color}"/>`;
-            s += `<text x="${lx + 14}" y="${legendY + 4}" font-size="8" fill="#666" font-family="Arial,sans-serif">${cls.label.split('(')[0].trim()}</text>`;
+            const col = i % legendCols;
+            const row = Math.floor(i / legendCols);
+            const lx = col * legendColW + 8;
+            const ly = legendY + row * 16;
+            // Short labels: extract just the first word before /
+            const shortLabels = ['Calm', 'Light', 'Moderate', 'Strong', 'Gale', 'Storm+'];
+            const shortLabel = shortLabels[i] || cls.label.split('(')[0].trim();
+            const range = cls.label.match(/\(([^)]+)\)/)?.[1] || '';
+            s += `<rect x="${lx}" y="${ly - 5}" width="10" height="10" rx="2" fill="${cls.color}"/>`;
+            s += `<text x="${lx + 14}" y="${ly + 4}" font-size="8" fill="#666" font-family="Arial,sans-serif">${shortLabel} ${range}</text>`;
           });
 
           s += '</svg>';
@@ -385,7 +392,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
             img.src = `data:image/svg+xml;base64,${b64}`;
           });
 
-        const svgH = 320 + 30 + 22 + 40; // sz + titleH + statsH + legendH
+        const svgH = 320 + 30 + 22 + 55; // sz + titleH + statsH + legendH
 
         // Generate all 3 wind rose PNGs at higher resolution
         const rosePngs = await Promise.all(periods.map(p => {

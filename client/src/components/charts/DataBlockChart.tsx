@@ -429,7 +429,7 @@ export const DataBlockChart = memo(function DataBlockChart({
           </ResponsiveContainer>
         </div>
         {footer && (
-          <p className="text-xs text-muted-foreground mt-1 px-2">{footer}</p>
+          <p className="text-xs text-gray-400 italic mt-1 px-2">{footer}</p>
         )}
       </CardContent>
     </Card>

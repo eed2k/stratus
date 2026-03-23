@@ -69,11 +69,11 @@ export default function UserManagement() {
     queryKey: ["/api/stations"],
   });
 
-  // Load users on mount
+  // Load users on mount (filter out system admin)
   useEffect(() => {
     const loadUsers = async () => {
       const fetchedUsers = await getAllUsers();
-      setUsers(fetchedUsers);
+      setUsers(fetchedUsers.filter(u => u.email.toLowerCase() !== 'admin@stratusweather.co.za'));
     };
     loadUsers();
   }, []);

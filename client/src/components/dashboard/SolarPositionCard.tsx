@@ -102,37 +102,53 @@ export function SolarPositionCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="space-y-2">
-          {/* Top row: Elevation + Azimuth stacked left, compass top-right */}
-          <div className="flex gap-3">
-            {/* Data block - stacked vertically */}
-            <div className="flex-1 space-y-2">
-              <div>
-                <p className="text-xs font-normal text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Elevation</p>
+        <div className="space-y-3">
+          {/* Top row: data blocks left, larger compass right */}
+          <div className="flex gap-4 items-start">
+            {/* Data blocks */}
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
+                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Elevation</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  <span className="text-xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(elevation, 1)}
                   </span>
                   <span className="text-sm text-gray-500">°</span>
-                  <span className="text-xs text-gray-400 ml-1">
-                    {isDaytime ? (isGoldenHour ? "Golden Hour" : "Above Horizon") : (isNauticalTwilight ? "Twilight" : "Below Horizon")}
-                  </span>
                 </div>
+                <span className="text-[10px] text-gray-400">
+                  {isDaytime ? (isGoldenHour ? "Golden Hour" : "Above Horizon") : (isNauticalTwilight ? "Twilight" : "Below Horizon")}
+                </span>
               </div>
-              <div>
-                <p className="text-xs font-normal text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Azimuth</p>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
+                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Azimuth</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  <span className="text-xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(azimuth, 1)}
                   </span>
                   <span className="text-sm text-gray-500">°</span>
-                  <span className="text-xs text-gray-400 ml-1">{getAzimuthDirection(azimuth)}</span>
                 </div>
+                <span className="text-[10px] text-gray-400">{getAzimuthDirection(azimuth)}</span>
+              </div>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
+                <p className="text-[10px] text-gray-400">Sunrise</p>
+                <p className="text-sm font-normal text-black">{formatTime(sunrise)}</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
+                <p className="text-[10px] text-gray-400">Sunset</p>
+                <p className="text-sm font-normal text-black">{formatTime(sunset)}</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
+                <p className="text-[10px] text-gray-400">Solar Noon</p>
+                <p className="text-sm font-normal text-black">{formatTime(solarNoon)}</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2.5">
+                <p className="text-[10px] text-gray-400">Day Length</p>
+                <p className="text-sm font-normal text-black">{formatDayLength(dayLength)}</p>
               </div>
             </div>
 
-            {/* Compact polar compass - top right */}
-            <svg viewBox="0 0 200 200" className="flex-shrink-0" style={{ width: 110, height: 110 }}>
+            {/* Larger polar compass */}
+            <svg viewBox="0 0 200 200" className="flex-shrink-0" style={{ width: 180, height: 180 }}>
               <defs>
                 <radialGradient id="compassSky">
                   <stop offset="0%" stopColor="#87ceeb" />
@@ -176,8 +192,8 @@ export function SolarPositionCard({
             </svg>
           </div>
 
-          {/* Compact time grid */}
-          <div className="grid grid-cols-4 gap-x-3 gap-y-1 pt-1 border-t border-gray-100">
+          {/* Twilight times row */}
+          <div className="grid grid-cols-4 gap-x-3 gap-y-1 pt-2 border-t border-gray-100">
             <div className="text-center">
               <p className="text-[10px] text-gray-400">Naut. Dawn</p>
               <p className="text-xs font-normal text-black">{formatTime(nauticalDawn)}</p>
@@ -187,28 +203,12 @@ export function SolarPositionCard({
               <p className="text-xs font-normal text-black">{formatTime(civilDawn)}</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] text-gray-400">Sunrise</p>
-              <p className="text-xs font-normal text-black">{formatTime(sunrise)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-400">Solar Noon</p>
-              <p className="text-xs font-normal text-black">{formatTime(solarNoon)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-400">Sunset</p>
-              <p className="text-xs font-normal text-black">{formatTime(sunset)}</p>
-            </div>
-            <div className="text-center">
               <p className="text-[10px] text-gray-400">Civil Dusk</p>
               <p className="text-xs font-normal text-black">{formatTime(civilDusk)}</p>
             </div>
             <div className="text-center">
               <p className="text-[10px] text-gray-400">Naut. Dusk</p>
               <p className="text-xs font-normal text-black">{formatTime(nauticalDusk)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-400">Day Length</p>
-              <p className="text-xs font-normal text-black">{formatDayLength(dayLength)}</p>
             </div>
           </div>
         </div>
