@@ -28,7 +28,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   Lock,
-  Eye,
   RefreshCw,
   Download,
   Loader2,
@@ -1315,10 +1314,9 @@ function SharedDashboardContent() {
               })()}
             </span>
             )}
-            <Badge variant="secondary" className="gap-1">
-              <Eye className="h-3 w-3" />
+            <Button variant="outline" size="sm" disabled className="cursor-default">
               View Only
-            </Badge>
+            </Button>
             <Button variant="outline" size="sm" disabled={historicalData.length === 0} onClick={handleExportCSV}>
               <Download className="h-4 w-4 mr-1" />
               Export CSV

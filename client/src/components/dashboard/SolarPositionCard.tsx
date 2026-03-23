@@ -102,83 +102,83 @@ export function SolarPositionCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           {/* Left: Data blocks (60%) */}
-          <div className="w-[60%] space-y-2">
+          <div className="w-[60%] space-y-1">
             {/* Elevation & Azimuth */}
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-1 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Elevation</p>
                 <div className="flex items-baseline justify-center gap-0.5">
-                  <span className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(elevation, 1)}</span>
-                  <span className="text-xs text-gray-500">°</span>
+                  <span className="text-base font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(elevation, 1)}</span>
+                  <span className="text-[10px] text-gray-500">°</span>
                 </div>
-                <span className="text-[9px] text-gray-400">
+                <span className="text-[8px] text-gray-400">
                   {isDaytime ? (isGoldenHour ? "Golden Hour" : "Above Horizon") : (isNauticalTwilight ? "Twilight" : "Below Horizon")}
                 </span>
               </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-2 text-center">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-1 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Azimuth</p>
                 <div className="flex items-baseline justify-center gap-0.5">
-                  <span className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(azimuth, 1)}</span>
-                  <span className="text-xs text-gray-500">°</span>
+                  <span className="text-base font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(azimuth, 1)}</span>
+                  <span className="text-[10px] text-gray-500">°</span>
                 </div>
-                <span className="text-[9px] text-gray-400">{getAzimuthDirection(azimuth)}</span>
+                <span className="text-[8px] text-gray-400">{getAzimuthDirection(azimuth)}</span>
               </div>
             </div>
 
             {/* Sunrise / Sunset */}
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-1.5 text-center">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Sunrise</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(sunrise)}</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(sunrise)}</p>
               </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-1.5 text-center">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Sunset</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(sunset)}</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(sunset)}</p>
               </div>
             </div>
 
             {/* Solar Noon / Day Length */}
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-1.5 text-center">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Solar Noon</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(solarNoon)}</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(solarNoon)}</p>
               </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-1.5 text-center">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Day Length</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatDayLength(dayLength)}</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatDayLength(dayLength)}</p>
               </div>
             </div>
 
             {/* Nautical Dawn/Dusk */}
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-1.5 text-center">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Naut. Dawn</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(nauticalDawn)}</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(nauticalDawn)}</p>
               </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-1.5 text-center">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Naut. Dusk</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(nauticalDusk)}</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(nauticalDusk)}</p>
               </div>
             </div>
 
             {/* Civil Dawn/Dusk */}
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-1.5 text-center">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Civil Dawn</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(civilDawn)}</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(civilDawn)}</p>
               </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-1.5 text-center">
+              <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Civil Dusk</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(civilDusk)}</p>
+                <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{formatTime(civilDusk)}</p>
               </div>
             </div>
           </div>
 
-          {/* Right: Compass animation (40%) */}
-          <div className="w-[40%] flex items-center justify-center">
-            <svg viewBox="0 0 200 200" className="w-full h-auto">
+          {/* Right: Compass animation (40%) - 40% smaller */}
+          <div className="w-[40%] flex items-start justify-center pt-1">
+            <svg viewBox="0 0 200 200" className="h-auto" style={{ width: '60%' }}>
               <defs>
                 <radialGradient id="compassSky">
                   <stop offset="0%" stopColor="#87ceeb" />

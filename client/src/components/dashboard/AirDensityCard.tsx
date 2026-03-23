@@ -57,36 +57,34 @@ export function AirDensityCard({
             </span>
           </div>
 
+          {/* Formula */}
+          <p className="text-xs text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            ρ = P / (R<sub>d</sub> · T) · (1 − 0.378 · e/P)
+          </p>
+          <p className="text-[10px] text-gray-400 italic mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            R<sub>d</sub> = 287.05 J/(kg·K), e = vapour pressure
+          </p>
+
           {/* Contributing factors */}
-          <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
+          <div className="grid grid-cols-3 gap-2 pt-3">
             {temperature !== undefined && (
-              <div className="text-center">
+              <div className="rounded bg-gray-100 border border-gray-200 py-1.5 px-1 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Temperature</p>
                 <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(temperature, 1)}°C</p>
               </div>
             )}
             {pressure !== undefined && (
-              <div className="text-center">
+              <div className="rounded bg-gray-100 border border-gray-200 py-1.5 px-1 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Pressure</p>
                 <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(pressure, 0)} hPa</p>
               </div>
             )}
             {humidity !== undefined && (
-              <div className="text-center">
+              <div className="rounded bg-gray-100 border border-gray-200 py-1.5 px-1 text-center">
                 <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Humidity</p>
                 <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(humidity, 0)}%</p>
               </div>
             )}
-          </div>
-
-          {/* Formula */}
-          <div className="pt-2 border-t border-gray-100">
-            <p className="text-[10px] text-gray-400 text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              ρ = P / (R<sub>d</sub> · T) · (1 − 0.378 · e/P)
-            </p>
-            <p className="text-[9px] text-gray-300 text-center mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              R<sub>d</sub> = 287.05 J/(kg·K), e = vapour pressure
-            </p>
           </div>
         </div>
       </CardContent>
