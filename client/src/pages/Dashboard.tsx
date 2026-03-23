@@ -51,7 +51,6 @@ import {
   Radio,
   Plus,
   Loader2,
-  RefreshCw,
   ArrowLeft,
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
@@ -632,7 +631,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange, dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
-      const limit = dashboardConfig.chartTimeRange > 168 ? 3000 : dashboardConfig.chartTimeRange > 72 ? 2000 : 1000;
+      const limit = dashboardConfig.chartTimeRange > 168 ? 5000 : dashboardConfig.chartTimeRange > 72 ? 2000 : 1000;
       // Use dataRange to pick the right time window upfront (avoids sequential fallback calls)
       let endTime: Date;
       let startTime: Date;
@@ -910,8 +909,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Process historical data into chart format (pass time range for proper axis formatting)
   const chartData = useMemo(() => processChartData(sortedHistoricalData, dashboardConfig.chartTimeRange, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined, windSpeedUnit), [sortedHistoricalData, dashboardConfig.chartTimeRange, selectedStation?.latitude, selectedStation?.altitude, windSpeedUnit]);
 
-  // Wind chart always uses fixed 24h range regardless of user-selected chart time range
-  const windChartData24h = useMemo(() => processChartData(sortedHistoricalData, 24, selectedStation?.latitude ?? undefined, selectedStation?.altitude ?? undefined, windSpeedUnit), [sortedHistoricalData, selectedStation?.latitude, selectedStation?.altitude, windSpeedUnit]);
+
   
   // Average daytime solar radiation from historical data (for Solar Power Harvesting card)
   const avgDaytimeRadiation = useMemo(() => {
@@ -1599,7 +1597,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             </Badge>
           )}
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={dataLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${dataLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <DashboardConfigPanel
@@ -2452,11 +2449,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentValue={effectiveDewPoint ?? 0}
             />
             )}
-            {/* Wind Speed vs Wind Gust (24h) */}
+            {/* Wind Speed vs Wind Gust */}
             {availableFields.windSpeed && (
             <DataBlockChart
-              title="Wind Speed vs Wind Gust (24h)"
-              data={windChartData24h}
+              title={`Wind Speed vs Wind Gust (${dashboardConfig.chartTimeRange >= 24 ? `${Math.round(dashboardConfig.chartTimeRange / 24)}d` : `${dashboardConfig.chartTimeRange}h`})`}
+              data={chartData}
               series={[
                 { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
                 { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },

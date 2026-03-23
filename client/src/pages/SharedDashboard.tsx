@@ -537,7 +537,7 @@ function SharedDashboardContent() {
   const { data: historicalData = [] } = useQuery<WeatherData[]>({
     queryKey: ['shared-weather', shareToken, 'history', chartTimeRange, dataRange?.latest],
     queryFn: async () => {
-      const limit = chartTimeRange > 168 ? 3000 : chartTimeRange > 72 ? 2000 : 1000;
+      const limit = chartTimeRange > 168 ? 5000 : chartTimeRange > 72 ? 2000 : 1000;
       // Use dataRange to pick the right time window upfront
       let endTime: Date;
       let startTime: Date;
@@ -793,7 +793,7 @@ function SharedDashboardContent() {
   const chartData = useMemo(() => processChartData(sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit), [sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit]);
 
   // Wind chart always uses fixed 24h range regardless of user-selected chart time range
-  const windChartData24h = useMemo(() => processChartData(sortedHistoricalData, 24, station?.latitude, station?.altitude, windSpeedUnit), [sortedHistoricalData, station?.latitude, station?.altitude, windSpeedUnit]);
+
 
   // Average daytime solar radiation from historical data (for Solar Power Harvesting card)
   const avgDaytimeRadiation = useMemo(() => {
@@ -1859,9 +1859,9 @@ function SharedDashboardContent() {
               showAverage={true} showMinMax={true} currentValue={effectiveDewPoint ?? 0}
             />
             )}
-            {/* Wind Speed vs Wind Gust (24h) */}
+            {/* Wind Speed vs Wind Gust */}
             {availableFields.windSpeed && (
-            <DataBlockChart title="Wind Speed vs Wind Gust (24h)" data={windChartData24h}
+            <DataBlockChart title={`Wind Speed vs Wind Gust (${chartTimeRange >= 24 ? `${Math.round(chartTimeRange / 24)}d` : `${chartTimeRange}h`})`} data={chartData}
               series={[
                 { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
                 { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },

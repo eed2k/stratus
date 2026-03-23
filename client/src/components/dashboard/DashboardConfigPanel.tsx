@@ -32,9 +32,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import {
-  Settings2
-} from "lucide-react";
+
 import {
   DASHBOARD_CATEGORIES,
   UPDATE_PERIOD_OPTIONS,
@@ -206,7 +204,6 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="sm">
-          <Settings2 className="h-4 w-4 mr-2" />
           Configure
         </Button>
       </SheetTrigger>

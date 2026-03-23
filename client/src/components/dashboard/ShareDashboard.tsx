@@ -43,7 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Share2, Copy, Link, Trash2, Eye, Edit, Clock, Lock, Check, ExternalLink, Users } from "lucide-react";
+import { Copy, Trash2, Eye, Edit, Clock, Lock, Check, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -239,15 +239,13 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
     <>
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Share2 className="h-4 w-4" />
+          <Button variant="outline" size="sm">
             Share
           </Button>
         </SheetTrigger>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+            <SheetTitle>
               Share Dashboard
             </SheetTitle>
             <SheetDescription>
@@ -257,10 +255,9 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
 
           <div className="mt-6 space-y-4">
             <Button 
-              className="w-full gap-2" 
+              className="w-full" 
               onClick={() => setShowCreateDialog(true)}
             >
-              <Link className="h-4 w-4" />
               Create New Share Link
             </Button>
 
@@ -274,7 +271,6 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
               ) : shares.length === 0 ? (
                 <Card>
                   <CardContent className="py-6 text-center text-muted-foreground">
-                    <Share2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p>No share links yet</p>
                     <p className="text-xs mt-1">Create a share link to give clients access</p>
                   </CardContent>
