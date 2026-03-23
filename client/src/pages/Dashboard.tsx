@@ -251,6 +251,13 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         mpptAbsiAvg: avgNonNull(dayData.map(d => toNum(d.mpptAbsiAvg))),
         mpptBoardTemp: avgNonNull(dayData.map(d => toNum(d.mpptBoardTemp))),
         mpptMode: avgNonNull(dayData.map(d => toNum(d.mpptMode))),
+        mpptBulkFloatVoltage: avgNonNull(dayData.map(d => toNum(d.mpptBulkFloatVoltage))),
+        mpptFloatVoltage: avgNonNull(dayData.map(d => toNum(d.mpptFloatVoltage))),
+        mpptCurrentLimit: avgNonNull(dayData.map(d => toNum(d.mpptCurrentLimit))),
+        mpptAbsorbTimeLimit: avgNonNull(dayData.map(d => toNum(d.mpptAbsorbTimeLimit))),
+        mpptAbsorbFullCurrent: avgNonNull(dayData.map(d => toNum(d.mpptAbsorbFullCurrent))),
+        mpptVCalSlope: avgNonNull(dayData.map(d => toNum(d.mpptVCalSlope))),
+        mpptICalSlope: avgNonNull(dayData.map(d => toNum(d.mpptICalSlope))),
         mppt2SolarVoltage: avgNonNull(dayData.map(d => toNum(d.mppt2SolarVoltage))),
         mppt2SolarCurrent: avgNonNull(dayData.map(d => toNum(d.mppt2SolarCurrent))),
         mppt2SolarPower: avgNonNull(dayData.map(d => toNum(d.mppt2SolarPower))),
@@ -260,6 +267,13 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         mppt2ChargerState: avgNonNull(dayData.map(d => toNum(d.mppt2ChargerState))),
         mppt2BoardTemp: avgNonNull(dayData.map(d => toNum(d.mppt2BoardTemp))),
         mppt2Mode: avgNonNull(dayData.map(d => toNum(d.mppt2Mode))),
+        mppt2BulkFloatVoltage: avgNonNull(dayData.map(d => toNum(d.mppt2BulkFloatVoltage))),
+        mppt2FloatVoltage: avgNonNull(dayData.map(d => toNum(d.mppt2FloatVoltage))),
+        mppt2CurrentLimit: avgNonNull(dayData.map(d => toNum(d.mppt2CurrentLimit))),
+        mppt2AbsorbTimeLimit: avgNonNull(dayData.map(d => toNum(d.mppt2AbsorbTimeLimit))),
+        mppt2AbsorbFullCurrent: avgNonNull(dayData.map(d => toNum(d.mppt2AbsorbFullCurrent))),
+        mppt2VCalSlope: avgNonNull(dayData.map(d => toNum(d.mppt2VCalSlope))),
+        mppt2ICalSlope: avgNonNull(dayData.map(d => toNum(d.mppt2ICalSlope))),
         dewPoint: (() => {
           const t = avgNonNull(dayData.map(d => d.temperature ?? null));
           const rh = avgNonNull(dayData.map(d => d.humidity ?? null));
@@ -390,6 +404,13 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       mpptAbsiAvg: toNum(d.mpptAbsiAvg),
       mpptBoardTemp: toNum(d.mpptBoardTemp),
       mpptMode: toNum(d.mpptMode),
+      mpptBulkFloatVoltage: toNum(d.mpptBulkFloatVoltage),
+      mpptFloatVoltage: toNum(d.mpptFloatVoltage),
+      mpptCurrentLimit: toNum(d.mpptCurrentLimit),
+      mpptAbsorbTimeLimit: toNum(d.mpptAbsorbTimeLimit),
+      mpptAbsorbFullCurrent: toNum(d.mpptAbsorbFullCurrent),
+      mpptVCalSlope: toNum(d.mpptVCalSlope),
+      mpptICalSlope: toNum(d.mpptICalSlope),
       // Charger 2
       mppt2SolarVoltage: toNum(d.mppt2SolarVoltage),
       mppt2SolarCurrent: toNum(d.mppt2SolarCurrent),
@@ -400,6 +421,13 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       mppt2ChargerState: toNum(d.mppt2ChargerState),
       mppt2BoardTemp: toNum(d.mppt2BoardTemp),
       mppt2Mode: toNum(d.mppt2Mode),
+      mppt2BulkFloatVoltage: toNum(d.mppt2BulkFloatVoltage),
+      mppt2FloatVoltage: toNum(d.mppt2FloatVoltage),
+      mppt2CurrentLimit: toNum(d.mppt2CurrentLimit),
+      mppt2AbsorbTimeLimit: toNum(d.mppt2AbsorbTimeLimit),
+      mppt2AbsorbFullCurrent: toNum(d.mppt2AbsorbFullCurrent),
+      mppt2VCalSlope: toNum(d.mppt2VCalSlope),
+      mppt2ICalSlope: toNum(d.mppt2ICalSlope),
       // Calculate dew point per data point using Magnus formula
       dewPoint: (() => {
         const t = d.temperature;
@@ -1216,6 +1244,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         mpptAbsiAvg: null,
         mpptBoardTemp: null,
         mpptMode: null,
+        mpptBulkFloatVoltage: null,
+        mpptFloatVoltage: null,
+        mpptCurrentLimit: null,
+        mpptAbsorbTimeLimit: null,
+        mpptAbsorbFullCurrent: null,
+        mpptVCalSlope: null,
+        mpptICalSlope: null,
         mppt2SolarVoltage: null,
         mppt2SolarCurrent: null,
         mppt2SolarPower: null,
@@ -1225,6 +1260,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         mppt2ChargerState: null,
         mppt2BoardTemp: null,
         mppt2Mode: null,
+        mppt2BulkFloatVoltage: null,
+        mppt2FloatVoltage: null,
+        mppt2CurrentLimit: null,
+        mppt2AbsorbTimeLimit: null,
+        mppt2AbsorbFullCurrent: null,
+        mppt2VCalSlope: null,
+        mppt2ICalSlope: null,
         temperature8m: null,
         deltaTemperature: null,
       };
@@ -1883,6 +1925,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               mpptAbsiAvg={currentData.mpptAbsiAvg ?? null}
               boardTemp={currentData.mpptBoardTemp ?? null}
               mode={currentData.mpptMode ?? null}
+              bulkFloatVoltage={currentData.mpptBulkFloatVoltage ?? null}
+              floatVoltage={currentData.mpptFloatVoltage ?? null}
+              currentLimit={currentData.mpptCurrentLimit ?? null}
+              absorbTimeLimit={currentData.mpptAbsorbTimeLimit ?? null}
+              absorbFullCurrent={currentData.mpptAbsorbFullCurrent ?? null}
+              vCalSlope={currentData.mpptVCalSlope ?? null}
+              iCalSlope={currentData.mpptICalSlope ?? null}
             />
             {availableFields.mppt2SolarVoltage && (
             <MpptChargerCard
@@ -1897,6 +1946,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               mpptAbsiAvg={null}
               boardTemp={currentData.mppt2BoardTemp ?? null}
               mode={currentData.mppt2Mode ?? null}
+              bulkFloatVoltage={currentData.mppt2BulkFloatVoltage ?? null}
+              floatVoltage={currentData.mppt2FloatVoltage ?? null}
+              currentLimit={currentData.mppt2CurrentLimit ?? null}
+              absorbTimeLimit={currentData.mppt2AbsorbTimeLimit ?? null}
+              absorbFullCurrent={currentData.mppt2AbsorbFullCurrent ?? null}
+              vCalSlope={currentData.mppt2VCalSlope ?? null}
+              iCalSlope={currentData.mppt2ICalSlope ?? null}
             />
             )}
             {!availableFields.mppt2SolarVoltage && (availableFields.mpptSolarVoltage || availableFields.mpptChargerState) && (

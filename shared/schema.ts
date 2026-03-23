@@ -240,6 +240,7 @@ export const weatherData = pgTable(
     windDirection: real("wind_direction"),
     windGust: real("wind_gust"),
     windGust10min: real("wind_gust_10min"),
+    windSpeedMin: real("wind_speed_min"),
     windPower: real("wind_power"),
     rainfall: real("rainfall"),
     rainfall10min: real("rainfall_10min"),
@@ -249,6 +250,7 @@ export const weatherData = pgTable(
     rainfallYearly: real("rainfall_yearly"),
     solarRadiation: real("solar_radiation"),
     solarRadiationMax: real("solar_radiation_max"),
+    solarMJTotal: real("solar_mj_total"),
     uvIndex: real("uv_index"),
     dewPoint: real("dew_point"),
     airDensity: real("air_density"),
@@ -267,6 +269,7 @@ export const weatherData = pgTable(
     visibilityVolt: real("visibility_volt"),
     cloudBase: real("cloud_base"),
     batteryVoltage: real("battery_voltage"),
+    lithiumBattery: real("lithium_battery"),
     panelTemperature: real("panel_temperature"),
     // Air quality metrics
     pm25: real("pm25"),
@@ -330,6 +333,14 @@ export const weatherData = pgTable(
     // MPPT additional fields
     mpptBoardTemp: real("mppt_board_temp"),
     mpptMode: real("mppt_mode"),
+    // MPPT Charger 1 configuration
+    mpptBulkFloatVoltage: real("mppt_bulk_float_voltage"),
+    mpptFloatVoltage: real("mppt_float_voltage"),
+    mpptCurrentLimit: real("mppt_current_limit"),
+    mpptAbsorbTimeLimit: real("mppt_absorb_time_limit"),
+    mpptAbsorbFullCurrent: real("mppt_absorb_full_current"),
+    mpptVCalSlope: real("mppt_vcal_slope"),
+    mpptICalSlope: real("mppt_ical_slope"),
     // MPPT Solar Charge Controller - Charger 2
     mppt2SolarVoltage: real("mppt2_solar_voltage"),
     mppt2SolarCurrent: real("mppt2_solar_current"),
@@ -340,6 +351,14 @@ export const weatherData = pgTable(
     mppt2ChargerState: real("mppt2_charger_state"),
     mppt2BoardTemp: real("mppt2_board_temp"),
     mppt2Mode: real("mppt2_mode"),
+    // MPPT Charger 2 configuration
+    mppt2BulkFloatVoltage: real("mppt2_bulk_float_voltage"),
+    mppt2FloatVoltage: real("mppt2_float_voltage"),
+    mppt2CurrentLimit: real("mppt2_current_limit"),
+    mppt2AbsorbTimeLimit: real("mppt2_absorb_time_limit"),
+    mppt2AbsorbFullCurrent: real("mppt2_absorb_full_current"),
+    mppt2VCalSlope: real("mppt2_vcal_slope"),
+    mppt2ICalSlope: real("mppt2_ical_slope"),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [

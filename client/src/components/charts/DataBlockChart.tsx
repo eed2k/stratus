@@ -158,7 +158,7 @@ export const DataBlockChart = memo(function DataBlockChart({
   timeRanges = [],
   defaultRange = "24hr",
   onRangeChange,
-  height = 280,
+  height = 300,
   defaultExpanded = false,
   yAxisDomain,
   footer,
@@ -188,7 +188,7 @@ export const DataBlockChart = memo(function DataBlockChart({
   const renderChart = () => {
     const commonProps = {
       data,
-      margin: { top: 10, right: 20, left: yAxisLabel ? 60 : 45, bottom: xAxisLabel ? 45 : 20 },
+      margin: { top: 8, right: 15, left: yAxisLabel ? 55 : 40, bottom: xAxisLabel ? 40 : 15 },
     };
 
     // Calculate optimal tick interval based on data length
@@ -217,7 +217,7 @@ export const DataBlockChart = memo(function DataBlockChart({
       axisLine: { stroke: 'hsl(var(--border))' },
       interval: getTickInterval() as number,
       label: !compact && xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fontSize: 11, fill: 'hsl(var(--muted-foreground))' } : undefined,
-      height: data.length > 200 ? 70 : (data.length > 10 ? 55 : 30),
+      height: data.length > 200 ? 65 : (data.length > 10 ? 50 : 28),
     };
 
     const yAxisProps: Record<string, any> = {

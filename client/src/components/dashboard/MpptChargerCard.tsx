@@ -17,6 +17,13 @@ interface MpptChargerCardProps {
   boardTemp?: number | null;
   mode?: number | null;
   label?: string;
+  bulkFloatVoltage?: number | null;
+  floatVoltage?: number | null;
+  currentLimit?: number | null;
+  absorbTimeLimit?: number | null;
+  absorbFullCurrent?: number | null;
+  vCalSlope?: number | null;
+  iCalSlope?: number | null;
 }
 
 // Victron MPPT charger state codes
@@ -64,6 +71,13 @@ export const MpptChargerCard = memo(function MpptChargerCard({
   boardTemp,
   mode,
   label,
+  bulkFloatVoltage,
+  floatVoltage,
+  currentLimit,
+  absorbTimeLimit,
+  absorbFullCurrent,
+  vCalSlope,
+  iCalSlope,
 }: MpptChargerCardProps) {
   const stateInfo = getChargerStateLabel(chargerState);
   const batteryHealth = getBatteryHealth(batteryVoltage);
@@ -196,6 +210,75 @@ export const MpptChargerCard = memo(function MpptChargerCard({
               </div>
               )}
             </div>
+          </div>
+          )}
+
+          {/* Configuration Parameters */}
+          {(bulkFloatVoltage != null || floatVoltage != null || currentLimit != null) && (
+          <div className="border-t border-gray-100 pt-2">
+            <p className="text-xs text-gray-400 mb-1.5">Configuration</p>
+            <div className="grid grid-cols-3 gap-2">
+              {bulkFloatVoltage != null && (
+              <div>
+                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {safeFixed(bulkFloatVoltage, 1)}
+                </p>
+                <p className="text-[10px] text-gray-400">Bulk/Float (V)</p>
+              </div>
+              )}
+              {floatVoltage != null && (
+              <div>
+                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {safeFixed(floatVoltage, 1)}
+                </p>
+                <p className="text-[10px] text-gray-400">Float (V)</p>
+              </div>
+              )}
+              {currentLimit != null && (
+              <div>
+                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {safeFixed(currentLimit, 1)}
+                </p>
+                <p className="text-[10px] text-gray-400">I Limit (A)</p>
+              </div>
+              )}
+            </div>
+            {(absorbTimeLimit != null || absorbFullCurrent != null || vCalSlope != null || iCalSlope != null) && (
+            <div className="grid grid-cols-3 gap-2 mt-1">
+              {absorbTimeLimit != null && (
+              <div>
+                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {safeFixed(absorbTimeLimit, 1)}
+                </p>
+                <p className="text-[10px] text-gray-400">Absorb Limit (h)</p>
+              </div>
+              )}
+              {absorbFullCurrent != null && (
+              <div>
+                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {safeFixed(absorbFullCurrent, 2)}
+                </p>
+                <p className="text-[10px] text-gray-400">Absorb I (A)</p>
+              </div>
+              )}
+              {vCalSlope != null && (
+              <div>
+                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {safeFixed(vCalSlope, 4)}
+                </p>
+                <p className="text-[10px] text-gray-400">V Cal Slope</p>
+              </div>
+              )}
+              {iCalSlope != null && (
+              <div>
+                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {safeFixed(iCalSlope, 4)}
+                </p>
+                <p className="text-[10px] text-gray-400">I Cal Slope</p>
+              </div>
+              )}
+            </div>
+            )}
           </div>
           )}
         </div>

@@ -200,11 +200,21 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         mpptChargerState: avgNonNull(dayData.map(d => toNum(d.mpptChargerState))),
         mpptAbsiAvg: avgNonNull(dayData.map(d => toNum(d.mpptAbsiAvg))),
         mpptBoardTemp: avgNonNull(dayData.map(d => toNum(d.mpptBoardTemp))),
+        mpptBulkFloatVoltage: avgNonNull(dayData.map(d => toNum(d.mpptBulkFloatVoltage))),
+        mpptFloatVoltage: avgNonNull(dayData.map(d => toNum(d.mpptFloatVoltage))),
+        mpptCurrentLimit: avgNonNull(dayData.map(d => toNum(d.mpptCurrentLimit))),
+        mpptAbsorbTimeLimit: avgNonNull(dayData.map(d => toNum(d.mpptAbsorbTimeLimit))),
+        mpptAbsorbFullCurrent: avgNonNull(dayData.map(d => toNum(d.mpptAbsorbFullCurrent))),
         mppt2SolarVoltage: avgNonNull(dayData.map(d => toNum(d.mppt2SolarVoltage))),
         mppt2SolarCurrent: avgNonNull(dayData.map(d => toNum(d.mppt2SolarCurrent))),
         mppt2SolarPower: avgNonNull(dayData.map(d => toNum(d.mppt2SolarPower))),
         mppt2BatteryVoltage: avgNonNull(dayData.map(d => toNum(d.mppt2BatteryVoltage))),
         mppt2BoardTemp: avgNonNull(dayData.map(d => toNum(d.mppt2BoardTemp))),
+        mppt2BulkFloatVoltage: avgNonNull(dayData.map(d => toNum(d.mppt2BulkFloatVoltage))),
+        mppt2FloatVoltage: avgNonNull(dayData.map(d => toNum(d.mppt2FloatVoltage))),
+        mppt2CurrentLimit: avgNonNull(dayData.map(d => toNum(d.mppt2CurrentLimit))),
+        mppt2AbsorbTimeLimit: avgNonNull(dayData.map(d => toNum(d.mppt2AbsorbTimeLimit))),
+        mppt2AbsorbFullCurrent: avgNonNull(dayData.map(d => toNum(d.mppt2AbsorbFullCurrent))),
         dewPoint: (() => {
           const t = avgNonNull(dayData.map(d => d.temperature ?? null));
           const rh = avgNonNull(dayData.map(d => d.humidity ?? null));
@@ -324,11 +334,21 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       mpptChargerState: toNum(d.mpptChargerState),
       mpptAbsiAvg: toNum(d.mpptAbsiAvg),
       mpptBoardTemp: toNum(d.mpptBoardTemp),
+      mpptBulkFloatVoltage: toNum(d.mpptBulkFloatVoltage),
+      mpptFloatVoltage: toNum(d.mpptFloatVoltage),
+      mpptCurrentLimit: toNum(d.mpptCurrentLimit),
+      mpptAbsorbTimeLimit: toNum(d.mpptAbsorbTimeLimit),
+      mpptAbsorbFullCurrent: toNum(d.mpptAbsorbFullCurrent),
       mppt2SolarVoltage: toNum(d.mppt2SolarVoltage),
       mppt2SolarCurrent: toNum(d.mppt2SolarCurrent),
       mppt2SolarPower: toNum(d.mppt2SolarPower),
       mppt2BatteryVoltage: toNum(d.mppt2BatteryVoltage),
       mppt2BoardTemp: toNum(d.mppt2BoardTemp),
+      mppt2BulkFloatVoltage: toNum(d.mppt2BulkFloatVoltage),
+      mppt2FloatVoltage: toNum(d.mppt2FloatVoltage),
+      mppt2CurrentLimit: toNum(d.mppt2CurrentLimit),
+      mppt2AbsorbTimeLimit: toNum(d.mppt2AbsorbTimeLimit),
+      mppt2AbsorbFullCurrent: toNum(d.mppt2AbsorbFullCurrent),
       dewPoint: (() => {
         const t = d.temperature;
         const rh = d.humidity;
@@ -1543,6 +1563,11 @@ function SharedDashboardContent() {
               mpptAbsiAvg={currentData.mpptAbsiAvg ?? null}
               boardTemp={currentData.mpptBoardTemp ?? null}
               mode={currentData.mpptMode ?? null}
+              bulkFloatVoltage={currentData.mpptBulkFloatVoltage ?? null}
+              floatVoltage={currentData.mpptFloatVoltage ?? null}
+              currentLimit={currentData.mpptCurrentLimit ?? null}
+              absorbTimeLimit={currentData.mpptAbsorbTimeLimit ?? null}
+              absorbFullCurrent={currentData.mpptAbsorbFullCurrent ?? null}
             />
             {availableFields.mppt2SolarVoltage && (
             <MpptChargerCard
@@ -1557,6 +1582,11 @@ function SharedDashboardContent() {
               mpptAbsiAvg={null}
               boardTemp={currentData.mppt2BoardTemp ?? null}
               mode={currentData.mppt2Mode ?? null}
+              bulkFloatVoltage={currentData.mppt2BulkFloatVoltage ?? null}
+              floatVoltage={currentData.mppt2FloatVoltage ?? null}
+              currentLimit={currentData.mppt2CurrentLimit ?? null}
+              absorbTimeLimit={currentData.mppt2AbsorbTimeLimit ?? null}
+              absorbFullCurrent={currentData.mppt2AbsorbFullCurrent ?? null}
             />
             )}
           </div>

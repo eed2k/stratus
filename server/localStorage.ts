@@ -1965,10 +1965,13 @@ export class DatabaseStorage {
       windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? data.WindSpeed_Avg ?? data.WS_ms ?? data.WS_Avg ?? data.WS_ms_S_WVT ?? data.WSpd_1_Avg ?? data.WSpd_Avg ?? data.WSpd_1_S_WVT ?? null,
       windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? data.WDir_1_Avg ?? data.WDir_Avg ?? data.WDir_1_D1_WVT ?? null,
       windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? data.WindSpeed_Max ?? data.WS_Max ?? data.Wind_Gust ?? data.WSpd_1_Max ?? data.WSpd_Max ?? null,
+      windSpeedMin: data.windSpeedMin ?? data.WSpd_1_Min ?? data.WSpd_Min ?? data.WS_ms_Min ?? null,
       rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? data.Rain_1_Tot ?? data.Rain_Tot_1 ?? null,
       solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? data.SolarRad_Avg ?? data.SlrW_Avg ?? data.SR_Avg ?? null,
+      solarMJTotal: data.solarMJTotal ?? data.SlrMJ_Tot ?? data.SlrMJ ?? data.Solar_MJ_Tot ?? null,
       dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? data.DewPointTemp_Avg ?? data.DewPointTemp ?? null,
       batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? data.Batt_volt_Min ?? data.BattV_Avg ?? data.Batt_V ?? data.LoggerBattery_Avg ?? data.LoggerBattery ?? null,
+      lithiumBattery: data.lithiumBattery ?? data.LoggerLithiumBatt_Avg ?? data.LoggerLithiumBatt ?? data.LithiumBatt_Avg ?? null,
       // Air quality
       pm10: data.pm10 ?? data.PM10_Avg ?? data.PM10 ?? null,
       pm25: data.pm25 ?? data.pm2_5 ?? data.PM2_5_Avg ?? data.PM2_5 ?? null,
@@ -1989,7 +1992,7 @@ export class DatabaseStorage {
       lightningEnergy: data.lightningEnergy ?? data.LightningEnergy ?? data.Lightning_Energy ?? null,
       chargerVoltage: data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null,
       // Wind direction std dev & SDI-12
-      windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,
+      windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? data.WDir_1_Std ?? data.WDir_Std ?? null,
       sdi12WindVector: data.sdi12WindVector ?? data.SDI12_WVc ?? data.SDI12_WV ?? null,
       // Visibility & clouds
       visibility: data.visibility ?? data.Visibility_km ?? data.Visibility ?? data.Vis_km ?? data.Visibility_Avg ?? null,
@@ -2015,6 +2018,14 @@ export class DatabaseStorage {
       mpptAbsiAvg: toNum(data.mpptAbsiAvg) ?? null,
       mpptBoardTemp: toNum(data.mpptBoardTemp) ?? toNum(data.SolarCharger_BoardTemp_1_Avg) ?? null,
       mpptMode: toNum(data.mpptMode) ?? toNum(data.SolarCharger_Mode_1) ?? null,
+      // MPPT Charger 1 configuration
+      mpptBulkFloatVoltage: toNum(data.mpptBulkFloatVoltage) ?? toNum(data.SolarCharger_BulkFloatVoltage_1) ?? null,
+      mpptFloatVoltage: toNum(data.mpptFloatVoltage) ?? toNum(data.SolarCharger_FloatVoltage_1) ?? null,
+      mpptCurrentLimit: toNum(data.mpptCurrentLimit) ?? toNum(data.SolarCharger_CurrentLimit_1) ?? null,
+      mpptAbsorbTimeLimit: toNum(data.mpptAbsorbTimeLimit) ?? toNum(data.SolarCharger_AbsorbTimeLimit_1) ?? null,
+      mpptAbsorbFullCurrent: toNum(data.mpptAbsorbFullCurrent) ?? toNum(data.SolarCharger_AbsorbFullCurrent_1) ?? null,
+      mpptVCalSlope: toNum(data.mpptVCalSlope) ?? toNum(data.SolarCharger_VCalSlope_1) ?? null,
+      mpptICalSlope: toNum(data.mpptICalSlope) ?? toNum(data.SolarCharger_ICalSlope_1) ?? null,
       // MPPT Charger 2
       mppt2SolarVoltage: toNum(data.mppt2SolarVoltage) ?? toNum(data.SolarCharger_PanelVoltage_2_Avg) ?? null,
       mppt2SolarCurrent: toNum(data.mppt2SolarCurrent) ?? toNum(data.SolarCharger_PanelCurrent_2_Avg) ?? null,
@@ -2069,10 +2080,13 @@ export class DatabaseStorage {
       windSpeed: data.windSpeed ?? data.WS_ms_Avg ?? data.WindSpeed ?? data.Wind_Spd_S_WVT ?? data.WindSpeed_Avg ?? data.WS_ms ?? data.WS_Avg ?? data.WS_ms_S_WVT ?? data.WSpd_1_Avg ?? data.WSpd_Avg ?? data.WSpd_1_S_WVT ?? null,
       windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? data.WDir_1_Avg ?? data.WDir_Avg ?? data.WDir_1_D1_WVT ?? null,
       windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? data.WindSpeed_Max ?? data.WS_Max ?? data.Wind_Gust ?? data.WSpd_1_Max ?? data.WSpd_Max ?? null,
+      windSpeedMin: data.windSpeedMin ?? data.WSpd_1_Min ?? data.WSpd_Min ?? data.WS_ms_Min ?? null,
       rainfall,
       solarRadiation: sanitizeSolarRadiation(data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? data.SolarRad_Avg ?? data.SlrW_Avg ?? data.SR_Avg ?? null),
+      solarMJTotal: data.solarMJTotal ?? data.SlrMJ_Tot ?? data.SlrMJ ?? data.Solar_MJ_Tot ?? null,
       dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? data.DewPointTemp_Avg ?? data.DewPointTemp ?? null,
       batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? data.Batt_volt_Min ?? data.BattV_Avg ?? data.Batt_V ?? data.LoggerBattery_Avg ?? data.LoggerBattery ?? null,
+      lithiumBattery: data.lithiumBattery ?? data.LoggerLithiumBatt_Avg ?? data.LoggerLithiumBatt ?? data.LithiumBatt_Avg ?? null,
       // Air quality
       pm10: data.pm10 ?? data.PM10_Avg ?? data.PM10 ?? null,
       pm25: data.pm25 ?? data.pm2_5 ?? data.PM2_5_Avg ?? data.PM2_5 ?? null,
@@ -2093,7 +2107,7 @@ export class DatabaseStorage {
       lightningEnergy: data.lightningEnergy ?? data.LightningEnergy ?? data.Lightning_Energy ?? null,
       chargerVoltage: sanitizeChargerVoltage(data.chargerVoltage ?? data.DC_Chg_Volts ?? data.ChgV_Avg ?? data.Charger_V ?? data.SolarCharger_V ?? null),
       // Wind direction std dev & SDI-12
-      windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? null,
+      windDirStdDev: data.windDirStdDev ?? data.Wind_Dir_SD1_WVT ?? data.WindDir_SD1_WVT ?? data.WDir_1_Std ?? data.WDir_Std ?? null,
       sdi12WindVector: data.sdi12WindVector ?? data.SDI12_WVc ?? data.SDI12_WV ?? null,
       // Visibility & clouds
       visibility: data.visibility ?? data.Visibility_km ?? data.Visibility ?? data.Vis_km ?? data.Visibility_Avg ?? null,
@@ -2119,6 +2133,14 @@ export class DatabaseStorage {
       mpptAbsiAvg: toNum(record.mppt_absi_avg) ?? toNum(data.mpptAbsiAvg) ?? null,
       mpptBoardTemp: toNum(record.mppt_board_temp) ?? toNum(data.mpptBoardTemp) ?? toNum(data.SolarCharger_BoardTemp_1_Avg) ?? null,
       mpptMode: toNum(data.mpptMode) ?? toNum(data.SolarCharger_Mode_1) ?? null,
+      // MPPT Charger 1 configuration (from JSONB data)
+      mpptBulkFloatVoltage: toNum(data.mpptBulkFloatVoltage) ?? toNum(data.SolarCharger_BulkFloatVoltage_1) ?? null,
+      mpptFloatVoltage: toNum(data.mpptFloatVoltage) ?? toNum(data.SolarCharger_FloatVoltage_1) ?? null,
+      mpptCurrentLimit: toNum(data.mpptCurrentLimit) ?? toNum(data.SolarCharger_CurrentLimit_1) ?? null,
+      mpptAbsorbTimeLimit: toNum(data.mpptAbsorbTimeLimit) ?? toNum(data.SolarCharger_AbsorbTimeLimit_1) ?? null,
+      mpptAbsorbFullCurrent: toNum(data.mpptAbsorbFullCurrent) ?? toNum(data.SolarCharger_AbsorbFullCurrent_1) ?? null,
+      mpptVCalSlope: toNum(data.mpptVCalSlope) ?? toNum(data.SolarCharger_VCalSlope_1) ?? null,
+      mpptICalSlope: toNum(data.mpptICalSlope) ?? toNum(data.SolarCharger_ICalSlope_1) ?? null,
       // MPPT Charger 2 (from JSONB data)
       mppt2SolarVoltage: toNum(data.mppt2SolarVoltage) ?? toNum(data.SolarCharger_PanelVoltage_2_Avg) ?? null,
       mppt2SolarCurrent: toNum(data.mppt2SolarCurrent) ?? toNum(data.SolarCharger_PanelCurrent_2_Avg) ?? null,
@@ -2129,6 +2151,14 @@ export class DatabaseStorage {
       mppt2ChargerState: toNum(data.mppt2ChargerState) ?? toNum(data.SolarCharger_State_2) ?? null,
       mppt2BoardTemp: toNum(data.mppt2BoardTemp) ?? toNum(data.SolarCharger_BoardTemp_2_Avg) ?? null,
       mppt2Mode: toNum(data.mppt2Mode) ?? toNum(data.SolarCharger_Mode_2) ?? null,
+      // MPPT Charger 2 configuration (from JSONB data)
+      mppt2BulkFloatVoltage: toNum(data.mppt2BulkFloatVoltage) ?? toNum(data.SolarCharger_BulkFloatVoltage_2) ?? null,
+      mppt2FloatVoltage: toNum(data.mppt2FloatVoltage) ?? toNum(data.SolarCharger_FloatVoltage_2) ?? null,
+      mppt2CurrentLimit: toNum(data.mppt2CurrentLimit) ?? toNum(data.SolarCharger_CurrentLimit_2) ?? null,
+      mppt2AbsorbTimeLimit: toNum(data.mppt2AbsorbTimeLimit) ?? toNum(data.SolarCharger_AbsorbTimeLimit_2) ?? null,
+      mppt2AbsorbFullCurrent: toNum(data.mppt2AbsorbFullCurrent) ?? toNum(data.SolarCharger_AbsorbFullCurrent_2) ?? null,
+      mppt2VCalSlope: toNum(data.mppt2VCalSlope) ?? toNum(data.SolarCharger_VCalSlope_2) ?? null,
+      mppt2ICalSlope: toNum(data.mppt2ICalSlope) ?? toNum(data.SolarCharger_ICalSlope_2) ?? null,
     };
   }
 
