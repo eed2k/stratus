@@ -96,7 +96,7 @@ export function SolarPositionCard({
     : '';
 
   return (
-    <Card className="border border-gray-300 bg-white" data-testid="card-solar-position">
+    <Card className="border border-gray-300 bg-white" data-testid="card-solar-position" data-v="3.2">
       <CardHeader className="pb-1">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Solar Position

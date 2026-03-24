@@ -1,7 +1,6 @@
 // Stratus Weather System
 // Created by Lukas Esterhuizen
 // v3.2 - View Only button restyle
-
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";

@@ -32,7 +32,7 @@ export function AirDensityCard({
   const deviationPercent = ((airDensity - standardDensity) / standardDensity) * 100;
 
   return (
-    <Card className="border border-gray-300 bg-white" data-testid="card-air-density">
+    <Card className="border border-gray-300 bg-white" data-testid="card-air-density" data-v="3.2">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Air Density (ρ, Rho)
