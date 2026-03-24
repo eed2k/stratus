@@ -1,6 +1,6 @@
 // Stratus Weather System
 // Created by Lukas Esterhuizen
-// v3.1 - grey blocks, formula resize
+// v3.2 - grey blocks, formula resize
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { safeFixed } from "@/lib/utils";

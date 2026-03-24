@@ -1,6 +1,6 @@
 // Stratus Weather System
 // Created by Lukas Esterhuizen
-// v3.1 - compact layout, smaller compass
+// v3.2 - compact layout, smaller compass
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMemo } from "react";
