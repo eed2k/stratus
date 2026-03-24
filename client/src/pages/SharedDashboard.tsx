@@ -512,12 +512,13 @@ function SharedDashboardContent() {
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}`);
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Share not found');
       }
       return res.json();
     },
     enabled: !!shareToken,
+    retry: false,
   });
 
   // Build headers for data requests (include session token for password-protected shares)
