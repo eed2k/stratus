@@ -59,10 +59,10 @@ export function AirDensityCard({
           </div>
 
           {/* Formula */}
-          <p className="text-xs text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-sm text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             ρ = P / (R<sub>d</sub> · T) · (1 − 0.378 · e/P)
           </p>
-          <p className="text-[10px] text-gray-400 italic mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-xs text-gray-400 italic mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             R<sub>d</sub> = 287.05 J/(kg·K), e = vapour pressure
           </p>
 

@@ -104,8 +104,8 @@ export function SolarPositionCard({
       </CardHeader>
       <CardContent className="pt-0">
         <div className="flex gap-2">
-          {/* Left: Data blocks (60%) */}
-          <div className="w-[60%] space-y-1">
+          {/* Left: Data blocks (70%) */}
+          <div className="w-[70%] space-y-1">
             {/* Elevation & Azimuth */}
             <div className="grid grid-cols-2 gap-1">
               <div className="rounded bg-gray-50 border border-gray-200 px-1.5 py-1 text-center">
@@ -177,9 +177,9 @@ export function SolarPositionCard({
             </div>
           </div>
 
-          {/* Right: Compass animation (40%) - 40% smaller */}
-          <div className="w-[40%] flex items-start justify-center pt-1">
-            <svg viewBox="0 0 200 200" className="h-auto" style={{ width: '60%' }}>
+          {/* Right: Compass animation (30%) */}
+          <div className="w-[30%] flex items-start justify-center pt-1">
+            <svg viewBox="0 0 200 200" className="h-auto" style={{ width: '100%', maxWidth: '100px' }}>
               <defs>
                 <radialGradient id="compassSky">
                   <stop offset="0%" stopColor="#87ceeb" />
