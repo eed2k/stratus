@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useEffect, useRef, useState, useCallback, Component, ReactNode } from "react";
@@ -252,7 +252,7 @@ export function StationMap({
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Default to Southern Africa (center) if no coordinates provided
+  // Default to Southern Africa (centre) if no coordinates provided
   const lat = latitude ?? -25.0; // Southern Africa
   const lng = longitude ?? 22.0;
   const hasCoordinates = latitude !== undefined && longitude !== undefined;
@@ -354,7 +354,7 @@ export function StationMap({
     setRetryCount(prev => prev + 1);
   }, []);
 
-  // Main map initialization effect
+  // Main map Initialisation effect
   useEffect(() => {
     let isMounted = true;
     let initTimeout: NodeJS.Timeout | null = null;

@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /// <reference types="node" />
@@ -71,7 +71,7 @@ function getDbPath(): string {
 }
 
 /**
- * Initialize the database connection
+ * Initialise the database connection
  */
 export async function initDatabase(): Promise<Database> {
   if (db) return db;
@@ -690,7 +690,7 @@ async function createTables(database: Database): Promise<void> {
     )
   `);
 
-  // Organizations table for desktop multi-org support
+  // Organisations table
   database.run(`
     CREATE TABLE IF NOT EXISTS organizations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

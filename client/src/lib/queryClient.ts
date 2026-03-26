@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { QueryClient, QueryFunction } from "@tanstack/react-query";

@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useEffect } from "react";
@@ -327,7 +327,7 @@ export default function Settings() {
     }
   };
 
-  // Open Dropbox OAuth authorization page
+  // Open Dropbox OAuth authorisation page
   const handleGetRefreshToken = () => {
     if (!dropboxAppKey) {
       toast({

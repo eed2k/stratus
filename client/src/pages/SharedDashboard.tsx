@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 // v3.2 - View Only button restyle
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";

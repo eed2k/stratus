@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useEffect, useCallback } from 'react';
@@ -132,7 +132,7 @@ export async function updateUserStations(email: string, stationIds: number[]): P
   return await updateUser(email, { assignedStations: stationIds });
 }
 
-// Desktop app - check for stored user or use default
+// Check for stored user session
 const getStoredUser = (): AuthUser | null => {
   const userEmail = localStorage.getItem('stratus_user_email');
   const userDataStr = localStorage.getItem('stratus_user');
@@ -173,49 +173,7 @@ export function useAuth() {
       return;
     }
 
-    // Desktop mode: auto-login as the default admin user
-    // The license key system already gates access to the app,
-    // so requiring a separate login is unnecessary for desktop.
-    const isDesktop = !!(window as any).stratusDesktop?.isDesktop;
-    if (isDesktop) {
-      const autoLogin = async () => {
-        try {
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: 'admin@stratus.local', password: 'admin' })
-          });
-          const data = await response.json();
-          if (response.ok && data.success) {
-            const authUser: AuthUser = {
-              id: data.user.email,
-              email: data.user.email,
-              firstName: data.user.firstName,
-              lastName: data.user.lastName,
-              profileImageUrl: null,
-              role: data.user.role,
-              assignedStations: data.user.assignedStations || [],
-            };
-            setUser(authUser);
-            setNeedsSetup(false);
-            localStorage.setItem('stratus_user_email', data.user.email);
-            localStorage.setItem('stratus_user', JSON.stringify(data.user));
-          } else {
-            // Auto-login failed — show login page
-            setUser(null);
-            setNeedsSetup(true);
-          }
-        } catch {
-          setUser(null);
-          setNeedsSetup(true);
-        }
-        setIsLoading(false);
-      };
-      autoLogin();
-      return;
-    }
-
-    // Not desktop and no stored user — show login page
+    // No stored user — show login page
     setUser(null);
     setNeedsSetup(true);
     setIsLoading(false);

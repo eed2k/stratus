@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -81,7 +81,7 @@ interface ClientAccount {
 // In-memory client accounts (for simplicity - extend to database for production)
 const clientAccounts: Map<string, ClientAccount> = new Map();
 
-// Initialize with client accounts from environment variables
+// Initialise with client accounts from environment variables
 async function initClientAccounts() {
   // Admin account - credentials from environment variables
   const adminEmail = process.env.STRATUS_ADMIN_EMAIL;

@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState } from "react";
@@ -343,7 +343,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
             });
           });
 
-          // Calm center circle
+          // Calm centre circle
           s += `<circle cx="${ctr}" cy="${ctr}" r="8" fill="#999" opacity="0.3"/>`;
           s += `</g>`;
 

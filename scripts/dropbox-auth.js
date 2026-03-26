@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Dropbox OAuth 2.0 Authorization Script
+ * Dropbox OAuth 2.0 Authorisation Script
  * 
  * This script helps you get a refresh token for 24/7 Dropbox sync.
  * Run once: npm run dropbox:auth
@@ -42,7 +42,7 @@ async function main() {
     process.exit(1);
   }
   
-  // Step 2: Generate authorization URL
+  // Step 2: Generate authorisation URL
   console.log('\n--- Step 2: Authorize the app ---\n');
   
   const authUrl = `https://www.dropbox.com/oauth2/authorize?` +
@@ -62,7 +62,7 @@ async function main() {
     process.exit(1);
   }
   
-  // Step 3: Exchange authorization code for tokens
+  // Step 3: Exchange authorisation code for tokens
   console.log('\n--- Step 3: Exchanging code for tokens ---\n');
   
   const credentials = Buffer.from(`${appKey}:${appSecret}`).toString('base64');

@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import 'dotenv/config';
@@ -161,7 +161,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize database first
+  // Initialise database first
   try {
     if (usePostgres) {
       await postgres.initPostgresDatabase();

@@ -106,13 +106,8 @@ deploy/rebuild_vps.py
 deploy/restart_container.py
 deploy/deploy_lean.py
 
-# ── .NET Desktop build artifacts ──
-desktop/Stratus.Desktop/bin/
-desktop/Stratus.Desktop/obj/
-desktop/Stratus.Desktop/publish/
-desktop/Stratus.Desktop/*.dll
-desktop/Stratus.Desktop/*.zip
-desktop/publish/
+# ── Desktop (removed; ignore entire folder if re-created) ──
+desktop/
 *.user
 *.suo
 

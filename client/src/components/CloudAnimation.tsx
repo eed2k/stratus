@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 ﻿export default function CloudAnimation({ className = "" }: { className?: string }) {

@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 ﻿import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
@@ -955,7 +955,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const windScatterData = useMemo(() => processWindScatterData(sortedHistoricalData), [sortedHistoricalData]);
 
   // Process wind data for different time periods (60min, 24h, 48h, 7d, 31d)
-  // Optimization: only compute counts upfront; rose/scatter are lazy-computed on first access
+  // Optimisation: only compute counts upfront; rose/scatter are lazy-computed on first access
   // For historical-only stations (data not from today), uses referenceNow from data's latest timestamp
   const windDataByPeriod = useMemo(() => {
     const now = referenceNow;

@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { STANDARD_AIR_DENSITY_KGM3 } from './weatherConstants';
@@ -82,7 +82,7 @@ export function calculateSolarPosition(
     // Calculate earth's orbit eccentricity
     const eccentEarth = 0.016708634 - jc * (0.000042037 + 0.0000001267 * jc);
     
-    // Calculate sun's equation of center
+    // Calculate sun's equation of centre
     const sunEqCtr = Math.sin(sunAnomMean * Math.PI / 180) * (1.914602 - jc * (0.004817 + 0.000014 * jc)) +
                      Math.sin(2 * sunAnomMean * Math.PI / 180) * (0.019993 - 0.000101 * jc) +
                      Math.sin(3 * sunAnomMean * Math.PI / 180) * 0.000289;

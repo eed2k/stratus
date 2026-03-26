@@ -1,9 +1,9 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
  * Dropbox Sync API Routes
- * Provides endpoints to configure and manage Dropbox synchronization
+ * Provides endpoints to configure and manage Dropbox synchronisation
  */
 
 import { Router, Request, Response } from 'express';
@@ -15,7 +15,7 @@ const router = Router();
 
 /**
  * GET /api/dropbox-sync/oauth/url
- * Generate OAuth authorization URL for Dropbox
+ * Generate OAuth authorisation URL for Dropbox
  */
 router.get('/oauth/url', (req: Request, res: Response) => {
   const { appKey } = req.query;
@@ -30,7 +30,7 @@ router.get('/oauth/url', (req: Request, res: Response) => {
 
 /**
  * POST /api/dropbox-sync/oauth/token
- * Exchange authorization code for refresh token
+ * Exchange authorisation code for refresh token
  */
 router.post('/oauth/token', async (req: Request, res: Response) => {
   try {
@@ -152,7 +152,7 @@ router.post('/configs', async (req: Request, res: Response) => {
       enabled: enabled !== false,
     });
     
-    // Reinitialize sync service to pick up new config
+    // Reinitialise sync service to pick up new config
     await dropboxSyncService.reinitialize();
     
     // Auto-trigger an immediate sync so new config gets data right away
@@ -191,7 +191,7 @@ router.put('/configs/:id', async (req: Request, res: Response) => {
       enabled,
     });
     
-    // Reinitialize sync service to pick up changes
+    // Reinitialise sync service to pick up changes
     await dropboxSyncService.reinitialize();
     
     res.json({ success: true, config });
@@ -210,7 +210,7 @@ router.delete('/configs/:id', async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     await storage.deleteDropboxConfig(id);
     
-    // Reinitialize sync service to pick up changes
+    // Reinitialise sync service to pick up changes
     await dropboxSyncService.reinitialize();
     
     res.json({ success: true });

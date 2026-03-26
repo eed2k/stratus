@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -105,7 +105,7 @@ if (usePostgres) {
 let dbModule: any = null;
 
 /**
- * Initialize the database
+ * Initialise the database
  * Automatically selects SQLite or PostgreSQL based on DATABASE_URL
  */
 export async function initDatabase(): Promise<any> {

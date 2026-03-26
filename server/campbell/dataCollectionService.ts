@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -129,10 +129,10 @@ export class DataCollectionService extends EventEmitter {
       // Store configuration
       this.activeStations.set(stationId, config);
 
-      // Initialize data buffer
+      // Initialise data buffer
       this.dataBuffers.set(stationId, []);
 
-      // Initialize status
+      // Initialise status
       this.stationStatuses.set(stationId, { stationId, isConnected: false });
 
       // Setup flush timer
@@ -393,7 +393,7 @@ export class DataCollectionService extends EventEmitter {
   }
 
   /**
-   * Initialize service with stations from database
+   * Initialise service with stations from database
    */
   async initialize(): Promise<void> {
     try {

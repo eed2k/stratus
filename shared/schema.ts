@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -6,18 +6,10 @@
  * 
  * ARCHITECTURE NOTE (Issue #17 - Type Alignment):
  *
- * This file defines schemas using Drizzle ORM with PostgreSQL types for
- * cloud deployment compatibility.
+ * This file defines schemas using Drizzle ORM with PostgreSQL types.
  * 
- * For desktop deployments, the application uses SQLite via sql.js
- * (see server/db.ts). The actual database schema is defined in db.ts
+ * The actual database schema is defined in db.ts
  * createTables() and runMigrations() functions.
- * 
- * Type mapping between PostgreSQL (this file) and SQLite (db.ts):
- * - serial/integer -> INTEGER
- * - varchar/text -> TEXT  
- * - timestamp -> DATETIME (stored as ISO string)
- * - jsonb -> TEXT (JSON serialized)
  * - boolean -> INTEGER (0/1)
  * - real -> REAL
  * 
@@ -706,7 +698,7 @@ export const insertDataloggerProgramSchema = createInsertSchema(dataloggerProgra
 export type InsertDataloggerProgram = z.infer<typeof insertDataloggerProgramSchema>;
 export type DataloggerProgram = typeof dataloggerPrograms.$inferSelect;
 
-// Station Groups table - Organize multiple stations
+// Station Groups table - Organise multiple stations
 export const stationGroups = pgTable("station_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

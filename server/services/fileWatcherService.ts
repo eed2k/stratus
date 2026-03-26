@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -43,7 +43,7 @@ export class FileWatcherService extends EventEmitter {
   }
 
   /**
-   * Initialize the file watcher service
+   * Initialise the file watcher service
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;

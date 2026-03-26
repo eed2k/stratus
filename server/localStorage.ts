@@ -1,9 +1,9 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
- * Local Storage Layer for Desktop App
- * Wraps the SQLite database operations with an interface compatible with the server routes
+ * Storage Layer
+ * Wraps the database operations with an interface compatible with the server routes
  * 
  * Supports both SQLite (local) and PostgreSQL (cloud) modes based on DATABASE_URL
  */
@@ -49,7 +49,7 @@ const storageLog = {
   }
 };
 
-// Types for the local desktop app
+// Core application types
 export interface WeatherStation {
   id: number;
   name: string;
@@ -196,7 +196,7 @@ export interface InsertWeatherStation {
   stationImage?: string | null;
 }
 
-// Simple user for local desktop app
+// User type
 export interface User {
   id: string;
   email: string;
@@ -263,7 +263,7 @@ export class DatabaseStorage {
   // Track which alarms are currently in triggered state (one-shot: only email on normal→triggered transition)
   private activeAlarms = new Set<number>();
 
-  // User operations - simplified for desktop
+  // User operations
   async getUser(id: string): Promise<User | undefined> {
     // Use PostgreSQL if available
     if (usePostgres) {
@@ -1003,7 +1003,7 @@ export class DatabaseStorage {
     };
   }
 
-  // User-Station operations - simplified for desktop
+  // User-Station operations
   async getUserStations(userId: string): Promise<(any & { station: WeatherStation })[]> {
     const stations = await this.getStations();
     return stations.map(station => ({
@@ -1139,7 +1139,7 @@ export class DatabaseStorage {
     return updated;
   }
 
-  // Sensor operations - stubs for desktop app
+  // Sensor operations - stubs for future use
   async getSensors(stationId: number): Promise<Sensor[]> {
     return [];
   }
@@ -1413,11 +1413,11 @@ export class DatabaseStorage {
   }
 
   async addStationToGroup(groupId: number, stationId: number): Promise<void> {
-    // No-op for desktop
+    // No-op
   }
 
   async removeStationFromGroup(groupId: number, stationId: number): Promise<void> {
-    // No-op for desktop
+    // No-op
   }
 
   // Organization operations - now with real database persistence
@@ -1462,7 +1462,7 @@ export class DatabaseStorage {
         createdAt: new Date(org.created_at)
       }));
     }
-    // For desktop, return all organizations (single user)
+    // Return all organisations
     return this.getOrganizations();
   }
 
@@ -1607,7 +1607,7 @@ export class DatabaseStorage {
     if (usePostgres) {
       return postgres.pgIsOrganizationAdmin(orgId, userId);
     }
-    return true; // Desktop is single-user, always admin
+    return true; // Single-user, always admin
   }
 
   async isOrganizationMember(orgId: number, userId: string): Promise<boolean> {
@@ -1840,7 +1840,7 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.connection_type,
-      // Location fields — keep raw pg values (strings) so the desktop EXE (string? model) can deserialise
+      // Location fields — keep raw pg values (strings)
       location: station.location || undefined,
       latitude: station.latitude ?? undefined,
       longitude: station.longitude ?? undefined,
@@ -1905,7 +1905,7 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.stationType || station.connectionType,
-      // Location fields — keep raw pg values (strings) so the desktop EXE (string? model) can deserialise
+      // Location fields — keep raw pg values (strings)
       location: station.location || undefined,
       latitude: station.latitude ?? undefined,
       longitude: station.longitude ?? undefined,

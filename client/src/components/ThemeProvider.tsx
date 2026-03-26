@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";

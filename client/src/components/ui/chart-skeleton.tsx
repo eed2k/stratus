@@ -1,4 +1,4 @@
-// Stratus Weather System - UI Component
+// Stratus Weather Server - UI Component
 // Source: Library (shadcn/ui)
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";

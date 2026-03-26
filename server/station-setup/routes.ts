@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -377,7 +377,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * GET /api/station-setup/providers
    */
   app.get("/api/station-setup/providers", (req, res) => {
-    // Desktop app focused on Campbell Scientific dataloggers
+    // Campbell Scientific dataloggers and Dropbox sync
     const providers = [
       {
         id: "campbell_tcp",
@@ -434,7 +434,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
       const { apiEndpoint, host } = req.body;
       const endpoint = (apiEndpoint || host || "").toLowerCase();
 
-      // For desktop Campbell Scientific focus, only detect relevant endpoints
+      // Detect relevant Campbell Scientific endpoints
       const detections: Record<string, string> = {
         campbellcloud: "campbell_tcp",
         konect: "campbell_tcp",
@@ -542,7 +542,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
    * GET /api/station-setup/providers/info
    */
   app.get("/api/station-setup/providers/info", (req, res) => {
-    // Desktop app focused on Campbell Scientific dataloggers
+    // Campbell Scientific dataloggers and Dropbox sync
     const providersInfo = [
       {
         id: "campbell_tcp",
@@ -725,7 +725,7 @@ export async function registerStationSetupRoutes(app: Express): Promise<void> {
   });
 
   /**
-   * List stations from Rika Cloud (Not supported in desktop version)
+   * List stations from Rika Cloud (Not supported)
    * GET /api/station-setup/rika/stations
    */
   app.get("/api/station-setup/rika/stations", async (req, res) => {

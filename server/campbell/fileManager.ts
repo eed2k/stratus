@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -197,7 +197,7 @@ export class FileManager extends EventEmitter {
       throw new Error(`Invalid file path: must be within backup directory (${allowedDir})`);
     }
     
-    // Initialize progress tracking
+    // Initialise progress tracking
     const progress: TransferProgress = {
       fileName: remoteFilePath,
       totalBytes: 0,
@@ -309,7 +309,7 @@ export class FileManager extends EventEmitter {
 
     const stats = fs.statSync(localFilePath);
     
-    // Initialize progress tracking
+    // Initialise progress tracking
     const progress: TransferProgress = {
       fileName: localFilePath,
       totalBytes: stats.size,

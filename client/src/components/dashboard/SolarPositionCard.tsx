@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 // v3.2 - compact layout, smaller compass
 
@@ -72,7 +72,7 @@ export function SolarPositionCard({
       const t = new Date(today.getTime() + m * 60000);
       const sp = calculateSolarPosition(latitude, longitude, t);
       if (sp.elevation > -2) {
-        // Polar mapping: center=zenith(90°), outer ring=horizon(0°)
+        // Polar mapping: centre=zenith(90°), outer ring=horizon(0°)
         const r = ((90 - Math.max(0, sp.elevation)) / 90) * 80;
         const angle = ((sp.azimuth - 90) * Math.PI) / 180; // rotate so N=up
         const x = 100 + r * Math.cos(angle);

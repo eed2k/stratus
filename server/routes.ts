@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import type { Express, RequestHandler } from "express";
@@ -419,10 +419,10 @@ export async function registerRoutes(
     }
   });
 
-  // Initialize file watcher service
+  // Initialise file watcher service
   await fileWatcherService.initialize();
 
-  // Initialize Dropbox sync with configuration from environment or DB
+  // Initialise Dropbox sync with configuration from environment or DB
   // This auto-syncs .dat files from Dropbox folder every hour
   let DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
   let DROPBOX_FOLDER_PATH = process.env.DROPBOX_FOLDER_PATH || '';
@@ -485,7 +485,7 @@ export async function registerRoutes(
     res.json({ status: 'ok', timestamp: new Date().toISOString(), server: 'stratus' });
   });
 
-  // Initialize data collection service
+  // Initialise data collection service
   try {
     await dataCollectionService.initialize();
     console.log('Campbell Scientific data collection service initialized');
@@ -493,7 +493,7 @@ export async function registerRoutes(
     console.error('Failed to initialize data collection service:', error);
   }
 
-  // Initialize Protocol Manager for all station types
+  // Initialise Protocol Manager for all station types
   try {
     await protocolManager.initialize();
     console.log('Protocol Manager initialized');
@@ -1051,7 +1051,7 @@ export async function registerRoutes(
                 });
                 console.log(`[Routes] Dropbox config created for station ${station.id}: folder=${folderPath}, pattern=${filePattern || '*'}, interval=${syncInterval}s`);
                 
-                // Reinitialize sync service to pick up new config & trigger immediate sync
+                // Reinitialise sync service to pick up new config & trigger immediate sync
                 await dropboxSyncService.reinitialize();
                 setTimeout(async () => {
                   try {
@@ -1181,7 +1181,7 @@ export async function registerRoutes(
                   console.log(`[Routes] Dropbox config created for station ${station.id}: folder=${folderPath}, pattern=${filePattern || '*'}, interval=${syncInterval}s`);
                 }
                 
-                // Reinitialize sync service to pick up DB changes
+                // Reinitialise sync service to pick up DB changes
                 await dropboxSyncService.reinitialize();
               } catch (dbErr: any) {
                 console.warn(`[Routes] Could not update dropbox_configs entry: ${dbErr.message}`);
@@ -1282,11 +1282,11 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Station not found" });
       }
       
-      // Reinitialize sync service so it drops references to deleted station/configs
+      // Reinitialise sync service so it drops references to deleted station/configs
       try {
         await dropboxSyncService.reinitialize();
       } catch (syncErr) {
-        console.warn(`Failed to reinitialize sync service after deleting station ${stationId}:`, syncErr);
+        console.warn(`Failed to reinitialise sync service after deleting station ${stationId}:`, syncErr);
       }
       
       // Log station deletion
@@ -2959,7 +2959,7 @@ export async function registerRoutes(
     }
   };
   
-  // Auto-initialize widgets on page load
+  // Auto-Initialise widgets on page load
   function initWidgets() {
     var widgets = document.querySelectorAll('[data-stratus-widget], #stratus-widget, .stratus-widget-container');
     widgets.forEach(function(el) {
@@ -2977,7 +2977,7 @@ export async function registerRoutes(
     initWidgets();
   }
   
-  // Expose globally for manual initialization
+  // Expose globally for manual Initialisation
   window.StratusWidget = StratusWidget;
 })();
 `;

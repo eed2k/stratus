@@ -1,4 +1,4 @@
-// Stratus Weather System - UI Component
+// Stratus Weather Server - UI Component
 // Source: Library (shadcn/ui)
 
 import * as AspectRatioPrimitive from "@radix-ui/react-aspect-ratio"

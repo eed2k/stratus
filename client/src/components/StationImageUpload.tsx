@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useRef, useCallback } from "react";
@@ -68,7 +68,7 @@ export function StationImageUpload({
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Translate to center, rotate, then draw
+        // Translate to centre, rotate, then draw
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate((targetRotation * Math.PI) / 180);
         ctx.drawImage(img, -width / 2, -height / 2, width, height);

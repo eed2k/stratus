@@ -194,10 +194,9 @@ server/             Express backend (TypeScript)
   shares/           Shared dashboard routes
 shared/             Shared types and utilities
   utils/            Calculation functions (LFDI, solar, ETo, air density)
-desktop/            Desktop application (WPF / .NET 8, Windows)
 assets/             Application icons
 deploy/             Deployment scripts and Docker config
-scripts/            Database utilities and maintenance scripts
+scripts/            Dropbox auth and documentation generation
 docs/               User documentation
 examples/           CRBasic example programs
 ```
@@ -208,8 +207,7 @@ Tech Stack
 
 - Frontend: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts
 - Backend: Express, TypeScript, Drizzle ORM
-- Database: PostgreSQL (Neon serverless supported), SQLite for desktop
-- Desktop: WPF / .NET 8 with serial port support (Windows)
+- Database: PostgreSQL (Neon serverless supported)
 - Deployment: Docker, Traefik reverse proxy
 
 ---

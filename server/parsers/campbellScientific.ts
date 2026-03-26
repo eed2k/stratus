@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -431,7 +431,7 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
       }
     }
     
-    // Initialize to null if not found
+    // Initialise to null if not found
     if (result[standardField] === undefined) {
       result[standardField] = null;
     }

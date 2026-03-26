@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -37,7 +37,7 @@ let getAllUsers: () => Promise<any[]>;
 let usePostgres = false;
 
 /**
- * Initialize the staleness monitor
+ * Initialise the staleness monitor
  */
 export async function initStalenessMonitor(): Promise<void> {
   // Check if staleness alerts are enabled (disabled by default for now)

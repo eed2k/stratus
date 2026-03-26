@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,7 +125,7 @@ function WMOWindRose({ data, maxPercent }: { data: { direction: string; percenta
           'Z',
         ].join(' ');
 
-        // Color: blue gradient by intensity
+        // Colour: blue gradient by intensity
         const intensity = Math.min(d.percentage / scaleMax, 1);
         const opacity = 0.3 + intensity * 0.6;
 

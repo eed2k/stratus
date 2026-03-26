@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

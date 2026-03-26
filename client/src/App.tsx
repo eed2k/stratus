@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useMemo, lazy, Suspense } from "react";
@@ -28,7 +28,7 @@ const SharedDashboard = lazy(() => import("@/pages/SharedDashboard"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const AccountSettings = lazy(() => import("@/pages/AccountSettings"));
 const Documentation = lazy(() => import("@/pages/Documentation"));
-const SerialMonitor = lazy(() => import("@/pages/SerialMonitor"));
+
 const LoginPage = lazy(() => import("@/pages/LoginPage").then(m => ({ default: m.LoginPage })));
 const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
@@ -53,7 +53,7 @@ function Router() {
   const isSetupPasswordRoute = location.startsWith('/setup-password');
   
   // Check if this is a friendly share slug (e.g., /swakop-uranium)
-  const knownPrefixes = ['/', '/shared/', '/forgot-password', '/reset-password', '/setup-password', '/dashboard', '/serial-monitor', '/campbell', '/stations', '/users', '/history', '/alarms', '/reports', '/settings', '/account', '/docs'];
+  const knownPrefixes = ['/', '/shared/', '/forgot-password', '/reset-password', '/setup-password', '/dashboard', '/campbell', '/stations', '/users', '/history', '/alarms', '/reports', '/settings', '/account', '/docs'];
   const isKnownRoute = location === '/' || knownPrefixes.some(p => p !== '/' && location.startsWith(p));
   const isSlugRoute = !isKnownRoute && /^\/[a-z0-9][a-z0-9-]*$/.test(location);
   
@@ -82,7 +82,7 @@ function Router() {
     return <Suspense fallback={<LoadingScreen />}><LoginPage onLogin={login} /></Suspense>;
   }
 
-  // Desktop app - authenticated
+  // Authenticated
   return (
     <AuthenticatedApp user={user} logout={logout} isAdmin={isAdmin} canAccessStation={canAccessStation} />
   );
@@ -203,8 +203,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 />
               </Route>
               
-              {/* Serial Monitor - desktop only (shows notice in browser) */}
-              <Route path="/serial-monitor" component={SerialMonitor} />
+
 
               {/* Admin routes */}
               <Route path="/campbell">

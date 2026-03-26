@@ -1,4 +1,4 @@
-// Stratus Weather System
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 /**
@@ -44,7 +44,7 @@ export function getDatabaseUrl(): string | undefined {
 }
 
 /**
- * Initialize PostgreSQL connection pool
+ * Initialise PostgreSQL connection pool
  */
 export async function initPostgresDatabase(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
