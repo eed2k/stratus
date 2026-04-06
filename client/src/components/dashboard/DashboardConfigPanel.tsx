@@ -60,6 +60,16 @@ const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   loggerBattery: 'Logger & Battery',
   mpptCharger: 'MPPT Solar Charger',
   visibilityClouds: 'Visibility & Clouds',
+  airQuality: 'Air Quality (AQI)',
+  heatStress: 'Heat Stress (WBGT)',
+  atmosphericStability: 'Atmospheric Stability',
+  lightning: 'Lightning Proximity',
+  aviation: 'Aviation',
+  transportation: 'Road Weather & Transport',
+  oceanography: 'Beaufort Scale & Sea State',
+  agriculture: 'Agriculture & Forestry',
+  dataCompleteness: 'Data Completeness',
+  waterBalance: 'Water Balance & Intensity',
 };
 
 // Map derived/calculated fields to their source dependencies
@@ -107,6 +117,16 @@ const SECTION_FIELD_DEPS: Record<keyof SectionVisibility, string[]> = {
   mpptCharger: ['mpptSolarVoltage', 'mpptSolarCurrent', 'mpptSolarPower', 'mpptLoadVoltage', 'mpptLoadCurrent', 'mpptBatteryVoltage', 'mpptChargerState', 'mpptAbsiAvg', 'mpptBoardTemp', 'mpptMode',
     'mppt2SolarVoltage', 'mppt2SolarCurrent', 'mppt2SolarPower', 'mppt2LoadVoltage', 'mppt2LoadCurrent', 'mppt2BatteryVoltage', 'mppt2ChargerState', 'mppt2BoardTemp', 'mppt2Mode'],
   visibilityClouds: ['visibility', 'atmosphericVisibility', 'cloudBase', 'cloudCover'],
+  airQuality: ['pm10', 'pm25', 'pm1', 'co2', 'tvoc'],
+  heatStress: ['temperature', 'humidity'],
+  atmosphericStability: ['windSpeed', 'solarRadiation'],
+  lightning: ['lightningDistance', 'lightning'],
+  aviation: ['pressure', 'temperature'],
+  transportation: ['temperature', 'humidity'],
+  oceanography: ['windSpeed'],
+  agriculture: ['temperature'],
+  dataCompleteness: [],
+  waterBalance: ['rainfall'],
 };
 
 /** Check if a parameter is available based on available fields */

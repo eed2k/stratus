@@ -568,7 +568,6 @@ export default function UserManagement() {
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Assigned Stations</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -601,41 +600,6 @@ export default function UserManagement() {
                           )}
                         </span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Resend invitation email"
-                          onClick={() => handleResendInvitation(user.email, user.firstName)}
-                          disabled={resendingInvitation === user.email}
-                        >
-                          {resendingInvitation === user.email ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Mail className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditingUser(user);
-                            setIsEditDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteUser(user.email)}
-                          disabled={user.email.toLowerCase() === localStorage.getItem('stratus_user_email')?.toLowerCase()}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

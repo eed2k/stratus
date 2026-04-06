@@ -22,6 +22,19 @@ import { MpptChargerCard } from "@/components/dashboard/MpptChargerCard";
 import { BarometricPressureCard } from "@/components/dashboard/BarometricPressureCard";
 import { calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarvestCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
+import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
+import { HeatStressCard } from "@/components/dashboard/HeatStressCard";
+import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
+import { LightningCard } from "@/components/dashboard/LightningCard";
+import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
+import { CrosswindCard } from "@/components/dashboard/CrosswindCard";
+import { RoadWeatherCard } from "@/components/dashboard/RoadWeatherCard";
+import { BeaufortCard } from "@/components/dashboard/BeaufortCard";
+import { GrowingDegreeDaysCard } from "@/components/dashboard/GrowingDegreeDaysCard";
+import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
+import { DataCompletenessCard } from "@/components/dashboard/DataCompletenessCard";
+import { WaterBalanceCard } from "@/components/dashboard/WaterBalanceCard";
+import { processWindPowerRoseData } from "@/components/charts/WindPowerRose";
 // RainfallYearlyCard removed - yearly data now shown as subMetric in Rainfall MetricCard
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
 import { safeFixed } from "@/lib/utils";
@@ -29,6 +42,8 @@ import { safeFixed } from "@/lib/utils";
 // Lazy-load heavy chart and visualization components for faster initial render
 const WindRose = lazy(() => import("@/components/charts/WindRose").then(m => ({ default: m.WindRose })));
 const WindRoseScatter = lazy(() => import("@/components/charts/WindRoseScatter").then(m => ({ default: m.WindRoseScatter })));
+const WeibullCard = lazy(() => import("@/components/dashboard/WeibullCard").then(m => ({ default: m.WeibullCard })));
+import { WindPowerRose } from "@/components/charts/WindPowerRose";
 const WeatherChart = lazy(() => import("@/components/charts/WeatherChart").then(m => ({ default: m.WeatherChart })));
 const DataBlockChart = lazy(() => import("@/components/charts/DataBlockChart").then(m => ({ default: m.DataBlockChart })));
 const FireDangerChart = lazy(() => import("@/components/charts/FireDangerChart").then(m => ({ default: m.FireDangerChart })));
@@ -65,6 +80,7 @@ import {
   wattsToMJPerDay,
   calculateFireDanger
 } from "@shared/utils/calc";
+import { calculateDensityAltitude, calculateCrosswind, calculateRoadWeather, getBeaufortScale } from "@shared/utils/calc";
 import { DEFAULT_DASHBOARD_CONFIG, DASHBOARD_CATEGORIES, type DashboardConfig } from "../../../shared/dashboardConfig";
 import { getSimplifiedClasses, getWindUnitLabel, getWindDirectionLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import {
@@ -914,6 +930,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       // Airshed / multi-height temperature
       temperature8m: hasData('temperature8m'),
       deltaTemperature: hasData('deltaTemperature'),
+      // Air quality extended
+      pm1: hasData('pm1'),
+      co2: hasData('co2'),
+      tvoc: hasData('tvoc'),
+      aqi: hasData('aqi'),
+      // Agriculture
+      leafWetness: hasData('leafWetness'),
     };
   }, [historicalData, latestData, dashboardConfig.enabledParameters]);
 
@@ -1313,6 +1336,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Process wind energy data from historical data (must be after calculatedAirDensity)
   const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, calculatedAirDensity, windSpeedUnit, dashboardConfig.chartTimeRange), [sortedHistoricalData, calculatedAirDensity, windSpeedUnit, dashboardConfig.chartTimeRange]);
 
+  // Wind power rose data — energy contribution per direction
+  const windPowerRoseData = useMemo(() => {
+    return processWindPowerRoseData(sortedHistoricalData, calculatedAirDensity, windSpeedUnit);
+  }, [sortedHistoricalData, calculatedAirDensity, windSpeedUnit]);
+
   // Calculate dew point from temperature and humidity using Magnus formula
   // when the station doesn't report it directly
   const calculatedDewPoint = useMemo(() => {
@@ -1677,6 +1705,21 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           solarRadiation={availableFields.solarRadiation ? (currentData.solarRadiation ?? undefined) : undefined}
           rainfall={availableFields.rainfall ? (currentData.rainfall ?? undefined) : undefined}
           dewPoint={effectiveDewPoint != null && effectiveDewPoint !== 0 ? effectiveDewPoint : undefined}
+          visibility={availableFields.visibility ? (currentData.visibility ?? undefined) : undefined}
+          cloudBase={availableFields.cloudBase ? (currentData.cloudBase ?? undefined) : undefined}
+          cloudCover={availableFields.cloudCover ? (currentData.cloudCover ?? undefined) : undefined}
+          pressure3hAgo={(() => {
+            const now = Date.now();
+            const target3h = now - 3 * 60 * 60 * 1000;
+            const match = sortedHistoricalData.find(d => Math.abs(new Date(d.timestamp).getTime() - target3h) < 90 * 60 * 1000);
+            return match?.pressure ?? undefined;
+          })()}
+          pressure6hAgo={(() => {
+            const now = Date.now();
+            const target6h = now - 6 * 60 * 60 * 1000;
+            const match = sortedHistoricalData.find(d => Math.abs(new Date(d.timestamp).getTime() - target6h) < 90 * 60 * 1000);
+            return match?.pressure ?? undefined;
+          })()}
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType ?? undefined}
           syncInterval={3600000} // 1 hour Dropbox sync interval
@@ -2989,6 +3032,33 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             showMinMax={true}
             currentValue={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit)}
           />
+          {/* Weibull Distribution, Turbulence & Power Rose */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {sortedHistoricalData.length >= 10 && (
+            <Suspense fallback={<ChartFallback />}>
+              <WeibullCard
+                windSpeeds={sortedHistoricalData.map(d => d.windSpeed ?? 0).filter(v => v > 0)}
+              />
+            </Suspense>
+            )}
+            {(() => {
+              const recentSpeeds = sortedHistoricalData.slice(-10).map(d => d.windSpeed ?? 0);
+              const mean = recentSpeeds.length > 0 ? recentSpeeds.reduce((a, b) => a + b, 0) / recentSpeeds.length : 0;
+              const stdDev = recentSpeeds.length > 1 ? Math.sqrt(recentSpeeds.reduce((s, v) => s + (v - mean) ** 2, 0) / (recentSpeeds.length - 1)) : 0;
+              return mean > 0.5 ? (
+                <TurbulenceCard
+                  windStdDev={stdDev}
+                  meanWindSpeed={mean}
+                />
+              ) : null;
+            })()}
+            {sortedHistoricalData.length >= 10 && (
+              <WindPowerRose
+                data={windPowerRoseData}
+                title="Wind Power Rose"
+              />
+            )}
+          </div>
         </section>
         )}
 
@@ -3012,7 +3082,163 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
+        {/* Air Quality Section - Only show if PM data available */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.airQuality !== false && (availableFields.pm10 || availableFields.pm25 || availableFields.pm1 || availableFields.co2 || availableFields.tvoc) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Air Quality</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <AirQualityCard
+              pm25={currentData.pm25}
+              pm10={currentData.pm10}
+              pm1={currentData.pm1}
+              co2={currentData.co2}
+              tvoc={currentData.tvoc}
+            />
+          </div>
+        </section>
+        )}
 
+        {/* Heat Stress Section - Requires temperature AND humidity */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.heatStress !== false && (availableFields.temperature && availableFields.humidity) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Heat Stress</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <HeatStressCard
+              temperature={currentData.temperature!}
+              humidity={currentData.humidity!}
+              solarRadiation={currentData.solarRadiation ?? undefined}
+              windSpeed={currentData.windSpeed ?? undefined}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Atmospheric Stability Section - Requires wind speed AND solar radiation */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.atmosphericStability !== false && (availableFields.windSpeed && availableFields.solarRadiation) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Atmospheric Stability</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <AtmosphericStabilityCard
+              windSpeed={currentData.windSpeed!}
+              solarRadiation={currentData.solarRadiation!}
+              cloudCover={currentData.cloudCover}
+              deltaTemperature={currentData.deltaTemperature}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Lightning Section - Only show if lightning data available */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.lightning !== false && (availableFields.lightningDistance || availableFields.lightning) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Lightning</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LightningCard
+              lightningDistance={currentData.lightningDistance}
+              lightningCount={currentData.lightning}
+              lightningEnergy={currentData.lightningEnergy}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Aviation Section - Requires pressure AND temperature */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.aviation !== false && (availableFields.pressure && availableFields.temperature) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Aviation</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <DensityAltitudeCard
+              stationPressure={currentData.pressure!}
+              temperature={currentData.temperature!}
+              dewPoint={effectiveDewPoint ?? undefined}
+              stationElevation={selectedStation?.altitude ?? undefined}
+            />
+            {availableFields.windSpeed && availableFields.windDirection && (
+            <CrosswindCard
+              windSpeed={currentData.windSpeed!}
+              windDirection={currentData.windDirection!}
+            />
+            )}
+          </div>
+        </section>
+        )}
+
+        {/* Transportation Section - Requires temperature AND humidity or dew point */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.transportation !== false && (availableFields.temperature && (availableFields.humidity || availableFields.dewPoint)) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Road Weather &amp; Transport</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <RoadWeatherCard
+              temperature={currentData.temperature!}
+              dewPoint={effectiveDewPoint ?? undefined}
+              windSpeed={currentData.windSpeed ?? undefined}
+              humidity={currentData.humidity ?? undefined}
+              rainfall={currentData.rainfall ?? undefined}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Oceanography Section - Requires wind speed */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.oceanography !== false && availableFields.windSpeed && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Beaufort Scale &amp; Sea State</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <BeaufortCard
+              windSpeed={currentData.windSpeed!}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Agriculture Section - Requires temperature */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.agriculture !== false && availableFields.temperature && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Agriculture &amp; Forestry</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <GrowingDegreeDaysCard
+              dailyData={historicalChartData.length > 0 ? historicalChartData.filter((d: any) => d.temperatureMin != null && d.temperatureMax != null).map((d: any) => ({
+                min: d.temperatureMin,
+                max: d.temperatureMax,
+                date: d.fullTimestamp || d.timestamp,
+              })) : undefined}
+              currentTemperature={currentData.temperature ?? undefined}
+              todayMin={currentData.temperatureMin ?? undefined}
+              todayMax={currentData.temperatureMax ?? undefined}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Water Balance Section - Requires rainfall */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterBalance !== false && availableFields.rainfall && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Water Balance</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <WaterBalanceCard
+              currentRainfall={currentData.rainfall ?? undefined}
+              intervalMinutes={60}
+              totalRainfall={rainfallStats.rainfall7day}
+              totalETo={etoStats.weekly ?? 0}
+              periodLabel="7 days"
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Data Completeness Section - Always available */}
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.dataCompleteness !== false && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Data Quality</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <DataCompletenessCard
+              actualReadings={sortedHistoricalData.length}
+              expectedReadings={Math.round((dashboardConfig.chartTimeRange || 24) * 60 / 5)}
+              periodLabel={`${dashboardConfig.chartTimeRange || 24}h`}
+            />
+          </div>
+        </section>
+        )}
 
         {/* Charts Section */}
         {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.historicalCharts !== false && (chartData.length > 0 || historicalChartData.length > 0) && (
@@ -3140,7 +3366,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Yearly Rainfall Section */}
-        {!isMpptOnlyStation && availableFields.rainfall && activeStationId && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.rainfall !== false && availableFields.rainfall && activeStationId && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Yearly Rainfall</h2>
           {(() => {

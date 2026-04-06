@@ -955,6 +955,16 @@ export interface SectionVisibility {
   visibilityClouds: boolean;
   loggerBattery: boolean;
   mpptCharger: boolean;
+  airQuality: boolean;
+  heatStress: boolean;
+  atmosphericStability: boolean;
+  lightning: boolean;
+  aviation: boolean;
+  transportation: boolean;
+  oceanography: boolean;
+  agriculture: boolean;
+  dataCompleteness: boolean;
+  waterBalance: boolean;
 }
 
 export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
@@ -973,6 +983,16 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
   visibilityClouds: true,
   loggerBattery: true,
   mpptCharger: true,
+  airQuality: true,
+  heatStress: true,
+  atmosphericStability: true,
+  lightning: true,
+  aviation: true,
+  transportation: true,
+  oceanography: true,
+  agriculture: true,
+  dataCompleteness: true,
+  waterBalance: true,
 };
 
 export interface DashboardConfig {

@@ -1,4 +1,4 @@
-// Stratus Weather Server
+// Stratus Weather System
 // Created by Lukas Esterhuizen
 
 import { useMemo, memo } from "react";
@@ -33,13 +33,13 @@ interface FireDangerChartProps {
   showStatistics?: boolean;
 }
 
-/**
+/*
  * Fire Danger Chart
  * 
  * Displays historical South African Fire Danger Index (FDI) values with:
- * - Color-coded danger zone backgrounds
- * - Reference lines for danger thresholds
- * - Statistics (max, min, avg FDI)
+ * Color-coded danger zone backgrounds
+ * Reference lines for danger thresholds
+ * Statistics (max, min, avg FDI)
  */
 export const FireDangerChart = memo(function FireDangerChart({
   data,
