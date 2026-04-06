@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getWindDirectionLabel } from "@/lib/windConstants";
-import { formatMETAR, calculateFeelsLike, calculateWeatherTrend } from "@shared/utils/calc";
+
 import { useState, useEffect, useMemo, memo } from "react";
 
 interface CurrentConditionsProps {
@@ -20,13 +20,7 @@ interface CurrentConditionsProps {
   solarRadiation?: number | null;
   rainfall?: number | null;
   dewPoint?: number | null;
-  visibility?: number | null;
-  cloudBase?: number | null;
-  cloudCover?: number | null;
-  /** Pressure 3 hours ago for weather trend */
-  pressure3hAgo?: number | null;
-  /** Pressure 6 hours ago for weather trend */
-  pressure6hAgo?: number | null;
+
   isOnline?: boolean;
   connectionType?: string; // 'dropbox', 'http', 'tcp', etc.
   syncInterval?: number; // in milliseconds
@@ -87,11 +81,6 @@ export const CurrentConditions = memo(function CurrentConditions({
   solarRadiation,
   rainfall,
   dewPoint,
-  visibility,
-  cloudBase,
-  cloudCover,
-  pressure3hAgo,
-  pressure6hAgo,
   isOnline = true,
   connectionType,
   syncInterval,
@@ -341,65 +330,7 @@ export const CurrentConditions = memo(function CurrentConditions({
             )}
           </div>
 
-          {/* METAR-style conditions (shown when visibility or cloud data available) */}
-          {(visibility != null || cloudBase != null || (windDirection != null && windSpeed != null && pressure != null)) && (() => {
-            const metar = formatMETAR(windDirection, windSpeed, undefined, visibility, cloudBase, cloudCover, temperature, dewPoint, pressure);
-            return (
-              <div className="pt-3 border-t border-gray-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>METAR-style</p>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded font-medium"
-                    style={{ backgroundColor: metar.flightCategoryColor + '20', color: metar.flightCategoryColor, fontFamily: 'Arial, Helvetica, sans-serif' }}
-                    title="Flight category based on visibility and ceiling"
-                  >
-                    {metar.flightCategory}
-                  </span>
-                </div>
-                <p className="text-xs font-mono text-black bg-gray-50 rounded px-2 py-1.5 break-all" data-testid="value-metar">
-                  {metar.metarString}
-                </p>
-                <p className="text-[10px] text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  Informational only — not a certified meteorological product.
-                </p>
-              </div>
-            );
-          })()}
 
-          {/* Feels Like + Weather Trend */}
-          {temperature != null && humidity != null && (() => {
-            const feelsLike = calculateFeelsLike(temperature, humidity, windSpeed ?? 0);
-            const trend = pressure != null && pressure3hAgo != null
-              ? calculateWeatherTrend(pressure, pressure3hAgo, pressure6hAgo ?? undefined)
-              : null;
-            return (
-              <div className="pt-3 border-t border-gray-200 flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Feels like</span>
-                  <span className="text-sm font-medium" style={{ fontFamily: 'Arial, Helvetica, sans-serif', color: feelsLike.color }}>
-                    {fmt(feelsLike.feelsLike, 1)}°C
-                  </span>
-                  {feelsLike.method !== 'Actual' && (
-                    <span className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>({feelsLike.method})</span>
-                  )}
-                </div>
-                {trend && (
-                <div className="flex items-center gap-1">
-                  <span className="text-sm">{trend.icon}</span>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded font-medium"
-                    style={{ backgroundColor: trend.color + '20', color: trend.color, fontFamily: 'Arial, Helvetica, sans-serif' }}
-                  >
-                    {trend.trend}
-                  </span>
-                  <span className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                    {trend.pressureChange3h > 0 ? '+' : ''}{trend.pressureChange3h} hPa/3h
-                  </span>
-                </div>
-                )}
-              </div>
-            );
-          })()}
         </div>
       </CardContent>
     </Card>

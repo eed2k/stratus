@@ -68,8 +68,6 @@ const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   transportation: 'Road Weather & Transport',
   oceanography: 'Beaufort Scale & Sea State',
   agriculture: 'Agriculture & Forestry',
-  dataCompleteness: 'Data Completeness',
-  waterBalance: 'Water Balance & Intensity',
 };
 
 // Map derived/calculated fields to their source dependencies
@@ -125,8 +123,6 @@ const SECTION_FIELD_DEPS: Record<keyof SectionVisibility, string[]> = {
   transportation: ['temperature', 'humidity'],
   oceanography: ['windSpeed'],
   agriculture: ['temperature'],
-  dataCompleteness: [],
-  waterBalance: ['rainfall'],
 };
 
 /** Check if a parameter is available based on available fields */

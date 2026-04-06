@@ -963,8 +963,6 @@ export interface SectionVisibility {
   transportation: boolean;
   oceanography: boolean;
   agriculture: boolean;
-  dataCompleteness: boolean;
-  waterBalance: boolean;
 }
 
 export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
@@ -991,8 +989,6 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
   transportation: true,
   oceanography: true,
   agriculture: true,
-  dataCompleteness: true,
-  waterBalance: true,
 };
 
 export interface DashboardConfig {

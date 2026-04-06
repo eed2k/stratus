@@ -32,8 +32,7 @@ import { RoadWeatherCard } from "@/components/dashboard/RoadWeatherCard";
 import { BeaufortCard } from "@/components/dashboard/BeaufortCard";
 import { GrowingDegreeDaysCard } from "@/components/dashboard/GrowingDegreeDaysCard";
 import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
-import { DataCompletenessCard } from "@/components/dashboard/DataCompletenessCard";
-import { WaterBalanceCard } from "@/components/dashboard/WaterBalanceCard";
+
 import { processWindPowerRoseData } from "@/components/charts/WindPowerRose";
 // RainfallYearlyCard removed - yearly data now shown as subMetric in Rainfall MetricCard
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
@@ -1705,21 +1704,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           solarRadiation={availableFields.solarRadiation ? (currentData.solarRadiation ?? undefined) : undefined}
           rainfall={availableFields.rainfall ? (currentData.rainfall ?? undefined) : undefined}
           dewPoint={effectiveDewPoint != null && effectiveDewPoint !== 0 ? effectiveDewPoint : undefined}
-          visibility={availableFields.visibility ? (currentData.visibility ?? undefined) : undefined}
-          cloudBase={availableFields.cloudBase ? (currentData.cloudBase ?? undefined) : undefined}
-          cloudCover={availableFields.cloudCover ? (currentData.cloudCover ?? undefined) : undefined}
-          pressure3hAgo={(() => {
-            const now = Date.now();
-            const target3h = now - 3 * 60 * 60 * 1000;
-            const match = sortedHistoricalData.find(d => Math.abs(new Date(d.timestamp).getTime() - target3h) < 90 * 60 * 1000);
-            return match?.pressure ?? undefined;
-          })()}
-          pressure6hAgo={(() => {
-            const now = Date.now();
-            const target6h = now - 6 * 60 * 60 * 1000;
-            const match = sortedHistoricalData.find(d => Math.abs(new Date(d.timestamp).getTime() - target6h) < 90 * 60 * 1000);
-            return match?.pressure ?? undefined;
-          })()}
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType ?? undefined}
           syncInterval={3600000} // 1 hour Dropbox sync interval
@@ -2375,6 +2359,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               currentValue={currentData.lightningRaw || 0}
+            />
+            )}
+            {/* Lightning proximity card - only when actual lightning data exists */}
+            {dashboardConfig.sectionVisibility?.lightning !== false && (currentData.lightningDistance != null || currentData.lightning != null) && (
+            <LightningCard
+              lightningDistance={currentData.lightningDistance}
+              lightningCount={currentData.lightning}
+              lightningEnergy={currentData.lightningEnergy}
             />
             )}
           </div>
@@ -3128,20 +3120,6 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Lightning Section - Only show if lightning data available */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.lightning !== false && (availableFields.lightningDistance || availableFields.lightning) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Lightning</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <LightningCard
-              lightningDistance={currentData.lightningDistance}
-              lightningCount={currentData.lightning}
-              lightningEnergy={currentData.lightningEnergy}
-            />
-          </div>
-        </section>
-        )}
-
         {/* Aviation Section - Requires pressure AND temperature */}
         {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.aviation !== false && (availableFields.pressure && availableFields.temperature) && (
         <section className="space-y-4">
@@ -3210,35 +3188,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Water Balance Section - Requires rainfall */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.waterBalance !== false && availableFields.rainfall && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Water Balance</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <WaterBalanceCard
-              currentRainfall={currentData.rainfall ?? undefined}
-              intervalMinutes={60}
-              totalRainfall={rainfallStats.rainfall7day}
-              totalETo={etoStats.weekly ?? 0}
-              periodLabel="7 days"
-            />
-          </div>
-        </section>
-        )}
 
-        {/* Data Completeness Section - Always available */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.dataCompleteness !== false && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Data Quality</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <DataCompletenessCard
-              actualReadings={sortedHistoricalData.length}
-              expectedReadings={Math.round((dashboardConfig.chartTimeRange || 24) * 60 / 5)}
-              periodLabel={`${dashboardConfig.chartTimeRange || 24}h`}
-            />
-          </div>
-        </section>
-        )}
 
         {/* Charts Section */}
         {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.historicalCharts !== false && (chartData.length > 0 || historicalChartData.length > 0) && (
