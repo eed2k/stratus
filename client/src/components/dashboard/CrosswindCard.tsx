@@ -59,7 +59,7 @@ export function CrosswindCard({ windSpeed, windDirection, defaultRunwayHeading =
               className="w-20 text-sm border border-gray-300 rounded px-2 py-1 text-black"
               style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
             />
-            <span className="text-xs text-gray-500">°</span>
+            <span className="text-sm font-medium text-gray-600">(°)</span>
           </div>
 
           {/* Wind components */}

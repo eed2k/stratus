@@ -18,7 +18,7 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
   );
 
   return (
-    <Card className="border border-blue-200 bg-blue-50" data-testid="card-atmospheric-stability">
+    <Card className="border border-gray-300 bg-white" data-testid="card-atmospheric-stability">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Atmospheric Stability

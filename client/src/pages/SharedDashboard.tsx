@@ -1900,7 +1900,7 @@ function SharedDashboardContent() {
             )}
             {/* Dew Point Temperature */}
             {(availableFields.temperature && availableFields.humidity) && chartData.length > 0 && (
-            <DataBlockChart title={`Dew Point Temperature (${chartTimeRange >= 24 ? `${Math.round(chartTimeRange / 24)}d` : `${chartTimeRange}h`})`} data={chartData}
+            <DataBlockChart title="Dew Point Temperature" data={chartData}
               series={[{ dataKey: "dewPoint", name: "Dew Point", color: "#3b82f6", unit: "°C" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Dew Point (°C)"
               showAverage={true} showMinMax={true} currentValue={effectiveDewPoint ?? 0}
@@ -1908,7 +1908,7 @@ function SharedDashboardContent() {
             )}
             {/* Wind Speed vs Wind Gust */}
             {availableFields.windSpeed && (
-            <DataBlockChart title={`Wind Speed vs Wind Gust (${chartTimeRange >= 24 ? `${Math.round(chartTimeRange / 24)}d` : `${chartTimeRange}h`})`} data={chartData}
+            <DataBlockChart title="Wind Speed vs Wind Gust" data={chartData}
               series={[
                 { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel },
                 { dataKey: "windGust", name: "Wind Gust", color: "#f59e0b", unit: windUnitLabel },
@@ -2305,47 +2305,33 @@ function SharedDashboardContent() {
         </section>
         )}
 
-        {/* Atmospheric Stability Section */}
-        {sv.atmosphericStability !== false && (availableFields.windSpeed && availableFields.solarRadiation) && (
+        {/* Atmospheric Stability / Aviation / Road Weather — 2×2 grid */}
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Atmospheric Stability</h2>
+          <h2 className="text-base font-normal text-foreground">Atmospheric Stability, Aviation &amp; Road Weather</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {sv.atmosphericStability !== false && (availableFields.windSpeed && availableFields.solarRadiation) && (
             <AtmosphericStabilityCard
               windSpeed={currentData.windSpeed!}
               solarRadiation={currentData.solarRadiation!}
               cloudCover={currentData.cloudCover}
               deltaTemperature={currentData.deltaTemperature}
             />
-          </div>
-        </section>
-        )}
-
-        {/* Aviation Section */}
-        {sv.aviation !== false && (availableFields.pressure && availableFields.temperature) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Aviation</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            )}
+            {sv.aviation !== false && (availableFields.pressure && availableFields.temperature) && (
             <DensityAltitudeCard
               stationPressure={currentData.pressure!}
               temperature={currentData.temperature!}
               dewPoint={effectiveDewPoint ?? undefined}
               stationElevation={station?.altitude ?? undefined}
             />
-            {availableFields.windSpeed && availableFields.windDirection && (
+            )}
+            {sv.aviation !== false && availableFields.windSpeed && availableFields.windDirection && (
             <CrosswindCard
               windSpeed={currentData.windSpeed!}
               windDirection={currentData.windDirection!}
             />
             )}
-          </div>
-        </section>
-        )}
-
-        {/* Transportation Section */}
-        {sv.transportation !== false && (availableFields.temperature && (availableFields.humidity || availableFields.dewPoint)) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Road Weather &amp; Transport</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {sv.transportation !== false && (availableFields.temperature && (availableFields.humidity || availableFields.dewPoint)) && (
             <RoadWeatherCard
               temperature={currentData.temperature!}
               dewPoint={effectiveDewPoint ?? undefined}
@@ -2353,9 +2339,9 @@ function SharedDashboardContent() {
               humidity={currentData.humidity ?? undefined}
               rainfall={currentData.rainfall ?? undefined}
             />
+            )}
           </div>
         </section>
-        )}
 
         {/* Oceanography Section */}
         {sv.oceanography !== false && availableFields.windSpeed && (
