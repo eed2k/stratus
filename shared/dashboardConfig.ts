@@ -956,7 +956,6 @@ export interface SectionVisibility {
   loggerBattery: boolean;
   mpptCharger: boolean;
   airQuality: boolean;
-  heatStress: boolean;
   atmosphericStability: boolean;
   lightning: boolean;
   aviation: boolean;
@@ -982,7 +981,6 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
   loggerBattery: true,
   mpptCharger: true,
   airQuality: true,
-  heatStress: true,
   atmosphericStability: true,
   lightning: true,
   aviation: true,

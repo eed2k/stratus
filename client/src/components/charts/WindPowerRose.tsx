@@ -242,8 +242,11 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="mt-3 flex flex-wrap justify-center gap-1">
+        {/* Legend — W/m² power density by wind direction */}
+        <p className="mt-3 text-[10px] text-muted-foreground text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          Petal length = energy contribution (%). Colour = mean wind power density (W/m²) per direction.
+        </p>
+        <div className="mt-1 flex flex-wrap justify-center gap-1">
           {POWER_CLASSES.map(pc => (
             <div key={pc.label} className="flex items-center gap-1 text-[10px]">
               <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: pc.color }} />

@@ -23,6 +23,16 @@ import { BarometricPressureCard } from "@/components/dashboard/BarometricPressur
 import { calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarvestCard";
 import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
+import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
+import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
+import { LightningCard } from "@/components/dashboard/LightningCard";
+import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
+import { CrosswindCard } from "@/components/dashboard/CrosswindCard";
+import { RoadWeatherCard } from "@/components/dashboard/RoadWeatherCard";
+import { BeaufortCard } from "@/components/dashboard/BeaufortCard";
+import { GrowingDegreeDaysCard } from "@/components/dashboard/GrowingDegreeDaysCard";
+import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
+import { WindPowerRose, processWindPowerRoseData } from "@/components/charts/WindPowerRose";
 // RainfallYearlyCard removed - yearly data shown in Rainfall MetricCard subMetric
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -61,6 +71,7 @@ const WeatherChart = lazy(() => import("@/components/charts/WeatherChart").then(
 const DataBlockChart = lazy(() => import("@/components/charts/DataBlockChart").then(m => ({ default: m.DataBlockChart })));
 const FireDangerChart = lazy(() => import("@/components/charts/FireDangerChart").then(m => ({ default: m.FireDangerChart })));
 const StationMap = lazy(() => import("@/components/dashboard/StationMap").then(m => ({ default: m.StationMapWithErrorBoundary })));
+const WeibullCard = lazy(() => import("@/components/dashboard/WeibullCard").then(m => ({ default: m.WeibullCard })));
 
 const ChartFallback = () => (
   <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg animate-pulse">
@@ -825,6 +836,13 @@ function SharedDashboardContent() {
   }, [sortedHistoricalData]);
 
   const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit, chartTimeRange), [sortedHistoricalData, currentData.airDensity, windSpeedUnit, chartTimeRange]);
+
+  // Wind power rose data — always 30-day, independent of chart time range
+  const windPowerRoseData = useMemo(() => {
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    return processWindPowerRoseData(dataSource, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit);
+  }, [sortedStatsData, sortedHistoricalData, currentData.airDensity, windSpeedUnit]);
+
   const maxWindSpeed = useMemo(() => {
     const speeds = historicalData.map(d => d.windSpeed ?? 0);
     const defaultMax = windSpeedUnit === 'kmh' ? 90 : 25;
@@ -2231,6 +2249,33 @@ function SharedDashboardContent() {
             showAverage={true} showMinMax={true} currentValue={calculateWindPower(currentData.windSpeed || 0, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit)}
           />
           </Suspense>
+          {/* Weibull Distribution, Turbulence & Power Rose */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {sortedHistoricalData.length >= 10 && (
+            <Suspense fallback={<ChartFallback />}>
+              <WeibullCard
+                windSpeeds={sortedHistoricalData.map(d => d.windSpeed ?? 0).filter(v => v > 0)}
+              />
+            </Suspense>
+            )}
+            {(() => {
+              const recentSpeeds = sortedHistoricalData.slice(-10).map(d => d.windSpeed ?? 0);
+              const mean = recentSpeeds.length > 0 ? recentSpeeds.reduce((a, b) => a + b, 0) / recentSpeeds.length : 0;
+              const stdDev = recentSpeeds.length > 1 ? Math.sqrt(recentSpeeds.reduce((s, v) => s + (v - mean) ** 2, 0) / (recentSpeeds.length - 1)) : 0;
+              return mean > 0.5 ? (
+                <TurbulenceCard
+                  windStdDev={stdDev}
+                  meanWindSpeed={mean}
+                />
+              ) : null;
+            })()}
+            {sortedHistoricalData.length >= 10 && (
+              <WindPowerRose
+                data={windPowerRoseData}
+                title="Wind Power Rose (30 days)"
+              />
+            )}
+          </div>
         </section>
         )}
 
@@ -2246,7 +2291,108 @@ function SharedDashboardContent() {
         </section>
         )}
 
+        {/* Air Quality Section */}
+        {sv.airQuality !== false && (availableFields.pm10 || availableFields.pm25) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Air Quality</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <AirQualityCard
+              pm25={currentData.pm25}
+              pm10={currentData.pm10}
+              co2={(currentData as any).co2}
+            />
+          </div>
+        </section>
+        )}
 
+        {/* Atmospheric Stability Section */}
+        {sv.atmosphericStability !== false && (availableFields.windSpeed && availableFields.solarRadiation) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Atmospheric Stability</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <AtmosphericStabilityCard
+              windSpeed={currentData.windSpeed!}
+              solarRadiation={currentData.solarRadiation!}
+              cloudCover={currentData.cloudCover}
+              deltaTemperature={currentData.deltaTemperature}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Aviation Section */}
+        {sv.aviation !== false && (availableFields.pressure && availableFields.temperature) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Aviation</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <DensityAltitudeCard
+              stationPressure={currentData.pressure!}
+              temperature={currentData.temperature!}
+              dewPoint={effectiveDewPoint ?? undefined}
+              stationElevation={station?.altitude ?? undefined}
+            />
+            {availableFields.windSpeed && availableFields.windDirection && (
+            <CrosswindCard
+              windSpeed={currentData.windSpeed!}
+              windDirection={currentData.windDirection!}
+            />
+            )}
+          </div>
+        </section>
+        )}
+
+        {/* Transportation Section */}
+        {sv.transportation !== false && (availableFields.temperature && (availableFields.humidity || availableFields.dewPoint)) && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Road Weather &amp; Transport</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <RoadWeatherCard
+              temperature={currentData.temperature!}
+              dewPoint={effectiveDewPoint ?? undefined}
+              windSpeed={currentData.windSpeed ?? undefined}
+              humidity={currentData.humidity ?? undefined}
+              rainfall={currentData.rainfall ?? undefined}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Oceanography Section */}
+        {sv.oceanography !== false && availableFields.windSpeed && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Beaufort Scale &amp; Sea State</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <BeaufortCard
+              windSpeed={currentData.windSpeed!}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Agriculture Section */}
+        {sv.agriculture !== false && availableFields.temperature && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Agriculture &amp; Forestry</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <GrowingDegreeDaysCard
+              currentTemperature={currentData.temperature ?? undefined}
+            />
+          </div>
+        </section>
+        )}
+
+        {/* Lightning Card — only when actual lightning data present */}
+        {(currentData.lightningDistance != null || currentData.lightning != null) && (
+        <section className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LightningCard
+              lightningDistance={currentData.lightningDistance}
+              lightningCount={currentData.lightning}
+              lightningEnergy={currentData.lightningEnergy}
+            />
+          </div>
+        </section>
+        )}
 
         {/* Historical Data with Time Range Picker */}
         {sv.historicalCharts !== false && (chartData.length > 0 || historicalChartData.length > 0) && (

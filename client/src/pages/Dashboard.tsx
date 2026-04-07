@@ -23,7 +23,6 @@ import { BarometricPressureCard } from "@/components/dashboard/BarometricPressur
 import { calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarvestCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
-import { HeatStressCard } from "@/components/dashboard/HeatStressCard";
 import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
 import { LightningCard } from "@/components/dashboard/LightningCard";
 import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
@@ -79,7 +78,6 @@ import {
   wattsToMJPerDay,
   calculateFireDanger
 } from "@shared/utils/calc";
-import { calculateDensityAltitude, calculateCrosswind, calculateRoadWeather, getBeaufortScale } from "@shared/utils/calc";
 import { DEFAULT_DASHBOARD_CONFIG, DASHBOARD_CATEGORIES, type DashboardConfig } from "../../../shared/dashboardConfig";
 import { getSimplifiedClasses, getWindUnitLabel, getWindDirectionLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import {
@@ -1335,10 +1333,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Process wind energy data from historical data (must be after calculatedAirDensity)
   const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, calculatedAirDensity, windSpeedUnit, dashboardConfig.chartTimeRange), [sortedHistoricalData, calculatedAirDensity, windSpeedUnit, dashboardConfig.chartTimeRange]);
 
-  // Wind power rose data — energy contribution per direction
+  // Wind power rose data — energy contribution per direction (always 30-day, independent of chart time range)
   const windPowerRoseData = useMemo(() => {
-    return processWindPowerRoseData(sortedHistoricalData, calculatedAirDensity, windSpeedUnit);
-  }, [sortedHistoricalData, calculatedAirDensity, windSpeedUnit]);
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    return processWindPowerRoseData(dataSource, calculatedAirDensity, windSpeedUnit);
+  }, [sortedStatsData, sortedHistoricalData, calculatedAirDensity, windSpeedUnit]);
 
   // Calculate dew point from temperature and humidity using Magnus formula
   // when the station doesn't report it directly
@@ -3047,7 +3046,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {sortedHistoricalData.length >= 10 && (
               <WindPowerRose
                 data={windPowerRoseData}
-                title="Wind Power Rose"
+                title="Wind Power Rose (30 days)"
               />
             )}
           </div>
@@ -3082,24 +3081,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <AirQualityCard
               pm25={currentData.pm25}
               pm10={currentData.pm10}
-              pm1={currentData.pm1}
-              co2={currentData.co2}
-              tvoc={currentData.tvoc}
-            />
-          </div>
-        </section>
-        )}
-
-        {/* Heat Stress Section - Requires temperature AND humidity */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.heatStress !== false && (availableFields.temperature && availableFields.humidity) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Heat Stress</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <HeatStressCard
-              temperature={currentData.temperature!}
-              humidity={currentData.humidity!}
-              solarRadiation={currentData.solarRadiation ?? undefined}
-              windSpeed={currentData.windSpeed ?? undefined}
+              pm1={(currentData as any).pm1}
+              co2={(currentData as any).co2}
+              tvoc={(currentData as any).tvoc}
             />
           </div>
         </section>
@@ -3128,7 +3112,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <DensityAltitudeCard
               stationPressure={currentData.pressure!}
               temperature={currentData.temperature!}
-              dewPoint={effectiveDewPoint ?? undefined}
+              dewPoint={effectiveDewPoint != null ? effectiveDewPoint : undefined}
               stationElevation={selectedStation?.altitude ?? undefined}
             />
             {availableFields.windSpeed && availableFields.windDirection && (
@@ -3181,8 +3165,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 date: d.fullTimestamp || d.timestamp,
               })) : undefined}
               currentTemperature={currentData.temperature ?? undefined}
-              todayMin={currentData.temperatureMin ?? undefined}
-              todayMax={currentData.temperatureMax ?? undefined}
+              todayMin={(currentData as any).temperatureMin ?? undefined}
+              todayMax={(currentData as any).temperatureMax ?? undefined}
             />
           </div>
         </section>

@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { safeFixed } from "@/lib/utils";
-import { calculateGDD, accumulateGDD, accumulateChillUnits, calculateChillUnit } from "@shared/utils/calc";
+import { calculateGDD, accumulateGDD, calculateChillUnit } from "@shared/utils/calc";
 import { useState } from "react";
 
 interface GrowingDegreeDaysCardProps {

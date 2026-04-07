@@ -36,9 +36,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { getAllUsers, addUser, updateUser, deleteUser, type StoredUser } from "@/hooks/useAuth";
-import { authFetch } from "@/lib/queryClient";
-import { UserPlus, Trash2, Edit, MapPin, Loader2, Mail, KeyRound } from "lucide-react";
+import { getAllUsers, addUser, updateUser, type StoredUser } from "@/hooks/useAuth";
+import { UserPlus, MapPin, Loader2, KeyRound } from "lucide-react";
 
 interface WeatherStation {
   id: number;
@@ -62,7 +61,6 @@ export default function UserManagement() {
     sendInvitation: true, // Default to sending invitation
     customMessage: "",
   });
-  const [resendingInvitation, setResendingInvitation] = useState<string | null>(null);
 
   // Fetch stations for assignment
   const { data: stations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
@@ -192,76 +190,6 @@ export default function UserManagement() {
         description: "Failed to update user. Please try again.",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleDeleteUser = async (email: string) => {
-    // Don't allow deleting yourself
-    const currentEmail = localStorage.getItem('stratus_user_email');
-    if (email.toLowerCase() === currentEmail?.toLowerCase()) {
-      toast({
-        title: "Cannot delete",
-        description: "You cannot delete your own account.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Confirm before deleting
-    if (!window.confirm(`Are you sure you want to delete the user "${email}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    const success = await deleteUser(email);
-    
-    if (success) {
-      const fetchedUsers = await getAllUsers();
-      setUsers(fetchedUsers);
-      toast({
-        title: "User deleted",
-        description: "User has been removed successfully.",
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: "Failed to delete user. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleResendInvitation = async (email: string, firstName: string) => {
-    setResendingInvitation(email);
-    try {
-      const response = await authFetch(`/api/users/${encodeURIComponent(email)}/resend-invitation`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({})
-      });
-      
-      if (response.ok) {
-        toast({
-          title: "Invitation sent",
-          description: `A new invitation email has been sent to ${firstName}.`,
-        });
-      } else {
-        const data = await response.json();
-        toast({
-          title: "Error",
-          description: data.message || "Failed to send invitation",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send invitation email",
-        variant: "destructive",
-      });
-    } finally {
-      setResendingInvitation(null);
     }
   };
 

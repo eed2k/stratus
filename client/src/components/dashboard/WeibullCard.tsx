@@ -89,12 +89,12 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
                 <div key={i} className="flex-1 flex flex-col items-center justify-end h-full relative" title={`${h.bin}–${h.bin + 1} m/s: ${h.count} readings`}>
                   {/* Actual bar */}
                   <div
-                    className="w-full bg-blue-400 rounded-t-sm absolute bottom-0"
+                    className="w-full bg-emerald-500 rounded-t-sm absolute bottom-0"
                     style={{ height: `${(h.count / maxCount) * 100}%`, opacity: 0.6 }}
                   />
                   {/* Weibull overlay */}
                   <div
-                    className="w-full bg-red-500 rounded-t-sm absolute bottom-0"
+                    className="w-full bg-blue-500 rounded-t-sm absolute bottom-0"
                     style={{ height: `${(h.weibullPdf / maxCount) * 100}%`, opacity: 0.4, maxWidth: '60%', left: '20%' }}
                   />
                 </div>
@@ -105,8 +105,8 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
               <span>{Math.min(25, weibull.histogram.length)} m/s</span>
             </div>
             <div className="flex items-center gap-3 text-[9px] text-gray-400">
-              <span><span className="inline-block w-2 h-2 bg-blue-400 rounded-sm mr-1" style={{ opacity: 0.6 }}></span>Measured</span>
-              <span><span className="inline-block w-2 h-2 bg-red-500 rounded-sm mr-1" style={{ opacity: 0.4 }}></span>Weibull fit</span>
+              <span><span className="inline-block w-2 h-2 bg-emerald-500 rounded-sm mr-1" style={{ opacity: 0.6 }}></span>Measured</span>
+              <span><span className="inline-block w-2 h-2 bg-blue-500 rounded-sm mr-1" style={{ opacity: 0.4 }}></span>Weibull fit</span>
             </div>
           </div>
           )}

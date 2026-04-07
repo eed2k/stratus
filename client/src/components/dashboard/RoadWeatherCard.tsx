@@ -7,7 +7,7 @@ import { calculateRoadWeather, type RoadWeatherResult } from "@shared/utils/calc
 
 interface RoadWeatherCardProps {
   temperature: number;   // °C
-  dewPoint: number;      // °C
+  dewPoint?: number;     // °C
   windSpeed?: number;    // m/s
   humidity?: number;     // %
   rainfall?: number;     // mm (recent)
@@ -15,7 +15,7 @@ interface RoadWeatherCardProps {
 
 export function RoadWeatherCard({ temperature, dewPoint, windSpeed, humidity, rainfall }: RoadWeatherCardProps) {
   const result: RoadWeatherResult = calculateRoadWeather(
-    temperature, dewPoint, windSpeed ?? 0, humidity ?? 50, rainfall ?? 0
+    temperature, dewPoint ?? temperature - 3, windSpeed ?? 0, humidity ?? 50, rainfall ?? 0
   );
 
   return (
