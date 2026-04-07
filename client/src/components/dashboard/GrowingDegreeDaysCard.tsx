@@ -18,10 +18,10 @@ interface GrowingDegreeDaysCardProps {
 }
 
 const TBASE_OPTIONS = [
-  { label: '5 °C', value: 5, crops: 'Cool-season grasses' },
-  { label: '8 °C', value: 8, crops: 'Wheat, barley' },
-  { label: '10 °C', value: 10, crops: 'Maize, sorghum' },
-  { label: '12 °C', value: 12, crops: 'Cotton, rice' },
+  { label: '5 °C', value: 5, crops: 'Cool-season grasses', tCap: 25 },
+  { label: '8 °C', value: 8, crops: 'Wheat, barley', tCap: 30 },
+  { label: '10 °C', value: 10, crops: 'Maize, sorghum', tCap: 30 },
+  { label: '12 °C', value: 12, crops: 'Cotton, rice', tCap: 35 },
 ];
 
 const CROP_MILESTONES: Record<number, { name: string; stages: { gdd: number; label: string }[] }> = {
@@ -56,14 +56,17 @@ export function GrowingDegreeDaysCard({
 }: GrowingDegreeDaysCardProps) {
   const [tBase, setTBase] = useState(10);
 
+  // Lookup tCap for selected tBase
+  const tCap = TBASE_OPTIONS.find(o => o.value === tBase)?.tCap ?? 30;
+
   // Today's GDD
   const todayGDD = todayMin != null && todayMax != null
-    ? calculateGDD(todayMin, todayMax, tBase)
+    ? calculateGDD(todayMin, todayMax, tBase, tCap)
     : null;
 
   // Cumulative from daily data
   const cumulativeArray = dailyData && dailyData.length > 0
-    ? accumulateGDD(dailyData.map(d => ({ min: d.min, max: d.max })), tBase)
+    ? accumulateGDD(dailyData.map(d => ({ min: d.min, max: d.max })), tBase, tCap)
     : [];
   const totalGDD = cumulativeArray.length > 0 ? cumulativeArray[cumulativeArray.length - 1] : 0;
 

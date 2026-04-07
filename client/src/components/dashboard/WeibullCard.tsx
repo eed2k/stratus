@@ -23,6 +23,7 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
   const turbine = TURBINE_PRESETS[turbineIdx];
 
   const weibull: WeibullResult = useMemo(() => fitWeibull(windSpeeds), [windSpeeds]);
+  const insufficientData = weibull.histogram.length === 0;
   const aep: AEPResult = useMemo(
     () => calculateAEP(weibull.k, weibull.c, turbine.capacity, turbine.cutIn, turbine.cutOut, turbine.rated),
     [weibull.k, weibull.c, turbine]
@@ -79,7 +80,11 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
           </div>
 
           {/* Histogram */}
-          {weibull.histogram.length > 0 && (
+          {insufficientData ? (
+          <div className="flex items-center justify-center h-20 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            Insufficient data ({windSpeeds.length} readings). Minimum 10 required for Weibull fit.
+          </div>
+          ) : (
           <div className="space-y-1">
             <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               Wind Speed Distribution ({windSpeeds.length} readings)
@@ -112,6 +117,7 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
           )}
 
           {/* AEP Estimate */}
+          {!insufficientData && (
           <div className="pt-2 border-t border-gray-200 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
@@ -155,6 +161,7 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
               </div>
             </div>
           </div>
+          )}
         </div>
       </CardContent>
     </Card>
