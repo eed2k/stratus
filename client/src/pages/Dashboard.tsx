@@ -748,7 +748,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       const endTime = new Date();
       const startTime = new Date(endTime.getTime() - 365 * 24 * 60 * 60 * 1000);
       const response = await authFetch(
-        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=8000`
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=53000`
       );
       if (!response.ok) return [];
       const data = await response.json();
@@ -756,7 +756,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
         const rangeStart = new Date(rangeEnd.getTime() - 365 * 24 * 60 * 60 * 1000);
         const fallback = await authFetch(
-          `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=8000`
+          `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=53000`
         );
         if (!fallback.ok) return [];
         return fallback.json();

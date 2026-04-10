@@ -640,7 +640,7 @@ function SharedDashboardContent() {
       const endTime = new Date();
       const startTime = new Date(endTime.getTime() - 365 * 24 * 60 * 60 * 1000);
       const res = await fetch(
-        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=8000`,
+        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=53000`,
         { headers: shareHeaders }
       );
       if (!res.ok) return [];
@@ -649,7 +649,7 @@ function SharedDashboardContent() {
         const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
         const rangeStart = new Date(rangeEnd.getTime() - 365 * 24 * 60 * 60 * 1000);
         const fallback = await fetch(
-          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=8000`,
+          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=53000`,
           { headers: shareHeaders }
         );
         if (!fallback.ok) return [];

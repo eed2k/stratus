@@ -188,7 +188,7 @@ export const DataBlockChart = memo(function DataBlockChart({
   const renderChart = () => {
     const commonProps = {
       data,
-      margin: { top: 8, right: 15, left: yAxisLabel ? 55 : 40, bottom: xAxisLabel ? 40 : 15 },
+      margin: { top: 8, right: 50, left: yAxisLabel ? 55 : 40, bottom: xAxisLabel ? 40 : 15 },
     };
 
     // Calculate optimal tick interval based on data length
@@ -266,7 +266,7 @@ export const DataBlockChart = memo(function DataBlockChart({
                 y={avg} 
                 stroke="#6b7280" 
                 strokeDasharray="5 5" 
-                label={{ value: `Avg: ${formatValue(avg)}`, position: 'right', fontSize: 10 }} 
+                label={{ value: `Avg: ${formatValue(avg)}`, position: 'insideTopRight', fontSize: 10, fill: '#6b7280' }} 
               />
             )}
             {series.map((s) => (
