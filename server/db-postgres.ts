@@ -946,27 +946,56 @@ export async function getWeatherData(
   
   const whereClause = conditions.join(' AND ');
   
-  // When a time range is specified (startTime + endTime), skip the row limit
-  // so all data in that window is returned — route-level downsampling will thin it for charts.
-  // Only apply a default limit when no time range is provided (e.g. "latest N records").
+  // When a time range is specified (startTime + endTime), cap at 100k records
+  // to prevent loading 500k+ for 1-minute stations over 365 days.
+  // Use evenly-spaced sampling via ROW_NUMBER() modulo to cover the full time range.
+  // Only apply a small default limit when no time range is provided.
   const hasTimeRange = options.startTime && options.endTime;
-  const effectiveLimit = hasTimeRange ? null : (options.limit || 10000);
+  const effectiveLimit = hasTimeRange ? (options.limit || 100000) : (options.limit || 10000);
   
-  // Get records with optional limit
-  let queryText = `
-    SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
-           mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
-           mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
-           mppt_charger_state, mppt_absi_avg, mppt_board_temp
-    FROM weather_data
-    WHERE ${whereClause}
-    ORDER BY timestamp DESC
-  `;
+  // Get records with optional limit — for large time ranges, use modulo sampling
+  // to get evenly-distributed records across the entire range
+  let queryText: string;
   
-  if (effectiveLimit) {
-    queryText += ` LIMIT $${paramIndex}`;
+  if (hasTimeRange && effectiveLimit) {
+    // Use a CTE to count rows first, then sample evenly across the time range
+    queryText = `
+      WITH numbered AS (
+        SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
+               mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
+               mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
+               mppt_charger_state, mppt_absi_avg, mppt_board_temp,
+               ROW_NUMBER() OVER (ORDER BY timestamp ASC) as rn,
+               COUNT(*) OVER () as total_count
+        FROM weather_data
+        WHERE ${whereClause}
+      )
+      SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
+             mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
+             mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
+             mppt_charger_state, mppt_absi_avg, mppt_board_temp
+      FROM numbered
+      WHERE total_count <= $${paramIndex} OR rn % GREATEST(total_count / $${paramIndex}, 1) = 0 OR rn = 1 OR rn = total_count
+      ORDER BY timestamp DESC
+    `;
     params.push(effectiveLimit);
     paramIndex++;
+  } else {
+    queryText = `
+      SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
+             mppt_solar_voltage, mppt_solar_current, mppt_solar_power,
+             mppt_load_voltage, mppt_load_current, mppt_battery_voltage,
+             mppt_charger_state, mppt_absi_avg, mppt_board_temp
+      FROM weather_data
+      WHERE ${whereClause}
+      ORDER BY timestamp DESC
+    `;
+    
+    if (effectiveLimit) {
+      queryText += ` LIMIT $${paramIndex}`;
+      params.push(effectiveLimit);
+      paramIndex++;
+    }
   }
   
   if (options.offset) {

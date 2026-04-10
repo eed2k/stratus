@@ -62,6 +62,7 @@ import {
   Plus,
   Loader2,
   ArrowLeft,
+  Layers,
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
 import { 
@@ -1794,6 +1795,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                     <p className="text-sm font-normal">{selectedStation?.dataloggerModel || selectedStation?.stationType || "Weather Station"}</p>
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground italic mt-3 flex items-center gap-1">
+                  <Layers className="h-3 w-3 inline" /> Click the layers icon on the map (top-right) to switch between street and satellite view
+                </p>
               </CardContent>
             </Card>
           </div>

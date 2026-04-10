@@ -38,6 +38,7 @@ import {
   RefreshCw,
   Download,
   Loader2,
+  Layers,
 } from "lucide-react";
 import type { WeatherData } from "@shared/schema";
 import { DEFAULT_SECTION_VISIBILITY, DASHBOARD_CATEGORIES, type SectionVisibility } from "../../../shared/dashboardConfig";
@@ -1454,6 +1455,9 @@ function SharedDashboardContent() {
                   </div>
 
                 </div>
+                <p className="text-xs text-muted-foreground italic mt-3 flex items-center gap-1">
+                  <Layers className="h-3 w-3 inline" /> Click the layers icon on the map (top-right) to switch between street and satellite view
+                </p>
               </CardContent>
             </Card>
           </div>
