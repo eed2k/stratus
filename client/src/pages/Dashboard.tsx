@@ -24,7 +24,7 @@ import { calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarves
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
 import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
-import { LightningCard } from "@/components/dashboard/LightningCard";
+
 import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
 
 import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
@@ -2402,16 +2402,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               currentValue={currentData.lightningRaw || 0}
             />
             )}
-            {/* Lightning proximity card - only when actual lightning data exists */}
-            {dashboardConfig.sectionVisibility?.lightning !== false && (currentData.lightningDistance != null || currentData.lightning != null) && (
-            <LightningCard
-              lightningDistance={currentData.lightningDistance}
-              lightningCount={currentData.lightning}
-              lightningEnergy={currentData.lightningEnergy}
-              latitude={selectedStation?.latitude ?? undefined}
-              longitude={selectedStation?.longitude ?? undefined}
-            />
-            )}
+
           </div>
           )}
         </section>

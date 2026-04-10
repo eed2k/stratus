@@ -409,6 +409,7 @@ export function StationMap({
           minZoom: 1,
           attribution: '&copy; Esri, Maxar, Earthstar Geographics',
           crossOrigin: 'anonymous',
+          errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         });
         
         streetLayer.addTo(map);
@@ -523,14 +524,14 @@ export function StationMap({
     return () => observer.disconnect();
   }, [isLoading]);
 
-  // Wind direction arrow overlay
+  // Wind direction arrow overlay (fixed top-left corner of map)
   useEffect(() => {
-    const L = (window as any).L;
     const map = mapInstanceRef.current;
-    if (!L || !map || windDirection == null || windSpeed == null || windSpeed <= 0) {
+    const container = mapRef.current;
+    if (!container || !map || windDirection == null || windSpeed == null || windSpeed <= 0) {
       // Remove existing arrow if wind data becomes unavailable
-      if (windArrowRef.current && map) {
-        try { map.removeLayer(windArrowRef.current); } catch { /* ignore */ }
+      if (windArrowRef.current) {
+        try { windArrowRef.current.remove(); } catch { /* ignore */ }
         windArrowRef.current = null;
       }
       return;
@@ -538,43 +539,34 @@ export function StationMap({
 
     // Remove previous arrow
     if (windArrowRef.current) {
-      try { map.removeLayer(windArrowRef.current); } catch { /* ignore */ }
+      try { windArrowRef.current.remove(); } catch { /* ignore */ }
       windArrowRef.current = null;
     }
 
     // Meteorological wind direction: direction wind is coming FROM
-    // Arrow should point in the direction wind is going TO (add 180°)
     const arrowRotation = windDirection;
     const dirLabel = (() => {
       const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
       return dirs[Math.round(windDirection / 22.5) % 16];
     })();
 
-    const arrowIcon = L.divIcon({
-      className: "",
-      html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-        <span style="font-size:10px;font-weight:600;color:#2563eb;text-shadow:0 0 3px #fff,0 0 3px #fff,1px 1px 2px #fff;white-space:nowrap;">${dirLabel}</span>
-        <svg width="24" height="24" viewBox="0 0 24 24" style="transform:rotate(${arrowRotation}deg);filter:drop-shadow(0 0 2px white);">
-          <path d="M12 2 L16 14 L12 11 L8 14 Z" fill="#2563eb" stroke="white" stroke-width="0.5"/>
-        </svg>
-      </div>`,
-      iconSize: [24, 40],
-      iconAnchor: [12, 20],
-    });
-
-    // Position arrow offset from station (slightly north)
-    const offsetLat = 0.002; // small offset so it doesn't overlap station marker
-    const arrow = L.marker([Number(lat) + offsetLat, Number(lng)], {
-      icon: arrowIcon,
-      interactive: false,
-      zIndexOffset: 1000,
-    }).addTo(map);
-
-    windArrowRef.current = arrow;
+    // Create a fixed-position overlay in the top-left corner
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;top:10px;left:50px;z-index:1000;display:flex;flex-direction:column;align-items:center;pointer-events:none;background:rgba(255,255,255,0.85);border-radius:8px;padding:4px 8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);';
+    overlay.innerHTML = `
+      <span style="font-size:12px;font-weight:700;color:#1d4ed8;white-space:nowrap;">${dirLabel}</span>
+      <svg width="48" height="48" viewBox="0 0 48 48" style="transform:rotate(${arrowRotation}deg);">
+        <path d="M24 4 L30 20 L26 20 L26 42 L22 42 L22 20 L18 20 Z" fill="#2563eb" stroke="#1e40af" stroke-width="1" stroke-linejoin="round"/>
+      </svg>
+      <span style="font-size:10px;font-weight:600;color:#374151;white-space:nowrap;">${safeFixed(windSpeed, 1)} m/s</span>
+    `;
+    container.style.position = 'relative';
+    container.appendChild(overlay);
+    windArrowRef.current = overlay;
 
     return () => {
-      if (windArrowRef.current && mapInstanceRef.current) {
-        try { mapInstanceRef.current.removeLayer(windArrowRef.current); } catch { /* ignore */ }
+      if (windArrowRef.current) {
+        try { windArrowRef.current.remove(); } catch { /* ignore */ }
         windArrowRef.current = null;
       }
     };

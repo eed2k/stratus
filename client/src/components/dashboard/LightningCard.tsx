@@ -103,30 +103,30 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
         // Distance circles
         const circles: any[] = [];
         for (const km of DISTANCE_RINGS) {
+          const isMajor = km % 10 === 0;
           const circle = L.circle([latitude, longitude], {
             radius: km * 1000,
-            color: "#94a3b8",
-            weight: 1.5,
-            opacity: 0.7,
+            color: isMajor ? "#475569" : "#64748b",
+            weight: isMajor ? 2.5 : 1.8,
+            opacity: 1,
             fillColor: "transparent",
             fill: false,
-            dashArray: km % 10 === 0 ? undefined : "6 4",
+            dashArray: isMajor ? undefined : "8 5",
             interactive: false,
           }).addTo(map);
 
-          // Label every 10km
-          if (km % 10 === 0 || km === 5 || km === 15 || km === 25 || km === 35) {
-            const labelLatOffset = km / 111.32; // ~degrees per km
-            L.marker([latitude! + labelLatOffset, longitude], {
-              icon: L.divIcon({
-                className: "",
-                html: `<span style="font-size:10px;font-weight:500;color:#475569;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff;">${km} km</span>`,
-                iconSize: [40, 14],
-                iconAnchor: [20, 7],
-              }),
-              interactive: false,
-            }).addTo(map);
-          }
+          // Label every ring
+          const labelLatOffset = km / 111.32; // ~degrees per km
+          L.marker([latitude! + labelLatOffset, longitude], {
+            icon: L.divIcon({
+              className: "",
+              html: `<span style="font-size:${isMajor ? '11' : '9'}px;font-weight:${isMajor ? '700' : '500'};color:#1e293b;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff,1px 1px 0 #fff;">${km} km</span>`,
+              iconSize: [40, 14],
+              iconAnchor: [20, 7],
+            }),
+            interactive: false,
+          }).addTo(map);
+
           circles.push(circle);
         }
         circlesRef.current = circles;
@@ -223,9 +223,9 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
 
           {/* Map */}
           {hasCoords ? (
-            <div ref={mapRef} className="w-full rounded-md overflow-hidden border border-gray-200" style={{ height: 260 }} />
+            <div ref={mapRef} className="w-full rounded-md overflow-hidden border border-gray-200" style={{ height: 300 }} />
           ) : (
-            <div className="flex items-center justify-center rounded-md border border-gray-200 bg-gray-50" style={{ height: 260 }}>
+            <div className="flex items-center justify-center rounded-md border border-gray-200 bg-gray-50" style={{ height: 300 }}>
               <p className="text-xs text-gray-400">Station coordinates not set — map unavailable</p>
             </div>
           )}

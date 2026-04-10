@@ -25,7 +25,7 @@ import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
 import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
-import { LightningCard } from "@/components/dashboard/LightningCard";
+
 import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
 
 import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
@@ -2375,20 +2375,7 @@ function SharedDashboardContent() {
           </div>
         </section>
 
-        {/* Lightning Card — only when actual lightning data present */}
-        {(currentData.lightningDistance != null || currentData.lightning != null) && (
-        <section className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <LightningCard
-              lightningDistance={currentData.lightningDistance}
-              lightningCount={currentData.lightning}
-              lightningEnergy={currentData.lightningEnergy}
-              latitude={station?.latitude ?? undefined}
-              longitude={station?.longitude ?? undefined}
-            />
-          </div>
-        </section>
-        )}
+
 
         {/* Historical Data with Time Range Picker */}
         {sv.historicalCharts !== false && (chartData.length > 0 || historicalChartData.length > 0) && (
