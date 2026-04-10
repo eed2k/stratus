@@ -105,9 +105,9 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
         for (const km of DISTANCE_RINGS) {
           const circle = L.circle([latitude, longitude], {
             radius: km * 1000,
-            color: "#64748b",
-            weight: 1,
-            opacity: 0.35,
+            color: "#94a3b8",
+            weight: 1.5,
+            opacity: 0.7,
             fillColor: "transparent",
             fill: false,
             dashArray: km % 10 === 0 ? undefined : "6 4",
@@ -120,7 +120,7 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
             L.marker([latitude! + labelLatOffset, longitude], {
               icon: L.divIcon({
                 className: "",
-                html: `<span style="font-size:10px;color:#64748b;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff;">${km} km</span>`,
+                html: `<span style="font-size:10px;font-weight:500;color:#475569;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff;">${km} km</span>`,
                 iconSize: [40, 14],
                 iconAnchor: [20, 7],
               }),

@@ -564,7 +564,7 @@ export function StationMap({
 
     // Position arrow offset from station (slightly north)
     const offsetLat = 0.002; // small offset so it doesn't overlap station marker
-    const arrow = L.marker([lat + offsetLat, lng], {
+    const arrow = L.marker([Number(lat) + offsetLat, Number(lng)], {
       icon: arrowIcon,
       interactive: false,
       zIndexOffset: 1000,
