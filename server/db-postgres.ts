@@ -946,19 +946,19 @@ export async function getWeatherData(
   
   const whereClause = conditions.join(' AND ');
   
-  // When a time range is specified (startTime + endTime), cap at 100k records
-  // to prevent loading 500k+ for 1-minute stations over 365 days.
-  // Use evenly-spaced sampling via ROW_NUMBER() modulo to cover the full time range.
-  // Only apply a small default limit when no time range is provided.
+  // Default limit prevents loading too many records
   const hasTimeRange = options.startTime && options.endTime;
-  const effectiveLimit = hasTimeRange ? (options.limit || 100000) : (options.limit || 10000);
+  const effectiveLimit = options.limit || 10000;
   
-  // Get records with optional limit — for large time ranges, use modulo sampling
-  // to get evenly-distributed records across the entire range
+  // For very large requests (e.g. 365-day wind rose with limit > 20000),
+  // use modulo sampling via CTE to get evenly-distributed records.
+  // For normal queries (limit <= 20000), use simple LIMIT for speed.
+  const useSampling = hasTimeRange && effectiveLimit > 20000;
+  
   let queryText: string;
   
-  if (hasTimeRange && effectiveLimit) {
-    // Use a CTE to count rows first, then sample evenly across the time range
+  if (useSampling) {
+    // CTE with ROW_NUMBER modulo for even sampling across full time range
     queryText = `
       WITH numbered AS (
         SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
