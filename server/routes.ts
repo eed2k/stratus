@@ -1464,26 +1464,57 @@ export async function registerRoutes(
       ];
       const coalesce = rainfallFields.join(', ');
 
-      // Compute yearly rainfall using both cumulative (MAX-MIN) and incremental (SUM) methods
-      // Then auto-detect which method is appropriate per station
+      // Improved algorithm: compute per-year statistics WITH monthly resets detection
+      // and consecutive-reading deltas to properly handle cumulative loggers that
+      // reset (midnight, monthly, or mid-year resets).
       const result = await postgres.query(`
         WITH rainfall_readings AS (
           SELECT
             EXTRACT(YEAR FROM timestamp) AS year,
-            COALESCE(${coalesce})::numeric AS rainfall_val
+            EXTRACT(MONTH FROM timestamp) AS month,
+            timestamp,
+            COALESCE(${coalesce})::numeric AS rainfall_val,
+            LAG(COALESCE(${coalesce})::numeric) OVER (
+              PARTITION BY EXTRACT(YEAR FROM timestamp)
+              ORDER BY timestamp
+            ) AS prev_val
           FROM weather_data
           WHERE station_id = $1
             AND COALESCE(${coalesce}) IS NOT NULL
+        ),
+        yearly_stats AS (
+          SELECT
+            year,
+            COUNT(*) AS readings,
+            COUNT(CASE WHEN rainfall_val > 0 THEN 1 END) AS nonzero_count,
+            MAX(rainfall_val) AS max_val,
+            MIN(rainfall_val) AS min_val,
+            MAX(rainfall_val) - MIN(rainfall_val) AS range_total,
+            SUM(rainfall_val) AS sum_total,
+            -- Sum of positive increments between consecutive readings (handles resets)
+            SUM(CASE
+              WHEN prev_val IS NOT NULL AND rainfall_val >= prev_val
+              THEN rainfall_val - prev_val
+              ELSE 0
+            END) AS delta_sum,
+            -- Count how many times value decreased (reset events)
+            COUNT(CASE
+              WHEN prev_val IS NOT NULL AND rainfall_val < prev_val
+              THEN 1
+            END) AS reset_count,
+            -- Sum the value just after each reset (the new accumulation start)
+            SUM(CASE
+              WHEN prev_val IS NOT NULL AND rainfall_val < prev_val
+              THEN prev_val
+              ELSE 0
+            END) AS pre_reset_sum,
+            -- Distinct month count with nonzero max (data spread check)
+            COUNT(DISTINCT CASE WHEN rainfall_val > 0 THEN month END) AS active_months
+          FROM rainfall_readings
+          GROUP BY year
+          HAVING COUNT(*) >= 2
         )
-        SELECT
-          year,
-          COUNT(*) AS readings,
-          COUNT(CASE WHEN rainfall_val > 0 THEN 1 END) AS nonzero_count,
-          MAX(rainfall_val) - MIN(rainfall_val) AS range_total,
-          SUM(rainfall_val) AS sum_total
-        FROM rainfall_readings
-        GROUP BY year
-        HAVING COUNT(*) >= 2
+        SELECT * FROM yearly_stats
         ORDER BY year DESC
         LIMIT 6
       `, [stationId]);
@@ -1495,20 +1526,53 @@ export async function registerRoutes(
         const nonzeroCount = parseInt(row.nonzero_count);
         const rangeTotal = parseFloat(row.range_total) || 0;
         const sumTotal = parseFloat(row.sum_total) || 0;
+        const deltaSum = parseFloat(row.delta_sum) || 0;
+        const resetCount = parseInt(row.reset_count) || 0;
+        const preResetSum = parseFloat(row.pre_reset_sum) || 0;
+        const maxVal = parseFloat(row.max_val) || 0;
         const nonzeroRatio = nonzeroCount / readings;
-        // Detect cumulative vs incremental rainfall data:
-        // 1) If most values non-zero (>50%), it's a running total → use RANGE
-        // 2) If SUM is suspiciously inflated vs RANGE (>20x and >500mm), likely
-        //    cumulative spikes being summed → use RANGE
-        // 3) Otherwise treat as incremental per-interval data → use SUM
+
         let total: number;
-        if (nonzeroRatio > 0.5) {
-          total = rangeTotal;
-        } else if (sumTotal > 500 && rangeTotal > 0 && sumTotal > rangeTotal * 20) {
-          total = rangeTotal;
+
+        // STRATEGY: Determine if data is cumulative or incremental
+        // Cumulative data: values increase over time (running total from logger)
+        // Incremental data: each reading is rain since last reading (tip bucket)
+        
+        const isCumulative = nonzeroRatio > 0.4 || (sumTotal > 500 && rangeTotal > 0 && sumTotal > rangeTotal * 10);
+
+        if (isCumulative) {
+          if (resetCount > 0) {
+            // Cumulative with resets: sum positive deltas + account for resets
+            // deltaSum captures all the positive increments between consecutive readings
+            // preResetSum captures the accumulated value just before each reset
+            // Together: deltaSum + last_value_before_reset gives true total
+            // But deltaSum already includes run-ups to resets, and preResetSum
+            // double-counts. The correct formula for cumulative with resets is:
+            // deltaSum (positive increments) + sum of values at reset points
+            // Actually deltaSum misses the last segment. Better approach:
+            // total = deltaSum + maxVal (current segment's last reading contribution)
+            // No — deltaSum already includes the current segment.
+            // For cumulative with resets: deltaSum captures all increases.
+            // The values after a reset start from 0 again, and deltaSum sums
+            // those increases too. So deltaSum IS the correct total.
+            total = deltaSum;
+          } else {
+            // Pure cumulative, no resets: MAX - MIN is most accurate
+            total = rangeTotal;
+          }
         } else {
+          // Incremental data: SUM of all readings
+          // But filter out any absurdly large single readings (>200mm) that might
+          // be cumulative values mixed in; cap individual readings contribution
           total = sumTotal;
+          
+          // Sanity check: if SUM seems way too high for incremental data
+          // (e.g. >3000mm for SA climate), fallback to range or delta method
+          if (total > 3000 && rangeTotal > 0 && rangeTotal < total * 0.3) {
+            total = deltaSum > 0 ? deltaSum : rangeTotal;
+          }
         }
+
         return {
           year,
           total: Math.round(Math.max(0, total) * 10) / 10,

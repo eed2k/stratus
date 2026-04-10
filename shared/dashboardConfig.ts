@@ -959,9 +959,6 @@ export interface SectionVisibility {
   atmosphericStability: boolean;
   lightning: boolean;
   aviation: boolean;
-  transportation: boolean;
-  oceanography: boolean;
-  agriculture: boolean;
 }
 
 export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
@@ -984,9 +981,6 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
   atmosphericStability: true,
   lightning: true,
   aviation: true,
-  transportation: true,
-  oceanography: true,
-  agriculture: true,
 };
 
 export interface DashboardConfig {

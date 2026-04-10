@@ -64,9 +64,6 @@ const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   atmosphericStability: 'Atmospheric Stability',
   lightning: 'Lightning Proximity',
   aviation: 'Aviation',
-  transportation: 'Road Weather & Transport',
-  oceanography: 'Beaufort Scale & Sea State',
-  agriculture: 'Agriculture & Forestry',
 };
 
 // Map derived/calculated fields to their source dependencies

@@ -26,10 +26,7 @@ import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
 import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
 import { LightningCard } from "@/components/dashboard/LightningCard";
 import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
-import { CrosswindCard } from "@/components/dashboard/CrosswindCard";
-import { RoadWeatherCard } from "@/components/dashboard/RoadWeatherCard";
-import { BeaufortCard } from "@/components/dashboard/BeaufortCard";
-import { GrowingDegreeDaysCard } from "@/components/dashboard/GrowingDegreeDaysCard";
+
 import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
 
 import { processWindPowerRoseData } from "@/components/charts/WindPowerRose";
@@ -743,6 +740,34 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes (stats data changes slowly)
   });
 
+  // Separate query for 365-day wind data (for annual wind power rose)
+  const { data: wind365Data = [] } = useQuery<WeatherData[]>({
+    queryKey: ["/api/stations", activeStationId, "data", "wind-365d", dataRange?.latest],
+    queryFn: async () => {
+      if (!activeStationId) return [];
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const response = await authFetch(
+        `/api/stations/${activeStationId}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=8000`
+      );
+      if (!response.ok) return [];
+      const data = await response.json();
+      if (Array.isArray(data) && data.length === 0 && dataRange?.latest) {
+        const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
+        const rangeStart = new Date(rangeEnd.getTime() - 365 * 24 * 60 * 60 * 1000);
+        const fallback = await authFetch(
+          `/api/stations/${activeStationId}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=8000`
+        );
+        if (!fallback.ok) return [];
+        return fallback.json();
+      }
+      return data;
+    },
+    enabled: !!activeStationId,
+    refetchInterval: 30 * 60 * 1000, // Refresh every 30 min
+    staleTime: 20 * 60 * 1000,
+  });
+
   // Separate query for historical charts section (uses its own independent time range)
   const { data: historicalSectionData = [], isLoading: historicalSectionLoading } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "historical-section", historicalChartRange, dataRange?.latest],
@@ -1339,6 +1364,21 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     return processWindPowerRoseData(dataSource, calculatedAirDensity, windSpeedUnit);
   }, [sortedStatsData, sortedHistoricalData, calculatedAirDensity, windSpeedUnit]);
 
+  // Wind power rose data — 365-day (only if we have >30 days of data)
+  const sortedWind365Data = useMemo(() => {
+    if (wind365Data.length === 0) return [];
+    return [...wind365Data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [wind365Data]);
+
+  const windPowerRose365Data = useMemo(() => {
+    if (sortedWind365Data.length === 0) return null;
+    // Only show if data spans more than 35 days (avoid duplicate of 30d)
+    const timestamps = sortedWind365Data.map(d => new Date(d.timestamp).getTime());
+    const spanDays = (Math.max(...timestamps) - Math.min(...timestamps)) / (1000 * 60 * 60 * 24);
+    if (spanDays < 35) return null;
+    return processWindPowerRoseData(sortedWind365Data, calculatedAirDensity, windSpeedUnit);
+  }, [sortedWind365Data, calculatedAirDensity, windSpeedUnit]);
+
   // Calculate dew point from temperature and humidity using Magnus formula
   // when the station doesn't report it directly
   const calculatedDewPoint = useMemo(() => {
@@ -1723,6 +1763,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               longitude={selectedStation?.longitude ?? undefined}
               stationName={selectedStation?.name || "Weather Station"}
               altitude={selectedStation?.altitude ?? undefined}
+              windDirection={currentData.windDirection ?? undefined}
+              windSpeed={currentData.windSpeed ?? undefined}
             />
             </Suspense>
             <Card>
@@ -2366,6 +2408,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               lightningDistance={currentData.lightningDistance}
               lightningCount={currentData.lightning}
               lightningEnergy={currentData.lightningEnergy}
+              latitude={selectedStation?.latitude ?? undefined}
+              longitude={selectedStation?.longitude ?? undefined}
             />
             )}
           </div>
@@ -2797,7 +2841,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
           {/* Visibility Charts */}
           {(availableFields.visibility || availableFields.atmosphericVisibility) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {availableFields.visibility && (
             <DataBlockChart
               title="Visibility"
@@ -3046,7 +3090,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {sortedHistoricalData.length >= 10 && (
               <WindPowerRose
                 data={windPowerRoseData}
-                title="Wind Power Rose (30 days)"
+                title="Wind Power Rose (30d)"
+              />
+            )}
+            {windPowerRose365Data && (
+              <WindPowerRose
+                data={windPowerRose365Data}
+                title="Wind Power Rose (365d)"
               />
             )}
           </div>
@@ -3092,7 +3142,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         {/* Atmospheric Stability / Aviation / Road Weather — 2×2 grid */}
         {!isMpptOnlyStation && (
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Atmospheric Stability, Aviation &amp; Road Weather</h2>
+          <h2 className="text-base font-normal text-foreground">Atmospheric Stability &amp; Aviation</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {dashboardConfig.sectionVisibility?.atmosphericStability !== false && (availableFields.windSpeed && availableFields.solarRadiation) && (
             <AtmosphericStabilityCard
@@ -3110,56 +3160,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               stationElevation={selectedStation?.altitude ?? undefined}
             />
             )}
-            {dashboardConfig.sectionVisibility?.aviation !== false && availableFields.windSpeed && availableFields.windDirection && (
-            <CrosswindCard
-              windSpeed={currentData.windSpeed!}
-              windDirection={currentData.windDirection!}
-            />
-            )}
-            {dashboardConfig.sectionVisibility?.transportation !== false && (availableFields.temperature && (availableFields.humidity || availableFields.dewPoint)) && (
-            <RoadWeatherCard
-              temperature={currentData.temperature!}
-              dewPoint={effectiveDewPoint ?? undefined}
-              windSpeed={currentData.windSpeed ?? undefined}
-              humidity={currentData.humidity ?? undefined}
-              rainfall={currentData.rainfall ?? undefined}
-            />
-            )}
           </div>
         </section>
         )}
-
-        {/* Oceanography Section - Requires wind speed */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.oceanography !== false && availableFields.windSpeed && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Beaufort Scale &amp; Sea State</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <BeaufortCard
-              windSpeed={currentData.windSpeed!}
-            />
-          </div>
-        </section>
-        )}
-
-        {/* Agriculture Section - Requires temperature */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.agriculture !== false && availableFields.temperature && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Agriculture &amp; Forestry</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <GrowingDegreeDaysCard
-              dailyData={historicalChartData.length > 0 ? historicalChartData.filter((d: any) => d.temperatureMin != null && d.temperatureMax != null).map((d: any) => ({
-                min: d.temperatureMin,
-                max: d.temperatureMax,
-                date: d.fullTimestamp || d.timestamp,
-              })) : undefined}
-              currentTemperature={currentData.temperature ?? undefined}
-              todayMin={(currentData as any).temperatureMin ?? undefined}
-              todayMax={(currentData as any).temperatureMax ?? undefined}
-            />
-          </div>
-        </section>
-        )}
-
 
 
         {/* Charts Section */}

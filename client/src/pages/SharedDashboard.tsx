@@ -27,10 +27,7 @@ import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
 import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
 import { LightningCard } from "@/components/dashboard/LightningCard";
 import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
-import { CrosswindCard } from "@/components/dashboard/CrosswindCard";
-import { RoadWeatherCard } from "@/components/dashboard/RoadWeatherCard";
-import { BeaufortCard } from "@/components/dashboard/BeaufortCard";
-import { GrowingDegreeDaysCard } from "@/components/dashboard/GrowingDegreeDaysCard";
+
 import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
 import { WindPowerRose, processWindPowerRoseData } from "@/components/charts/WindPowerRose";
 // RainfallYearlyCard removed - yearly data shown in Rainfall MetricCard subMetric
@@ -636,6 +633,34 @@ function SharedDashboardContent() {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Separate query for 365-day wind data (for annual wind power rose)
+  const { data: wind365Data = [] } = useQuery<WeatherData[]>({
+    queryKey: ['shared-weather', shareToken, 'wind-365d', dataRange?.latest],
+    queryFn: async () => {
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const res = await fetch(
+        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=8000`,
+        { headers: shareHeaders }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (Array.isArray(data) && data.length === 0 && dataRange?.latest) {
+        const rangeEnd = new Date(new Date(dataRange.latest).getTime() + 60000);
+        const rangeStart = new Date(rangeEnd.getTime() - 365 * 24 * 60 * 60 * 1000);
+        const fallback = await fetch(
+          `/api/shares/${shareToken}/data?startTime=${rangeStart.toISOString()}&endTime=${rangeEnd.toISOString()}&limit=8000`,
+          { headers: shareHeaders }
+        );
+        if (!fallback.ok) return [];
+        return fallback.json();
+      }
+      return data;
+    },
+    enabled: !!access,
+    staleTime: 20 * 60 * 1000,
+  });
+
   // Fetch station info via share token
   const { data: stationData } = useQuery({
     queryKey: ['shared-station', shareToken],
@@ -842,6 +867,20 @@ function SharedDashboardContent() {
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     return processWindPowerRoseData(dataSource, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit);
   }, [sortedStatsData, sortedHistoricalData, currentData.airDensity, windSpeedUnit]);
+
+  // Wind power rose data — 365-day (only if we have >30 days of data)
+  const sortedWind365Data = useMemo(() => {
+    if (wind365Data.length === 0) return [];
+    return [...wind365Data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [wind365Data]);
+
+  const windPowerRose365Data = useMemo(() => {
+    if (sortedWind365Data.length === 0) return null;
+    const timestamps = sortedWind365Data.map(d => new Date(d.timestamp).getTime());
+    const spanDays = (Math.max(...timestamps) - Math.min(...timestamps)) / (1000 * 60 * 60 * 24);
+    if (spanDays < 35) return null;
+    return processWindPowerRoseData(sortedWind365Data, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit);
+  }, [sortedWind365Data, currentData.airDensity, windSpeedUnit]);
 
   const maxWindSpeed = useMemo(() => {
     const speeds = historicalData.map(d => d.windSpeed ?? 0);
@@ -1383,6 +1422,8 @@ function SharedDashboardContent() {
                 longitude={station.longitude ?? undefined}
                 stationName={station.name || 'Weather Station'}
                 altitude={station.altitude ?? undefined}
+                windDirection={currentData.windDirection ?? undefined}
+                windSpeed={currentData.windSpeed ?? undefined}
               />
             </Suspense>
             <Card>
@@ -2099,7 +2140,7 @@ function SharedDashboardContent() {
           {/* Visibility Charts */}
           <Suspense fallback={<ChartFallback />}>
           {(availableFields.visibility || availableFields.atmosphericVisibility) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {availableFields.visibility && (
             <DataBlockChart
               title="Visibility"
@@ -2272,7 +2313,13 @@ function SharedDashboardContent() {
             {sortedHistoricalData.length >= 10 && (
               <WindPowerRose
                 data={windPowerRoseData}
-                title="Wind Power Rose (30 days)"
+                title="Wind Power Rose (30d)"
+              />
+            )}
+            {windPowerRose365Data && (
+              <WindPowerRose
+                data={windPowerRose365Data}
+                title="Wind Power Rose (365d)"
               />
             )}
           </div>
@@ -2307,7 +2354,7 @@ function SharedDashboardContent() {
 
         {/* Atmospheric Stability / Aviation / Road Weather — 2×2 grid */}
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Atmospheric Stability, Aviation &amp; Road Weather</h2>
+          <h2 className="text-base font-normal text-foreground">Atmospheric Stability &amp; Aviation</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {sv.atmosphericStability !== false && (availableFields.windSpeed && availableFields.solarRadiation) && (
             <AtmosphericStabilityCard
@@ -2325,47 +2372,8 @@ function SharedDashboardContent() {
               stationElevation={station?.altitude ?? undefined}
             />
             )}
-            {sv.aviation !== false && availableFields.windSpeed && availableFields.windDirection && (
-            <CrosswindCard
-              windSpeed={currentData.windSpeed!}
-              windDirection={currentData.windDirection!}
-            />
-            )}
-            {sv.transportation !== false && (availableFields.temperature && (availableFields.humidity || availableFields.dewPoint)) && (
-            <RoadWeatherCard
-              temperature={currentData.temperature!}
-              dewPoint={effectiveDewPoint ?? undefined}
-              windSpeed={currentData.windSpeed ?? undefined}
-              humidity={currentData.humidity ?? undefined}
-              rainfall={currentData.rainfall ?? undefined}
-            />
-            )}
           </div>
         </section>
-
-        {/* Oceanography Section */}
-        {sv.oceanography !== false && availableFields.windSpeed && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Beaufort Scale &amp; Sea State</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <BeaufortCard
-              windSpeed={currentData.windSpeed!}
-            />
-          </div>
-        </section>
-        )}
-
-        {/* Agriculture Section */}
-        {sv.agriculture !== false && availableFields.temperature && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Agriculture &amp; Forestry</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <GrowingDegreeDaysCard
-              currentTemperature={currentData.temperature ?? undefined}
-            />
-          </div>
-        </section>
-        )}
 
         {/* Lightning Card — only when actual lightning data present */}
         {(currentData.lightningDistance != null || currentData.lightning != null) && (
@@ -2375,6 +2383,8 @@ function SharedDashboardContent() {
               lightningDistance={currentData.lightningDistance}
               lightningCount={currentData.lightning}
               lightningEnergy={currentData.lightningEnergy}
+              latitude={station?.latitude ?? undefined}
+              longitude={station?.longitude ?? undefined}
             />
           </div>
         </section>

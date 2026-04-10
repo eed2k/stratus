@@ -220,6 +220,8 @@ interface StationMapProps {
   zoom?: number;
   onLocationSelect?: (lat: number, lng: number, name: string) => void;
   editable?: boolean;
+  windDirection?: number;
+  windSpeed?: number;
 }
 
 /**
@@ -236,10 +238,13 @@ export function StationMap({
   zoom = 13,
   onLocationSelect,
   editable = false,
+  windDirection,
+  windSpeed,
 }: StationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const windArrowRef = useRef<any>(null);
   const activeLayerRef = useRef<'street' | 'satellite'>('street');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -517,6 +522,63 @@ export function StationMap({
     observer.observe(el);
     return () => observer.disconnect();
   }, [isLoading]);
+
+  // Wind direction arrow overlay
+  useEffect(() => {
+    const L = (window as any).L;
+    const map = mapInstanceRef.current;
+    if (!L || !map || windDirection == null || windSpeed == null || windSpeed <= 0) {
+      // Remove existing arrow if wind data becomes unavailable
+      if (windArrowRef.current && map) {
+        try { map.removeLayer(windArrowRef.current); } catch { /* ignore */ }
+        windArrowRef.current = null;
+      }
+      return;
+    }
+
+    // Remove previous arrow
+    if (windArrowRef.current) {
+      try { map.removeLayer(windArrowRef.current); } catch { /* ignore */ }
+      windArrowRef.current = null;
+    }
+
+    // Meteorological wind direction: direction wind is coming FROM
+    // Arrow should point in the direction wind is going TO (add 180°)
+    const arrowRotation = windDirection;
+    const dirLabel = (() => {
+      const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+      return dirs[Math.round(windDirection / 22.5) % 16];
+    })();
+
+    const arrowIcon = L.divIcon({
+      className: "",
+      html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+        <span style="font-size:10px;font-weight:600;color:#2563eb;text-shadow:0 0 3px #fff,0 0 3px #fff,1px 1px 2px #fff;white-space:nowrap;">${dirLabel}</span>
+        <svg width="24" height="24" viewBox="0 0 24 24" style="transform:rotate(${arrowRotation}deg);filter:drop-shadow(0 0 2px white);">
+          <path d="M12 2 L16 14 L12 11 L8 14 Z" fill="#2563eb" stroke="white" stroke-width="0.5"/>
+        </svg>
+      </div>`,
+      iconSize: [24, 40],
+      iconAnchor: [12, 20],
+    });
+
+    // Position arrow offset from station (slightly north)
+    const offsetLat = 0.002; // small offset so it doesn't overlap station marker
+    const arrow = L.marker([lat + offsetLat, lng], {
+      icon: arrowIcon,
+      interactive: false,
+      zIndexOffset: 1000,
+    }).addTo(map);
+
+    windArrowRef.current = arrow;
+
+    return () => {
+      if (windArrowRef.current && mapInstanceRef.current) {
+        try { mapInstanceRef.current.removeLayer(windArrowRef.current); } catch { /* ignore */ }
+        windArrowRef.current = null;
+      }
+    };
+  }, [windDirection, windSpeed, lat, lng, isLoading]);
 
   const openInMaps = () => {
     if (activeLayerRef.current === 'satellite') {

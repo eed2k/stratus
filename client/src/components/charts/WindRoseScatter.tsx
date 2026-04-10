@@ -282,24 +282,14 @@ export const WindRoseScatter = memo(function WindRoseScatter({
             </g>
           ))}
 
-          {/* Direction lines and labels */}
+          {/* Direction labels (no radial lines) */}
           {WIND_DIRECTIONS.map((dir, i) => {
             const angle = i * 22.5;
-            const endPos = polarToCart(angle, calculatedMaxSpeed);
             const labelPos = polarToCart(angle, calculatedMaxSpeed * 1.15);
             const isCardinal = i % 4 === 0;
             
             return (
               <g key={dir}>
-                <line
-                  x1={center}
-                  y1={center}
-                  x2={endPos.x}
-                  y2={endPos.y}
-                  stroke="currentColor"
-                  strokeOpacity={isCardinal ? 0.2 : 0.08}
-                  strokeWidth={isCardinal ? 1 : 0.5}
-                />
                 <text
                   x={labelPos.x}
                   y={labelPos.y}
