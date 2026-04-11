@@ -506,7 +506,18 @@ export class DropboxSyncService extends EventEmitter {
       }
 
       // List files in Dropbox folder (recursive to catch subfolders)
-      const files = await this.listFiles(this.config.folderPath, false, true);
+      let files: any[];
+      try {
+        files = await this.listFiles(this.config.folderPath, false, true);
+      } catch (listErr: any) {
+        // If folder path not found (409), fall through to DB configs
+        if (listErr.message?.includes('409') || listErr.message?.includes('not_found')) {
+          console.log(`[DropboxSync] Main sync folder not found (${this.config.folderPath}) — skipping to DB configs`);
+          const dbResults = await this.syncDbConfigs();
+          return { success: true, filesProcessed: dbResults.filesProcessed, recordsImported: dbResults.recordsImported };
+        }
+        throw listErr;
+      }
       console.log(`[DropboxSync] Found ${files.length} files in Dropbox`);
 
       // Use the same folder name extracted earlier for matching

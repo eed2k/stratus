@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getAllUsers, addUser, updateUser, type StoredUser } from "@/hooks/useAuth";
-import { UserPlus, MapPin, Loader2, KeyRound } from "lucide-react";
+import { MapPin, Loader2, KeyRound } from "lucide-react";
 
 interface WeatherStation {
   id: number;
@@ -212,16 +212,10 @@ export default function UserManagement() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">User Management</h1>
-          <p className="text-muted-foreground">
-            Create and manage user accounts. Assign stations to users for limited dashboard access.
-          </p>
-        </div>
+        <div></div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
               Add User
             </Button>
           </DialogTrigger>

@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, Plus, Trash2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
+import { Loader2, Trash2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAllUsers, updateUser } from "@/hooks/useAuth";
 import { verifyPassword } from "@/lib/passwordUtils";
@@ -726,7 +726,7 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground">Email address cannot be changed as it is used for authentication.</p>
             </div>
             <Button data-testid="button-save-profile" onClick={handleSaveProfile} disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save Profile
             </Button>
           </CardContent>
@@ -753,7 +753,6 @@ export default function Settings() {
               </p>
             </div>
             <Button onClick={() => handleSavePreferences('server')} data-testid="button-save-server">
-              <Save className="mr-2 h-4 w-4" />
               Save Server Address
             </Button>
           </CardContent>
@@ -792,7 +791,7 @@ export default function Settings() {
               </Select>
             </div>
             <Button onClick={() => handleSavePreferences('units')} disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save Preferences
             </Button>
           </CardContent>
@@ -809,7 +808,7 @@ export default function Settings() {
                 onClick={handleTriggerSync}
                 disabled={isSyncing || !dropboxCredentials?.configured}
               >
-                {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Sync Now
               </Button>
             </div>
@@ -878,7 +877,6 @@ export default function Settings() {
                       onClick={handleGetRefreshToken}
                       disabled={!dropboxAppKey}
                     >
-                      <ExternalLink className="mr-2 h-4 w-4" />
                       Authorise with Dropbox
                     </Button>
                   </div>
@@ -917,7 +915,7 @@ export default function Settings() {
                   </div>
                   
                   <Button onClick={handleSaveDropboxCredentials} disabled={isSavingCredentials}>
-                    {isSavingCredentials ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {isSavingCredentials ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Save & Test Credentials
                   </Button>
                 </div>
@@ -1226,7 +1224,7 @@ export default function Settings() {
                     </div>
                   </div>
                   <Button onClick={handleAddDropboxConfig} disabled={isAddingConfig}>
-                    {isAddingConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                    {isAddingConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Add Configuration
                   </Button>
                 </div>
@@ -1399,7 +1397,6 @@ export default function Settings() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>Cancel</Button>
             <Button onClick={handleChangePassword} disabled={isChangingPassword}>
-              {isChangingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Change Password
             </Button>
           </DialogFooter>

@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Loader2, Camera, Cloud, Trash2 } from "lucide-react";
+import { Search, Loader2, Camera, Cloud, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -148,7 +147,6 @@ const initialFormData: StationFormData = {
 export default function Stations() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"stations" | "setup">("stations");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [selectedStation, setSelectedStation] = useState<StationWithReading | null>(null);
   const [deleteStation, setDeleteStation] = useState<StationWithReading | null>(null);
@@ -158,7 +156,8 @@ export default function Stations() {
   // Listen for menu events
   useEffect(() => {
     const handleOpenNewStation = () => {
-      setActiveTab("setup");
+      // Scroll to top where the setup form is
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     window.addEventListener('open-new-station-dialog', handleOpenNewStation);
@@ -328,7 +327,6 @@ export default function Stations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
-      setActiveTab("stations");
       setFormData(initialFormData);
       toast({ title: "Station added", description: "Weather station has been configured successfully." });
     },
@@ -808,24 +806,7 @@ X-API-Key: your-key (optional)
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Weather Stations</h1>
-        </div>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "stations" | "setup")} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="stations">
-            Active Stations
-          </TabsTrigger>
-          <TabsTrigger value="setup">
-            Add New Station
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Active Stations Tab */}
-        <TabsContent value="stations" className="space-y-4 mt-4">
+      {stationSetupContent}
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -849,12 +830,6 @@ X-API-Key: your-key (optional)
                     ? "No stations match your search." 
                     : "Add your first weather station to get started."}
                 </p>
-                {!search && (
-                  <Button onClick={() => setActiveTab("setup")} data-testid="button-add-first-station">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Station
-                  </Button>
-                )}
               </CardContent>
             </Card>
           ) : (
@@ -932,13 +907,6 @@ X-API-Key: your-key (optional)
               </table>
             </div>
           )}
-        </TabsContent>
-
-        {/* Add New Station Tab */}
-        <TabsContent value="setup" className="mt-4">
-          {stationSetupContent}
-        </TabsContent>
-      </Tabs>
 
       {/* Delete Station Confirmation */}
       <AlertDialog open={!!deleteStation} onOpenChange={(open) => !open && setDeleteStation(null)}>
