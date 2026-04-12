@@ -26,22 +26,12 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {/* Stability class badge */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span
-                className="text-3xl font-bold w-12 h-12 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: result.color + '20', color: result.color, fontFamily: 'Arial, Helvetica, sans-serif' }}
-              >
-                {result.stabilityClass}
-              </span>
-              <div>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {result.description}
-                </p>
-                <p className="text-xs text-gray-500">Pasquill-Gifford Class</p>
-              </div>
-            </div>
+{/* Stability class */}
+            <div>
+              <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                {result.description}
+              </p>
+              <p className="text-xs text-gray-500">Pasquill-Gifford Class</p>
           </div>
 
           {/* Stability class scale A-F */}

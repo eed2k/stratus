@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -26,7 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
+import { Loader2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAllUsers, updateUser } from "@/hooks/useAuth";
 import { verifyPassword } from "@/lib/passwordUtils";
@@ -62,19 +61,6 @@ export default function Settings() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  
-  // Notification state
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(false);
-  const [tempHighAlert, setTempHighAlert] = useState(35);
-  const [windHighAlert, setWindHighAlert] = useState(50);
-  
-  // Units state
-  const [units, setUnits] = useState<"metric" | "imperial">("metric");
-  const [timezone, setTimezone] = useState("auto");
-  
-  // Server state
-  const [serverAddress, setServerAddress] = useState('');
   
   // Dropbox credentials state (for admin configuration)
   const [dropboxAppKey, setDropboxAppKey] = useState('');
@@ -176,16 +162,6 @@ export default function Settings() {
     },
   });
 
-  // Fetch preferences from server
-  const { data: preferences } = useQuery({
-    queryKey: ['/api/user/preferences'],
-    queryFn: async () => {
-      const res = await authFetch('/api/user/preferences');
-      if (!res.ok) return null;
-      return res.json();
-    },
-  });
-
   // Load profile from server when data arrives
   useEffect(() => {
     if (userProfile) {
@@ -194,23 +170,6 @@ export default function Settings() {
       setEmail(userProfile.email || '');
     }
   }, [userProfile]);
-
-  // Load preferences from server when data arrives
-  useEffect(() => {
-    if (preferences) {
-      setEmailNotifications(preferences.emailNotifications ?? true);
-      setPushNotifications(preferences.pushNotifications ?? false);
-      setTempHighAlert(preferences.tempHighAlert ?? 35);
-      setWindHighAlert(preferences.windHighAlert ?? 50);
-      setUnits(preferences.units ?? 'metric');
-      setTimezone(preferences.timezone ?? 'auto');
-      setServerAddress(preferences.serverAddress ?? '');
-      // Auto-detect server address from current URL if not configured
-      if (!preferences.serverAddress && window.location.hostname !== 'localhost') {
-        setServerAddress(window.location.origin);
-      }
-    }
-  }, [preferences]);
 
   // Dropbox handlers
   const handleAddDropboxConfig = async () => {
@@ -261,45 +220,6 @@ export default function Settings() {
       });
     } finally {
       setIsAddingConfig(false);
-    }
-  };
-
-  const handleDeleteDropboxConfig = async (id: number, name: string) => {
-    if (!confirm(`Delete sync configuration for "${name}"?`)) return;
-
-    try {
-      const res = await authFetch(`/api/dropbox-sync/configs/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
-
-      toast({
-        title: "Deleted",
-        description: `Removed sync configuration for ${name}`,
-      });
-      refetchDropboxConfigs();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete configuration",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleToggleDropboxConfig = async (id: number, enabled: boolean) => {
-    try {
-      const res = await authFetch(`/api/dropbox-sync/configs/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled }),
-      });
-      if (!res.ok) throw new Error('Failed to update');
-      refetchDropboxConfigs();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update configuration",
-        variant: "destructive",
-      });
     }
   };
 
@@ -491,67 +411,6 @@ export default function Settings() {
     }
   };
 
-  // Save notification and unit settings to server
-  const handleSavePreferences = async (section: 'notifications' | 'units' | 'server') => {
-    setIsLoading(true);
-    try {
-      const prefsToSave: any = {};
-      
-      if (section === 'notifications') {
-        prefsToSave.emailNotifications = emailNotifications;
-        prefsToSave.pushNotifications = pushNotifications;
-        prefsToSave.tempHighAlert = tempHighAlert;
-        prefsToSave.windHighAlert = windHighAlert;
-      } else if (section === 'units') {
-        prefsToSave.units = units;
-        prefsToSave.timezone = timezone;
-      } else if (section === 'server') {
-        prefsToSave.serverAddress = serverAddress;
-      }
-      
-      const res = await authFetch('/api/user/preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prefsToSave),
-      });
-      
-      if (!res.ok) throw new Error('Failed to save');
-      
-      // Also save to localStorage for offline access
-      const localKey = section === 'notifications' ? 'stratus_notification_settings' 
-        : section === 'units' ? 'stratus_unit_settings' 
-        : 'stratus_server_address';
-      
-      if (section === 'server') {
-        localStorage.setItem(localKey, serverAddress);
-      } else {
-        localStorage.setItem(localKey, JSON.stringify(prefsToSave));
-      }
-      
-      // Invalidate query to refresh
-      queryClient.invalidateQueries({ queryKey: ['/api/user/preferences'] });
-      
-      const sectionNames = {
-        notifications: 'Notification settings',
-        units: 'Unit preferences',
-        server: 'Server address'
-      };
-      
-      toast({
-        title: "Settings Saved",
-        description: `${sectionNames[section]} have been updated.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save settings. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Password change handler
   const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
@@ -666,25 +525,8 @@ export default function Settings() {
     }
   };
 
-  // Utility function for features not yet implemented
-  const _showComingSoon = (feature: string) => {
-    toast({
-      title: "Coming Soon",
-      description: `${feature} will be available in a future update.`,
-    });
-  };
-  // Suppress unused warning
-  void _showComingSoon;
-
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your account and application preferences
-        </p>
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-2">
         <Card data-testid="card-profile-settings">
           <CardHeader>
@@ -734,70 +576,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-server-settings">
-          <CardHeader>
-            <CardTitle className="text-lg">Server & Sharing</CardTitle>
-            <CardDescription>Configure server address for sharing dashboards</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="serverAddress">Server Address</Label>
-              <Input
-                id="serverAddress"
-                placeholder="Server address or domain"
-                value={serverAddress}
-                onChange={(e) => setServerAddress(e.target.value)}
-                data-testid="input-server-address"
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter your server's IP address or domain name. This is used when sharing
-                dashboard links with clients so they can access the dashboard remotely.
-              </p>
-            </div>
-            <Button onClick={() => handleSavePreferences('server')} data-testid="button-save-server">
-              Save Server Address
-            </Button>
-          </CardContent>
-        </Card>
 
-        <Card data-testid="card-units-settings">
-          <CardHeader>
-            <CardTitle className="text-lg">Units & Locale</CardTitle>
-            <CardDescription>Set measurement units and timezone</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label>Measurement Units</Label>
-              <Select value={units} onValueChange={(v) => setUnits(v as "metric" | "imperial")}>
-                <SelectTrigger data-testid="select-units">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="metric">Metric (°C, m/s, mm)</SelectItem>
-                  <SelectItem value="imperial">Imperial (°F, mph, in)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Timezone</Label>
-              <Select value={timezone} onValueChange={setTimezone}>
-                <SelectTrigger data-testid="select-timezone">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto-detect</SelectItem>
-                  <SelectItem value="Africa/Johannesburg">Africa/Johannesburg (SAST)</SelectItem>
-                  <SelectItem value="Europe/London">Europe/London (GMT)</SelectItem>
-                  <SelectItem value="America/New_York">America/New York (EST)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={() => handleSavePreferences('units')} disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save Preferences
-            </Button>
-          </CardContent>
-        </Card>
 
         {/* Dropbox Sync Configuration Card */}
         <Card className="lg:col-span-2" data-testid="card-dropbox-settings">
@@ -1139,15 +918,7 @@ export default function Settings() {
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={config.enabled}
-                              onCheckedChange={(enabled) => handleToggleDropboxConfig(config.id, enabled)}
-                            />
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteDropboxConfig(config.id, config.name)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
+
                         </div>
                       ))}
                     </div>
@@ -1305,7 +1076,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2" data-testid="card-security-settings">
+        <Card data-testid="card-security-settings">
           <CardHeader>
             <CardTitle className="text-lg">Security</CardTitle>
             <CardDescription>Manage your account security</CardDescription>
