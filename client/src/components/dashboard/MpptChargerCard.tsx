@@ -35,7 +35,7 @@ const CHARGER_STATES: Record<number, { label: string; color: string; description
   5: { label: "Float", color: "text-green-500", description: "Maintenance voltage (13.8V) — battery fully charged" },
   6: { label: "Storage", color: "text-blue-400", description: "Reduced voltage — battery in long-term storage mode" },
   7: { label: "Equalize", color: "text-blue-500", description: "Controlled overcharge to balance cells" },
-  252: { label: "Ext. Control", color: "text-purple-500", description: "Charger controlled by external device" },
+  252: { label: "Ext. Control", color: "text-teal-600", description: "Charger controlled by external device" },
 };
 
 function getChargerStateLabel(state: number | null): { label: string; color: string; description: string } {

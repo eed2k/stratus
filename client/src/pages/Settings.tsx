@@ -132,6 +132,8 @@ export default function Settings() {
       return res.json();
     },
     enabled: !!dropboxCredentials?.configured,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   // Fetch stations for the station selector dropdown

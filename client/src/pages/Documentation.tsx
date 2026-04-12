@@ -6,17 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function Documentation() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">
-          About Stratus
-        </h1>
-      </div>
-
       <div className="grid gap-6">
         {/* Version Info */}
         <Card>
           <CardHeader>
-            <CardTitle>About Stratus Weather Server</CardTitle>
+            <CardTitle>Stratus Weather Server</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 text-sm">

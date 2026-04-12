@@ -17,6 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -114,12 +120,108 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
       d.chargerVoltage?.toString() || "",
     ]);
     
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    // BOM for Excel compatibility
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `weather_data_${activeStationId}_${startDate}_${endDate}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportTOA5 = () => {
+    if (weatherData.length === 0) return;
+    const stationName = activeStation?.name || `Station_${activeStationId}`;
+    const fields = [
+      "TIMESTAMP", "AirTemp_Avg", "RelHumid_Avg", "BPress_Avg", "WndSpd_Avg", "WndDir_Avg",
+      "WndSpd_Max", "Rain_Tot", "SlrRad_Avg", "UV_Index", "DewPt_Avg", "ETo",
+      "BattV_Avg", "PnlTmp_Avg", "SoilT_Avg", "SoilM_Avg",
+      "PM10_Avg", "PM25_Avg", "AirDens_Avg",
+      "WtrLvl_mm", "TmpSw_mV", "LvlSw", "TmpSwOut_mV", "LvlSwStat",
+      "Lghtnng", "ChrgV_Avg",
+    ];
+    const units = [
+      "TS", "Deg C", "%", "hPa", "m/s", "degrees",
+      "m/s", "mm", "W/m²", "", "Deg C", "mm",
+      "V", "Deg C", "Deg C", "%",
+      "µg/m³", "µg/m³", "kg/m³",
+      "mm", "mV", "", "mV", "",
+      "", "V",
+    ];
+    const process = fields.map((_, i) => i === 0 ? "" : "Avg");
+
+    // TOA5 header lines
+    const line1 = `"TOA5","${stationName}","CR300","0","CR300.Std","CPU:${stationName}.CR300","0","Stratus_Export"`;
+    const line2 = fields.map(f => `"${f}"`).join(",");
+    const line3 = units.map(u => `"${u}"`).join(",");
+    const line4 = process.map(p => `"${p}"`).join(",");
+
+    const rows = weatherData.map(d => {
+      const ts = new Date(d.timestamp);
+      const tsStr = `"${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}-${String(ts.getDate()).padStart(2, '0')} ${String(ts.getHours()).padStart(2, '0')}:${String(ts.getMinutes()).padStart(2, '0')}:${String(ts.getSeconds()).padStart(2, '0')}"`;
+      return [
+        tsStr,
+        d.temperature ?? "NAN", d.humidity ?? "NAN", d.pressure ?? "NAN",
+        d.windSpeed ?? "NAN", d.windDirection ?? "NAN", d.windGust ?? "NAN",
+        d.rainfall ?? "NAN", d.solarRadiation ?? "NAN", d.uvIndex ?? "NAN",
+        d.dewPoint ?? "NAN", d.eto ?? "NAN", d.batteryVoltage ?? "NAN",
+        d.panelTemperature ?? "NAN", d.soilTemperature ?? "NAN", d.soilMoisture ?? "NAN",
+        d.pm10 ?? "NAN", d.pm25 ?? "NAN", d.airDensity ?? "NAN",
+        d.waterLevel ?? "NAN", d.temperatureSwitch ?? "NAN", d.levelSwitch ?? "NAN",
+        d.temperatureSwitchOutlet ?? "NAN", d.levelSwitchStatus ?? "NAN",
+        d.lightning ?? "NAN", d.chargerVoltage ?? "NAN",
+      ].join(",");
+    });
+
+    const content = [line1, line2, line3, line4, ...rows].join("\r\n");
+    const blob = new Blob([content], { type: "text/plain;charset=ascii;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${stationName}_${startDate}_${endDate}.dat`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportJSON = () => {
+    if (weatherData.length === 0) return;
+    const stationName = activeStation?.name || `Station_${activeStationId}`;
+    const exportObj = {
+      station: stationName,
+      stationId: Number(activeStationId),
+      exportDate: new Date().toISOString(),
+      period: { start: startDate, end: endDate },
+      recordCount: weatherData.length,
+      data: weatherData.map(d => ({
+        timestamp: d.timestamp,
+        temperature: d.temperature,
+        humidity: d.humidity,
+        pressure: d.pressure,
+        windSpeed: d.windSpeed,
+        windDirection: d.windDirection,
+        windGust: d.windGust,
+        rainfall: d.rainfall,
+        solarRadiation: d.solarRadiation,
+        uvIndex: d.uvIndex,
+        dewPoint: d.dewPoint,
+        eto: d.eto,
+        batteryVoltage: d.batteryVoltage,
+        panelTemperature: d.panelTemperature,
+        soilTemperature: d.soilTemperature,
+        soilMoisture: d.soilMoisture,
+        pm10: d.pm10,
+        pm25: d.pm25,
+        airDensity: d.airDensity,
+      })),
+    };
+    const content = JSON.stringify(exportObj, null, 2);
+    const blob = new Blob([content], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `weather_data_${activeStationId}_${startDate}_${endDate}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -163,10 +265,25 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
             View and export historical weather records
           </p>
         </div>
-        <Button variant="outline" data-testid="button-export-data" disabled={weatherData.length === 0} onClick={handleExportCSV}>
-          <Download className="mr-2 h-4 w-4" />
-          Export CSV
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" data-testid="button-export-data" disabled={weatherData.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              Export Data
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleExportCSV}>
+              CSV — Comma-separated values
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExportTOA5}>
+              TOA5 — Campbell Scientific format
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExportJSON}>
+              JSON — Structured data
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Card>

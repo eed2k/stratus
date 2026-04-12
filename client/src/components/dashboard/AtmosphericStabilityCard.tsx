@@ -48,7 +48,7 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
           <div className="flex gap-1 pt-2">
             {(['A', 'B', 'C', 'D', 'E', 'F'] as const).map(cls => {
               const colors: Record<string, string> = {
-                A: '#ef4444', B: '#f97316', C: '#eab308', D: '#6b7280', E: '#3b82f6', F: '#7c3aed',
+                A: '#ef4444', B: '#f97316', C: '#eab308', D: '#0d9488', E: '#3b82f6', F: '#1e40af',
               };
               const isActive = cls === result.stabilityClass;
               return (

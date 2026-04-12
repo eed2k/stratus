@@ -221,16 +221,27 @@ router.delete('/configs/:id', async (req: Request, res: Response) => {
 });
 
 /**
+/**
  * GET /api/dropbox-sync/files
  * List .dat files in Dropbox that have been updated within the last 3 days.
- * Only shows folders/subfolders containing recently-updated data files.
+ * Cached for 5 minutes to avoid slow Dropbox API pagination on every page load.
  */
+let filesCache: { data: any[]; ts: number } | null = null;
+const FILES_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 router.get('/files', async (req: Request, res: Response) => {
   try {
-    const files = await dropboxSyncService.listAllFiles();
+    const now = Date.now();
+    let allFiles;
+    if (filesCache && (now - filesCache.ts) < FILES_CACHE_TTL) {
+      allFiles = filesCache.data;
+    } else {
+      allFiles = await dropboxSyncService.listAllFiles();
+      filesCache = { data: allFiles, ts: now };
+    }
     // Filter to files modified within the last 3 days
-    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
-    const recentFiles = files.filter(f => {
+    const threeDaysAgo = now - 3 * 24 * 60 * 60 * 1000;
+    const recentFiles = allFiles.filter((f: any) => {
       if (!f.modified) return false;
       return new Date(f.modified).getTime() >= threeDaysAgo;
     });
