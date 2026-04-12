@@ -489,25 +489,28 @@ export default function Alarms() {
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-muted-foreground">Loading alarms...</p>
-            </CardContent>
-          </Card>
-        ) : alarms.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="p-6 text-center">
-              <p className="text-muted-foreground mb-4">No alarms configured yet</p>
-              <p className="text-sm text-muted-foreground">
-                Create alarms to receive notifications when weather conditions exceed your thresholds.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          alarms.map((alarm) => (
-            <Card key={alarm.id} data-testid={`card-alarm-${alarm.id}`}>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Active Alarms</h2>
+          {isLoading ? (
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-muted-foreground">Loading alarms...</p>
+              </CardContent>
+            </Card>
+          ) : alarms.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <p className="text-muted-foreground mb-4">No alarms configured yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Create alarms to receive notifications when weather conditions exceed your thresholds.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {alarms.map((alarm) => (
+            <Card key={alarm.id} data-testid={`card-alarm-${alarm.id}`} className="bg-card">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -564,46 +567,46 @@ export default function Alarms() {
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Alarm History</CardTitle>
-              <CardDescription>Events from the last 30 days</CardDescription>
+              ))}
             </div>
-            {alarmEvents.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  if (window.confirm('Delete all alarm events older than 30 days?')) {
-                    try {
-                      await apiRequest('POST', '/api/alarm-events/cleanup', { days: 30 });
-                      queryClient.invalidateQueries({ queryKey: ['/api/alarm-events'] });
-                      toast({ title: 'Cleanup complete', description: 'Old events removed.' });
-                    } catch {
-                      toast({ title: 'Error', description: 'Failed to cleanup events.', variant: 'destructive' });
-                    }
-                  }
-                }}
-              >
-                Cleanup Old Events
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {alarmEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No alarm events recorded yet. Events will appear here when alarms are triggered.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {alarmEvents.map((event) => {
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Alarm History</h2>
+              <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardDescription>Events from the last 30 days</CardDescription>
+                {alarmEvents.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (window.confirm('Delete all alarm events older than 30 days?')) {
+                        try {
+                          await apiRequest('POST', '/api/alarm-events/cleanup', { days: 30 });
+                          queryClient.invalidateQueries({ queryKey: ['/api/alarm-events'] });
+                          toast({ title: 'Cleanup complete', description: 'Old events removed.' });
+                        } catch {
+                          toast({ title: 'Error', description: 'Failed to cleanup events.', variant: 'destructive' });
+                        }
+                      }
+                    }}
+                  >
+                    Cleanup Old Events
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {alarmEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No alarm events recorded yet. Events will appear here when alarms are triggered.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {alarmEvents.map((event) => {
                 const alarm = alarms.find((a) => a.id === event.alarmId);
                 const stationName = getStationName(event.stationId);
                 return (
@@ -665,10 +668,12 @@ export default function Alarms() {
                   </div>
                 );
               })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

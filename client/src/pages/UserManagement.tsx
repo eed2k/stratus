@@ -335,7 +335,7 @@ export default function UserManagement() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     {user.role === "admin" ? (
-                      <Badge className="bg-blue-600">
+                      <Badge className="bg-[#1e3a5f]">
                         Admin
                       </Badge>
                     ) : (

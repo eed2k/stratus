@@ -233,9 +233,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                         {station.altitude ? ` • ${station.altitude}m` : ''}
                       </CardDescription>
                     )}
-                    <Badge variant="outline" className="text-xs mt-1 border-black text-black bg-white">
-                      {station.dataloggerModel || (station.stationType ? station.stationType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : station.connectionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}
-                    </Badge>
                     {station.ingestId && (
                       <Badge variant="outline" className="text-xs mt-1 border-amber-300 text-amber-700 bg-amber-50 font-mono">
                         ID: {station.ingestId}

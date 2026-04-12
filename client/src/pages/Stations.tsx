@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -395,16 +395,10 @@ export default function Stations() {
   // Station Setup Form - inlined to avoid re-mount on every parent render
   const stationSetupContent = (
     <div className="space-y-6">
-      <Card className="border-sky-200 bg-sky-50/50 dark:border-sky-800 dark:bg-sky-950/20">
-        <CardHeader>
-          <CardTitle>Add New Weather Station</CardTitle>
-          <CardDescription>
-            Configure a new weather station connection
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Card>
+        <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <Card className="border-sky-200 bg-white dark:bg-sky-950/10">
+            <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Station Configuration</CardTitle>
               </CardHeader>
