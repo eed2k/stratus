@@ -7,7 +7,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
@@ -165,9 +165,6 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
           onBackToStations={handleBackToStations}
         />
         <div className="flex flex-1 flex-col overflow-hidden bg-background">
-          <header className="flex h-14 items-center gap-4 border-b border-border px-4 bg-card">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-          </header>
           <main className="flex-1 overflow-auto bg-background">
             <Suspense fallback={<LoadingScreen />}>
             <Switch>

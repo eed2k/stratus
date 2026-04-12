@@ -96,7 +96,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               {isAdmin ? (
-                <Badge variant="default" className="bg-blue-600 text-xs">
+                <Badge variant="default" className="text-xs" style={{ backgroundColor: '#1e3a5f' }}>
                   Admin
                 </Badge>
               ) : (

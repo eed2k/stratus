@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, Camera, Cloud, Trash2 } from "lucide-react";
+import { Search, Loader2, Cloud } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -841,12 +841,11 @@ X-API-Key: your-key (optional)
                     <th className="text-left p-3 font-medium hidden sm:table-cell">Location</th>
                     <th className="text-left p-3 font-medium hidden md:table-cell">Last Sync</th>
                     <th className="text-center p-3 font-medium">Status</th>
-                    <th className="text-right p-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {filteredStations.map((station) => (
-                    <tr key={station.id} className="hover:bg-muted/30 transition-colors" data-testid={`row-station-${station.id}`}>
+                    <tr key={station.id} className="hover:bg-muted/30 transition-colors cursor-pointer" data-testid={`row-station-${station.id}`} onClick={() => setLocation(`/dashboard/${station.id}`)}>
                       <td className="p-3 font-medium">
                         {station.name}
                         {(station as any).ingestId && (
@@ -867,39 +866,6 @@ X-API-Key: your-key (optional)
                         ) : (
                           <Badge variant="outline" className="border-gray-300 text-gray-600 bg-transparent text-xs">Inactive</Badge>
                         )}
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setLocation(`/dashboard/${station.id}`)}
-                            data-testid={`button-view-${station.id}`}
-                          >
-                            View
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => {
-                              setSelectedStation(station);
-                              setImageDialogOpen(true);
-                            }}
-                            title="Upload station image"
-                          >
-                            <Camera className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => setDeleteStation(station)}
-                            title="Delete station"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
                       </td>
                     </tr>
                   ))}

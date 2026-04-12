@@ -65,7 +65,7 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
       const startISO = new Date(startDate + "T00:00:00").toISOString();
       const endISO = new Date(endDate + "T23:59:59").toISOString();
       const res = await authFetch(
-        `/api/stations/${activeStationId}/data?startTime=${startISO}&endTime=${endISO}`
+        `/api/stations/${activeStationId}/data?startTime=${startISO}&endTime=${endISO}&limit=100000`
       );
       if (!res.ok) return [];
       return res.json();

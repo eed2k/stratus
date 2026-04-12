@@ -208,7 +208,7 @@ export const CurrentConditions = memo(function CurrentConditions({
     // If data is stale, show warning status regardless of connection type
     if (dataStatus.isStale) {
       return {
-        label: 'Data Stale',
+        label: 'No Live Data',
         className: 'bg-amber-500 text-white font-normal',
         isActive: false,
       };

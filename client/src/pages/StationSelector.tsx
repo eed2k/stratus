@@ -233,7 +233,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                         {station.altitude ? ` • ${station.altitude}m` : ''}
                       </CardDescription>
                     )}
-                    <Badge variant="outline" className="text-xs mt-1 border-blue-300 text-blue-700 bg-blue-50">
+                    <Badge variant="outline" className="text-xs mt-1 border-black text-black bg-white">
                       {station.dataloggerModel || (station.stationType ? station.stationType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : station.connectionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}
                     </Badge>
                     {station.ingestId && (
@@ -243,15 +243,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {station.name?.toUpperCase().includes('MPPT TEST') ? null : station.isActive ? (
-                      <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 text-xs">
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-gray-300 text-gray-600 bg-transparent text-xs">
-                        Inactive
-                      </Badge>
-                    )}
                   </div>
                 </div>
               </CardHeader>
