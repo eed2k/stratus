@@ -527,8 +527,8 @@ export function StationMap({
   useEffect(() => {
     const map = mapInstanceRef.current;
     const container = mapRef.current;
-    if (!container || !map || windDirection == null || windSpeed == null || windSpeed <= 0) {
-      // Remove existing arrow if wind data becomes unavailable
+    if (!container || !map || windDirection == null) {
+      // Remove existing arrow if wind direction is unavailable
       if (windArrowRef.current) {
         try { windArrowRef.current.remove(); } catch { /* ignore */ }
         windArrowRef.current = null;
@@ -549,15 +549,17 @@ export function StationMap({
       return dirs[Math.round(windDirection / 22.5) % 16];
     })();
 
+    const speedLabel = windSpeed != null ? `${safeFixed(windSpeed, 1)} m/s` : '—';
+
     // Create a fixed-position overlay in the top-left corner
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:absolute;top:10px;left:50px;z-index:1000;display:flex;flex-direction:column;align-items:center;pointer-events:none;background:rgba(255,255,255,0.85);border-radius:8px;padding:4px 8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);';
     overlay.innerHTML = `
-      <span style="font-size:12px;font-weight:700;color:#1d4ed8;white-space:nowrap;">${dirLabel}</span>
+      <span style="font-size:12px;font-weight:700;color:#1e3a5f;white-space:nowrap;">${dirLabel}</span>
       <svg width="48" height="48" viewBox="0 0 48 48" style="transform:rotate(${arrowRotation}deg);">
-        <path d="M24 4 L30 20 L26 20 L26 42 L22 42 L22 20 L18 20 Z" fill="#2563eb" stroke="#1e40af" stroke-width="1" stroke-linejoin="round"/>
+        <path d="M24 4 L30 20 L26 20 L26 42 L22 42 L22 20 L18 20 Z" fill="#1e3a5f" stroke="#142a45" stroke-width="1" stroke-linejoin="round"/>
       </svg>
-      <span style="font-size:10px;font-weight:600;color:#374151;white-space:nowrap;">${safeFixed(windSpeed, 1)} m/s</span>
+      <span style="font-size:10px;font-weight:600;color:#374151;white-space:nowrap;">${speedLabel}</span>
     `;
     container.style.position = 'relative';
     container.appendChild(overlay);
