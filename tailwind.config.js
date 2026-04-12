@@ -6,6 +6,9 @@ export default {
     "./client/src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
+    fontFamily: {
+      sans: ['Arial', 'Helvetica', 'sans-serif'],
+    },
     extend: {
       borderRadius: {
         lg: 'var(--radius)',

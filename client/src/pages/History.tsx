@@ -37,7 +37,6 @@ import { getWindUnitLabel, type WindSpeedUnit } from "@/lib/windConstants";
 
 interface HistoryProps {
   canAccessStation?: (stationId: number) => boolean;
-  assignedStations?: number[];
   isAdmin?: boolean;
 }
 

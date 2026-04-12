@@ -7,13 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+
 import {
   Select,
   SelectContent,
@@ -39,7 +33,6 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useLocation } from "wouter";
 import type { WeatherStation } from "@shared/schema";
 // Skeleton removed — using table layout
-import { StationImageUpload } from "@/components/StationImageUpload";
 
 interface StationWithReading extends WeatherStation {
   lastReading?: {
@@ -147,8 +140,7 @@ const initialFormData: StationFormData = {
 export default function Stations() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
-  const [imageDialogOpen, setImageDialogOpen] = useState(false);
-  const [selectedStation, setSelectedStation] = useState<StationWithReading | null>(null);
+
   const [deleteStation, setDeleteStation] = useState<StationWithReading | null>(null);
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
   const { toast } = useToast();
@@ -890,30 +882,6 @@ X-API-Key: your-key (optional)
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Station Image Upload Dialog */}
-      <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              Station Image
-            </DialogTitle>
-            <DialogDescription>
-              Upload or change the image for {selectedStation?.name}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedStation && (
-            <StationImageUpload
-              stationId={selectedStation.id}
-              currentImage={selectedStation.stationImage}
-              stationName={selectedStation.name}
-              onImageChange={() => {
-                setImageDialogOpen(false);
-                queryClient.invalidateQueries({ queryKey: ['/api/stations'] });
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

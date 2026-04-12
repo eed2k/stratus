@@ -44,7 +44,6 @@ interface Station {
 interface StationSelectorProps {
   isAdmin: boolean;
   canAccessStation: (stationId: number) => boolean;
-  assignedStations?: number[];
   onSelectStation: (stationId: number) => void;
 }
 

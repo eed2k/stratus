@@ -173,7 +173,6 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 <StationSelector 
                   isAdmin={isAdmin} 
                   canAccessStation={canAccessStation} 
-                  assignedStations={user.assignedStations}
                   onSelectStation={handleSelectStation}
                 />
               </Route>
@@ -195,7 +194,6 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 <StationSelector 
                   isAdmin={isAdmin} 
                   canAccessStation={canAccessStation} 
-                  assignedStations={user.assignedStations}
                   onSelectStation={handleSelectStation}
                 />
               </Route>
@@ -213,7 +211,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
                 <AdminRoute isAdmin={isAdmin}><UserManagement /></AdminRoute>
               </Route>
               <Route path="/history">
-                <History canAccessStation={canAccessStation} assignedStations={user.assignedStations} isAdmin={isAdmin} />
+                <History canAccessStation={canAccessStation} isAdmin={isAdmin} />
               </Route>
               <Route path="/alarms">
                 <AdminRoute isAdmin={isAdmin}><Alarms /></AdminRoute>
