@@ -958,6 +958,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       co2: hasData('co2'),
       tvoc: hasData('tvoc'),
       aqi: hasData('aqi'),
+      so2: hasData('so2'),
+      particulateCount: hasData('particulateCount'),
+      moduleTemperature: hasData('moduleTemperature'),
       // Agriculture
       leafWetness: hasData('leafWetness'),
     };
@@ -1315,6 +1318,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         mppt2ICalSlope: null,
         temperature8m: null,
         deltaTemperature: null,
+        so2: null,
+        moduleTemperature: null,
       };
 
   // Check if station has valid GPS coordinates
@@ -1967,6 +1972,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <MetricCard
               title="Panel Temperature"
               value={formatValue(currentData.panelTemperature || 0, 1)}
+              unit="°C"
+            />
+            )}
+            {hasValidData((currentData as any).moduleTemperature) && (
+            <MetricCard
+              title="Module Temperature"
+              value={formatValue((currentData as any).moduleTemperature || 0, 1)}
               unit="°C"
             />
             )}
@@ -3119,7 +3131,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
         {/* Air Quality Section - Only show if PM data available */}
-        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.airQuality !== false && (availableFields.pm10 || availableFields.pm25 || availableFields.pm1 || availableFields.co2 || availableFields.tvoc) && (
+        {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.airQuality !== false && (availableFields.pm10 || availableFields.pm25 || availableFields.pm1 || availableFields.co2 || availableFields.tvoc || availableFields.so2 || availableFields.particulateCount) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Air Quality</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -3129,6 +3141,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               pm1={(currentData as any).pm1}
               co2={(currentData as any).co2}
               tvoc={(currentData as any).tvoc}
+              so2={(currentData as any).so2}
+              particulateCount={(currentData as any).particulateCount}
             />
           </div>
         </section>

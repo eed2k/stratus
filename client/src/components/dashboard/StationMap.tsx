@@ -458,15 +458,6 @@ export function StationMap({
           }
         });
 
-        // Additional invalidateSize calls for reliability
-        [100, 300, 600].forEach(delay => {
-          setTimeout(() => {
-            if (isMounted && map && map._container) {
-              map.invalidateSize({ animate: false });
-            }
-          }, delay);
-        });
-
         setError(null);
         setIsLoading(false);
       } catch (err: any) {

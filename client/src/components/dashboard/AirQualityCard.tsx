@@ -11,9 +11,11 @@ interface AirQualityCardProps {
   pm1?: number | null;
   co2?: number | null;
   tvoc?: number | null;
+  so2?: number | null;
+  particulateCount?: number | null;
 }
 
-export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc }: AirQualityCardProps) {
+export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCount }: AirQualityCardProps) {
   const aqiResult: AQIResult | null = calculateAQI(pm25, pm10);
 
   // SA NAAQS exceedance checks
@@ -99,8 +101,8 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc }: AirQualityCardPro
             )}
           </div>
 
-          {/* CO2 / TVOC if available */}
-          {(co2 != null || tvoc != null) && (
+          {/* CO2 / TVOC / SO2 if available */}
+          {(co2 != null || tvoc != null || so2 != null || particulateCount != null) && (
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
               {co2 != null && (
                 <div className="text-center">
@@ -115,6 +117,22 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc }: AirQualityCardPro
                   <p className="text-xs text-gray-500">TVOC</p>
                   <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(tvoc, 0)} ppb
+                  </p>
+                </div>
+              )}
+              {so2 != null && (
+                <div className="text-center">
+                  <p className="text-xs text-gray-500">SO₂</p>
+                  <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                    {safeFixed(so2, 1)} ppb
+                  </p>
+                </div>
+              )}
+              {particulateCount != null && (
+                <div className="text-center">
+                  <p className="text-xs text-gray-500">Particulate</p>
+                  <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                    {safeFixed(particulateCount, 0)}
                   </p>
                 </div>
               )}

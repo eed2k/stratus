@@ -528,55 +528,6 @@ export default function Settings() {
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card data-testid="card-profile-settings">
-          <CardHeader>
-            <CardTitle className="text-lg">Profile</CardTitle>
-            <CardDescription>Update your personal information</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input 
-                  id="firstName" 
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Enter your first name"
-                  data-testid="input-first-name" 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input 
-                  id="lastName" 
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Enter your last name"
-                  data-testid="input-last-name" 
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                value={email}
-                readOnly
-                disabled
-                className="bg-muted cursor-not-allowed"
-                data-testid="input-settings-email" 
-              />
-              <p className="text-xs text-muted-foreground">Email address cannot be changed as it is used for authentication.</p>
-            </div>
-            <Button data-testid="button-save-profile" onClick={handleSaveProfile} disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save Profile
-            </Button>
-          </CardContent>
-        </Card>
-
-
 
         {/* Dropbox Sync Configuration Card */}
         <Card className="lg:col-span-2" data-testid="card-dropbox-settings">
@@ -1073,6 +1024,54 @@ export default function Settings() {
                 </div>
               );
             })()}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-profile-settings">
+          <CardHeader>
+            <CardTitle className="text-lg">Profile</CardTitle>
+            <CardDescription>Update your personal information</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input 
+                  id="firstName" 
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Enter your first name"
+                  data-testid="input-first-name" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input 
+                  id="lastName" 
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Enter your last name"
+                  data-testid="input-last-name" 
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                value={email}
+                readOnly
+                disabled
+                className="bg-muted cursor-not-allowed"
+                data-testid="input-settings-email" 
+              />
+              <p className="text-xs text-muted-foreground">Email address cannot be changed as it is used for authentication.</p>
+            </div>
+            <Button data-testid="button-save-profile" onClick={handleSaveProfile} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save Profile
+            </Button>
           </CardContent>
         </Card>
 

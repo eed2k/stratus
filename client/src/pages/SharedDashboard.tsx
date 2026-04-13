@@ -840,6 +840,10 @@ function SharedDashboardContent() {
       // Airshed / multi-height temperature
       temperature8m: hasData('temperature8m'),
       deltaTemperature: hasData('deltaTemperature'),
+      // Air quality extended
+      so2: hasData('so2'),
+      particulateCount: hasData('particulateCount'),
+      moduleTemperature: hasData('moduleTemperature'),
     };
   }, [historicalData, weatherData, sharedEnabledParameters]);
 
@@ -1726,6 +1730,9 @@ function SharedDashboardContent() {
             {availableFields.deltaTemperature && (
             <MetricCard title="Delta Temperature" value={formatValue(currentData.deltaTemperature || 0, 2)} unit="°C" />
             )}
+            {availableFields.moduleTemperature && (
+            <MetricCard title="Module Temperature" value={formatValue((currentData as any).moduleTemperature || 0, 1)} unit="°C" />
+            )}
           </div>
           {/* Temperature (8m), Delta Temperature, Lightning Charts */}
           {(availableFields.temperature8m || availableFields.deltaTemperature || availableFields.lightning || availableFields.lightningDistance || availableFields.lightningEnergy || availableFields.lightningRaw) && (
@@ -2343,7 +2350,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Air Quality Section */}
-        {sv.airQuality !== false && (availableFields.pm10 || availableFields.pm25) && (
+        {sv.airQuality !== false && (availableFields.pm10 || availableFields.pm25 || availableFields.so2 || availableFields.particulateCount) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Air Quality</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -2351,6 +2358,8 @@ function SharedDashboardContent() {
               pm25={currentData.pm25}
               pm10={currentData.pm10}
               co2={(currentData as any).co2}
+              so2={(currentData as any).so2}
+              particulateCount={(currentData as any).particulateCount}
             />
           </div>
         </section>

@@ -271,6 +271,10 @@ export const weatherData = pgTable(
     aqi: integer("aqi"),
     co2: real("co2"),
     tvoc: real("tvoc"),
+    // Gas sensors
+    so2: real("so2"),
+    // Logger diagnostics
+    moduleTemperature: real("module_temperature"),
     // Additional atmospheric
     atmosphericVisibility: real("atmospheric_visibility"),
     cloudCover: real("cloud_cover"),
