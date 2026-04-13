@@ -734,9 +734,10 @@ export class DropboxSyncService extends EventEmitter {
       }
 
       // Filter out DB configs that duplicate the main env-configured sync
+      // Only skip if main sync actually imported records — if 0 records, let DB config handle it
       const mainStationId = this.config?.stationId;
       const filteredConfigs = this.dbConfigs.filter(c => {
-        if (mainStationId && c.stationId === mainStationId) {
+        if (mainStationId && c.stationId === mainStationId && mainSyncRecords > 0) {
           console.log(`[DropboxSync] Skipping DB config "${c.name}" — already synced by main sync (station ${mainStationId}, ${mainSyncRecords} records)`);
           // Still mark as success since main sync handled it — pass actual record count
           storage.updateDropboxSyncStatus(c.id, 'success (handled by main sync)', mainSyncRecords).catch(() => {});
