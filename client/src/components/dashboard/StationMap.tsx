@@ -500,8 +500,18 @@ export function StationMap({
     };
   }, [lat, lng, defaultZoom, stationName, altitude, retryCount]);
 
+  // When loading overlay disappears, ensure map renders correctly
+  useEffect(() => {
+    if (!isLoading && mapInstanceRef.current) {
+      // Invalidate after overlay removal to fix any rendering issues
+      const t = setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize({ animate: false });
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [isLoading]);
+
   // ResizeObserver to catch any container size changes (responsive layout, etc.)
-  // Note: deps do NOT include isExpanded to avoid disconnect/reconnect gap during resize
   useEffect(() => {
     const el = mapRef.current;
     if (!el || !mapInstanceRef.current) return;

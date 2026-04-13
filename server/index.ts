@@ -52,12 +52,14 @@ app.use(helmet({
         "'unsafe-inline'",
         "https://unpkg.com",      // Leaflet JS CDN
         "https://cdnjs.cloudflare.com", // Leaflet JS fallback CDN
+        "https://cdn.jsdelivr.net", // Leaflet JS fallback CDN
       ],
       styleSrc: [
         "'self'", 
         "'unsafe-inline'",
         "https://unpkg.com",      // Leaflet CSS CDN
         "https://cdnjs.cloudflare.com", // Leaflet CSS fallback CDN
+        "https://cdn.jsdelivr.net", // Leaflet CSS fallback CDN
       ],
       imgSrc: [
         "'self'", 
