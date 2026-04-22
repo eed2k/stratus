@@ -560,9 +560,10 @@ router.get('/shares/:shareToken/data/rainfall-yearly', async (req: Request, res:
     }
 
     const rainfallFields = [
-      "data->>'Rain_mm_Tot'", "data->>'Rain_Tot'", "data->>'Precip'",
-      "data->>'Rain_mm'", "data->>'Precip_Tot'", "data->>'Rain_1_Tot'",
-      "data->>'Rain_Tot_1'", "data->>'rainfall'", "data->>'Rain'", "data->>'Rainfall'"
+      "data->>'Rain_mm_Tot'", "data->>'Rain_Tot'", "data->>'Precip_Tot'",
+      "data->>'Rain_1_Tot'", "data->>'Rain_Tot_1'",
+      "data->>'rainfall'", "data->>'Rain_mm'", "data->>'Precip'",
+      "data->>'Rain'", "data->>'Rainfall'"
     ];
     const coalesce = rainfallFields.join(', ');
 
@@ -570,7 +571,12 @@ router.get('/shares/:shareToken/data/rainfall-yearly', async (req: Request, res:
       WITH rainfall_readings AS (
         SELECT
           EXTRACT(YEAR FROM timestamp) AS year,
-          COALESCE(${coalesce})::numeric AS rainfall_val
+          timestamp,
+          COALESCE(${coalesce})::numeric AS rainfall_val,
+          LAG(COALESCE(${coalesce})::numeric) OVER (
+            PARTITION BY EXTRACT(YEAR FROM timestamp)
+            ORDER BY timestamp
+          ) AS prev_val
         FROM weather_data
         WHERE station_id = $1
           AND COALESCE(${coalesce}) IS NOT NULL
@@ -578,9 +584,14 @@ router.get('/shares/:shareToken/data/rainfall-yearly', async (req: Request, res:
       SELECT
         year,
         COUNT(*) AS readings,
-        COUNT(CASE WHEN rainfall_val > 0 THEN 1 END) AS nonzero_count,
-        MAX(rainfall_val) - MIN(rainfall_val) AS range_total,
-        SUM(rainfall_val) AS sum_total
+        MAX(rainfall_val) AS max_val,
+        SUM(rainfall_val) AS sum_total,
+        SUM(CASE
+          WHEN prev_val IS NOT NULL AND rainfall_val >= prev_val
+            AND (rainfall_val - prev_val) < 200
+          THEN rainfall_val - prev_val
+          ELSE 0
+        END) AS delta_sum
       FROM rainfall_readings
       GROUP BY year
       HAVING COUNT(*) >= 2
@@ -592,18 +603,12 @@ router.get('/shares/:shareToken/data/rainfall-yearly', async (req: Request, res:
     const yearlyTotals = result.rows.map((row: any) => {
       const year = parseInt(row.year);
       const readings = parseInt(row.readings);
-      const nonzeroCount = parseInt(row.nonzero_count);
-      const rangeTotal = parseFloat(row.range_total) || 0;
       const sumTotal = parseFloat(row.sum_total) || 0;
-      const nonzeroRatio = nonzeroCount / readings;
-      let total: number;
-      if (nonzeroRatio > 0.5) {
-        total = rangeTotal;
-      } else if (sumTotal > 500 && rangeTotal > 0 && sumTotal > rangeTotal * 20) {
-        total = rangeTotal;
-      } else {
-        total = sumTotal;
-      }
+      const deltaSum = parseFloat(row.delta_sum) || 0;
+      const maxVal = parseFloat(row.max_val) || 0;
+      // Incremental loggers (CRBasic Totalize, tipping bucket): use SUM
+      // Cumulative loggers (running total): use sum of positive deltas
+      const total = maxVal <= 50 ? sumTotal : deltaSum;
       return {
         year,
         total: Math.round(Math.max(0, total) * 10) / 10,

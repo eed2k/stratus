@@ -87,6 +87,10 @@ interface DataSeries {
   name: string;
   color: string;
   unit?: string;
+  /** Optional dash pattern (e.g. "4 2") to render the line as dotted/dashed */
+  strokeDasharray?: string;
+  /** Optional axis id for dual-axis charts ("left" | "right") */
+  yAxisId?: string;
 }
 
 type ChartType = "line" | "area" | "bar";
@@ -131,6 +135,10 @@ interface DataBlockChartProps {
   yAxisDomain?: [number | string, number | string];
   /** Footer text to display below the chart inside the card */
   footer?: string;
+  /** Right axis label (when using dual-axis mode) */
+  rightYAxisLabel?: string;
+  /** Right axis domain (when using dual-axis mode) */
+  rightYAxisDomain?: [number | string, number | string];
 }
 
 /**
@@ -162,6 +170,8 @@ export const DataBlockChart = memo(function DataBlockChart({
   defaultExpanded = false,
   yAxisDomain,
   footer,
+  rightYAxisLabel,
+  rightYAxisDomain,
 }: DataBlockChartProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedRange, setSelectedRange] = useState(defaultRange);
@@ -244,6 +254,32 @@ export const DataBlockChart = memo(function DataBlockChart({
       } : {}),
     };
 
+    const hasRightAxis = series.some((s) => s.yAxisId === 'right');
+    const rightYAxisProps: Record<string, any> | null = hasRightAxis
+      ? {
+          yAxisId: 'right',
+          orientation: 'right',
+          tick: { fontSize: 10 },
+          tickLine: false,
+          axisLine: { stroke: 'hsl(var(--border))' },
+          width: rightYAxisLabel ? 45 : 32,
+          label: rightYAxisLabel && !compact ? {
+            value: rightYAxisLabel,
+            angle: 90,
+            position: 'insideRight',
+            offset: 5,
+            fontSize: 10,
+            fill: 'hsl(var(--muted-foreground))',
+            style: { textAnchor: 'middle' }
+          } : undefined,
+          ...(rightYAxisDomain ? { domain: rightYAxisDomain, allowDataOverflow: false } : {}),
+        }
+      : null;
+    // When dual-axis is used, give the left axis an explicit yAxisId so series can target it
+    if (hasRightAxis) {
+      yAxisProps.yAxisId = 'left';
+    }
+
     switch (chartType) {
       case "area":
         return (
@@ -259,10 +295,12 @@ export const DataBlockChart = memo(function DataBlockChart({
             <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={false} />
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
+            {rightYAxisProps && <YAxis {...rightYAxisProps} />}
             <Tooltip content={<CustomTooltip />} />
             {!compact && <Legend iconSize={0} wrapperStyle={{ paddingTop: 20 }} />}
             {showAverage && (
               <ReferenceLine 
+                {...(hasRightAxis ? { yAxisId: 'left' } : {})}
                 y={avg} 
                 stroke="#6b7280" 
                 strokeDasharray="5 5" 
@@ -272,12 +310,14 @@ export const DataBlockChart = memo(function DataBlockChart({
             {series.map((s) => (
               <Area
                 key={s.dataKey}
+                {...(hasRightAxis ? { yAxisId: s.yAxisId === 'right' ? 'right' : 'left' } : {})}
                 type="monotone"
                 dataKey={s.dataKey}
                 name={s.name}
                 stroke={s.color}
                 fill={`url(#gradient-${s.dataKey})`}
                 strokeWidth={2}
+                strokeDasharray={s.strokeDasharray}
                 connectNulls={true}
                 isAnimationActive={false}
               />
@@ -312,10 +352,12 @@ export const DataBlockChart = memo(function DataBlockChart({
             <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={false} />
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
+            {rightYAxisProps && <YAxis {...rightYAxisProps} />}
             <Tooltip content={<CustomTooltip />} />
             {!compact && <Legend iconSize={0} wrapperStyle={{ paddingTop: 20 }} />}
             {showAverage && (
               <ReferenceLine 
+                {...(hasRightAxis ? { yAxisId: 'left' } : {})}
                 y={avg} 
                 stroke="#6b7280" 
                 strokeDasharray="5 5"
@@ -325,11 +367,13 @@ export const DataBlockChart = memo(function DataBlockChart({
             {series.map((s) => (
               <Line
                 key={s.dataKey}
+                {...(hasRightAxis ? { yAxisId: s.yAxisId === 'right' ? 'right' : 'left' } : {})}
                 type="monotone"
                 dataKey={s.dataKey}
                 name={s.name}
                 stroke={s.color}
                 strokeWidth={2}
+                strokeDasharray={s.strokeDasharray}
                 dot={false}
                 activeDot={{ r: 5, strokeWidth: 2 }}
                 connectNulls={true}

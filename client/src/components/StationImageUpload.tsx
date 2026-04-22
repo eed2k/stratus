@@ -34,7 +34,8 @@ export function StationImageUpload({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
 
-  // Process image with scale and rotation, maintaining aspect ratio
+  // Process image: scale, rotate, then centre-crop to a fixed 1:1 square (1024x1024)
+  // for uniform "research-grade" presentation across all station cards.
   const processImage = useCallback((imageSrc: string, targetScale: number, targetRotation: number): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -46,35 +47,32 @@ export function StationImageUpload({
           return;
         }
 
-        // Calculate scaled dimensions maintaining aspect ratio
-        const scaleFactor = targetScale / 100;
-        let width = img.width * scaleFactor;
-        let height = img.height * scaleFactor;
+        // Fixed output dimensions for uniformity
+        const OUT = 1024;
+        canvas.width = OUT;
+        canvas.height = OUT;
 
-        // Limit max dimensions to 1200px while maintaining aspect ratio
-        const maxDim = 1200;
-        if (width > maxDim || height > maxDim) {
-          const ratio = Math.min(maxDim / width, maxDim / height);
-          width *= ratio;
-          height *= ratio;
-        }
-
-        // For rotation, we may need to swap dimensions
-        const needsSwap = targetRotation === 90 || targetRotation === 270;
-        canvas.width = needsSwap ? height : width;
-        canvas.height = needsSwap ? width : height;
-
-        // Clear and setup
+        // White background (in case rotation leaves edges)
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, OUT, OUT);
 
-        // Translate to centre, rotate, then draw
-        ctx.translate(canvas.width / 2, canvas.height / 2);
+        // Compute the user-scaled drawn size of the source image
+        const scaleFactor = targetScale / 100;
+        const drawnW = img.width * scaleFactor;
+        const drawnH = img.height * scaleFactor;
+
+        // Translate to centre, rotate, then draw centred so the image is
+        // centre-cropped to a square automatically.
+        ctx.translate(OUT / 2, OUT / 2);
         ctx.rotate((targetRotation * Math.PI) / 180);
-        ctx.drawImage(img, -width / 2, -height / 2, width, height);
 
-        // Convert to base64
-        const result = canvas.toDataURL('image/jpeg', 0.85);
+        // Fit the larger dimension to the square (cover behaviour)
+        const fitRatio = OUT / Math.min(drawnW, drawnH);
+        const finalW = drawnW * fitRatio;
+        const finalH = drawnH * fitRatio;
+        ctx.drawImage(img, -finalW / 2, -finalH / 2, finalW, finalH);
+
+        const result = canvas.toDataURL('image/jpeg', 0.9);
         resolve(result);
       };
       img.onerror = () => reject(new Error('Failed to load image'));
@@ -423,7 +421,7 @@ export function StationImageDisplay({
   if (!image) {
     // Default placeholder with Stratus logo only, no background
     return (
-      <div className="w-full h-32 rounded-t-lg overflow-hidden flex items-center justify-center">
+      <div className="w-full aspect-square rounded-t-lg overflow-hidden flex items-center justify-center border border-black/20 border-b-0">
         <svg viewBox="0 0 256 256" fill="none" className="h-20 w-20">
           <circle cx="128" cy="128" r="120" fill="#1e3a5f"/>
           <circle cx="128" cy="128" r="32" fill="#ffffff"/>
@@ -434,11 +432,11 @@ export function StationImageDisplay({
   }
   
   return (
-    <div className="w-full h-48 rounded-t-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+    <div className="w-full aspect-square rounded-t-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-black/20 border-b-0">
       <img
         src={image}
         alt={`${stationName} station`}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-cover"
       />
     </div>
   );

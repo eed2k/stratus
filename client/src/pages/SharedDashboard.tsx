@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindCompass } from "@/components/dashboard/WindCompass";
 // WindPowerCard replaced with inline Card layout
@@ -52,6 +53,8 @@ import {
   wattsToMJPerDay,
   calculateFireDanger,
   calculateSolarPosition,
+  calculateHeatIndex,
+  calculateWindChill,
 } from "@shared/utils/calc";
 import { getSimplifiedClasses, getWindUnitLabel, getWindDirectionLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import {
@@ -183,6 +186,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         humidityMax: maxNonNull(dayData.map(d => d.humidity ?? null)),
         pressure: avgNonNull(dayData.map(d => d.pressure ?? null)),
         windSpeed: avgNonNull(dayData.map(d => d.windSpeed ?? null)),
+        windDirection: avgNonNull(dayData.map(d => d.windDirection ?? null)),
         windGust: avgNonNull(dayData.map(d => d.windGust ?? d.windSpeed ?? null)),
         windSpeedMax: maxNonNull(dayData.map(d => d.windSpeed ?? null)),
         solar: avgNonNull(dayData.map(d => d.solarRadiation != null ? Math.max(d.solarRadiation, 0) : null)),
@@ -284,6 +288,19 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           if (t == null || p == null || rh == null) return null;
           return Math.round(calculateAirDensity(t, p, rh) * 1000) / 1000;
         })(),
+        heatIndex: (() => {
+          const t = avgNonNull(dayData.map(d => d.temperature ?? null));
+          const rh = avgNonNull(dayData.map(d => d.humidity ?? null));
+          if (t == null || rh == null) return null;
+          return Math.round(calculateHeatIndex(t, rh) * 10) / 10;
+        })(),
+        windChill: (() => {
+          const t = avgNonNull(dayData.map(d => d.temperature ?? null));
+          const ws = avgNonNull(dayData.map(d => d.windSpeed ?? null));
+          if (t == null || ws == null) return null;
+          const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
+          return Math.round(calculateWindChill(t, windMs) * 10) / 10;
+        })(),
         _readings: dayData.length,
       };
     });
@@ -315,6 +332,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       humidity: d.humidity ?? null,
       pressure: d.pressure ?? null,
       windSpeed: d.windSpeed ?? null,
+      windDirection: d.windDirection ?? null,
       windGust: d.windGust ?? null,
       solar: d.solarRadiation != null ? Math.max(d.solarRadiation, 0) : null,
       rain: incrementalRain,
@@ -405,6 +423,12 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       deltaTemperature: d.deltaTemperature ?? null,
       airDensity: (d.temperature != null && d.pressure != null && d.humidity != null)
         ? Math.round(calculateAirDensity(d.temperature, d.pressure, d.humidity) * 1000) / 1000
+        : null,
+      heatIndex: (d.temperature != null && d.humidity != null)
+        ? Math.round(calculateHeatIndex(d.temperature, d.humidity) * 10) / 10
+        : null,
+      windChill: (d.temperature != null && d.windSpeed != null)
+        ? Math.round(calculateWindChill(d.temperature, windUnit === 'kmh' ? kmhToMs(d.windSpeed) : d.windSpeed) * 10) / 10
         : null,
     };
   });
@@ -968,19 +992,66 @@ function SharedDashboardContent() {
     return calculateSeaLevelPressure(currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA, station?.altitude || 0, currentData.temperature || DEFAULT_TEMPERATURE_C);
   }, [currentData.pressure, currentData.temperature, station?.altitude, pressureIsSLP]);
 
-  // Rainfall
+  // Rainfall (24h window).
+  // Auto-detects whether the logger emits incremental (CRBasic Totalize) or cumulative readings:
+  //   - Incremental: each value is rainfall during the interval -> total = SUM
+  //   - Cumulative: monotonically increasing counter -> total = SUM of positive deltas
   const { effectiveRainfall } = useMemo(() => {
-    const rainfallReadings = sortedHistoricalData.map(d => d.rainfall).filter((v): v is number => v !== null && v !== undefined);
-    if (rainfallReadings.length < 2) {
-      const currentRain = currentData.rainfall ?? 0;
-      return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: currentRain };
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    const now = referenceNow;
+    const last24h = dataSource.filter(d => new Date(d.timestamp).getTime() > now - 24 * 60 * 60 * 1000);
+    const readings = last24h.map(d => d.rainfall).filter((v): v is number => v != null);
+    if (readings.length === 0) {
+      return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: currentData.rainfall ?? 0 };
     }
-    const minVal = Math.min(...rainfallReadings);
-    const maxVal = Math.max(...rainfallReadings);
-    const range = maxVal - minVal;
-    const isStale = range < 0.1;
-    return { accumulatedRainfall: isStale ? 0 : range, isRainfallStale: isStale, effectiveRainfall: isStale ? 0 : range };
-  }, [sortedHistoricalData, currentData.rainfall]);
+    const maxVal = Math.max(...readings);
+    let total = 0;
+    if (maxVal <= 50) {
+      total = readings.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
+    } else {
+      for (let i = 1; i < readings.length; i++) {
+        const diff = readings[i] - readings[i - 1];
+        if (diff > 0 && diff < 200) total += diff;
+      }
+    }
+    const rounded = Math.round(total * 100) / 100;
+    return { accumulatedRainfall: rounded, isRainfallStale: rounded < 0.05, effectiveRainfall: rounded };
+  }, [sortedStatsData, sortedHistoricalData, currentData.rainfall, referenceNow]);
+
+  // Rainfall totals over standard reporting periods (24h / yesterday / this week / this month)
+  const rainfallPeriods = useMemo(() => {
+    const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
+    const sumWindow = (startMs: number, endMs: number) => {
+      const window = dataSource
+        .filter(d => {
+          const t = new Date(d.timestamp).getTime();
+          return t > startMs && t <= endMs;
+        })
+        .map(d => d.rainfall)
+        .filter((v): v is number => v != null);
+      if (window.length === 0) return 0;
+      const maxVal = Math.max(...window);
+      let total = 0;
+      if (maxVal <= 50) {
+        total = window.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
+      } else {
+        for (let i = 1; i < window.length; i++) {
+          const diff = window[i] - window[i - 1];
+          if (diff > 0 && diff < 200) total += diff;
+        }
+      }
+      return Math.round(total * 100) / 100;
+    };
+    const now = referenceNow;
+    const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
+    const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+    return {
+      last24h: sumWindow(now - 24 * 60 * 60 * 1000, now),
+      yesterday: sumWindow(startOfYesterday.getTime(), startOfToday.getTime()),
+      thisWeek: sumWindow(now - 7 * 24 * 60 * 60 * 1000, now),
+      thisMonth: sumWindow(now - 30 * 24 * 60 * 60 * 1000, now),
+    };
+  }, [sortedStatsData, sortedHistoricalData, referenceNow]);
 
   // Compute rainfall stats for Fire Danger card (7-day total + days since last rain)
   const rainfallStats = useMemo(() => {
@@ -1202,6 +1273,99 @@ function SharedDashboardContent() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportTOA5 = () => {
+    if (historicalData.length === 0) return;
+    const sorted = [...historicalData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const stationName = (station?.name || 'station').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fields = [
+      "TIMESTAMP", "AirTemp_Avg", "RelHumid_Avg", "BPress_Avg", "WndSpd_Avg", "WndDir_Avg",
+      "WndSpd_Max", "Rain_Tot", "SlrRad_Avg", "UV_Index", "DewPt_Avg", "ETo",
+      "BattV_Avg", "PnlTmp_Avg", "SoilT_Avg", "SoilM_Avg",
+      "PM10_Avg", "PM25_Avg", "AirDens_Avg",
+      "WtrLvl_mm", "TmpSw_mV", "LvlSw", "TmpSwOut_mV", "LvlSwStat",
+      "Lghtnng", "ChrgV_Avg",
+    ];
+    const units = [
+      "TS", "Deg C", "%", "hPa", "m/s", "degrees",
+      "m/s", "mm", "W/m\u00b2", "", "Deg C", "mm",
+      "V", "Deg C", "Deg C", "%",
+      "\u00b5g/m\u00b3", "\u00b5g/m\u00b3", "kg/m\u00b3",
+      "mm", "mV", "", "mV", "",
+      "", "V",
+    ];
+    const process = fields.map((_, i) => i === 0 ? "" : "Avg");
+    const line1 = `"TOA5","${stationName}","CR300","0","CR300.Std","CPU:${stationName}.CR300","0","Stratus_Export"`;
+    const line2 = fields.map(f => `"${f}"`).join(",");
+    const line3 = units.map(u => `"${u}"`).join(",");
+    const line4 = process.map(p => `"${p}"`).join(",");
+    const rows = sorted.map((d: any) => {
+      const ts = new Date(d.timestamp);
+      const tsStr = `"${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}-${String(ts.getDate()).padStart(2, '0')} ${String(ts.getHours()).padStart(2, '0')}:${String(ts.getMinutes()).padStart(2, '0')}:${String(ts.getSeconds()).padStart(2, '0')}"`;
+      return [
+        tsStr,
+        d.temperature ?? "NAN", d.humidity ?? "NAN", d.pressure ?? "NAN",
+        d.windSpeed ?? "NAN", d.windDirection ?? "NAN", d.windGust ?? "NAN",
+        d.rainfall ?? "NAN", d.solarRadiation ?? "NAN", d.uvIndex ?? "NAN",
+        d.dewPoint ?? "NAN", d.eto ?? "NAN", d.batteryVoltage ?? "NAN",
+        d.panelTemperature ?? "NAN", d.soilTemperature ?? "NAN", d.soilMoisture ?? "NAN",
+        d.pm10 ?? "NAN", d.pm25 ?? "NAN", d.airDensity ?? "NAN",
+        d.waterLevel ?? "NAN", d.temperatureSwitch ?? "NAN", d.levelSwitch ?? "NAN",
+        d.temperatureSwitchOutlet ?? "NAN", d.levelSwitchStatus ?? "NAN",
+        d.lightning ?? "NAN", d.chargerVoltage ?? "NAN",
+      ].join(",");
+    });
+    const content = [line1, line2, line3, line4, ...rows].join("\r\n");
+    const blob = new Blob([content], { type: "text/plain;charset=ascii;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const timeLabel = chartTimeRange <= 48 ? chartTimeRange + 'h' : Math.round(chartTimeRange / 24) + 'd';
+    link.download = `${stationName}_${timeLabel}_${new Date().toISOString().slice(0, 10)}.dat`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportJSON = () => {
+    if (historicalData.length === 0) return;
+    const sorted = [...historicalData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const stationName = (station?.name || 'station').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const exportObj = {
+      station: stationName,
+      exportDate: new Date().toISOString(),
+      recordCount: sorted.length,
+      data: sorted.map((d: any) => ({
+        timestamp: d.timestamp,
+        temperature: d.temperature,
+        humidity: d.humidity,
+        pressure: d.pressure,
+        windSpeed: d.windSpeed,
+        windDirection: d.windDirection,
+        windGust: d.windGust,
+        rainfall: d.rainfall,
+        solarRadiation: d.solarRadiation,
+        uvIndex: d.uvIndex,
+        dewPoint: d.dewPoint,
+        eto: d.eto,
+        batteryVoltage: d.batteryVoltage,
+        panelTemperature: d.panelTemperature,
+        soilTemperature: d.soilTemperature,
+        soilMoisture: d.soilMoisture,
+        pm10: d.pm10,
+        pm25: d.pm25,
+        airDensity: d.airDensity,
+      })),
+    };
+    const content = JSON.stringify(exportObj, null, 2);
+    const blob = new Blob([content], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const timeLabel = chartTimeRange <= 48 ? chartTimeRange + 'h' : Math.round(chartTimeRange / 24) + 'd';
+    link.download = `${stationName}_${timeLabel}_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handlePasswordSubmit = async () => {
     try {
       const res = await fetch(`/api/shares/${shareToken}/validate`, {
@@ -1380,10 +1544,25 @@ function SharedDashboardContent() {
             <Button variant="outline" size="sm" disabled className="cursor-default">
               View Only
             </Button>
-            <Button variant="outline" size="sm" disabled={historicalData.length === 0} onClick={handleExportCSV}>
-              <Download className="h-4 w-4 mr-1" />
-              Export CSV
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={historicalData.length === 0}>
+                  <Download className="h-4 w-4 mr-1" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  CSV — Comma-separated values
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportTOA5}>
+                  TOA5 — Campbell Scientific format
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportJSON}>
+                  JSON — Structured data
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -1533,6 +1712,13 @@ function SharedDashboardContent() {
               unit="mm"
             />
             )}
+            {availableFields.temperature && availableFields.humidity && currentData.temperature != null && currentData.humidity != null && (
+            <MetricCard
+              title="Heat Index"
+              value={formatValue(calculateHeatIndex(currentData.temperature, currentData.humidity), 1)}
+              unit="°C"
+            />
+            )}
           </div>
 
           {/* Primary Charts */}
@@ -1608,6 +1794,19 @@ function SharedDashboardContent() {
               defaultExpanded={false}
             />
             </Suspense>
+            {availableFields.batteryVoltage && availableFields.solarRadiation && (
+            <Suspense fallback={<ChartFallback />}>
+            <DataBlockChart title="Battery Voltage vs Solar Irradiance" data={chartData}
+              series={[
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: "#22c55e", unit: "V", yAxisId: "left" },
+                { dataKey: "solar", name: "Solar Irradiance", color: "#f59e0b", unit: "W/m²", yAxisId: "right", strokeDasharray: "4 3" },
+              ]}
+              chartType="line" xAxisLabel="Time" yAxisLabel="Voltage (V)"
+              rightYAxisLabel="Irradiance (W/m²)"
+              showAverage={false} showMinMax={true} currentValue={currentData.batteryVoltage || 0}
+            />
+            </Suspense>
+            )}
           </div>
         </section>
         )}
@@ -1967,6 +2166,33 @@ function SharedDashboardContent() {
               ]}
               chartType="line" xAxisLabel="Time" yAxisLabel={`Speed (${windUnitLabel})`}
               showAverage={true} showMinMax={true} currentValue={currentData.windSpeed || 0}
+            />
+            )}
+            {availableFields.windSpeed && availableFields.windDirection && (
+            <DataBlockChart title="Wind Speed vs Wind Direction" data={chartData}
+              series={[
+                { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel, yAxisId: "left" },
+                { dataKey: "windDirection", name: "Wind Direction", color: "#a855f7", unit: "°", yAxisId: "right", strokeDasharray: "4 3" },
+              ]}
+              chartType="line" xAxisLabel="Time" yAxisLabel={`Speed (${windUnitLabel})`}
+              rightYAxisLabel="Direction (°)" rightYAxisDomain={[0, 360]}
+              showAverage={false} showMinMax={true} currentValue={currentData.windSpeed || 0}
+            />
+            )}
+            {availableFields.temperature && availableFields.humidity && (
+            <DataBlockChart title="Heat Index" data={chartData}
+              series={[{ dataKey: "heatIndex", name: "Heat Index", color: "#dc2626", unit: "°C" }]}
+              chartType="line" xAxisLabel="Time" yAxisLabel="Heat Index (°C)"
+              showAverage={true} showMinMax={true}
+              currentValue={currentData.temperature != null && currentData.humidity != null ? calculateHeatIndex(currentData.temperature, currentData.humidity) : 0}
+            />
+            )}
+            {availableFields.temperature && availableFields.windSpeed && (
+            <DataBlockChart title="Wind Chill" data={chartData}
+              series={[{ dataKey: "windChill", name: "Wind Chill", color: "#0ea5e9", unit: "°C" }]}
+              chartType="line" xAxisLabel="Time" yAxisLabel="Wind Chill (°C)"
+              showAverage={true} showMinMax={true}
+              currentValue={currentData.temperature != null && currentData.windSpeed != null ? calculateWindChill(currentData.temperature, windSpeedUnit === 'kmh' ? kmhToMs(currentData.windSpeed) : currentData.windSpeed) : 0}
             />
             )}
           </div>
@@ -2390,6 +2616,66 @@ function SharedDashboardContent() {
 
 
 
+        {/* Rainfall Section */}
+        {availableFields.rainfall && shareToken && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Rainfall</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricCard title="Rainfall (24h)" value={formatValue(rainfallPeriods.last24h, 2)} unit="mm" />
+            <MetricCard title="Rainfall (Yesterday)" value={formatValue(rainfallPeriods.yesterday, 2)} unit="mm" />
+            <MetricCard title="Rainfall (This Week)" value={formatValue(rainfallPeriods.thisWeek, 2)} unit="mm" />
+            <MetricCard title="Rainfall (This Month)" value={formatValue(rainfallPeriods.thisMonth, 2)} unit="mm" />
+          </div>
+          {(() => {
+            const currentYear = new Date().getFullYear();
+            const sortedYearly = (rainfallYearly || [])
+              .filter((r: any) => r.total > 0 || r.readings > 0)
+              .sort((a: any, b: any) => b.year - a.year)
+              .slice(0, 3)
+              .sort((a: any, b: any) => a.year - b.year);
+            if (sortedYearly.length === 0) return null;
+            const yearChartData = sortedYearly.map((r: any) => ({
+              timestamp: `${r.year}${r.year === currentYear ? ' (YTD)' : ''}`,
+              total: Math.round((r.total || 0) * 10) / 10,
+            }));
+            return (
+            <Card className="border border-gray-300 bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rainfall Totals (Last {sortedYearly.length} Year{sortedYearly.length === 1 ? '' : 's'})</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className={`grid gap-3 ${sortedYearly.length === 1 ? 'grid-cols-1' : sortedYearly.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                  {sortedYearly.map((entry: any) => {
+                    const isCurrent = entry.year === currentYear;
+                    return (
+                      <div key={entry.year} className={`rounded-lg border p-3 ${isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{entry.year}{isCurrent ? ' (YTD)' : ''}</p>
+                        <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{`${safeFixed(entry.total, 1)} mm`}</p>
+                        <p className="text-[10px] text-gray-400">{(entry.readings || 0).toLocaleString()} readings</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Suspense fallback={<ChartFallback />}>
+                  <DataBlockChart
+                    title="Annual Rainfall (Last 3 Years)"
+                    data={yearChartData}
+                    series={[{ dataKey: "total", name: "Annual Rainfall", color: "#3b82f6", unit: "mm" }]}
+                    chartType="bar" xAxisLabel="Year" yAxisLabel="Rainfall (mm)"
+                    showAverage={false} showMinMax={false}
+                  />
+                </Suspense>
+                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
+                </p>
+              </CardContent>
+            </Card>
+            );
+          })()}
+        </section>
+        )}
+
+
         {/* Historical Data with Time Range Picker */}
         {sv.historicalCharts !== false && (chartData.length > 0 || historicalChartData.length > 0) && (
         <section className="space-y-4">
@@ -2491,46 +2777,6 @@ function SharedDashboardContent() {
         </section>
         )}
 
-        {/* Yearly Rainfall Section */}
-        {availableFields.rainfall && shareToken && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Yearly Rainfall</h2>
-          {(() => {
-            const currentYear = new Date().getFullYear();
-            const activeYears = rainfallYearly?.filter((r: any) => r.total > 0 || r.readings > 0).map((r: any) => r.year) || [];
-            const years = [...new Set(activeYears)].sort((a, b) => a - b);
-            if (years.length === 0) return null;
-            return (
-            <Card className="border border-gray-300 bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rainfall Totals</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className={`grid gap-3 ${years.length <= 2 ? 'grid-cols-2' : years.length <= 3 ? 'grid-cols-3' : years.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'}`}>
-                  {years.map(year => {
-                    const entry = rainfallYearly?.find((r: any) => r.year === year);
-                    const isCurrent = year === currentYear;
-                    return (
-                      <div key={year} className={`rounded-lg border p-3 ${isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{year}{isCurrent ? ' (YTD)' : ''}</p>
-                        <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                          {entry ? `${safeFixed(entry.total, 1)} mm` : '—'}
-                        </p>
-                        {entry && <p className="text-[10px] text-gray-400">{entry.readings.toLocaleString()} readings</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
-                </p>
-              </CardContent>
-            </Card>
-            );
-          })()}
-        </section>
-        )}
-
         {/* Solar & Reference ET₀ */}
         {sv.solarEtCards !== false && (availableFields.solarRadiation || availableFields.temperature) && (
         <section className="space-y-4">
@@ -2615,6 +2861,12 @@ function SharedDashboardContent() {
             })()}
           </p>
           <p className="text-xs text-muted-foreground/70">Powered by Stratus Weather Server V1.3.1 [2026]</p>
+          <p className="text-xs text-muted-foreground/70 max-w-3xl mx-auto px-4">
+            Data is provided for informational and reference purposes only. Readings may contain
+            inaccuracies due to sensor calibration, environmental conditions, or transmission gaps,
+            and should be independently verified before being used for operational, agricultural,
+            scientific, or commercial decisions. Use at your own discretion.
+          </p>
         </div>
       </main>
     </div>

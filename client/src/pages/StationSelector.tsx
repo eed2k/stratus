@@ -284,15 +284,6 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
           ))}
         </div>
 
-        {/* Admin Actions */}
-        {isAdmin && (
-          <div className="text-center pt-4">
-            <Button variant="ghost" onClick={() => setLocation("/stations")}>
-              <Settings className="h-4 w-4 mr-2" />
-              Manage Stations
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Image Upload Dialog */}
