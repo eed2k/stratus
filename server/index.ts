@@ -12,6 +12,8 @@ import { initDatabase } from "./db";
 import * as postgres from "./db-postgres";
 import { auditLog, AUDIT_ACTIONS } from "./services/auditLogService";
 import { initStalenessMonitor, stopStalenessMonitor } from "./services/stalenessMonitorService";
+import { initWeeklyDigest } from "./services/weeklyDigestService";
+import { initReportScheduler } from "./services/reportSchedulerService";
 
 // Check if PostgreSQL mode is enabled
 const usePostgres = postgres.isPostgresEnabled();
@@ -273,6 +275,14 @@ app.use((req, res, next) => {
     // Start staleness monitor after server is ready
     initStalenessMonitor().catch(err => {
       console.error('[StalenessMonitor] Failed to initialize:', err);
+    });
+    // Start Mon/Fri weekly digest emails (requires DIGEST_ENABLED=true)
+    initWeeklyDigest().catch(err => {
+      console.error('[WeeklyDigest] Failed to initialize:', err);
+    });
+    // Start /reports portal scheduler (registers cron tasks for each saved schedule)
+    initReportScheduler().catch(err => {
+      console.error('[Reports] Failed to initialize scheduler:', err);
     });
   });
   

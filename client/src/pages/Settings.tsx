@@ -42,6 +42,7 @@ interface DropboxConfig {
   lastSyncAt?: string;
   lastSyncStatus?: string;
   lastSyncRecords?: number;
+  lastDataAt?: string | null;
 }
 
 export default function Settings() {
@@ -654,7 +655,7 @@ export default function Settings() {
               </div>
             ) : (
               <>
-                {/* Available files browser — grouped by folder with preview */}
+                {/* Available files browser - grouped by folder with preview */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>Dropbox Data Files</Label>
@@ -708,7 +709,6 @@ export default function Settings() {
                                           className={`flex items-center gap-2 w-full text-left py-1.5 px-2 rounded text-xs hover:bg-muted/70 ${isActive ? 'bg-primary/10 border border-primary/30' : ''}`}
                                           onClick={() => setPreviewPath(isActive ? null : file.path)}
                                         >
-                                          <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                                           <span className="truncate flex-1 font-mono">{file.name}</span>
                                           <span className="text-muted-foreground whitespace-nowrap">{(file.size / 1024).toFixed(0)} KB</span>
                                           {modDate && (
@@ -717,7 +717,6 @@ export default function Settings() {
                                               freshness === 'recent' ? 'text-amber-600 dark:text-amber-400' :
                                               'text-red-500 dark:text-red-400'
                                             }`}>
-                                              <Clock className="h-2.5 w-2.5" />
                                               {ageHours! < 1 ? `${Math.round(ageHours! * 60)}m` :
                                                ageHours! < 24 ? `${Math.round(ageHours!)}h` :
                                                `${Math.round(ageHours! / 24)}d`} ago
@@ -793,17 +792,17 @@ export default function Settings() {
                           const ageH = (Date.now() - ts.getTime()) / 3600000;
                           if (ageH < 2) return (
                             <div className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 p-2 rounded">
-                              ✓ <strong>Active</strong> — This file has recent data ({Math.round(ageH < 1 ? ageH * 60 : ageH)}{ageH < 1 ? ' minutes' : ' hours'} ago). Safe to add as a station.
+                              ✓ <strong>Active</strong> - This file has recent data ({Math.round(ageH < 1 ? ageH * 60 : ageH)}{ageH < 1 ? ' minutes' : ' hours'} ago). Safe to add as a station.
                             </div>
                           );
                           if (ageH < 48) return (
                             <div className="text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 p-2 rounded">
-                              ⚠ <strong>Recently updated</strong> — Last record is {Math.round(ageH)} hours old. The station may have intermittent uploads.
+                              ⚠ <strong>Recently updated</strong> - Last record is {Math.round(ageH)} hours old. The station may have intermittent uploads.
                             </div>
                           );
                           return (
                             <div className="text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-2 rounded">
-                              ✕ <strong>Stale</strong> — Last record is {Math.round(ageH / 24)} days old. This station may no longer be uploading.
+                              ✕ <strong>No recent data</strong> - Last record is {Math.round(ageH / 24)} days old. This station may no longer be uploading.
                             </div>
                           );
                         })()}
@@ -856,7 +855,7 @@ export default function Settings() {
                             </p>
                             {config.lastSyncAt && (
                               <p className="text-xs text-muted-foreground">
-                                Last sync: {new Date(config.lastSyncAt).toLocaleString('en-ZA', { 
+                                Last checked: {new Date(config.lastSyncAt).toLocaleString('en-ZA', { 
                                   year: 'numeric', 
                                   month: 'short', 
                                   day: 'numeric',
@@ -868,6 +867,28 @@ export default function Settings() {
 
                               </p>
                             )}
+                            {config.lastDataAt ? (
+                              <p className="text-xs text-muted-foreground">
+                                Latest data: {new Date(config.lastDataAt).toLocaleString('en-ZA', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  timeZoneName: 'short'
+                                })}
+                                {(() => {
+                                  const ageMs = Date.now() - new Date(config.lastDataAt as string).getTime();
+                                  const ageH = ageMs / 3600000;
+                                  if (ageH > 24) {
+                                    return <span className="ml-1 text-amber-600 dark:text-amber-400">(no recent data)</span>;
+                                  }
+                                  return null;
+                                })()}
+                              </p>
+                            ) : config.stationId ? (
+                              <p className="text-xs text-muted-foreground">Latest data: <span className="text-amber-600 dark:text-amber-400">no recent data</span></p>
+                            ) : null}
                           </div>
 
                         </div>
@@ -1004,7 +1025,7 @@ export default function Settings() {
                         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                           <div>
                             <span className="font-medium">Account:</span>{' '}
-                            {config.rikaEmail || config.rikaAccount || '—'}
+                            {config.rikaEmail || config.rikaAccount || '-'}
                           </div>
                           <div>
                             <span className="font-medium">Poll Interval:</span>{' '}

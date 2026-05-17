@@ -331,11 +331,13 @@ export const DataBlockChart = memo(function DataBlockChart({
             <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={false} />
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
+            {rightYAxisProps && <YAxis {...rightYAxisProps} />}
             <Tooltip content={<CustomTooltip />} />
             {!compact && <Legend iconSize={0} wrapperStyle={{ paddingTop: 20 }} />}
             {series.map((s) => (
               <Bar
                 key={s.dataKey}
+                {...(hasRightAxis ? { yAxisId: s.yAxisId === 'right' ? 'right' : 'left' } : {})}
                 dataKey={s.dataKey}
                 name={s.name}
                 fill={s.color}

@@ -558,69 +558,64 @@ router.get('/shares/:shareToken/data/rainfall-yearly', async (req: Request, res:
     if (!access) {
       return res.status(404).json({ success: false, error: 'Share not found or expired' });
     }
-
-    const rainfallFields = [
-      "data->>'Rain_mm_Tot'", "data->>'Rain_Tot'", "data->>'Precip_Tot'",
-      "data->>'Rain_1_Tot'", "data->>'Rain_Tot_1'",
-      "data->>'rainfall'", "data->>'Rain_mm'", "data->>'Precip'",
-      "data->>'Rain'", "data->>'Rainfall'"
-    ];
-    const coalesce = rainfallFields.join(', ');
-
-    const result = await postgres.query(`
-      WITH rainfall_readings AS (
-        SELECT
-          EXTRACT(YEAR FROM timestamp) AS year,
-          timestamp,
-          COALESCE(${coalesce})::numeric AS rainfall_val,
-          LAG(COALESCE(${coalesce})::numeric) OVER (
-            PARTITION BY EXTRACT(YEAR FROM timestamp)
-            ORDER BY timestamp
-          ) AS prev_val
-        FROM weather_data
-        WHERE station_id = $1
-          AND COALESCE(${coalesce}) IS NOT NULL
-      )
-      SELECT
-        year,
-        COUNT(*) AS readings,
-        MAX(rainfall_val) AS max_val,
-        SUM(rainfall_val) AS sum_total,
-        SUM(CASE
-          WHEN prev_val IS NOT NULL AND rainfall_val >= prev_val
-            AND (rainfall_val - prev_val) < 200
-          THEN rainfall_val - prev_val
-          ELSE 0
-        END) AS delta_sum
-      FROM rainfall_readings
-      GROUP BY year
-      HAVING COUNT(*) >= 2
-      ORDER BY year DESC
-      LIMIT 6
-    `, [access.stationId]);
-
-    const currentYear = new Date().getFullYear();
-    const yearlyTotals = result.rows.map((row: any) => {
-      const year = parseInt(row.year);
-      const readings = parseInt(row.readings);
-      const sumTotal = parseFloat(row.sum_total) || 0;
-      const deltaSum = parseFloat(row.delta_sum) || 0;
-      const maxVal = parseFloat(row.max_val) || 0;
-      // Incremental loggers (CRBasic Totalize, tipping bucket): use SUM
-      // Cumulative loggers (running total): use sum of positive deltas
-      const total = maxVal <= 50 ? sumTotal : deltaSum;
-      return {
-        year,
-        total: Math.round(Math.max(0, total) * 10) / 10,
-        readings,
-        isCurrent: year === currentYear,
-      };
+    const { getRainfallTotals } = await import('../services/rainfallAggregation');
+    const yearlyTotals = await getRainfallTotals(access.stationId, 'year', {
+      years: req.query.years ? Number(req.query.years) : undefined,
     });
-
-    res.json(yearlyTotals);
+    return res.json(yearlyTotals);
   } catch (error) {
     console.error('Error fetching shared rainfall yearly totals:', error);
-    res.status(500).json({ message: 'Failed to fetch rainfall data' });
+    return res.status(500).json({ message: 'Failed to fetch rainfall data' });
+  }
+});
+
+// Rainfall monthly totals via share token (public)
+router.get('/shares/:shareToken/data/rainfall-monthly', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken, req);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+    const { getRainfallTotals } = await import('../services/rainfallAggregation');
+    const monthlyTotals = await getRainfallTotals(access.stationId, 'month', {
+      months: req.query.months ? Number(req.query.months) : undefined,
+    });
+    return res.json(monthlyTotals);
+  } catch (error) {
+    console.error('Error fetching shared rainfall monthly totals:', error);
+    return res.status(500).json({ message: 'Failed to fetch rainfall data' });
+  }
+});
+
+// Rainfall config via share token (public, read-only)
+router.get('/shares/:shareToken/rainfall-config', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken, req);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+    const { getRainfallConfig, DEFAULT_TIMEZONE_OFFSET_HOURS, DEFAULT_TIP_FACTOR } =
+      await import('../config/stationRainfallConfig');
+    const cfg = getRainfallConfig(access.stationId);
+    if (!cfg) {
+      return res.json({
+        type: 'auto', offset: 0,
+        timezoneOffsetHours: DEFAULT_TIMEZONE_OFFSET_HOURS,
+        tipFactor: DEFAULT_TIP_FACTOR, configured: false,
+      });
+    }
+    return res.json({
+      type: cfg.type,
+      sourceField: cfg.sourceField ?? null,
+      sourceTable: cfg.sourceTable ?? null,
+      offset: cfg.offset ?? 0,
+      timezoneOffsetHours: cfg.timezoneOffsetHours ?? DEFAULT_TIMEZONE_OFFSET_HOURS,
+      tipFactor: cfg.tipFactor ?? DEFAULT_TIP_FACTOR,
+      configured: true,
+    });
+  } catch (error) {
+    console.error('Error fetching shared rainfall config:', error);
+    return res.status(500).json({ message: 'Failed to fetch rainfall config' });
   }
 });
 

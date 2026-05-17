@@ -29,6 +29,17 @@ export interface EmailOptions {
   subject: string;
   text?: string;
   html?: string;
+  /**
+   * Optional file attachments. `content` is a Buffer (binary) or string
+   * (already-base64-encoded). MailerSend's REST API accepts a `disposition`
+   * of "attachment" (default) or "inline".
+   */
+  attachments?: Array<{
+    filename: string;
+    content: Buffer | string;
+    /** MIME type — informational only; MailerSend infers from filename. */
+    contentType?: string;
+  }>;
 }
 
 export interface AlarmEmailData {
@@ -63,7 +74,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
     
-    const payload = {
+    const payload: any = {
       from: {
         email: fromEmail,
         name: fromName,
@@ -73,6 +84,16 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       text: options.text || '',
       html: options.html || options.text || '',
     };
+
+    if (options.attachments?.length) {
+      payload.attachments = options.attachments.map(a => ({
+        filename: a.filename,
+        content: Buffer.isBuffer(a.content)
+          ? a.content.toString('base64')
+          : a.content,
+        disposition: 'attachment',
+      }));
+    }
 
     const response = await fetch(MAILERSEND_API_URL, {
       method: 'POST',

@@ -58,10 +58,15 @@ export function serveStatic(app: Express) {
     immutable: true,
   }));
 
-  // Serve other static files with no-cache
+  // Serve other static files with no-cache. Disable index serving so
+  // requests for "/" (and any other path resolving to a directory) fall
+  // through to the SPA wildcard handler below, which sets strict no-cache
+  // headers on index.html. Without this the browser can serve a stale
+  // index.html (and therefore an old bundle hash) for hours after deploy.
   app.use(express.static(distPath, {
     maxAge: 0,
     etag: false,
+    index: false,
   }));
 
   app.use("*", (_req, res) => {

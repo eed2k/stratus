@@ -478,6 +478,17 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
       result['humidity'] = Math.min(100, Math.max(0, result['humidity']));
     }
 
+    // Reject sentinel/invalid rainfall readings. Rainfall is physically
+    // non-negative, so any negative value is a Campbell error sentinel
+    // (e.g. -7999, -8.191 from a failed SDI-12 read or unconfigured sensor).
+    // Single-period totals above 200 mm are also rejected as implausible
+    // (would imply a 200 mm/scan downpour).
+    if (result['rainfall'] !== null && result['rainfall'] !== undefined) {
+      if (result['rainfall']! < 0 || result['rainfall']! > 200) {
+        result['rainfall'] = null;
+      }
+    }
+
   return result;
 }
 

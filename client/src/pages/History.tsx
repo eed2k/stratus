@@ -273,13 +273,13 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleExportCSV}>
-              CSV — Comma-separated values
+              CSV - Comma-separated values
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleExportTOA5}>
-              TOA5 — Campbell Scientific format
+              TOA5 - Campbell Scientific format
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleExportJSON}>
-              JSON — Structured data
+              JSON - Structured data
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

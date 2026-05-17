@@ -83,10 +83,15 @@ export const MpptChargerCard = memo(function MpptChargerCard({
   const batteryHealth = getBatteryHealth(batteryVoltage);
   const cardTitle = label || 'MPPT Solar Charge Controller';
 
+  const FONT = { fontFamily: 'Arial, Helvetica, sans-serif' } as const;
+  const HEADING = "text-sm font-semibold text-black";
+  const LABEL = "text-[11px] font-normal text-gray-700";
+  const VALUE = "text-base font-normal text-black";
+
   return (
     <Card className="border border-gray-300 bg-white" data-testid="card-mppt-charger">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-normal text-black flex items-center gap-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+        <CardTitle className="text-base font-semibold text-black flex items-center gap-2" style={FONT}>
           {cardTitle}
         </CardTitle>
       </CardHeader>
@@ -94,21 +99,21 @@ export const MpptChargerCard = memo(function MpptChargerCard({
         <div className="space-y-3">
           {/* Charger State */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Charger State</span>
+            <span className={HEADING} style={FONT}>Charger State</span>
             <div className="text-right">
-              <span className={`text-sm font-medium ${stateInfo.color}`}>{stateInfo.label}</span>
-              <p className="text-[10px] text-gray-400 max-w-[200px]">{stateInfo.description}</p>
+              <span className={`text-sm font-medium ${stateInfo.color}`} style={FONT}>{stateInfo.label}</span>
+              <p className={`${LABEL} max-w-[200px]`} style={FONT}>{stateInfo.description}</p>
             </div>
           </div>
 
           {/* State Legend */}
-          <div className="text-[10px] text-gray-400">
-            <p className="text-[10px] text-gray-500 mb-0.5">Charger State Legend</p>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 pl-2">
+          <div style={FONT}>
+            <p className={`${LABEL} mb-0.5`} style={FONT}>Charger State Legend</p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 pl-2 text-[11px]">
               {Object.entries(CHARGER_STATES).filter(([k]) => [0, 3, 4, 5].includes(Number(k))).map(([code, info]) => (
                 <div key={code} className="flex items-center gap-1">
-                  <span className={`font-medium ${info.color}`}>{code}</span>
-                  <span>= {info.label}</span>
+                  <span className={`font-medium ${info.color}`} style={FONT}>{code}</span>
+                  <span className="text-black" style={FONT}>= {info.label}</span>
                 </div>
               ))}
             </div>
@@ -116,40 +121,40 @@ export const MpptChargerCard = memo(function MpptChargerCard({
 
           {/* Solar Input */}
           <div className="border-t border-gray-100 pt-2">
-            <p className="text-xs text-gray-400 mb-1.5">Solar Input</p>
+            <p className={`${HEADING} mb-1.5`} style={FONT}>Solar Input</p>
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {solarVoltage !== null ? safeFixed(solarVoltage, 1) : '–'}
+                <p className={VALUE} style={FONT}>
+                  {solarVoltage !== null ? safeFixed(solarVoltage, 1) : '-'}
                 </p>
-                <p className="text-xs text-gray-500">Voltage (V)</p>
+                <p className={LABEL} style={FONT}>Voltage (V)</p>
               </div>
               <div>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {solarCurrent !== null ? safeFixed(solarCurrent * 1000, 0) : '–'}
+                <p className={VALUE} style={FONT}>
+                  {solarCurrent !== null ? safeFixed(solarCurrent * 1000, 0) : '-'}
                 </p>
-                <p className="text-xs text-gray-500">Current (mA)</p>
+                <p className={LABEL} style={FONT}>Current (mA)</p>
               </div>
               <div>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {solarPower !== null ? safeFixed(solarPower, 1) : '–'}
+                <p className={VALUE} style={FONT}>
+                  {solarPower !== null ? safeFixed(solarPower, 1) : '-'}
                 </p>
-                <p className="text-xs text-gray-500">Power (W)</p>
+                <p className={LABEL} style={FONT}>Power (W)</p>
               </div>
             </div>
           </div>
 
           {/* Battery */}
           <div className="border-t border-gray-100 pt-2">
-            <p className="text-xs text-gray-400 mb-1.5">Battery</p>
+            <p className={`${HEADING} mb-1.5`} style={FONT}>Battery</p>
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {batteryVoltage !== null ? safeFixed(batteryVoltage, 2) : '–'}
+                <span className="text-xl font-normal text-black" style={FONT}>
+                  {batteryVoltage !== null ? safeFixed(batteryVoltage, 2) : '-'}
                 </span>
-                <span className="text-xs text-gray-500">V</span>
+                <span className={LABEL} style={FONT}>V</span>
               </div>
-              <span className={`text-xs font-medium ${batteryHealth.color}`}>
+              <span className={`text-xs font-medium ${batteryHealth.color}`} style={FONT}>
                 {batteryHealth.label}
               </span>
             </div>
@@ -170,25 +175,25 @@ export const MpptChargerCard = memo(function MpptChargerCard({
 
           {/* Load & MPPT Current */}
           <div className="border-t border-gray-100 pt-2">
-            <p className="text-xs text-gray-400 mb-1.5">Load Output</p>
+            <p className={`${HEADING} mb-1.5`} style={FONT}>Load Output</p>
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {loadVoltage !== null ? safeFixed(loadVoltage, 2) : '–'}
+                <p className={VALUE} style={FONT}>
+                  {loadVoltage !== null ? safeFixed(loadVoltage, 2) : '-'}
                 </p>
-                <p className="text-xs text-gray-500">Voltage (V)</p>
+                <p className={LABEL} style={FONT}>Voltage (V)</p>
               </div>
               <div>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {loadCurrent !== null ? safeFixed(loadCurrent * 1000, 0) : '–'}
+                <p className={VALUE} style={FONT}>
+                  {loadCurrent !== null ? safeFixed(loadCurrent * 1000, 0) : '-'}
                 </p>
-                <p className="text-xs text-gray-500">Current (mA)</p>
+                <p className={LABEL} style={FONT}>Current (mA)</p>
               </div>
               <div>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {loadVoltage !== null && loadCurrent !== null ? safeFixed(loadVoltage * loadCurrent, 2) : '–'}
+                <p className={VALUE} style={FONT}>
+                  {loadVoltage !== null && loadCurrent !== null ? safeFixed(loadVoltage * loadCurrent, 2) : '-'}
                 </p>
-                <p className="text-xs text-gray-500">Power (W)</p>
+                <p className={LABEL} style={FONT}>Power (W)</p>
               </div>
             </div>
           </div>
@@ -198,15 +203,15 @@ export const MpptChargerCard = memo(function MpptChargerCard({
           <div className="border-t border-gray-100 pt-2">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Board Temperature</p>
-                <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <p className={`${LABEL} mb-0.5`} style={FONT}>Board Temperature</p>
+                <p className={VALUE} style={FONT}>
                   {safeFixed(boardTemp, 1)}°C
                 </p>
               </div>
               {mode !== null && mode !== undefined && (
               <div className="text-right">
-                <p className="text-xs text-gray-400 mb-0.5">Mode</p>
-                <p className="text-sm font-medium text-black">{mode}</p>
+                <p className={`${LABEL} mb-0.5`} style={FONT}>Mode</p>
+                <p className={VALUE} style={FONT}>{mode}</p>
               </div>
               )}
             </div>
@@ -216,30 +221,24 @@ export const MpptChargerCard = memo(function MpptChargerCard({
           {/* Configuration Parameters */}
           {(bulkFloatVoltage != null || floatVoltage != null || currentLimit != null) && (
           <div className="border-t border-gray-100 pt-2">
-            <p className="text-xs text-gray-400 mb-1.5">Configuration</p>
+            <p className={`${HEADING} mb-1.5`} style={FONT}>Configuration</p>
             <div className="grid grid-cols-3 gap-2">
               {bulkFloatVoltage != null && (
               <div>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(bulkFloatVoltage, 1)}
-                </p>
-                <p className="text-[10px] text-gray-400">Bulk/Float (V)</p>
+                <p className={VALUE} style={FONT}>{safeFixed(bulkFloatVoltage, 1)}</p>
+                <p className={LABEL} style={FONT}>Bulk/Float (V)</p>
               </div>
               )}
               {floatVoltage != null && (
               <div>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(floatVoltage, 1)}
-                </p>
-                <p className="text-[10px] text-gray-400">Float (V)</p>
+                <p className={VALUE} style={FONT}>{safeFixed(floatVoltage, 1)}</p>
+                <p className={LABEL} style={FONT}>Float (V)</p>
               </div>
               )}
               {currentLimit != null && (
               <div>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(currentLimit, 1)}
-                </p>
-                <p className="text-[10px] text-gray-400">I Limit (A)</p>
+                <p className={VALUE} style={FONT}>{safeFixed(currentLimit, 1)}</p>
+                <p className={LABEL} style={FONT}>I Limit (A)</p>
               </div>
               )}
             </div>
@@ -247,34 +246,26 @@ export const MpptChargerCard = memo(function MpptChargerCard({
             <div className="grid grid-cols-3 gap-2 mt-1">
               {absorbTimeLimit != null && (
               <div>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(absorbTimeLimit, 1)}
-                </p>
-                <p className="text-[10px] text-gray-400">Absorb Limit (h)</p>
+                <p className={VALUE} style={FONT}>{safeFixed(absorbTimeLimit, 1)}</p>
+                <p className={LABEL} style={FONT}>Absorb Limit (h)</p>
               </div>
               )}
               {absorbFullCurrent != null && (
               <div>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(absorbFullCurrent, 2)}
-                </p>
-                <p className="text-[10px] text-gray-400">Absorb I (A)</p>
+                <p className={VALUE} style={FONT}>{safeFixed(absorbFullCurrent, 2)}</p>
+                <p className={LABEL} style={FONT}>Absorb I (A)</p>
               </div>
               )}
               {vCalSlope != null && (
               <div>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(vCalSlope, 4)}
-                </p>
-                <p className="text-[10px] text-gray-400">V Cal Slope</p>
+                <p className={VALUE} style={FONT}>{safeFixed(vCalSlope, 4)}</p>
+                <p className={LABEL} style={FONT}>V Cal Slope</p>
               </div>
               )}
               {iCalSlope != null && (
               <div>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  {safeFixed(iCalSlope, 4)}
-                </p>
-                <p className="text-[10px] text-gray-400">I Cal Slope</p>
+                <p className={VALUE} style={FONT}>{safeFixed(iCalSlope, 4)}</p>
+                <p className={LABEL} style={FONT}>I Cal Slope</p>
               </div>
               )}
             </div>

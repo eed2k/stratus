@@ -198,6 +198,29 @@ export const insertWeatherStationSchema = createInsertSchema(weatherStations).om
 export type InsertWeatherStation = z.infer<typeof insertWeatherStationSchema>;
 export type WeatherStation = typeof weatherStations.$inferSelect;
 
+// Per-station rainfall / sensor calibration. One row per station.
+// Maintained from the admin /calibration page. Read by
+// server/config/stationRainfallConfig.ts + stationRainfallOffsets.ts
+// through an in-memory cache that is reloaded on every PUT.
+export const stationCalibration = pgTable("station_calibration", {
+  stationId: integer("station_id")
+    .primaryKey()
+    .references(() => weatherStations.id, { onDelete: "cascade" }),
+  // 'auto' = use legacy heuristic; otherwise pin the interpretation.
+  rainfallType: varchar("rainfall_type", { length: 32 }).default("auto").notNull(),
+  rainfallOffset: real("rainfall_offset").default(0).notNull(),
+  tipFactor: real("tip_factor").default(0.2).notNull(),
+  dailyResetHour: integer("daily_reset_hour").default(0).notNull(),
+  scalingMultiplier: real("scaling_multiplier").default(1).notNull(),
+  sourceField: text("source_field"),
+  sourceTable: text("source_table"),
+  timezoneOffsetHours: integer("timezone_offset_hours").default(2).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type StationCalibration = typeof stationCalibration.$inferSelect;
+export type InsertStationCalibration = typeof stationCalibration.$inferInsert;
+
 // User-Station relationship (many-to-many)
 export const userStations = pgTable("user_stations", {
   id: serial("id").primaryKey(),

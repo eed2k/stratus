@@ -228,10 +228,14 @@ import fileWatcherRoutes from "./services/fileWatcherRoutes";
 import { fileWatcherService } from "./services/fileWatcherService";
 import dropboxSyncRoutes from "./services/dropboxSyncRoutes";
 import { dropboxSyncService, setWeatherDataBroadcaster } from "./services/dropboxSyncService";
+import reportRoutes from "./services/reportRoutes";
+import calibrationRoutes from "./services/calibrationRoutes";
+import { ensureCalibrationCache } from "./services/calibrationCache";
 import * as postgres from "./db-postgres";
 import * as db from "./db";
 const usePostgres = postgres.isPostgresEnabled();
 import { triggerStalenessCheck, sendTestStalenessAlert } from "./services/stalenessMonitorService";
+import { runDigestNow } from "./services/weeklyDigestService";
 
 const DEMO_MODE = process.env.VITE_DEMO_MODE === 'true';
 
@@ -293,6 +297,17 @@ export async function registerRoutes(
   // Register Dropbox sync routes (admin-only)
   app.use('/api/dropbox-sync', isAuthenticated, isAdmin, dropboxSyncRoutes);
 
+  // Reports portal (separate password-cookie auth — see reportRoutes.ts)
+  app.use('/api/reports', reportRoutes);
+
+  // Station calibration admin (hidden /calibration page — admin only)
+  app.use('/api/calibration', isAuthenticated, isAdmin, calibrationRoutes);
+  // Warm the calibration cache so hot-path rainfall helpers are
+  // populated before the first dashboard / ingest query lands.
+  ensureCalibrationCache().catch((e) =>
+    console.error("[calibration] initial cache load failed:", e),
+  );
+
   // ── Staleness Monitor API routes ──────────────────────────────────────
   // GET /api/staleness/status - Check current staleness status of all stations
   app.get('/api/staleness/status', isAuthenticated, isAdmin, async (_req, res) => {
@@ -313,6 +328,20 @@ export async function registerRoutes(
         res.json({ success: true, message: 'Test staleness alert email sent successfully' });
       } else {
         res.status(500).json({ success: false, message: 'Failed to send test email. Check MailerSend configuration.' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // POST /api/digest/run-now - Manually trigger the weekly digest email (admin only)
+  app.post('/api/digest/run-now', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const sent = await runDigestNow();
+      if (sent) {
+        res.json({ success: true, message: 'Weekly digest email sent.' });
+      } else {
+        res.status(500).json({ success: false, message: 'Failed to send digest. Check MailerSend configuration and server logs.' });
       }
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
@@ -1467,93 +1496,72 @@ export async function registerRoutes(
         return res.status(400).json({ message: error });
       }
 
-      // Rainfall field names in order of preference (stored in JSONB data column).
-      // Incremental field names (*_Tot from CRBasic Totalize) are listed first.
-      const rainfallFields = [
-        "data->>'Rain_mm_Tot'", "data->>'Rain_Tot'", "data->>'Precip_Tot'",
-        "data->>'Rain_1_Tot'", "data->>'Rain_Tot_1'",
-        "data->>'rainfall'", "data->>'Rain_mm'", "data->>'Precip'",
-        "data->>'Rain'", "data->>'Rainfall'"
-      ];
-      const coalesce = rainfallFields.join(', ');
-
-      const result = await postgres.query(`
-        WITH rainfall_readings AS (
-          SELECT
-            EXTRACT(YEAR FROM timestamp) AS year,
-            timestamp,
-            COALESCE(${coalesce})::numeric AS rainfall_val,
-            LAG(COALESCE(${coalesce})::numeric) OVER (
-              PARTITION BY EXTRACT(YEAR FROM timestamp)
-              ORDER BY timestamp
-            ) AS prev_val
-          FROM weather_data
-          WHERE station_id = $1
-            AND COALESCE(${coalesce}) IS NOT NULL
-        )
-        SELECT
-          year,
-          COUNT(*) AS readings,
-          MAX(rainfall_val) AS max_val,
-          SUM(rainfall_val) AS sum_total,
-          -- Positive increments only (handles cumulative gauges with resets)
-          SUM(CASE
-            WHEN prev_val IS NOT NULL AND rainfall_val >= prev_val
-              AND (rainfall_val - prev_val) < 200
-            THEN rainfall_val - prev_val
-            ELSE 0
-          END) AS delta_sum,
-          -- Number of decreases (a true cumulative gauge resets at midnight or monthly)
-          COUNT(CASE
-            WHEN prev_val IS NOT NULL AND rainfall_val < prev_val - 0.5
-            THEN 1
-          END) AS reset_count
-        FROM rainfall_readings
-        GROUP BY year
-        HAVING COUNT(*) >= 2
-        ORDER BY year DESC
-        LIMIT 6
-      `, [stationId]);
-
-      const currentYear = new Date().getFullYear();
-      const yearlyTotals = result.rows.map((row: any) => {
-        const year = parseInt(row.year);
-        const readings = parseInt(row.readings);
-        const sumTotal = parseFloat(row.sum_total) || 0;
-        const deltaSum = parseFloat(row.delta_sum) || 0;
-        const resetCount = parseInt(row.reset_count) || 0;
-        const maxVal = parseFloat(row.max_val) || 0;
-
-        // Detect cumulative vs incremental:
-        //  - Incremental (CRBasic Totalize, tipping bucket): max single reading
-        //    is small (rain in one scan rarely exceeds ~20 mm) AND SUM is
-        //    sensible.
-        //  - Cumulative (running total): max value is large (often >>100 mm)
-        //    and SUM grows quadratically with reading count.
-        // Heuristic: if max value is small (<= 50 mm) the readings are
-        // incremental. Otherwise treat as cumulative and use positive deltas.
-        let total: number;
-        if (maxVal <= 50) {
-          // Incremental data: SUM is correct
-          total = sumTotal;
-        } else {
-          // Cumulative data: sum of positive increments (also handles resets)
-          total = deltaSum;
-        }
-
-        return {
-          year,
-          total: Math.round(Math.max(0, total) * 10) / 10,
-          readings,
-          resetCount,
-          isCurrent: year === currentYear,
-        };
+      const { getRainfallTotals } = await import('./services/rainfallAggregation');
+      const yearlyTotals = await getRainfallTotals(stationId, 'year', {
+        years: req.query.years ? Number(req.query.years) : undefined,
       });
-
-      res.json(yearlyTotals);
+      return res.json(yearlyTotals);
     } catch (error) {
       console.error("Error fetching rainfall yearly totals:", error);
-      res.status(500).json({ message: "Failed to fetch rainfall data" });
+      return res.status(500).json({ message: "Failed to fetch rainfall data" });
+    }
+  });
+
+  // GET /api/stations/:stationId/data/rainfall-monthly
+  // Per-month rainfall totals (last 24 months by default; override via ?months=N).
+  // Uses the same per-station config + heuristic fallback as the yearly endpoint.
+  app.get("/api/stations/:stationId/data/rainfall-monthly", optionalAuth, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+
+      const { getRainfallTotals } = await import('./services/rainfallAggregation');
+      const monthlyTotals = await getRainfallTotals(stationId, 'month', {
+        months: req.query.months ? Number(req.query.months) : undefined,
+      });
+      return res.json(monthlyTotals);
+    } catch (error) {
+      console.error("Error fetching rainfall monthly totals:", error);
+      return res.status(500).json({ message: "Failed to fetch rainfall data" });
+    }
+  });
+
+  // GET /api/stations/:stationId/rainfall-config
+  // Exposes the station's rainfall configuration (type, offset, tz) so the
+  // client can pick the correct local aggregation (SUM vs delta) for daily
+  // and chart values. Returns { type: 'auto' } when no config exists.
+  app.get("/api/stations/:stationId/rainfall-config", optionalAuth, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const { getRainfallConfig, DEFAULT_TIMEZONE_OFFSET_HOURS, DEFAULT_TIP_FACTOR } =
+        await import('./config/stationRainfallConfig');
+      const cfg = getRainfallConfig(stationId);
+      if (!cfg) {
+        return res.json({
+          type: 'auto',
+          offset: 0,
+          timezoneOffsetHours: DEFAULT_TIMEZONE_OFFSET_HOURS,
+          tipFactor: DEFAULT_TIP_FACTOR,
+          configured: false,
+        });
+      }
+      return res.json({
+        type: cfg.type,
+        sourceField: cfg.sourceField ?? null,
+        sourceTable: cfg.sourceTable ?? null,
+        offset: cfg.offset ?? 0,
+        timezoneOffsetHours: cfg.timezoneOffsetHours ?? DEFAULT_TIMEZONE_OFFSET_HOURS,
+        tipFactor: cfg.tipFactor ?? DEFAULT_TIP_FACTOR,
+        configured: true,
+      });
+    } catch (error) {
+      console.error("Error fetching rainfall config:", error);
+      return res.status(500).json({ message: "Failed to fetch rainfall config" });
     }
   });
 

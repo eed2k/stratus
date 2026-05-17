@@ -24,6 +24,8 @@ const History = lazy(() => import("@/pages/History"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const Alarms = lazy(() => import("@/pages/Alarms"));
 const Reports = lazy(() => import("@/pages/Reports"));
+const ReportsSchedule = lazy(() => import("@/pages/ReportsSchedule"));
+const Calibration = lazy(() => import("@/pages/Calibration"));
 const SharedDashboard = lazy(() => import("@/pages/SharedDashboard"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const AccountSettings = lazy(() => import("@/pages/AccountSettings"));
@@ -51,9 +53,12 @@ function Router() {
   const isForgotPasswordRoute = location === '/forgot-password';
   const isResetPasswordRoute = location.startsWith('/reset-password');
   const isSetupPasswordRoute = location.startsWith('/setup-password');
-  
+  // /reports, /reports/schedule and /calibration are admin-only pages
+  // that live inside the authenticated app. They no longer have a
+  // separate portal password.
+
   // Check if this is a friendly share slug (e.g., /swakop-uranium)
-  const knownPrefixes = ['/', '/shared/', '/forgot-password', '/reset-password', '/setup-password', '/dashboard', '/campbell', '/stations', '/users', '/history', '/alarms', '/reports', '/settings', '/account', '/docs'];
+  const knownPrefixes = ['/', '/shared/', '/forgot-password', '/reset-password', '/setup-password', '/dashboard', '/campbell', '/stations', '/users', '/history', '/alarms', '/reports', '/calibration', '/settings', '/account', '/docs'];
   const isKnownRoute = location === '/' || knownPrefixes.some(p => p !== '/' && location.startsWith(p));
   const isSlugRoute = !isKnownRoute && /^\/[a-z0-9][a-z0-9-]*$/.test(location);
   
@@ -218,6 +223,12 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
               </Route>
               <Route path="/reports">
                 <AdminRoute isAdmin={isAdmin}><Reports /></AdminRoute>
+              </Route>
+              <Route path="/reports/schedule">
+                <AdminRoute isAdmin={isAdmin}><ReportsSchedule /></AdminRoute>
+              </Route>
+              <Route path="/calibration">
+                <AdminRoute isAdmin={isAdmin}><Calibration /></AdminRoute>
               </Route>
               <Route path="/settings">
                 <AdminRoute isAdmin={isAdmin}><Settings /></AdminRoute>

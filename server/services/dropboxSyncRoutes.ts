@@ -9,6 +9,7 @@
 import { Router, Request, Response } from 'express';
 import { dropboxSyncService, DropboxConfig } from './dropboxSyncService';
 import { storage } from '../localStorage';
+import * as pg from '../db-postgres';
 import https from 'https';
 
 const router = Router();
@@ -112,6 +113,35 @@ router.get('/status', (req: Request, res: Response) => {
 router.get('/configs', async (req: Request, res: Response) => {
   try {
     const configs = await storage.getDropboxConfigs();
+    // Enrich with lastDataAt = MAX(timestamp) of weather_data per station
+    try {
+      const pool = pg.getPool();
+      const stationIds = Array.from(new Set(
+        (configs as any[]).map(c => c.stationId).filter((id: any) => typeof id === 'number' && id > 0)
+      ));
+      if (pool && stationIds.length > 0) {
+        const r = await pool.query(
+          `SELECT station_id, MAX(timestamp) AS last_data_at
+             FROM weather_data
+            WHERE station_id = ANY($1::int[])
+            GROUP BY station_id`,
+          [stationIds]
+        );
+        const map = new Map<number, string>();
+        for (const row of r.rows) {
+          if (row.last_data_at) map.set(Number(row.station_id), new Date(row.last_data_at).toISOString());
+        }
+        for (const c of configs as any[]) {
+          if (typeof c.stationId === 'number' && map.has(c.stationId)) {
+            c.lastDataAt = map.get(c.stationId);
+          } else {
+            c.lastDataAt = null;
+          }
+        }
+      }
+    } catch (enrichErr: any) {
+      console.warn('[DropboxSync] Could not enrich configs with lastDataAt:', enrichErr.message);
+    }
     res.json(configs);
   } catch (err: any) {
     console.error('[DropboxSync] Error getting configs:', err);
@@ -154,6 +184,7 @@ router.post('/configs', async (req: Request, res: Response) => {
     
     // Reinitialise sync service to pick up new config
     await dropboxSyncService.reinitialize();
+    invalidateDropboxFilesCache();
     
     // Auto-trigger an immediate sync so new config gets data right away
     // Run in background so the API responds quickly
@@ -193,6 +224,7 @@ router.put('/configs/:id', async (req: Request, res: Response) => {
     
     // Reinitialise sync service to pick up changes
     await dropboxSyncService.reinitialize();
+    invalidateDropboxFilesCache();
     
     res.json({ success: true, config });
   } catch (err: any) {
@@ -212,6 +244,7 @@ router.delete('/configs/:id', async (req: Request, res: Response) => {
     
     // Reinitialise sync service to pick up changes
     await dropboxSyncService.reinitialize();
+    invalidateDropboxFilesCache();
     
     res.json({ success: true });
   } catch (err: any) {
@@ -223,27 +256,47 @@ router.delete('/configs/:id', async (req: Request, res: Response) => {
 /**
 /**
  * GET /api/dropbox-sync/files
- * List .dat files in Dropbox that have been updated within the last 3 days.
- * Cached for 5 minutes to avoid slow Dropbox API pagination on every page load.
+ * List .dat files in Dropbox.
+ * Default window: files modified within the last 14 days. Accepts:
+ *   ?windowDays=N   - override window (1..3650)
+ *   ?all=1          - return every .dat file regardless of age
+ *   ?refresh=1      - bypass server cache and force a fresh Dropbox listing
+ *
+ * Server-side cache is 60 s to keep the page snappy without holding stale
+ * data when a station resumes sending after a long offline period.
  */
 let filesCache: { data: any[]; ts: number } | null = null;
-const FILES_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const FILES_CACHE_TTL = 60 * 1000; // 60 seconds
+
+export function invalidateDropboxFilesCache(): void {
+  filesCache = null;
+}
 
 router.get('/files', async (req: Request, res: Response) => {
   try {
     const now = Date.now();
+    const refresh = req.query.refresh === '1' || req.query.refresh === 'true';
+    const showAll = req.query.all === '1' || req.query.all === 'true';
+    let windowDays = parseInt(String(req.query.windowDays ?? ''), 10);
+    if (!Number.isFinite(windowDays) || windowDays <= 0) windowDays = 14;
+    if (windowDays > 3650) windowDays = 3650;
+
     let allFiles;
-    if (filesCache && (now - filesCache.ts) < FILES_CACHE_TTL) {
+    if (!refresh && filesCache && (now - filesCache.ts) < FILES_CACHE_TTL) {
       allFiles = filesCache.data;
     } else {
       allFiles = await dropboxSyncService.listAllFiles();
       filesCache = { data: allFiles, ts: now };
     }
-    // Filter to files modified within the last 3 days
-    const threeDaysAgo = now - 3 * 24 * 60 * 60 * 1000;
+
+    if (showAll) {
+      return res.json(allFiles);
+    }
+
+    const cutoff = now - windowDays * 24 * 60 * 60 * 1000;
     const recentFiles = allFiles.filter((f: any) => {
       if (!f.modified) return false;
-      return new Date(f.modified).getTime() >= threeDaysAgo;
+      return new Date(f.modified).getTime() >= cutoff;
     });
     res.json(recentFiles);
   } catch (err: any) {

@@ -177,37 +177,32 @@ export function SolarPositionCard({
             </div>
           </div>
 
-          {/* Right: Compass + Earth animation (45%) */}
+          {/* Right: Compass + sun (45%) */}
           <div className="w-[45%] flex items-start justify-center pt-1">
             <svg viewBox="0 0 200 200" className="h-auto" style={{ width: '100%', maxWidth: '160px' }}>
               <defs>
-                <radialGradient id="compassSky">
+                {/* Neutral sky gradient for compass disc */}
+                <radialGradient id="compassSky" cx="50%" cy="50%" r="50%">
                   <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.05" />
                   <stop offset="70%" stopColor="#bfdbfe" stopOpacity="0.4" />
                   <stop offset="100%" stopColor="#dbeafe" stopOpacity="0.6" />
                 </radialGradient>
-                <radialGradient id="earthOcean" cx="35%" cy="30%">
-                  <stop offset="0%" stopColor="#7dd3fc" />
-                  <stop offset="55%" stopColor="#0284c7" />
-                  <stop offset="100%" stopColor="#082f49" />
-                </radialGradient>
-                <radialGradient id="earthGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="70%" stopColor="#3b82f6" stopOpacity="0" />
-                  <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.4" />
-                </radialGradient>
                 <filter id="sunGlow">
-                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feGaussianBlur stdDeviation="3" result="blur" />
                   <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                 </filter>
-                <clipPath id="earthClip">
-                  <circle cx="100" cy="100" r="14" />
-                </clipPath>
               </defs>
+
+              {/* Compass disc */}
               <circle cx="100" cy="100" r="90" fill="url(#compassSky)" stroke="#ccc" strokeWidth="0.5" />
+
+              {/* Elevation rings */}
               {[0, 30, 60].map(el => {
                 const r = ((90 - el) / 90) * 80;
                 return <circle key={el} cx="100" cy="100" r={r} fill="none" stroke="#00000010" strokeWidth="0.5" strokeDasharray={el === 0 ? "none" : "2,3"} />;
               })}
+
+              {/* Cardinal labels */}
               {([
                 { label: "N", angle: -90 },
                 { label: "E", angle: 0 },
@@ -223,38 +218,17 @@ export function SolarPositionCard({
                   >{d.label}</text>
                 );
               })}
+
+              {/* Solar path arc */}
               {pathD && <path d={pathD} fill="none" stroke="#e8960066" strokeWidth="2.5" strokeLinecap="round" />}
+
+              {/* Animated sun marker */}
               {sunPos && (
                 <g>
-                  {/* Atmospheric glow halo */}
-                  <circle cx={sunPos.x} cy={sunPos.y} r="18" fill="url(#earthGlow)" opacity={isDaytime ? 0.9 : 0.4} />
-                  {/* Earth body */}
-                  <circle cx={sunPos.x} cy={sunPos.y} r="14" fill="url(#earthOcean)" stroke="#082f49" strokeWidth="0.5" filter="url(#sunGlow)">
-                    <animate attributeName="r" values="13;15;13" dur="4s" repeatCount="indefinite" />
+                  <circle cx={sunPos.x} cy={sunPos.y} r="10" fill={isDaytime ? "#FFD700" : "#9aa8b4"} filter="url(#sunGlow)" opacity="0.9">
+                    <animate attributeName="r" values="8;11;8" dur="3s" repeatCount="indefinite" />
                   </circle>
-                  {/* Rotating continents (stylised landmass shapes) */}
-                  <g clipPath="url(#earthClip)" transform={`translate(${sunPos.x - 100}, ${sunPos.y - 100})`}>
-                    <g transform="translate(100 100)">
-                      <g>
-                        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="20s" repeatCount="indefinite" />
-                        {/* Africa-ish */}
-                        <path d="M -3 -4 q 4 -2 6 1 q 1 4 -1 7 q -3 3 -5 1 q -3 -4 0 -9 z" fill="#15803d" opacity="0.95" />
-                        {/* Eurasia-ish */}
-                        <path d="M -10 -7 q 6 -3 11 -1 q 4 2 1 5 q -5 2 -9 0 q -4 -1 -3 -4 z" fill="#16a34a" opacity="0.9" />
-                        {/* Americas */}
-                        <path d="M -12 0 q 2 -3 4 -2 q 2 3 1 6 q -2 4 -4 3 q -3 -3 -1 -7 z" fill="#22c55e" opacity="0.9" />
-                        {/* Australia */}
-                        <path d="M 6 5 q 3 -1 4 1 q 0 3 -2 3 q -3 0 -2 -4 z" fill="#84cc16" opacity="0.9" />
-                        {/* Polar ice */}
-                        <ellipse cx="0" cy="-12" rx="6" ry="1.5" fill="#f8fafc" opacity="0.85" />
-                        <ellipse cx="0" cy="12" rx="5" ry="1.5" fill="#f8fafc" opacity="0.85" />
-                      </g>
-                    </g>
-                  </g>
-                  {/* Day/night terminator overlay */}
-                  <circle cx={sunPos.x} cy={sunPos.y} r="14" fill="#000" opacity={isDaytime ? 0.05 : 0.45} />
-                  {/* Highlight */}
-                  <circle cx={sunPos.x - 4} cy={sunPos.y - 4} r="3" fill="#fff" opacity="0.18" />
+                  <circle cx={sunPos.x} cy={sunPos.y} r="5" fill={isDaytime ? "#FF8C00" : "#778899"} />
                 </g>
               )}
             </svg>

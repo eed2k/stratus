@@ -37,6 +37,7 @@ const adminNavItems = [
   { title: "Historical Data Export", url: "/history" },
   { title: "Alarms", url: "/alarms" },
   { title: "Report Generation", url: "/reports" },
+  { title: "Report Scheduling", url: "/reports/schedule" },
   { title: "Settings", url: "/settings" },
   { title: "About Stratus", url: "/docs" },
 ];

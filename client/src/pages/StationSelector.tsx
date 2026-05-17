@@ -10,7 +10,6 @@ import {
   MapPin, 
   Settings,
   ArrowRight,
-  Camera
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -202,13 +201,13 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                     <Button
                       variant="secondary"
                       size="sm"
+                      className="h-6 px-1.5 py-0 min-w-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         setImageDialogStation(station);
                       }}
                     >
-                      <Camera className="h-4 w-4 mr-1" />
-                      Edit
+                      <span className="text-sm leading-none">Edit</span>
                     </Button>
                   </div>
                 )}

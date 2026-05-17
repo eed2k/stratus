@@ -27,6 +27,7 @@ import db, {
 import * as postgres from './db-postgres';
 import { sendAlarmEmail, isEmailConfigured } from './services/emailService';
 import type { AlarmEmailData } from './services/emailService';
+import { applyRainfallOffset } from './config/stationRainfallOffsets';
 
 // Check if PostgreSQL mode is enabled
 const usePostgres = postgres.isPostgresEnabled();
@@ -590,25 +591,29 @@ export class DatabaseStorage {
         return undefined;
       }
       
-      // Multi-table: get latest from each table and merge non-null fields
-      let merged: WeatherData | undefined;
+      // Multi-table: fetch latest record from each table, then merge with the
+      // freshest table as the base so its values win for overlapping fields.
+      // (Without this ordering, an older table whose name happens to sort first
+      //  permanently shadows newer values from other tables — e.g. station 18
+      //  has both "Data" (stale) and "TableHour" (live) and Data was winning.)
+      const fetched: { tbl: string; record: WeatherData }[] = [];
       for (const tbl of tableNames) {
         const record = await postgres.getLatestWeatherData(stationId, tbl);
         if (!record) continue;
-        const mapped = this.mapPgWeatherData(record);
+        fetched.push({ tbl, record: this.mapPgWeatherData(record) });
+      }
+      if (fetched.length === 0) return undefined;
+      fetched.sort((a, b) => (a.record.timestamp > b.record.timestamp ? -1 : 1));
+
+      let merged: WeatherData | undefined;
+      for (const { record: mapped } of fetched) {
         if (!merged) {
           merged = mapped;
         } else {
-          // Merge: non-null values from this table fill in nulls
+          // Merge: non-null values from this (older) table fill in nulls only
           for (const key of Object.keys(mapped) as (keyof WeatherData)[]) {
             if (key === 'id' || key === 'stationId' || key === 'tableName' || key === 'recordNumber' || key === 'collectedAt') continue;
-            if (key === 'timestamp') {
-              // Keep the most recent timestamp
-              if (mapped.timestamp > merged.timestamp) {
-                merged.timestamp = mapped.timestamp;
-              }
-              continue;
-            }
+            if (key === 'timestamp') continue; // base already has the newest
             if ((merged[key] === null || merged[key] === undefined) && mapped[key] !== null && mapped[key] !== undefined) {
               (merged as any)[key] = mapped[key];
             }
@@ -619,22 +624,23 @@ export class DatabaseStorage {
     } else {
       // For SQLite, try common table names as fallback
       const tableNames = ['OneMin', 'Table1', 'FiveMin', 'Hourly', 'Daily', 'weather', 'TableHour', 'TableSolarCharger10m', 'Test'];
-      let merged: WeatherData | undefined;
+      const fetched: { tbl: string; record: WeatherData }[] = [];
       for (const tbl of tableNames) {
         const record = db.getLatestWeatherData(stationId, tbl);
         if (!record) continue;
-        const mapped = this.mapDbWeatherData(record);
+        fetched.push({ tbl, record: this.mapDbWeatherData(record) });
+      }
+      if (fetched.length === 0) return undefined;
+      fetched.sort((a, b) => (a.record.timestamp > b.record.timestamp ? -1 : 1));
+
+      let merged: WeatherData | undefined;
+      for (const { record: mapped } of fetched) {
         if (!merged) {
           merged = mapped;
         } else {
           for (const key of Object.keys(mapped) as (keyof WeatherData)[]) {
             if (key === 'id' || key === 'stationId' || key === 'tableName' || key === 'recordNumber' || key === 'collectedAt') continue;
-            if (key === 'timestamp') {
-              if (mapped.timestamp > merged.timestamp) {
-                merged.timestamp = mapped.timestamp;
-              }
-              continue;
-            }
+            if (key === 'timestamp') continue;
             if ((merged[key] === null || merged[key] === undefined) && mapped[key] !== null && mapped[key] !== undefined) {
               (merged as any)[key] = mapped[key];
             }
@@ -643,6 +649,18 @@ export class DatabaseStorage {
       }
       return merged;
     }
+  }
+
+  /**
+   * Returns the oldest timestamp present for a station (optionally a specific table).
+   * Used by Dropbox sync to detect uncovered historical records and self-heal backfills.
+   * Returns null if the station has no data yet, or if running on SQLite (caller falls back).
+   */
+  async getOldestWeatherTimestamp(stationId: number, tableName?: string): Promise<Date | null> {
+    if (usePostgres) {
+      return postgres.getOldestWeatherTimestamp(stationId, tableName);
+    }
+    return null;
   }
 
   async getWeatherDataRange(stationId: number, startTime: Date, endTime: Date, tableName?: string): Promise<WeatherData[]> {
@@ -2062,9 +2080,12 @@ export class DatabaseStorage {
 
     const stationId = record.stationId ?? record.station_id;
 
-    // RIKA R25021205 (station id=2) reports cumulative rainfall since erection; apply offset
+    // Apply per-station rainfall offset (e.g. RIKA reports cumulative-since-
+    // erection; offset suppresses phantom rain after counter resets). Same
+    // offset is applied in the rainfall-yearly server endpoints so monthly
+    // (client) and yearly (server) totals stay consistent.
     const rawRainfall = data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? data.Rain_1_Tot ?? data.Rain_Tot_1 ?? null;
-    const rainfall = (rawRainfall !== null && stationId === 2) ? Math.max(0, rawRainfall - 212) : rawRainfall;
+    const rainfall = applyRainfallOffset(stationId, rawRainfall);
 
     return {
       id: record.id,

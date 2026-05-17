@@ -150,7 +150,7 @@ const sumNonNull = (vals: (number | null)[]): number | null => {
   return nums.length > 0 ? Math.round(nums.reduce((a, b) => a + b, 0) * 100) / 100 : null;
 };
 
-const processChartData = (historicalData: WeatherData[], timeRangeHours?: number, stationLat?: number, stationAltitude?: number, windUnit: WindSpeedUnit = 'ms') => {
+const processChartData = (historicalData: WeatherData[], timeRangeHours?: number, stationLat?: number, stationAltitude?: number, windUnit: WindSpeedUnit = 'ms', rainfallType: 'incremental' | 'cumulative_yearly' | 'cumulative_lifetime' | 'tip_count' | 'auto' = 'auto') => {
   if (historicalData.length === 0) return [];
   const timestamps = historicalData.map(d => new Date(d.timestamp).getTime());
   const dataSpanHours = (Math.max(...timestamps) - Math.min(...timestamps)) / (1000 * 60 * 60);
@@ -172,8 +172,16 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       const date = new Date(dateKey + 'T12:00:00');
       const label = date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
 
+      // Rainfall: per-day total. Behaviour depends on logger type.
       const rainfallVals = dayData.map(d => d.rainfall).filter((v): v is number => v != null);
-      const dayRain = rainfallVals.length >= 2 ? Math.max(0, rainfallVals[rainfallVals.length - 1] - rainfallVals[0]) : 0;
+      let dayRain = 0;
+      if (rainfallVals.length > 0) {
+        if (rainfallType === 'incremental' || rainfallType === 'tip_count') {
+          dayRain = rainfallVals.reduce((s, v) => s + (v > 0 && v < 100 ? v : 0), 0);
+        } else if (rainfallVals.length >= 2) {
+          dayRain = Math.max(0, rainfallVals[rainfallVals.length - 1] - rainfallVals[0]);
+        }
+      }
 
       return {
         timestamp: label,
@@ -264,7 +272,14 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
           const eto = calculateETo(temp, hum, windMs, solarMJ, alt, lat, dayOfYear);
           const rainfallVals = dayData.map(d => d.rainfall).filter((v): v is number => v != null);
-          const dayRain = rainfallVals.length >= 2 ? Math.max(0, rainfallVals[rainfallVals.length - 1] - rainfallVals[0]) : 0;
+          let dayRain = 0;
+          if (rainfallVals.length > 0) {
+            if (rainfallType === 'incremental' || rainfallType === 'tip_count') {
+              dayRain = rainfallVals.reduce((s, v) => s + (v > 0 && v < 100 ? v : 0), 0);
+            } else if (rainfallVals.length >= 2) {
+              dayRain = Math.max(0, rainfallVals[rainfallVals.length - 1] - rainfallVals[0]);
+            }
+          }
           const netNeed = Math.max(0, eto - dayRain);
           return Math.round((netNeed / 5) * 60);
         })(),
@@ -301,6 +316,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
           const windMs = windUnit === 'kmh' ? kmhToMs(ws) : ws;
           return Math.round(calculateWindChill(t, windMs) * 10) / 10;
         })(),
+        panelTemperature: avgNonNull(dayData.map(d => d.panelTemperature ?? null)),
         _readings: dayData.length,
       };
     });
@@ -321,7 +337,9 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
   return historicalData.map((d, i, arr) => {
     const rawRain = d.rainfall ?? 0;
     let incrementalRain = 0;
-    if (i > 0) {
+    if (rainfallType === 'incremental' || rainfallType === 'tip_count') {
+      incrementalRain = rawRain > 0 && rawRain < 100 ? rawRain : 0;
+    } else if (i > 0) {
       const diff = rawRain - (arr[i - 1].rainfall ?? 0);
       incrementalRain = diff > 0 && diff < 50 ? diff : 0;
     }
@@ -430,6 +448,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       windChill: (d.temperature != null && d.windSpeed != null)
         ? Math.round(calculateWindChill(d.temperature, windUnit === 'kmh' ? kmhToMs(d.windSpeed) : d.windSpeed) * 10) / 10
         : null,
+      panelTemperature: d.panelTemperature ?? null,
     };
   });
 };
@@ -560,6 +579,9 @@ function SharedDashboardContent() {
     : {};
 
   // Fetch data range for historical fallback
+  // NOTE: Auto-polled. Every dependent chart/stats/wind query is keyed on dataRange.latest,
+  // so without periodic refresh the dashboard freezes on the load-time snapshot even as
+  // new rows arrive (especially noticeable on hourly stations like SAWS Testbed).
   const { data: dataRange } = useQuery<{ earliest: string; latest: string; count: number }>({
     queryKey: ['shared-data-range', shareToken, sessionToken],
     queryFn: async () => {
@@ -568,7 +590,9 @@ function SharedDashboardContent() {
       return res.json();
     },
     enabled: !!access,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchIntervalInBackground: true,
   });
 
   // Fetch latest weather data via share token (public, no auth needed)
@@ -760,7 +784,8 @@ function SharedDashboardContent() {
     refetchInterval: 5 * 60 * 1000,
   });
 
-  // Fetch yearly rainfall totals
+  // Fetch yearly rainfall totals (refetched alongside latest data so the
+  // YTD year ticks up live as new readings arrive).
   const { data: rainfallYearly } = useQuery<{ year: number; total: number; readings: number; isCurrent: boolean }[]>({
     queryKey: ['rainfall-yearly', shareToken],
     queryFn: async () => {
@@ -769,10 +794,25 @@ function SharedDashboardContent() {
       return res.json();
     },
     enabled: !!shareToken,
-    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchIntervalInBackground: true,
+    staleTime: 0,
   });
 
-  // Sort historical data ascending
+  // Per-station rainfall config exposed via the share token. Drives whether
+  // the chart/daily aggregation SUMs (incremental/tip_count) or deltas
+  // (cumulative_*). Falls back to 'auto' when no config exists.
+  const { data: rainfallConfig } = useQuery<{ type: 'incremental' | 'cumulative_yearly' | 'cumulative_lifetime' | 'tip_count' | 'auto'; offset: number; tipFactor: number; configured: boolean }>({
+    queryKey: ['rainfall-config', shareToken],
+    queryFn: async () => {
+      const res = await fetch(`/api/shares/${shareToken}/rainfall-config`, { headers: shareHeaders });
+      if (!res.ok) return { type: 'auto', offset: 0, tipFactor: 0.2, configured: false };
+      return res.json();
+    },
+    enabled: !!shareToken,
+    staleTime: 60 * 60 * 1000,
+  });
+  const rainfallType = rainfallConfig?.type ?? 'auto';
   const sortedHistoricalData = useMemo(() => {
     if (historicalData.length === 0) return [];
     return [...historicalData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -875,7 +915,7 @@ function SharedDashboardContent() {
   const currentData = weatherData || {} as WeatherData;
 
   // Process chart data
-  const chartData = useMemo(() => processChartData(sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit), [sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit]);
+  const chartData = useMemo(() => processChartData(sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit, rainfallType), [sortedHistoricalData, chartTimeRange, station?.latitude, station?.altitude, windSpeedUnit, rainfallType]);
 
   // Wind chart always uses fixed 24h range regardless of user-selected chart time range
 
@@ -921,7 +961,7 @@ function SharedDashboardContent() {
   const historicalChartData = useMemo(() => {
     if (historicalSectionData.length === 0) return [];
     const sorted = [...historicalSectionData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    return processChartData(sorted, historicalChartRange, station?.latitude, station?.altitude, windSpeedUnit);
+    return processChartData(sorted, historicalChartRange, station?.latitude, station?.altitude, windSpeedUnit, rainfallType);
   }, [historicalSectionData, historicalChartRange, station?.latitude, station?.altitude, windSpeedUnit]);
 
   // Wind data by period (use latest data timestamp for short windows so Dropbox-synced stations show 30m/60m roses)
@@ -1052,6 +1092,80 @@ function SharedDashboardContent() {
       thisMonth: sumWindow(now - 30 * 24 * 60 * 60 * 1000, now),
     };
   }, [sortedStatsData, sortedHistoricalData, referenceNow]);
+
+  // Daily ETo vs Rainfall over the last 30 days (fixed window).
+  // Always uses sortedStatsData (always-30-day query) so this chart is NOT
+  // influenced by the dashboard's chart timeframe selector.
+  const etoRainDaily = useMemo(() => {
+    const dataSource = sortedStatsData;
+    if (dataSource.length === 0) return { data: [], totalRain: 0 };
+    const lat = station?.latitude || 0;
+    const alt = station?.altitude || 0;
+    const now = referenceNow;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const inWindow = dataSource.filter(d => {
+      const t = new Date(d.timestamp).getTime();
+      return t > thirtyDaysAgo && t <= now;
+    });
+    if (inWindow.length === 0) return { data: [], totalRain: 0 };
+
+    const buckets = new Map<string, WeatherData[]>();
+    inWindow.forEach(d => {
+      const key = new Date(d.timestamp).toISOString().slice(0, 10);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key)!.push(d);
+    });
+
+    const dayRainTotal = (records: WeatherData[]) => {
+      const vals = records.map(r => r.rainfall).filter((v): v is number => v != null);
+      if (vals.length === 0) return 0;
+      const maxVal = Math.max(...vals);
+      let total = 0;
+      if (maxVal <= 50) {
+        total = vals.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
+      } else {
+        for (let i = 1; i < vals.length; i++) {
+          const diff = vals[i] - vals[i - 1];
+          if (diff > 0 && diff < 200) total += diff;
+        }
+      }
+      return Math.round(total * 100) / 100;
+    };
+
+    const dayEto = (records: WeatherData[]) => {
+      const etoValues = records
+        .map(r => {
+          const temp = r.temperature;
+          const hum = r.humidity;
+          const ws = r.windSpeed;
+          const sr = r.solarRadiation;
+          if (temp == null || hum == null || ws == null || sr == null) return null;
+          const ts = new Date(r.timestamp);
+          const doy = Math.floor((ts.getTime() - new Date(ts.getFullYear(), 0, 0).getTime()) / 86400000);
+          return calculateETo(temp, hum, windSpeedUnit === 'kmh' ? kmhToMs(ws) : ws, wattsToMJPerDay(sr, ASSUMED_DAYLIGHT_HOURS), alt, lat, doy);
+        })
+        .filter((e): e is number => e !== null && e !== undefined && !isNaN(e) && e > 0);
+      if (etoValues.length === 0) return null;
+      const avg = etoValues.reduce((a, b) => a + b, 0) / etoValues.length;
+      return Math.round(avg * 100) / 100;
+    };
+
+    const data = [...buckets.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateKey, records]) => {
+        const eto = dayEto(records);
+        const rain = dayRainTotal(records);
+        const date = new Date(dateKey + 'T12:00:00');
+        return {
+          timestamp: date.toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
+          eto: eto ?? 0,
+          rain,
+        };
+      });
+
+    const totalRain = Math.round(data.reduce((s, d) => s + (d.rain || 0), 0) * 100) / 100;
+    return { data, totalRain };
+  }, [sortedStatsData, sortedHistoricalData, station?.latitude, station?.altitude, referenceNow, windSpeedUnit]);
 
   // Compute rainfall stats for Fire Danger card (7-day total + days since last rain)
   const rainfallStats = useMemo(() => {
@@ -1553,13 +1667,13 @@ function SharedDashboardContent() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={handleExportCSV}>
-                  CSV — Comma-separated values
+                  CSV - Comma-separated values
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleExportTOA5}>
-                  TOA5 — Campbell Scientific format
+                  TOA5 - Campbell Scientific format
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleExportJSON}>
-                  JSON — Structured data
+                  JSON - Structured data
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1811,6 +1925,22 @@ function SharedDashboardContent() {
         </section>
         )}
 
+        {/* Panel Temperature (independent, shows whenever data is available) */}
+        {currentData.panelTemperature != null && Number(currentData.panelTemperature) !== 0 && (
+        <section className="space-y-4">
+          <h2 className="text-base font-normal text-foreground">Panel Temperature</h2>
+          <div className="grid grid-cols-1 gap-6">
+            <Suspense fallback={<ChartFallback />}>
+              <DataBlockChart title="Panel Temperature" data={chartData}
+                series={[{ dataKey: "panelTemperature", name: "Panel Temperature", color: "#ef4444", unit: "°C" }]}
+                chartType="line" xAxisLabel="Time" yAxisLabel="Temperature (°C)"
+                showAverage={true} showMinMax={true} currentValue={Number(currentData.panelTemperature) || 0}
+              />
+            </Suspense>
+          </div>
+        </section>
+        )}
+
         {/* MPPT Solar Charge Controller */}
         {sv.mpptCharger !== false && (availableFields.mpptSolarVoltage || availableFields.mpptSolarPower || availableFields.mpptBatteryVoltage) && (
         <section className="space-y-4">
@@ -1867,7 +1997,7 @@ function SharedDashboardContent() {
             )}
             {availableFields.mppt2SolarPower && (
             <DataBlockChart title="Charger 2 – Solar Power" data={chartData}
-              series={[{ dataKey: "mppt2SolarPower", name: "Solar Power", color: "#3b82f6", unit: "W" }]}
+              series={[{ dataKey: "mppt2SolarPower", name: "Solar Power", color: "#f97316", unit: "W" }]}
               chartType="area" xAxisLabel="Time" yAxisLabel="Power"
               showAverage={true} showMinMax={true} currentValue={currentData.mppt2SolarPower ?? 0}
               yAxisDomain={[0, 'auto']}
@@ -2172,7 +2302,7 @@ function SharedDashboardContent() {
             <DataBlockChart title="Wind Speed vs Wind Direction" data={chartData}
               series={[
                 { dataKey: "windSpeed", name: "Wind Speed", color: "#22c55e", unit: windUnitLabel, yAxisId: "left" },
-                { dataKey: "windDirection", name: "Wind Direction", color: "#a855f7", unit: "°", yAxisId: "right", strokeDasharray: "4 3" },
+                { dataKey: "windDirection", name: "Wind Direction", color: "#f97316", unit: "°", yAxisId: "right", strokeDasharray: "4 3" },
               ]}
               chartType="line" xAxisLabel="Time" yAxisLabel={`Speed (${windUnitLabel})`}
               rightYAxisLabel="Direction (°)" rightYAxisDomain={[0, 360]}
@@ -2591,7 +2721,9 @@ function SharedDashboardContent() {
         </section>
         )}
 
-        {/* Atmospheric Stability / Aviation / Road Weather — 2×2 grid */}
+        {/* Atmospheric Stability / Aviation / Road Weather - 2x2 grid */}
+        {((sv.atmosphericStability !== false && availableFields.windSpeed && availableFields.solarRadiation) ||
+          (sv.aviation !== false && availableFields.pressure && availableFields.temperature)) && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Atmospheric Stability &amp; Aviation</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -2613,6 +2745,7 @@ function SharedDashboardContent() {
             )}
           </div>
         </section>
+        )}
 
 
 
@@ -2634,10 +2767,6 @@ function SharedDashboardContent() {
               .slice(0, 3)
               .sort((a: any, b: any) => a.year - b.year);
             if (sortedYearly.length === 0) return null;
-            const yearChartData = sortedYearly.map((r: any) => ({
-              timestamp: `${r.year}${r.year === currentYear ? ' (YTD)' : ''}`,
-              total: Math.round((r.total || 0) * 10) / 10,
-            }));
             return (
             <Card className="border border-gray-300 bg-white">
               <CardHeader className="pb-2">
@@ -2656,22 +2785,53 @@ function SharedDashboardContent() {
                     );
                   })}
                 </div>
-                <Suspense fallback={<ChartFallback />}>
-                  <DataBlockChart
-                    title="Annual Rainfall (Last 3 Years)"
-                    data={yearChartData}
-                    series={[{ dataKey: "total", name: "Annual Rainfall", color: "#3b82f6", unit: "mm" }]}
-                    chartType="bar" xAxisLabel="Year" yAxisLabel="Rainfall (mm)"
-                    showAverage={false} showMinMax={false}
-                  />
-                </Suspense>
                 <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
                 </p>
+                <details className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  <summary className="cursor-pointer text-gray-600 hover:text-gray-800">How yearly totals are calculated</summary>
+                  <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200">
+                    <p>The server auto-detects whether the gauge reports <strong>incremental</strong> (rain per interval) or <strong>cumulative</strong> (running counter) values from the year's readings, then totals accordingly.</p>
+                    <p><strong>Detection signals</strong> per year (n readings, deltas dᵢ = rᵢ − rᵢ₋₁):</p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      <li>zeroFrac = fraction of zero readings</li>
+                      <li>meanPos = mean of positive readings</li>
+                      <li>maxVal = maximum reading</li>
+                      <li>increaseFrac = fraction of dᵢ &gt; 0.01</li>
+                      <li>resetCount = count of dᵢ &lt; −1</li>
+                    </ul>
+                    <p><strong>Cumulative</strong> if any of: (maxVal &gt; 100 AND resetCount &lt; 3), (increaseFrac &lt; 0.05 AND maxVal &gt; 10), or (zeroFrac &lt; 0.5 AND meanPos &gt; 5 AND increaseFrac &lt; 0.2). Otherwise <strong>incremental</strong>.</p>
+                    <p><strong>Total formula:</strong></p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      <li>Incremental: T = Σ min(max(rᵢ, 0), 50) — per-reading 50 mm cap filters spikes</li>
+                      <li>Cumulative: T = Σ dᵢ where 0 &lt; dᵢ &lt; 200 — per-step 200 mm cap, negative deltas treated as logger resets</li>
+                    </ul>
+                  </div>
+                </details>
               </CardContent>
             </Card>
             );
           })()}
+        </section>
+        )}
+
+
+        {/* ETo vs Rainfall (last 30 days) — only when there was rain */}
+        {availableFields.rainfall && shareToken && etoRainDaily.totalRain > 0 && etoRainDaily.data.length > 0 && (
+        <section className="space-y-4">
+          <Suspense fallback={<ChartFallback />}>
+            <DataBlockChart
+              title="ETo vs Rainfall (Last 30 Days)"
+              data={etoRainDaily.data}
+              chartType="bar"
+              series={[
+                { dataKey: "rain", name: "Rainfall (mm)", color: "#3b82f6", unit: "mm", yAxisId: "left" },
+                { dataKey: "eto", name: "ETo (mm/day)", color: "#06b6d4", unit: "mm/day", yAxisId: "right" },
+              ]}
+              yAxisLabel="Rainfall (mm)"
+              rightYAxisLabel="ETo (mm/day)"
+            />
+          </Suspense>
         </section>
         )}
 

@@ -593,10 +593,32 @@ export class DropboxSyncService extends EventEmitter {
             recordsToImport = parsed.records;
             console.log(`[DropboxSync] Full import: importing all ${recordsToImport.length} records`);
           } else {
-            // Normal sync: only import records from the last 48 hours to avoid processing huge historical files
+            // Normal sync: only import records since the most-recent record
+            // already in the DB for this station, falling back to a 48-hour
+            // window if there is no existing data. Using the DB high-water-mark
+            // ensures gaps are filled when a station resumes after being offline
+            // for longer than the 48-hour window — the previous fixed 48-hour
+            // cutoff dropped any records older than that on every sync, leaving
+            // permanent holes in the data.
             const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
-            recordsToImport = parsed.records.filter((r: any) => r.timestamp > cutoffTime);
-            console.log(`[DropboxSync] Importing ${recordsToImport.length} records from last 48 hours`);
+            let latestExisting: Date | null = null;
+            try {
+              const latestData = await storage.getLatestWeatherData(this.config!.stationId);
+              if (latestData?.timestamp) {
+                latestExisting = new Date(latestData.timestamp);
+              }
+            } catch {}
+            // Use the OLDER of (48h-ago, latestExisting) so that:
+            //  - healthy stations: latestExisting is recent, only new records pulled
+            //  - long-offline stations resuming: any records newer than the
+            //    last record in the DB are pulled, even if they pre-date the
+            //    48-hour window, so the gap gets filled automatically.
+            const effectiveCutoff = latestExisting && latestExisting < cutoffTime
+              ? latestExisting
+              : cutoffTime;
+            recordsToImport = parsed.records.filter((r: any) => r.timestamp > effectiveCutoff);
+            const cutoffSrc = effectiveCutoff === cutoffTime ? '48h window' : `last record ${latestExisting!.toISOString()}`;
+            console.log(`[DropboxSync] Importing ${recordsToImport.length} records since ${cutoffSrc}`);
           }
 
           // Import records to database in efficient batches
@@ -910,11 +932,49 @@ export class DropboxSyncService extends EventEmitter {
                 }
               }
             } else {
-              // Normal sync: filter to last 48 hours
+              // Normal sync: pull records newer than the last record in DB,
+              // falling back to a 48-hour window if no record exists. This
+              // ensures gaps are filled automatically when a station resumes
+              // after being offline for more than 48 hours — the previous
+              // fixed-48h cutoff used to drop any records older than that on
+              // every sync, leaving permanent holes.
               const cutoffTime = new Date();
               cutoffTime.setHours(cutoffTime.getHours() - 48);
-              recordsToImport = parsed.records.filter((r: any) => r.timestamp >= cutoffTime);
-              console.log(`[DropboxSync] Importing ${recordsToImport.length} records from last 48 hours`);
+              let latestExisting: Date | null = null;
+              try {
+                const latestData = await storage.getLatestWeatherData(station.id);
+                if (latestData?.timestamp) latestExisting = new Date(latestData.timestamp);
+              } catch {}
+              const effectiveCutoff = latestExisting && latestExisting < cutoffTime
+                ? latestExisting
+                : cutoffTime;
+              recordsToImport = parsed.records.filter((r: any) => r.timestamp > effectiveCutoff);
+              const cutoffSrc = effectiveCutoff === cutoffTime ? '48h window' : `last record ${latestExisting!.toISOString()}`;
+              console.log(`[DropboxSync] Importing ${recordsToImport.length} records since ${cutoffSrc}`);
+
+              // Self-healing backfill: if the DAT file contains records older than the
+              // oldest record we have for this station, queue those for background
+              // backfill. This recovers from interrupted backfills (the in-memory
+              // pendingBackfills map is wiped on restart) without requiring a manual
+              // full import. Skipped if a backfill is already queued for this station.
+              if (!this.pendingBackfills.has(station.id)) {
+                let oldestExisting: Date | null = null;
+                try {
+                  oldestExisting = await storage.getOldestWeatherTimestamp(station.id);
+                } catch {}
+                if (oldestExisting) {
+                  const olderRecords = parsed.records.filter((r: any) => r.timestamp < oldestExisting!);
+                  if (olderRecords.length > 0) {
+                    console.log(`[DropboxSync] Self-healing backfill for "${dbConfig.name}": queueing ${olderRecords.length} historical records older than ${oldestExisting.toISOString()}`);
+                    this.pendingBackfills.set(station.id, {
+                      records: olderRecords,
+                      parsed: { units: parsed.units, headers: parsed.headers, tableName: parsed.tableName },
+                      station,
+                      dbConfig,
+                    });
+                  }
+                }
+              }
             }
 
             let configRecordsImported = 0;

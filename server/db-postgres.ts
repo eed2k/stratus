@@ -255,6 +255,28 @@ async function createTables(): Promise<void> {
   `);
   pgLog.info('Dropbox configs table ready');
 
+  // Report schedules — used by /reports password-protected portal to send
+  // automated MailerSend emails on a daily/weekly/monthly cadence.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS report_schedules (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      station_ids INTEGER[] NOT NULL,
+      fields TEXT[] NOT NULL,
+      recipients TEXT[] NOT NULL,
+      frequency TEXT NOT NULL,
+      hour INTEGER NOT NULL DEFAULT 8,
+      weekday INTEGER,
+      day_of_month INTEGER,
+      enabled BOOLEAN DEFAULT true,
+      last_run_at TIMESTAMP,
+      last_status TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  pgLog.info('Report schedules table ready');
+
   // Shares table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS shares (
@@ -1077,6 +1099,25 @@ export async function getLatestWeatherData(stationId: number, tableName?: string
     mppt_charger_state: row.mppt_charger_state,
     mppt_absi_avg: row.mppt_absi_avg,
   };
+}
+
+/**
+ * Get the oldest weather record timestamp for a station, optionally scoped to a tableName.
+ * Used by the Dropbox sync service to detect missing historical records and queue
+ * background backfills (so partially-completed backfills self-heal after restart).
+ */
+export async function getOldestWeatherTimestamp(stationId: number, tableName?: string): Promise<Date | null> {
+  const result = tableName
+    ? await query(
+        'SELECT MIN(timestamp) AS oldest FROM weather_data WHERE station_id = $1 AND table_name = $2',
+        [stationId, tableName]
+      )
+    : await query(
+        'SELECT MIN(timestamp) AS oldest FROM weather_data WHERE station_id = $1',
+        [stationId]
+      );
+  const oldest = result.rows[0]?.oldest;
+  return oldest ? new Date(oldest) : null;
 }
 
 /**
@@ -2188,6 +2229,7 @@ export default {
   insertWeatherData,
   getWeatherData,
   getLatestWeatherData,
+  getOldestWeatherTimestamp,
   getDistinctTableNames,
   getUserByEmail,
   createUser,
