@@ -84,6 +84,8 @@ interface StationFormData {
   nextCalibrationDate: string;
   siteDescription: string;
   // RikaCloud credentials
+  rikaDeviceId: string;
+  rikaFarmId: string;
   rikaEmail: string;
   rikaPassword: string;
   // Arduino IoT Cloud credentials
@@ -129,6 +131,8 @@ const initialFormData: StationFormData = {
   nextCalibrationDate: "",
   siteDescription: "",
   // RikaCloud credentials
+  rikaDeviceId: "",
+  rikaFarmId: "",
   rikaEmail: "",
   rikaPassword: "",
   // Arduino IoT Cloud credentials
@@ -299,6 +303,8 @@ export default function Stations() {
           apiKey: data.apiKey,
           rikaEmail: data.rikaEmail,
           rikaPassword: data.rikaPassword,
+          rikaDeviceId: data.rikaDeviceId?.trim() || undefined,
+          rikaFarmId: data.rikaFarmId?.trim() || undefined,
           pollInterval: parseInt(data.pollInterval) || 60,
         });
       } else if (data.connectionType === "arduino_iot") {
@@ -618,6 +624,28 @@ X-API-Key: your-key (optional)
                         value={formData.rikaPassword}
                         onChange={(e) => updateForm({ rikaPassword: e.target.value })}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Device / Station ID (recommended)</Label>
+                      <Input
+                        placeholder="e.g. 2 or the RikaCloud agri_id"
+                        value={formData.rikaDeviceId}
+                        onChange={(e) => updateForm({ rikaDeviceId: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Required when your RikaCloud account has more than one station. Pins this Stratus station to a single Rika device (matched against the device's <code className="text-xs">agri_id</code>, <code className="text-xs">pk</code>, or name). Leave blank only if the account has a single station. Check the server logs after the first poll to see the available device IDs.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Farm ID (optional)</Label>
+                      <Input
+                        placeholder="Leave blank to use the first farm"
+                        value={formData.rikaFarmId}
+                        onChange={(e) => updateForm({ rikaFarmId: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Only needed if the account has multiple farms. Set to the farm's <code className="text-xs">pk</code> (shown in server logs).
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label>Device Data URL (optional)</Label>

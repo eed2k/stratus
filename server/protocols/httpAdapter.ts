@@ -15,6 +15,11 @@ export class HTTPAdapter extends BaseProtocolAdapter {
   private serviceType: string = "generic";
   private rikaSession: string | null = null;
   private rikaFarmPk: number | null = null;
+  // Timestamp (epoch seconds) of the most recent Rika reading we ingested, used
+  // to avoid re-inserting identical stale readings on every poll.
+  private rikaLastReadingTs: number | null = null;
+  // Reading timestamp captured during the most recent parse (epoch seconds).
+  private rikaCurrentReadingTs: number | null = null;
   private arduinoAccessToken: string | null = null;
   private arduinoTokenExpiry: number = 0;
 
@@ -31,6 +36,16 @@ export class HTTPAdapter extends BaseProtocolAdapter {
   private detectServiceType(): string {
     const endpoint = this.config.apiEndpoint?.toLowerCase() || "";
     const host = this.config.host?.toLowerCase() || "";
+
+    // Explicit service type from the station's connection config is the most
+    // reliable signal — it is set during setup and works even when the user
+    // leaves the (optional) endpoint URL blank to use the service default.
+    const explicitType = ((this.config as any).type || (this.config as any).serviceType || "")
+      .toString()
+      .toLowerCase();
+    if (explicitType === "rikacloud") return "rikacloud";
+    if (explicitType === "arduino_iot") return "arduino_iot";
+    if (explicitType === "campbellcloud") return "campbellcloud";
 
     if (endpoint.includes("campbellcloud") || endpoint.includes("konect")) return "campbellcloud";
     if (endpoint.includes("weatherlink") || host.includes("weatherlink")) return "weatherlink";
@@ -156,8 +171,47 @@ export class HTTPAdapter extends BaseProtocolAdapter {
   }
 
   /**
+   * Decide whether a RikaCloud response indicates an expired/invalid session.
+   *
+   * RikaCloud's v2 API has been observed to signal an expired session in
+   * several ways depending on gateway/version: 401/403, session-timeout codes
+   * (419/440), an HTML login page (content-type text/html), or even a 200 with
+   * a JSON error body mentioning login/session/auth. The previous code only
+   * handled 403/HTML, so a session that expired with a 401 (or JSON error) was
+   * never renewed and the feed went silent until the process restarted — the
+   * likely cause of a long-running station suddenly going stale.
+   */
+  private rikaSessionExpired(response: any): boolean {
+    const status = response?.status;
+    if (status === 401 || status === 403 || status === 419 || status === 440) return true;
+
+    const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
+    if (contentType.includes("text/html")) return true;
+
+    // JSON error body that hints at an auth/session problem
+    const body = response?.data;
+    if (body && typeof body === "object" && !Array.isArray(body)) {
+      const msg = String(body.message || body.msg || body.error || body.detail || "").toLowerCase();
+      if (msg.includes("login") || msg.includes("session") || msg.includes("auth") || msg.includes("token")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private rikaBodySnippet(response: any): string {
+    try {
+      const body = response?.data;
+      const s = typeof body === "string" ? body : JSON.stringify(body);
+      return s ? s.slice(0, 200) : "";
+    } catch {
+      return "";
+    }
+  }
+
+  /**
    * Read data from RikaCloud v2 API.
-   * Uses session token in header, auto re-logins on 403/HTML response.
+   * Uses session token in header; renews the session on expiry and retries.
    */
   private async readRikaCloudData(): Promise<NormalizedWeatherData | null> {
     if (!this.rikaSession) {
@@ -171,24 +225,62 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       validateStatus: () => true,
     });
 
-    // Session expired? Re-login and retry
-    const contentType = response.headers?.["content-type"] || "";
-    if (response.status === 403 || contentType.includes("text/html")) {
-      console.log("[HTTPAdapter] RikaCloud session expired, re-logging in...");
+    // Session expired / invalid? Renew and retry once. Clearing farm_pk forces
+    // re-discovery in case the account's farm changed while we were running.
+    if (this.rikaSessionExpired(response)) {
+      const ct = response.headers?.["content-type"] || "";
+      console.log(
+        `[HTTPAdapter] RikaCloud session appears invalid (status ${response.status}, content-type "${ct}") — re-logging in...`
+      );
       this.rikaSession = null;
+      this.rikaFarmPk = null;
       const loggedIn = await this.rikaCloudLogin();
-      if (!loggedIn) throw new Error("RikaCloud re-login failed");
+      if (!loggedIn) throw new Error("RikaCloud re-login failed — check account/password");
       response = await this.httpClient.get(url, {
         headers: { session: this.rikaSession! },
+        validateStatus: () => true,
       });
     }
 
     if (response.status !== 200) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(
+        `RikaCloud HTTP ${response.status} (content-type "${response.headers?.["content-type"] || ""}") body: ${this.rikaBodySnippet(response)}`
+      );
+    }
+
+    // Guard against a 200 that isn't the expected device array (e.g. an error
+    // envelope or HTML served with a 200) so we don't silently store nulls.
+    if (!Array.isArray(response.data)) {
+      throw new Error(
+        `RikaCloud returned unexpected non-array payload: ${this.rikaBodySnippet(response)}`
+      );
     }
 
     const rawData = this.extractDataFromResponse(response.data);
+
+    // If the selected Rika device reports the same reading timestamp as the
+    // last one we ingested, there is genuinely no new data — skip it instead of
+    // re-inserting a duplicate that would masquerade as a fresh reading.
+    if (
+      this.rikaCurrentReadingTs !== null &&
+      this.rikaLastReadingTs !== null &&
+      this.rikaCurrentReadingTs <= this.rikaLastReadingTs
+    ) {
+      console.log(
+        `[HTTPAdapter] RikaCloud: no new reading since ${new Date(this.rikaLastReadingTs * 1000).toISOString()} — skipping`
+      );
+      return null;
+    }
+
     const normalized = this.normalizeData(rawData);
+
+    // Use the device's own reading time when available so the dashboard shows
+    // the true observation time (and staleness monitoring works correctly).
+    if (this.rikaCurrentReadingTs !== null) {
+      normalized.timestamp = new Date(this.rikaCurrentReadingTs * 1000);
+      this.rikaLastReadingTs = this.rikaCurrentReadingTs;
+    }
+
     this.emit("data", normalized);
     return normalized;
   }
@@ -236,8 +328,29 @@ export class HTTPAdapter extends BaseProtocolAdapter {
               timeout: 10000,
             });
             if (Array.isArray(farmRes.data) && farmRes.data.length > 0) {
-              this.rikaFarmPk = farmRes.data[0].farm.pk;
-              console.log(`[HTTPAdapter] RikaCloud farm_pk: ${this.rikaFarmPk}`);
+              const farmFilter = String((this.config as any).rikaFarmId ?? "").trim();
+
+              // When an account has multiple farms, log them all so the user can
+              // discover the farm_pk to pin to a station.
+              if (farmRes.data.length > 1) {
+                const farmList = farmRes.data
+                  .map((f: any) => `${f.farm?.name ?? "?"} (pk=${f.farm?.pk})`)
+                  .join(", ");
+                console.log(`[HTTPAdapter] RikaCloud account has ${farmRes.data.length} farms: ${farmList}`);
+              }
+
+              let chosen = farmRes.data[0];
+              if (farmFilter) {
+                const match = farmRes.data.find((f: any) => String(f.farm?.pk) === farmFilter);
+                if (match) {
+                  chosen = match;
+                } else {
+                  console.warn(`[HTTPAdapter] RikaCloud farm_pk ${farmFilter} not found; falling back to first farm`);
+                }
+              }
+
+              this.rikaFarmPk = chosen.farm.pk;
+              console.log(`[HTTPAdapter] RikaCloud farm_pk: ${this.rikaFarmPk}${farmFilter ? " (pinned)" : ""}`);
             } else {
               console.warn("[HTTPAdapter] No farms found on RikaCloud account");
             }
@@ -469,11 +582,49 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     };
 
     // Handle device array response
-    const devices: any[] = Array.isArray(data) ? data : [];
+    const allDevices: any[] = Array.isArray(data) ? data : [];
+    this.rikaCurrentReadingTs = null;
 
-    if (devices.length === 0) {
+    if (allDevices.length === 0) {
       console.log("[HTTPAdapter] RikaCloud: no devices returned");
       return result;
+    }
+
+    // A single farm can host multiple physical stations, each grouped by
+    // agri_id. Without a filter, readings from every station collapse into one
+    // record (last-writer-wins per sensor type), which is why a second station
+    // never shows its own data. Pin this Stratus station to a single Rika
+    // device/station via rikaDeviceId (matched against agri_id, pk, or name).
+    const deviceFilter = String((this.config as any).rikaDeviceId ?? "").trim();
+
+    // Log the distinct physical stations (agri_ids) present so the user can
+    // discover the correct rikaDeviceId to configure for each station.
+    const agriIds = Array.from(
+      new Set(allDevices.map((d) => d.agri_id).filter((v) => v !== undefined && v !== null))
+    );
+    if (agriIds.length > 1 && !deviceFilter) {
+      console.warn(
+        `[HTTPAdapter] RikaCloud farm has ${agriIds.length} physical stations (agri_id: ${agriIds.join(", ")}) ` +
+          `but no rikaDeviceId is set — readings from all stations are being merged. ` +
+          `Set rikaDeviceId on each Stratus station to isolate its data.`
+      );
+    }
+
+    let devices = allDevices;
+    if (deviceFilter) {
+      devices = allDevices.filter(
+        (d) =>
+          String(d.agri_id) === deviceFilter ||
+          String(d.pk) === deviceFilter ||
+          (d.name && String(d.name) === deviceFilter)
+      );
+      if (devices.length === 0) {
+        console.warn(
+          `[HTTPAdapter] RikaCloud: rikaDeviceId "${deviceFilter}" matched no devices ` +
+            `(available agri_ids: ${agriIds.join(", ") || "none"})`
+        );
+        return result;
+      }
     }
 
     for (const device of devices) {
@@ -489,14 +640,43 @@ export class HTTPAdapter extends BaseProtocolAdapter {
 
       result[fieldName] = value;
 
+      // Track the most recent reading timestamp across the selected sensors.
+      const ts = this.parseRikaTimestamp(device.data?.t ?? device.data?.t_display);
+      if (ts !== null && (this.rikaCurrentReadingTs === null || ts > this.rikaCurrentReadingTs)) {
+        this.rikaCurrentReadingTs = ts;
+      }
+
       const displayName = device.name || `type_${typeCode}`;
-      console.log(`[HTTPAdapter] RikaCloud device "${displayName}": ${value} ${device.unit || ""}`);
+      const online = device.is_online === false ? " (OFFLINE)" : "";
+      console.log(`[HTTPAdapter] RikaCloud device "${displayName}"${online}: ${value} ${device.unit || ""}`);
     }
 
     const populated = Object.entries(result).filter(([, v]) => v !== null).length;
-    console.log(`[HTTPAdapter] RikaCloud: populated ${populated}/${Object.keys(result).length} weather fields from ${devices.length} devices`);
+    console.log(
+      `[HTTPAdapter] RikaCloud: populated ${populated}/${Object.keys(result).length} weather fields ` +
+        `from ${devices.length}/${allDevices.length} devices` +
+        (deviceFilter ? ` (device "${deviceFilter}")` : "")
+    );
 
     return result;
+  }
+
+  /**
+   * Parse a RikaCloud reading timestamp into epoch seconds.
+   * Accepts epoch seconds/millis (number or numeric string) or an ISO date string.
+   */
+  private parseRikaTimestamp(t: any): number | null {
+    if (t === undefined || t === null) return null;
+    if (typeof t === "number") {
+      // Heuristic: values above ~10^12 are millis, otherwise seconds
+      return t > 1e12 ? Math.floor(t / 1000) : t;
+    }
+    const asNum = Number(t);
+    if (!isNaN(asNum) && String(t).trim() !== "") {
+      return asNum > 1e12 ? Math.floor(asNum / 1000) : asNum;
+    }
+    const parsed = Date.parse(String(t));
+    return isNaN(parsed) ? null : Math.floor(parsed / 1000);
   }
 
   private parseArduinoIoTResponse(data: any): Record<string, number | null> {

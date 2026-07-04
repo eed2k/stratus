@@ -35,6 +35,13 @@ export interface ProtocolConfig {
   apiKey?: string;
   apiEndpoint?: string;
   securityCode?: number;
+
+  // RikaCloud v2 (optional per-station device/farm selection)
+  rikaEmail?: string;
+  rikaAccount?: string;
+  rikaPassword?: string;
+  rikaDeviceId?: string | number;   // matches device.agri_id, device.pk, or device.name
+  rikaFarmId?: string | number;     // matches farm.pk (selects which farm to poll)
 }
 
 export interface NormalizedWeatherData {

@@ -1582,6 +1582,67 @@ export async function registerRoutes(
     }
   });
 
+  // PUBLIC LIVE-DATA ENDPOINT FOR WEBSITE EMBEDDING
+  //
+  // GET /api/public/stations/:stationId/live
+  //
+  // Read-only, no authentication — intended for embedding a station's current
+  // conditions on an external website (e.g. the RikaCloud-fed station 2).
+  // CORS is open (*) so a browser on any origin can fetch it. Only the latest
+  // reading plus non-sensitive station metadata is exposed; no credentials,
+  // connection config, or historical bulk data is returned.
+  //
+  // SECURITY NOTE: this endpoint is intentionally unauthenticated and world-
+  // readable. Only enable it for stations whose current weather values are safe
+  // to publish. It never exposes account/API credentials or write access.
+  app.get("/api/public/stations/:stationId/live", async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "public, max-age=30");
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+
+      const station = await storage.getStation(stationId);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+
+      const data = await storage.getLatestWeatherData(stationId);
+      if (!data) {
+        return res.status(404).json({ message: "No weather data found for this station" });
+      }
+
+      // Whitelist safe weather fields only — never leak connection config/keys.
+      const {
+        id: _id,
+        stationId: _sid,
+        tableName: _t,
+        recordNumber: _rn,
+        collectedAt: _ca,
+        timestamp,
+        ...measurements
+      } = data as any;
+
+      res.json({
+        station: {
+          id: station.id,
+          name: station.name,
+          location: (station as any).location ?? null,
+          latitude: (station as any).latitude ?? null,
+          longitude: (station as any).longitude ?? null,
+          altitude: (station as any).altitude ?? null,
+        },
+        observedAt: timestamp,
+        data: measurements,
+      });
+    } catch (err) {
+      console.error("Error fetching public live data:", err);
+      res.status(500).json({ message: "Failed to fetch live data" });
+    }
+  });
+
   app.get("/api/stations/:stationId/data", optionalAuth, async (req, res) => {
     try {
       const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
