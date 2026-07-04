@@ -1582,65 +1582,6 @@ export async function registerRoutes(
     }
   });
 
-  // PUBLIC ANONYMISED LIVE-DATA ENDPOINT FOR WEBSITE EMBEDDING
-  //
-  // GET /api/public/stations/:stationId/live
-  //
-  // Read-only, no authentication — intended for displaying a station's current
-  // conditions on an external website. CORS is open (*) so a browser on any
-  // origin can fetch it.
-  //
-  // PRIVACY: the response is fully anonymised. It contains ONLY weather
-  // measurements plus the observation time. It deliberately omits the station
-  // name, location, latitude/longitude, altitude, ingest/record ids, table
-  // names, connection config, credentials, and any Stratus branding — nothing
-  // in the payload identifies the station, its owner, or this platform.
-  //
-  // SECURITY NOTE: this endpoint is intentionally unauthenticated and world-
-  // readable. Only publish stations whose current weather values are safe to
-  // share. It never exposes credentials or write access.
-  app.get("/api/public/stations/:stationId/live", async (req, res) => {
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Cache-Control", "public, max-age=30");
-    try {
-      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
-      if (error || stationId === null) {
-        return res.status(400).json({ message: error });
-      }
-
-      const data = await storage.getLatestWeatherData(stationId);
-      if (!data) {
-        return res.status(404).json({ message: "No data available" });
-      }
-
-      // Strip every identifying / internal / branding field. Whatever remains
-      // in `measurements` is purely numeric weather data.
-      const {
-        id: _id,
-        stationId: _sid,
-        tableName: _t,
-        recordNumber: _rn,
-        collectedAt: _ca,
-        timestamp,
-        name: _n,
-        location: _loc,
-        latitude: _lat,
-        longitude: _lon,
-        altitude: _alt,
-        ingestId: _ing,
-        ...measurements
-      } = data as any;
-
-      res.json({
-        observedAt: timestamp,
-        data: measurements,
-      });
-    } catch (err) {
-      console.error("Error fetching public live data:", err);
-      res.status(500).json({ message: "Failed to fetch live data" });
-    }
-  });
-
   app.get("/api/stations/:stationId/data", optionalAuth, async (req, res) => {
     try {
       const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
