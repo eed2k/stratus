@@ -10,6 +10,11 @@
 import { BaseProtocolAdapter, ProtocolConfig, NormalizedWeatherData } from "./adapter";
 import axios, { AxiosInstance } from "axios";
 
+// RikaCloud v2 API path prefix. RikaCloud migrated their public API from
+// "/rika/api/v2" to "/api/v2" (the old path now hits the static SPA host and
+// returns 405/HTML). Kept as a constant so a future move is a one-line change.
+const RIKA_API_PREFIX = "/api/v2";
+
 export class HTTPAdapter extends BaseProtocolAdapter {
   private httpClient: AxiosInstance;
   private serviceType: string = "generic";
@@ -306,7 +311,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       const endpoint = this.config.apiEndpoint || "";
       const urlMatch = endpoint.match(/^(https?:\/\/[^/]+)/);
       const baseUrl = urlMatch ? urlMatch[1] : "https://cloud.rikacloud.com";
-      const apiBase = `${baseUrl}/rika/api/v2`;
+      const apiBase = `${baseUrl}${RIKA_API_PREFIX}`;
       const loginUrl = `${apiBase}/login/account/`;
 
       console.log(`[HTTPAdapter] Logging in to RikaCloud v2 at ${loginUrl} as ${account}...`);
@@ -464,11 +469,11 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       const urlMatch = endpoint.match(/^(https?:\/\/[^/]+)/);
       const baseUrl = urlMatch ? urlMatch[1] : "https://cloud.rikacloud.com";
       if (this.rikaFarmPk) {
-        return `${baseUrl}/rika/api/v2/farm/${this.rikaFarmPk}/device/`;
+        return `${baseUrl}${RIKA_API_PREFIX}/farm/${this.rikaFarmPk}/device/`;
       }
       // Fallback: if user provided a full URL, use it as-is
       if (endpoint) return endpoint;
-      return `${baseUrl}/rika/api/v2/farm/`;
+      return `${baseUrl}${RIKA_API_PREFIX}/farm/`;
     }
 
     if (this.config.apiEndpoint) {
