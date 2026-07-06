@@ -2761,16 +2761,14 @@ function SharedDashboardContent() {
           </div>
           {(() => {
             const currentYear = new Date().getFullYear();
+            // Show ONLY the current calendar year (year-to-date) total.
             const sortedYearly = (rainfallYearly || [])
-              .filter((r: any) => r.total > 0 || r.readings > 0)
-              .sort((a: any, b: any) => b.year - a.year)
-              .slice(0, 3)
-              .sort((a: any, b: any) => a.year - b.year);
+              .filter((r: any) => r.year === currentYear && (r.total > 0 || r.readings > 0));
             if (sortedYearly.length === 0) return null;
             return (
             <Card className="border border-gray-300 bg-white">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rainfall Totals (Last {sortedYearly.length} Year{sortedYearly.length === 1 ? '' : 's'})</CardTitle>
+                <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Rainfall Total (Year to Date)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className={`grid gap-3 ${sortedYearly.length === 1 ? 'grid-cols-1' : sortedYearly.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
