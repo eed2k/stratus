@@ -86,9 +86,11 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
           fadeAnimation: false,
         });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 18,
-          subdomains: ["a", "b", "c"],
+        // CARTO Voyager basemap (OSM tiles 403 under production use; CARTO permits embedding)
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+          maxZoom: 20,
+          subdomains: ["a", "b", "c", "d"],
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
         }).addTo(map);
 
         // Station marker

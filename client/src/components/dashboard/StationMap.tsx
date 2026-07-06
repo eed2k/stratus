@@ -394,20 +394,25 @@ export function StationMap({
           zoomAnimation: true,
         });
 
-        // Tile layers — Street (OSM) and Satellite (Esri)
-        const streetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 19,
+        // Tile layers — Street (CARTO Voyager) and Satellite (Esri World Imagery).
+        // NOTE: we deliberately do NOT use raw tile.openstreetmap.org tiles here.
+        // OSM's tile usage policy forbids production/heavy use and returns HTTP 403
+        // for flagged referrers. CARTO + Esri both permit web embedding, are CORS
+        // enabled, and need no API key or login.
+        const streetLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+          maxZoom: 20,
           minZoom: 1,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-          subdomains: ['a', 'b', 'c'],
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: ['a', 'b', 'c', 'd'],
           crossOrigin: 'anonymous',
           errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         });
 
-        const satelliteLayer = L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
-          maxZoom: 20,
+        const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 19,
           minZoom: 1,
-          attribution: '&copy; Google',
+          attribution: '&copy; <a href="https://www.esri.com">Esri</a>',
+          crossOrigin: 'anonymous',
           errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         });
         
