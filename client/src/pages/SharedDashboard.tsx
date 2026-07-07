@@ -1044,14 +1044,23 @@ function SharedDashboardContent() {
     if (readings.length === 0) {
       return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: currentData.rainfall ?? 0 };
     }
-    const maxVal = Math.max(...readings);
+    const isRika = (station as any)?.connectionType === 'rikacloud';
     let total = 0;
-    if (maxVal <= 50) {
-      total = readings.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
-    } else {
+    if (isRika) {
+      // RIKA cumulative counter: count only realistic positive increments.
       for (let i = 1; i < readings.length; i++) {
         const diff = readings[i] - readings[i - 1];
-        if (diff > 0 && diff < 200) total += diff;
+        if (diff > 0 && diff < 15) total += diff;
+      }
+    } else {
+      const maxVal = Math.max(...readings);
+      if (maxVal <= 50) {
+        total = readings.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
+      } else {
+        for (let i = 1; i < readings.length; i++) {
+          const diff = readings[i] - readings[i - 1];
+          if (diff > 0 && diff < 200) total += diff;
+        }
       }
     }
     const rounded = Math.round(total * 100) / 100;
@@ -1070,14 +1079,22 @@ function SharedDashboardContent() {
         .map(d => d.rainfall)
         .filter((v): v is number => v != null);
       if (window.length === 0) return 0;
-      const maxVal = Math.max(...window);
+      const isRika = (station as any)?.connectionType === 'rikacloud';
       let total = 0;
-      if (maxVal <= 50) {
-        total = window.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
-      } else {
+      if (isRika) {
         for (let i = 1; i < window.length; i++) {
           const diff = window[i] - window[i - 1];
-          if (diff > 0 && diff < 200) total += diff;
+          if (diff > 0 && diff < 15) total += diff;
+        }
+      } else {
+        const maxVal = Math.max(...window);
+        if (maxVal <= 50) {
+          total = window.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
+        } else {
+          for (let i = 1; i < window.length; i++) {
+            const diff = window[i] - window[i - 1];
+            if (diff > 0 && diff < 200) total += diff;
+          }
         }
       }
       return Math.round(total * 100) / 100;

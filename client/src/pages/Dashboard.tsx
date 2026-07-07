@@ -1577,16 +1577,26 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: currentData.rainfall ?? 0 };
     }
 
-    const maxVal = Math.max(...rainfallReadings);
     let total = 0;
-    if (maxVal <= 50) {
-      // Incremental logger: sum the raw values (cap each value to filter outliers)
-      total = rainfallReadings.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
-    } else {
-      // Cumulative counter: sum positive deltas with a per-step spike cap
+    if (isRikaStation) {
+      // RIKA reports a CUMULATIVE rainfall counter (mm since device creation).
+      // Count only realistic positive increments; ignore counter spikes, resets
+      // and the corrupt large values in its history. Cap each step at 15 mm.
       for (let i = 1; i < rainfallReadings.length; i++) {
         const diff = rainfallReadings[i] - rainfallReadings[i - 1];
-        if (diff > 0 && diff < 200) total += diff;
+        if (diff > 0 && diff < 15) total += diff;
+      }
+    } else {
+      const maxVal = Math.max(...rainfallReadings);
+      if (maxVal <= 50) {
+        // Incremental logger: sum the raw values (cap each value to filter outliers)
+        total = rainfallReadings.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
+      } else {
+        // Cumulative counter: sum positive deltas with a per-step spike cap
+        for (let i = 1; i < rainfallReadings.length; i++) {
+          const diff = rainfallReadings[i] - rainfallReadings[i - 1];
+          if (diff > 0 && diff < 200) total += diff;
+        }
       }
     }
     const isStale = total < 0.05;
@@ -1607,14 +1617,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         .map(d => d.rainfall)
         .filter((v): v is number => v != null);
       if (window.length === 0) return 0;
-      const maxVal = Math.max(...window);
       let total = 0;
-      if (maxVal <= 50) {
-        total = window.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
-      } else {
+      if (isRikaStation) {
+        // RIKA cumulative counter: sum realistic positive increments only.
         for (let i = 1; i < window.length; i++) {
           const diff = window[i] - window[i - 1];
-          if (diff > 0 && diff < 200) total += diff;
+          if (diff > 0 && diff < 15) total += diff;
+        }
+      } else {
+        const maxVal = Math.max(...window);
+        if (maxVal <= 50) {
+          total = window.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
+        } else {
+          for (let i = 1; i < window.length; i++) {
+            const diff = window[i] - window[i - 1];
+            if (diff > 0 && diff < 200) total += diff;
+          }
         }
       }
       return Math.round(total * 100) / 100;
