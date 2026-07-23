@@ -83,6 +83,7 @@ docker-compose.override.yml
 build.log
 
 # ── Sensitive / ad-hoc root-level scripts ──
+access_token.txt
 test_neon.js
 check_timestamps.js
 del_stations.js
@@ -117,3 +118,11 @@ release/
 *.blockmap
 *.nupkg
 windrose-main/
+
+# ── Ephemeral deploy helpers + scratch dirs (not for repo) ──
+deploy/_*.sh
+deploy/_remote.py
+deploy/_sftp.py
+sun-animation12345/
+calibration-rainfall-update/
+LDS ADMIN PANEL/

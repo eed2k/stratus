@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,7 +57,7 @@ export function BatteryVoltageCard({
               <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(voltage, 2)}
               </span>
-              <span className="text-sm font-normal text-gray-500">V</span>
+              <span className="text-sm font-normal text-black">V</span>
             </div>
             {isCharging && (
               <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
@@ -70,7 +70,7 @@ export function BatteryVoltageCard({
           <div className="space-y-1">
             <div className="flex items-center justify-between text-sm">
               <span className={`font-medium ${status.color}`}>{status.status}</span>
-              <span className="text-gray-500">{safeFixed(status.percentage, 0)}%</span>
+              <span className="text-black">{safeFixed(status.percentage, 0)}%</span>
             </div>
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
@@ -89,21 +89,21 @@ export function BatteryVoltageCard({
           {/* Voltage range info */}
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200">
             <div className="text-center">
-              <p className="text-xs text-gray-500">Min</p>
+              <p className="text-xs text-black">Min</p>
               <p className="text-sm font-normal text-red-500">{safeFixed(minVoltage, 1)}V</p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500">Current</p>
+              <p className="text-xs text-black">Current</p>
               <p className="text-sm font-normal text-black">{safeFixed(voltage, 2)}V</p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500">Max</p>
+              <p className="text-xs text-black">Max</p>
               <p className="text-sm font-normal text-green-500">{safeFixed(maxVoltage, 1)}V</p>
             </div>
           </div>
 
           {/* Battery technology note */}
-          <p className="text-xs text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-xs text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Lead-acid: 10.5V (empty) → 12.7V (full) → 14.4–14.8V (charging). Float voltage ~13.6V. Self-discharge ~3–5%/month.{' '}
             LiFePO₄ (lithium): 10.0V (empty) → 13.2V (full) → 14.2–14.6V (charging). Flat discharge curve holds ~13.0–13.2V for ~80% of capacity. Minimal self-discharge (~2%/month). Lifespan and cycle count vary by capacity and manufacturer.
           </p>

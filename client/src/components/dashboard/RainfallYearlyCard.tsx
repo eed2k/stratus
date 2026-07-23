@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +42,7 @@ export function RainfallYearlyCard({ yearlyData }: RainfallYearlyCardProps) {
           <div className={`grid gap-2 ${displayData.length <= 3 ? 'grid-cols-3' : displayData.length === 4 ? 'grid-cols-4' : displayData.length === 5 ? 'grid-cols-5' : 'grid-cols-6'}`}>
             {displayData.map(({ year, total, isCurrent }) => (
               <div key={year} className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center">
-                <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {year}{isCurrent ? ' *' : ''}
                 </p>
                 <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
@@ -86,7 +86,7 @@ export function RainfallYearlyCard({ yearlyData }: RainfallYearlyCardProps) {
               </LineChart>
             </ResponsiveContainer>
             {displayData.some(d => d.isCurrent) && (
-              <p className="text-[9px] text-gray-400 text-right mt-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <p className="text-xs text-black text-right mt-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 * year to date
               </p>
             )}
@@ -94,7 +94,7 @@ export function RainfallYearlyCard({ yearlyData }: RainfallYearlyCardProps) {
           )}
 
           {yearlyData.length > 6 && (
-            <p className="text-[10px] text-gray-400 text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <p className="text-xs text-black text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               Showing 6 of {yearlyData.length} years
             </p>
           )}

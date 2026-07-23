@@ -321,7 +321,7 @@ router.get('/discover', async (req: Request, res: Response) => {
 
 /**
  * GET /api/dropbox-sync/preview
- * Preview a specific .dat file — returns headers, last records, timestamps
+ * Preview a specific .dat file - returns headers, last records, timestamps
  */
 router.get('/preview', async (req: Request, res: Response) => {
   try {

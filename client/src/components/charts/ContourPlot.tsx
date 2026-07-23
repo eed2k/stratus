@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useMemo } from "react";
@@ -129,7 +129,7 @@ export function ContourPlot({
 
   if (data.length === 0) {
     return (
-      <div className="p-4 text-center text-muted-foreground">
+      <div className="p-4 text-center text-black">
         No data available for contour plot
       </div>
     );
@@ -181,11 +181,11 @@ export function ContourPlot({
             })}
           </svg>
 
-          <div className="absolute bottom-0 left-0 right-0 text-center text-xs text-muted-foreground mt-1">
+          <div className="absolute bottom-0 left-0 right-0 text-center text-xs text-black mt-1">
             {xLabel}
           </div>
           <div
-            className="absolute left-0 top-1/2 text-xs text-muted-foreground"
+            className="absolute left-0 top-1/2 text-xs text-black"
             style={{ transform: "rotate(-90deg) translateX(-50%)", transformOrigin: "left center" }}
           >
             {yLabel}
@@ -193,7 +193,7 @@ export function ContourPlot({
         </div>
 
         <div className="flex flex-col justify-between py-2">
-          <span className="text-xs text-muted-foreground">{safeFixed(maxValue, 1)}</span>
+          <span className="text-xs text-black">{safeFixed(maxValue, 1)}</span>
           <div className="flex flex-col h-full my-2">
             {CONTOUR_COLORS.slice().reverse().map((color, i) => (
               <div
@@ -203,8 +203,8 @@ export function ContourPlot({
               />
             ))}
           </div>
-          <span className="text-xs text-muted-foreground">{safeFixed(minValue, 1)}</span>
-          <span className="text-xs text-muted-foreground mt-1">{valueLabel}</span>
+          <span className="text-xs text-black">{safeFixed(minValue, 1)}</span>
+          <span className="text-xs text-black mt-1">{valueLabel}</span>
         </div>
       </div>
     </div>

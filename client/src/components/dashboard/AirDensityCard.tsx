@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 // v3.2 - grey blocks, formula resize
 
@@ -45,7 +45,7 @@ export function AirDensityCard({
             <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               {safeFixed(airDensity, 3)}
             </span>
-            <span className="text-sm font-normal text-gray-500">kg/m³</span>
+            <span className="text-sm font-normal text-black">kg/m³</span>
           </div>
 
           {/* Status indicator */}
@@ -59,10 +59,10 @@ export function AirDensityCard({
           </div>
 
           {/* Formula */}
-          <p className="text-sm text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-sm text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             ρ = P / (R<sub>d</sub> · T) · (1 − 0.378 · e/P)
           </p>
-          <p className="text-xs text-gray-400 italic mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-xs text-black italic mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             R<sub>d</sub> = 287.05 J/(kg·K), e = vapour pressure
           </p>
 
@@ -70,19 +70,19 @@ export function AirDensityCard({
           <div className="grid grid-cols-3 gap-2 pt-3">
             {temperature !== undefined && (
               <div className="rounded bg-gray-100 border border-gray-200 py-1.5 px-1 text-center">
-                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Temperature</p>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Temperature</p>
                 <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(temperature, 1)}°C</p>
               </div>
             )}
             {pressure !== undefined && (
               <div className="rounded bg-gray-100 border border-gray-200 py-1.5 px-1 text-center">
-                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Pressure</p>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Pressure</p>
                 <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(pressure, 0)} hPa</p>
               </div>
             )}
             {humidity !== undefined && (
               <div className="rounded bg-gray-100 border border-gray-200 py-1.5 px-1 text-center">
-                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Humidity</p>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Humidity</p>
                 <p className="text-xs font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(humidity, 0)}%</p>
               </div>
             )}

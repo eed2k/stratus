@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState } from "react";
@@ -432,7 +432,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                     onChange={(e) => setEditedData({ ...editedData, siteDescription: e.target.value })}
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground">{station.siteDescription || "No description provided"}</p>
+                  <p className="text-sm text-black">{station.siteDescription || "No description provided"}</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -444,7 +444,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                     onChange={(e) => setEditedData({ ...editedData, notes: e.target.value })}
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground">{station.notes || "No notes"}</p>
+                  <p className="text-sm text-black">{station.notes || "No notes"}</p>
                 )}
               </div>
             </CardContent>
@@ -633,9 +633,9 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                         <TableCell>{log.technician}</TableCell>
                         <TableCell>{log.sensor}</TableCell>
                         <TableCell>{log.action}</TableCell>
-                        <TableCell className="text-muted-foreground">{log.preValue || "-"}</TableCell>
-                        <TableCell className="text-muted-foreground">{log.postValue || "-"}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{log.notes || "-"}</TableCell>
+                        <TableCell className="text-black">{log.preValue || "-"}</TableCell>
+                        <TableCell className="text-black">{log.postValue || "-"}</TableCell>
+                        <TableCell className="text-sm text-black max-w-[200px] truncate">{log.notes || "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -757,7 +757,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                         </TableCell>
                         <TableCell className="max-w-[300px]">{log.description}</TableCell>
                         <TableCell>{log.performedBy}</TableCell>
-                        <TableCell className="text-muted-foreground">{log.nextScheduled || "-"}</TableCell>
+                        <TableCell className="text-black">{log.nextScheduled || "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

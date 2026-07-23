@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,25 +44,25 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
           {/* Key parameters */}
           <div className="grid grid-cols-4 gap-2">
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>k (shape)</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>k (shape)</p>
               <p className="text-sm font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(weibull.k, 2)}
               </p>
             </div>
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>c (scale)</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>c (scale)</p>
               <p className="text-sm font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(weibull.c, 2)} m/s
               </p>
             </div>
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Mean</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Mean</p>
               <p className="text-sm font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(weibull.meanSpeed, 1)} m/s
               </p>
             </div>
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Power Density</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Power Density</p>
               <p className="text-sm font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(weibull.meanPowerDensity, 0)} W/m²
               </p>
@@ -71,7 +71,7 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
 
           {/* IEC class */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <span className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               IEC Wind Resource Class
             </span>
             <span className="text-xs font-medium px-2 py-0.5 rounded bg-blue-100 text-blue-700">
@@ -86,7 +86,7 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
           </div>
           ) : (
           <div className="space-y-1">
-            <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               Wind Speed Distribution ({windSpeeds.length} readings)
             </p>
             <div className="flex items-end gap-px h-20">
@@ -105,11 +105,11 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
                 </div>
               ))}
             </div>
-            <div className="flex justify-between text-[9px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <div className="flex justify-between text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               <span>0</span>
               <span>{Math.min(25, weibull.histogram.length)} m/s</span>
             </div>
-            <div className="flex items-center gap-3 text-[9px] text-gray-400">
+            <div className="flex items-center gap-3 text-xs text-black">
               <span><span className="inline-block w-2 h-2 bg-emerald-500 rounded-sm mr-1" style={{ opacity: 0.6 }}></span>Measured</span>
               <span><span className="inline-block w-2 h-2 bg-blue-500 rounded-sm mr-1" style={{ opacity: 0.4 }}></span>Weibull fit</span>
             </div>
@@ -120,7 +120,7 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
           {!insufficientData && (
           <div className="pt-2 border-t border-gray-200 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <span className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 Energy Estimate
               </span>
               <div className="flex gap-1">
@@ -128,10 +128,10 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
                   <button
                     key={i}
                     onClick={() => setTurbineIdx(i)}
-                    className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                    className={`text-xs px-1.5 py-0.5 rounded border transition-colors ${
                       turbineIdx === i
                         ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-500 border-gray-300 hover:border-blue-400'
+                        : 'bg-white text-black border-gray-300 hover:border-blue-400'
                     }`}
                     style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
                   >
@@ -142,19 +142,19 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="text-center p-1.5 bg-gray-50 rounded">
-                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>AEP</p>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>AEP</p>
                 <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {aep.aep >= 1000000 ? `${safeFixed(aep.aep / 1000000, 1)} GWh` : aep.aep >= 1000 ? `${safeFixed(aep.aep / 1000, 1)} MWh` : `${aep.aep} kWh`}
                 </p>
               </div>
               <div className="text-center p-1.5 bg-gray-50 rounded">
-                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Capacity Factor</p>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Capacity Factor</p>
                 <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(aep.capacityFactor * 100, 1)}%
                 </p>
               </div>
               <div className="text-center p-1.5 bg-gray-50 rounded">
-                <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Equiv. Hours</p>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Equiv. Hours</p>
                 <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {aep.equivalentHours} h/yr
                 </p>

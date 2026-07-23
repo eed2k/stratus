@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +38,7 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
                 <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {aqiResult.aqi}
                 </span>
-                <span className="text-sm font-normal text-gray-500">AQI</span>
+                <span className="text-sm font-normal text-black">AQI</span>
               </div>
               <span
                 className="text-xs px-2 py-1 rounded-full font-medium"
@@ -61,7 +61,7 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
                   }}
                 />
               </div>
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {aqiResult.healthMessage}
               </p>
             </div>
@@ -71,29 +71,29 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
             {pm25 != null && (
               <div className="text-center">
-                <p className="text-xs text-gray-500">PM2.5</p>
+                <p className="text-xs text-black">PM2.5</p>
                 <p className={`text-sm font-normal ${pm25Exceedance ? 'text-red-500' : 'text-black'}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(pm25, 1)} µg/m³
                 </p>
                 {pm25Exceedance && (
-                  <p className="text-[10px] text-red-500">Exceeds NAAQS ({SA_NAAQS_PM25_DAILY})</p>
+                  <p className="text-xs text-red-500">Exceeds NAAQS ({SA_NAAQS_PM25_DAILY})</p>
                 )}
               </div>
             )}
             {pm10 != null && (
               <div className="text-center">
-                <p className="text-xs text-gray-500">PM10</p>
+                <p className="text-xs text-black">PM10</p>
                 <p className={`text-sm font-normal ${pm10Exceedance ? 'text-red-500' : 'text-black'}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(pm10, 1)} µg/m³
                 </p>
                 {pm10Exceedance && (
-                  <p className="text-[10px] text-red-500">Exceeds NAAQS ({SA_NAAQS_PM10_DAILY})</p>
+                  <p className="text-xs text-red-500">Exceeds NAAQS ({SA_NAAQS_PM10_DAILY})</p>
                 )}
               </div>
             )}
             {pm1 != null && (
               <div className="text-center">
-                <p className="text-xs text-gray-500">PM1</p>
+                <p className="text-xs text-black">PM1</p>
                 <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(pm1, 1)} µg/m³
                 </p>
@@ -106,7 +106,7 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
               {co2 != null && (
                 <div className="text-center">
-                  <p className="text-xs text-gray-500">CO₂</p>
+                  <p className="text-xs text-black">CO₂</p>
                   <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(co2, 0)} ppm
                   </p>
@@ -114,7 +114,7 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
               )}
               {tvoc != null && (
                 <div className="text-center">
-                  <p className="text-xs text-gray-500">TVOC</p>
+                  <p className="text-xs text-black">TVOC</p>
                   <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(tvoc, 0)} ppb
                   </p>
@@ -122,7 +122,7 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
               )}
               {so2 != null && (
                 <div className="text-center">
-                  <p className="text-xs text-gray-500">SO₂</p>
+                  <p className="text-xs text-black">SO₂</p>
                   <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(so2, 1)} ppb
                   </p>
@@ -130,7 +130,7 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
               )}
               {particulateCount != null && (
                 <div className="text-center">
-                  <p className="text-xs text-gray-500">Particulate</p>
+                  <p className="text-xs text-black">Particulate</p>
                   <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(particulateCount, 0)}
                   </p>
@@ -141,7 +141,7 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
 
           {/* Dominant pollutant */}
           {aqiResult && (
-            <p className="text-xs text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <p className="text-xs text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               Dominant: {aqiResult.dominant === 'pm25' ? 'PM2.5' : 'PM10'} · SA NAAQS limits: PM10 {SA_NAAQS_PM10_DAILY} µg/m³, PM2.5 {SA_NAAQS_PM25_DAILY} µg/m³ (24-hr)
             </p>
           )}

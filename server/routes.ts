@@ -297,10 +297,10 @@ export async function registerRoutes(
   // Register Dropbox sync routes (admin-only)
   app.use('/api/dropbox-sync', isAuthenticated, isAdmin, dropboxSyncRoutes);
 
-  // Reports portal (separate password-cookie auth — see reportRoutes.ts)
+  // Reports portal (separate password-cookie auth - see reportRoutes.ts)
   app.use('/api/reports', reportRoutes);
 
-  // Station calibration admin (hidden /calibration page — admin only)
+  // Station calibration admin (hidden /calibration page - admin only)
   app.use('/api/calibration', isAuthenticated, isAdmin, calibrationRoutes);
   // Warm the calibration cache so hot-path rainfall helpers are
   // populated before the first dashboard / ingest query lands.
@@ -1063,7 +1063,7 @@ export async function registerRoutes(
               const filePattern = connectionConfig.filePattern || '';
               const syncInterval = parseInt(connectionConfig.syncInterval) || 3600;
               
-              // Do NOT call dropboxSyncService.configure() here — it overwrites the main
+              // Do NOT call dropboxSyncService.configure() here - it overwrites the main
               // singleton config (Hopefield), breaking existing sync. Instead, only create a
               // dropbox_configs DB entry so syncDbConfigs() picks up this new station.
               console.log(`[Routes] Creating DB-only Dropbox config for station ${station.id} (not overwriting main sync config)`);
@@ -2765,7 +2765,7 @@ export async function registerRoutes(
   'use strict';
   
   const StratusWidget = {
-    version: '1.3.1',
+    version: '2.1.0',
     
     styles: \`
       .stratus-widget {

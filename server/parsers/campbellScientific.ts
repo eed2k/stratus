@@ -441,7 +441,7 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
   }
 
   // Wind speed: preserve original units from DAT file (m/s or km/h)
-  // Unit detection is handled by detectWindSpeedUnit() — no conversion here.
+  // Unit detection is handled by detectWindSpeedUnit() - no conversion here.
 
   // Convert charger voltage from mV to V if the source unit is mV
   if (result['chargerVoltage'] !== null && result['chargerVoltage'] !== undefined && headers && units) {
@@ -468,7 +468,7 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     // Values above this indicate raw/uncalibrated sensor readings
     if (result['solarRadiation'] !== null && result['solarRadiation'] !== undefined) {
       if (result['solarRadiation']! > 2000) {
-        // Likely raw mV or miscalibrated — store null to avoid misleading charts
+        // Likely raw mV or miscalibrated - store null to avoid misleading charts
         result['solarRadiation'] = null;
       }
     }

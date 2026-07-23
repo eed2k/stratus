@@ -48,7 +48,7 @@ const SolarPositionCard = lazy(() => import("@/components/dashboard/SolarPositio
 // Chart loading placeholder
 const ChartFallback = () => (
   <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg animate-pulse">
-    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    <Loader2 className="h-6 w-6 animate-spin text-black" />
   </div>
 );
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -685,6 +685,29 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     }
   }, [activeStationId]);
 
+  // Fetch the authoritative server-saved config for this station and prefer it over
+  // localStorage/defaults so the layout persists across reloads, logouts and devices.
+  const { data: serverDashboardConfig } = useQuery<DashboardConfig | null>({
+    queryKey: ["/api/stations", activeStationId, "dashboard-config"],
+    queryFn: async () => {
+      const res = await authFetch(`/api/stations/${activeStationId}/dashboard-config`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!activeStationId,
+    staleTime: 60000,
+  });
+
+  // When the server config arrives, apply it (and mirror into localStorage) so the
+  // saved layout survives a fresh login or cleared local storage.
+  useEffect(() => {
+    if (!activeStationId || !serverDashboardConfig) return;
+    const parsed = { ...serverDashboardConfig };
+    if (parsed.chartTimeRange > 720) parsed.chartTimeRange = 720;
+    setDashboardConfig(parsed);
+    localStorage.setItem(`dashboardConfig_${activeStationId}`, JSON.stringify(parsed));
+  }, [serverDashboardConfig, activeStationId]);
+
   const { data: latestData, isLoading: dataLoading } = useQuery<WeatherData>({
     queryKey: ["/api/stations", activeStationId, "data", "latest"],
     enabled: !!activeStationId,
@@ -873,7 +896,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     staleTime: 0,
   });
 
-  // Per-station rainfall config — drives whether the chart/daily aggregations
+  // Per-station rainfall config - drives whether the chart/daily aggregations
   // SUM increments vs delta cumulative counters. Falls back to 'auto' when no
   // config exists (preserves legacy heuristic display behaviour).
   const { data: rainfallConfig } = useQuery<{ type: 'incremental' | 'cumulative_yearly' | 'cumulative_lifetime' | 'tip_count' | 'auto'; offset: number; tipFactor: number; configured: boolean }>({
@@ -1265,11 +1288,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       queryKey: ["/api/stations", activeStationId, "data", "history"],
       refetchType: 'active' // Force immediate refetch of active queries
     });
+    // Immediately refetch live data so an update-period change takes visible effect now
+    queryClient.invalidateQueries({
+      queryKey: ["/api/stations", activeStationId, "data", "latest"],
+      refetchType: 'active'
+    });
     // Also directly refetch after state update to ensure fresh data
     setTimeout(() => refetchHistorical(), 100);
   }, [queryClient, activeStationId, refetchHistorical]);
 
-  // Manual refresh handler — reload the entire page so all caches/queries reset
+  // Manual refresh handler - reload the entire page so all caches/queries reset
   const handleRefresh = useCallback(() => {
     window.location.reload();
   }, []);
@@ -1425,13 +1453,13 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // Process wind energy data from historical data (must be after calculatedAirDensity)
   const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, calculatedAirDensity, windSpeedUnit, dashboardConfig.chartTimeRange), [sortedHistoricalData, calculatedAirDensity, windSpeedUnit, dashboardConfig.chartTimeRange]);
 
-  // Wind power rose data — energy contribution per direction (always 30-day, independent of chart time range)
+  // Wind power rose data - energy contribution per direction (always 30-day, independent of chart time range)
   const windPowerRoseData = useMemo(() => {
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     return processWindPowerRoseData(dataSource, calculatedAirDensity, windSpeedUnit);
   }, [sortedStatsData, sortedHistoricalData, calculatedAirDensity, windSpeedUnit]);
 
-  // Wind power rose data — 365-day (only if we have >30 days of data)
+  // Wind power rose data - 365-day (only if we have >30 days of data)
   const sortedWind365Data = useMemo(() => {
     if (wind365Data.length === 0) return [];
     return [...wind365Data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -1817,9 +1845,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center space-y-4">
-          <Radio className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+          <Radio className="h-12 w-12 mx-auto text-black opacity-50" />
           <h2 className="text-base font-normal text-foreground">No Stations Assigned</h2>
-          <p className="text-sm text-muted-foreground max-w-md">
+          <p className="text-sm text-black max-w-md">
             You don't have any weather stations assigned to your account yet.
             Please contact your administrator to get access to station dashboards.
           </p>
@@ -1831,7 +1859,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   if (stationsLoading) {
     return (
       <div className="flex h-full items-center justify-center p-6">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-black" />
       </div>
     );
   }
@@ -1841,9 +1869,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       <div className="flex flex-col items-center justify-center gap-4 p-6">
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 px-8">
-            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
+            <Radio className="h-12 w-12 text-black mb-4" />
             <h2 className="text-base font-normal text-foreground mb-2">No Weather Stations</h2>
-            <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
+            <p className="text-sm text-black text-center mb-4 max-w-sm">
               {isAdmin 
                 ? "Add a weather station to start monitoring weather data on your dashboard."
                 : "No stations have been assigned to your account yet."}
@@ -1972,27 +2000,27 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Latitude</p>
+                    <p className="text-xs text-black">Latitude</p>
                     <p className="text-sm font-normal">{safeFixed(selectedStation?.latitude, 6, "Not set")}°</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Longitude</p>
+                    <p className="text-xs text-black">Longitude</p>
                     <p className="text-sm font-normal">{safeFixed(selectedStation?.longitude, 6, "Not set")}°</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Altitude</p>
+                    <p className="text-xs text-black">Altitude</p>
                     <p className="text-sm font-normal">{selectedStation?.altitude ? `${selectedStation.altitude} m` : "Not set"}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="text-xs text-black">Location</p>
                     <p className="text-sm font-normal">{selectedStation?.location || "Not specified"}</p>
                   </div>
                   <div className="space-y-1 col-span-2">
-                    <p className="text-xs text-muted-foreground">Station Type</p>
+                    <p className="text-xs text-black">Station Type</p>
                     <p className="text-sm font-normal">{selectedStation?.dataloggerModel || selectedStation?.stationType || "Weather Station"}</p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground italic mt-3 flex items-center gap-1">
+                <p className="text-xs text-black italic mt-3 flex items-center gap-1">
                   <Layers className="h-3 w-3 inline" /> Click the layers icon on the map (top-right) to switch between street and satellite view
                 </p>
               </CardContent>
@@ -2001,69 +2029,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Primary Metrics - Only show cards with data (use availableFields which excludes all-zero sensors) */}
+        {/* Primary Metrics charts - cards shown in CurrentConditions above; here go straight to charts */}
         {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.primaryMetrics !== false && (availableFields.temperature || availableFields.humidity || availableFields.pressure || availableFields.windSpeed || availableFields.rainfall) && (
         <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {availableFields.temperature && (
-            <MetricCard
-              title="Temperature"
-              value={formatValue(currentData.temperature || 0, 1)}
-              unit="°C"
-              trend={trends.temperature !== null ? { value: parseFloat(safeFixed(trends.temperature, 1, "0")), label: "vs avg" } : undefined}
-              subMetrics={effectiveDewPoint != null ? [{ label: "Dew Point", value: `${formatValue(effectiveDewPoint, 1)} °C` }] : undefined}
-            />
-            )}
-            {availableFields.humidity && (
-            <MetricCard
-              title="Relative Humidity"
-              value={formatValue(currentData.humidity || 0, 1)}
-              unit="%"
-              trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
-            />
-            )}
-            {availableFields.windDirection && currentData.windDirection != null && (
-              <MetricCard
-                title="Wind Direction"
-                value={getWindDirectionLabel(currentData.windDirection)}
-                unit={`${Math.round(currentData.windDirection)}°`}
-              />
-            )}
-            {availableFields.pressure && (
-            <MetricCard
-              title="Pressure"
-              value={formatValue(currentData.pressure || 0, 1)}
-              unit="hPa"
-              trend={trends.pressure !== null ? { value: parseFloat(safeFixed(trends.pressure, 1, "0")), label: "vs avg" } : undefined}
-            />
-            )}
-            {availableFields.windSpeed && (
-            <MetricCard
-              title="Wind Speed"
-              value={formatValue(currentData.windSpeed || 0, 1)}
-              unit={windUnitLabel}
-              subMetrics={[
-                { label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} ${windUnitLabel}` },
-              ]}
-            />
-            )}
-            {availableFields.rainfall && (
-            <MetricCard
-              title="Rainfall (24h)"
-              value={formatValue(effectiveRainfall, 2)}
-              unit="mm"
-            />
-            )}
-            {availableFields.temperature && availableFields.humidity && currentData.temperature != null && currentData.humidity != null && (
-            <MetricCard
-              title="Heat Index"
-              value={formatValue(calculateHeatIndex(currentData.temperature, currentData.humidity), 1)}
-              unit="°C"
-            />
-            )}
-          </div>
-          
           {/* Primary Metrics Dedicated Charts - Grid Layout */}
           <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -2912,35 +2880,35 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(rad, 0)} W/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Efficiency</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Efficiency</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(eff * 100, 0)}%</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.peakSunHours, 1)} hrs</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Radiation</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Radiation</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(estimateRad, 0)} W/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.dailyEnergy, 2)} kWh/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.monthlyEnergy, 1)} kWh/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.yearlyEnergy, 0)} kWh/m²</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <p className="text-xs text-black italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Estimates based on {safeFixed(eff * 100, 0)}% panel efficiency, {safeFixed(losses * 100, 0)}% system losses (wiring, inverter, dust), 1 m² panel area, and {safeFixed(estimateRad, 0)} W/m² average radiation. Actual output depends on panel orientation, shading, and local conditions. Yearly estimate includes 15% seasonal reduction factor.
                 </p>
               </CardContent>
@@ -3302,35 +3270,35 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust Power</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust Power</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(gustPower, 1)} W/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Air Density</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Air Density</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(density, 3)} kg/m³</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Speed (Recent)</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Speed (Recent)</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgSpd, 1)} {windUnitLabel}</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Power (Recent)</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Power (Recent)</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgPwr, 1)} W/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy Potential</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy Potential</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(dailyEnergy, 2)} kWh/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(monthlyEnergy, 1)} kWh/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy Potential</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy Potential</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(yearlyEnergy, 0)} kWh/m²</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <p className="text-xs text-black italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Wind power density calculated using P = ½ × ρ × v³ where ρ = {safeFixed(density, 3)} kg/m³ (air density) and v = wind speed in m/s. Energy potential assumes continuous operation at average power. Monthly and yearly projections extrapolated from daily cumulative energy. Yearly estimate includes 15% capacity reduction for variable wind conditions.
                 </p>
               </CardContent>
@@ -3487,38 +3455,18 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                     const isCurrent = entry.year === currentYear;
                     return (
                       <div key={entry.year} className={`rounded-lg border p-3 ${isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{entry.year}{isCurrent ? ' (YTD)' : ''}</p>
+                        <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{entry.year}{isCurrent ? ' (YTD)' : ''}</p>
                         <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                           {`${safeFixed(entry.total, 1)} mm`}
                         </p>
-                        <p className="text-[10px] text-gray-400">{(entry.readings || 0).toLocaleString()} readings</p>
+                        <p className="text-xs text-black">{(entry.readings || 0).toLocaleString()} readings</p>
                       </div>
                     );
                   })}
                 </div>
-                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <p className="text-xs text-black italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
                 </p>
-                <details className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  <summary className="cursor-pointer text-gray-600 hover:text-gray-800">How yearly totals are calculated</summary>
-                  <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200">
-                    <p>The server auto-detects whether the gauge reports <strong>incremental</strong> (rain per interval) or <strong>cumulative</strong> (running counter) values from the year's readings, then totals accordingly.</p>
-                    <p><strong>Detection signals</strong> per year (n readings, deltas dᵢ = rᵢ − rᵢ₋₁):</p>
-                    <ul className="list-disc list-inside space-y-0.5">
-                      <li>zeroFrac = fraction of zero readings</li>
-                      <li>meanPos = mean of positive readings</li>
-                      <li>maxVal = maximum reading</li>
-                      <li>increaseFrac = fraction of dᵢ &gt; 0.01</li>
-                      <li>resetCount = count of dᵢ &lt; −1</li>
-                    </ul>
-                    <p><strong>Cumulative</strong> if any of: (maxVal &gt; 100 AND resetCount &lt; 3), (increaseFrac &lt; 0.05 AND maxVal &gt; 10), or (zeroFrac &lt; 0.5 AND meanPos &gt; 5 AND increaseFrac &lt; 0.2). Otherwise <strong>incremental</strong>.</p>
-                    <p><strong>Total formula:</strong></p>
-                    <ul className="list-disc list-inside space-y-0.5">
-                      <li>Incremental: T = Σ min(max(rᵢ, 0), 50) — per-reading 50 mm cap filters spikes</li>
-                      <li>Cumulative: T = Σ dᵢ where 0 &lt; dᵢ &lt; 200 — per-step 200 mm cap, negative deltas treated as logger resets</li>
-                    </ul>
-                  </div>
-                </details>
               </CardContent>
             </Card>
             );
@@ -3527,7 +3475,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         )}
 
 
-        {/* ETo vs Rainfall (last 30 days) — only when there was rain */}
+        {/* ETo vs Rainfall (last 30 days) - only when there was rain */}
         {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.rainfall !== false && availableFields.rainfall && etoRainDaily.totalRain > 0 && etoRainDaily.data.length > 0 && (
         <section className="space-y-4">
           <Suspense fallback={<ChartFallback />}>
@@ -3553,7 +3501,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-base font-normal text-foreground">Historical Data</h2>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Time Range:</span>
+              <span className="text-xs text-black">Time Range:</span>
               <div className="flex gap-1">
                 {[
                   { label: "1h", hours: 1 },

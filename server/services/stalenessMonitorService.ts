@@ -183,9 +183,18 @@ function formatDuration(ms: number): string {
 async function getAdminEmails(): Promise<string[]> {
   try {
     const users = await getAllUsers();
-    return users
+    const emails = users
       .filter((u: any) => u.role === 'admin' && u.email)
-      .map((u: any) => u.email);
+      .map((u: any) => String(u.email).trim())
+      .filter((e: string) => e.length > 0);
+    // De-duplicate case-insensitively (multiple admin users may share an email).
+    const seen = new Set<string>();
+    return emails.filter((e: string) => {
+      const key = e.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } catch (error: any) {
     console.error('[StalenessMonitor] Error fetching admin emails:', error.message);
     return [];

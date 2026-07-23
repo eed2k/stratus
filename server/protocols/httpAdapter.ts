@@ -43,7 +43,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     const host = this.config.host?.toLowerCase() || "";
 
     // Explicit service type from the station's connection config is the most
-    // reliable signal — it is set during setup and works even when the user
+    // reliable signal - it is set during setup and works even when the user
     // leaves the (optional) endpoint URL blank to use the service default.
     const explicitType = ((this.config as any).type || (this.config as any).serviceType || "")
       .toString()
@@ -96,7 +96,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       if (this.serviceType === "arduino_iot") {
         const token = await this.arduinoGetAccessToken();
         if (!token) {
-          this.setError(new Error("Arduino IoT Cloud auth failed — check client ID/secret"));
+          this.setError(new Error("Arduino IoT Cloud auth failed - check client ID/secret"));
           return false;
         }
         this.setConnected(true);
@@ -107,7 +107,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       if (this.serviceType === "rikacloud") {
         const loggedIn = await this.rikaCloudLogin();
         if (!loggedIn) {
-          this.setError(new Error("RikaCloud login failed — check account/password"));
+          this.setError(new Error("RikaCloud login failed - check account/password"));
           return false;
         }
         // Verify we can reach the data endpoint
@@ -183,7 +183,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
    * (419/440), an HTML login page (content-type text/html), or even a 200 with
    * a JSON error body mentioning login/session/auth. The previous code only
    * handled 403/HTML, so a session that expired with a 401 (or JSON error) was
-   * never renewed and the feed went silent until the process restarted — the
+   * never renewed and the feed went silent until the process restarted - the
    * likely cause of a long-running station suddenly going stale.
    */
   private rikaSessionExpired(response: any): boolean {
@@ -235,12 +235,12 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     if (this.rikaSessionExpired(response)) {
       const ct = response.headers?.["content-type"] || "";
       console.log(
-        `[HTTPAdapter] RikaCloud session appears invalid (status ${response.status}, content-type "${ct}") — re-logging in...`
+        `[HTTPAdapter] RikaCloud session appears invalid (status ${response.status}, content-type "${ct}") - re-logging in...`
       );
       this.rikaSession = null;
       this.rikaFarmPk = null;
       const loggedIn = await this.rikaCloudLogin();
-      if (!loggedIn) throw new Error("RikaCloud re-login failed — check account/password");
+      if (!loggedIn) throw new Error("RikaCloud re-login failed - check account/password");
       response = await this.httpClient.get(url, {
         headers: { session: this.rikaSession! },
         validateStatus: () => true,
@@ -264,7 +264,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     const rawData = this.extractDataFromResponse(response.data);
 
     // If the selected Rika device reports the same reading timestamp as the
-    // last one we ingested, there is genuinely no new data — skip it instead of
+    // last one we ingested, there is genuinely no new data - skip it instead of
     // re-inserting a duplicate that would masquerade as a fresh reading.
     if (
       this.rikaCurrentReadingTs !== null &&
@@ -272,7 +272,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       this.rikaCurrentReadingTs <= this.rikaLastReadingTs
     ) {
       console.log(
-        `[HTTPAdapter] RikaCloud: no new reading since ${new Date(this.rikaLastReadingTs * 1000).toISOString()} — skipping`
+        `[HTTPAdapter] RikaCloud: no new reading since ${new Date(this.rikaLastReadingTs * 1000).toISOString()} - skipping`
       );
       return null;
     }
@@ -366,7 +366,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
         return true;
       }
 
-      console.error(`[HTTPAdapter] RikaCloud login failed — status ${response.status}`);
+      console.error(`[HTTPAdapter] RikaCloud login failed - status ${response.status}`);
       return false;
     } catch (error: any) {
       console.error(`[HTTPAdapter] RikaCloud login error: ${error.message}`);
@@ -418,7 +418,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
         return this.arduinoAccessToken;
       }
 
-      console.error(`[HTTPAdapter] Arduino IoT Cloud token request failed — status ${response.status}`);
+      console.error(`[HTTPAdapter] Arduino IoT Cloud token request failed - status ${response.status}`);
       return null;
     } catch (error: any) {
       console.error(`[HTTPAdapter] Arduino IoT Cloud token error: ${error.message}`);
@@ -563,7 +563,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     //   2001 = temperature (°C), 2002 = humidity (%RH), 2006 = wind speed (m/s),
     //   2007 = wind direction (°), 2008 = rainfall (mm), 2014 = solar radiation (W/m²),
     //   3003 = barometric pressure (hPa), 2081 = PM10 (μg/m³)
-    //   3331 = longitude, 3332 = latitude (GPS — skip)
+    //   3331 = longitude, 3332 = latitude (GPS - skip)
 
     const typeMap: Record<number, string> = {
       2001: "temperature",
@@ -610,7 +610,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     if (agriIds.length > 1 && !deviceFilter) {
       console.warn(
         `[HTTPAdapter] RikaCloud farm has ${agriIds.length} physical stations (agri_id: ${agriIds.join(", ")}) ` +
-          `but no rikaDeviceId is set — readings from all stations are being merged. ` +
+          `but no rikaDeviceId is set - readings from all stations are being merged. ` +
           `Set rikaDeviceId on each Stratus station to isolate its data.`
       );
     }

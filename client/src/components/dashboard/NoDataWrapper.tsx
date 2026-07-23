@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,9 +57,9 @@ export function NoDataWrapper({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Database className="h-12 w-12 text-muted-foreground/30 mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">{noDataMessage}</p>
-            <p className="text-xs text-muted-foreground/70 mt-1 max-w-[200px]">
+            <Database className="h-12 w-12 text-black/30 mb-3" />
+            <p className="text-sm font-medium text-black">{noDataMessage}</p>
+            <p className="text-xs text-black/70 mt-1 max-w-[200px]">
               {noDataDescription}
             </p>
           </div>

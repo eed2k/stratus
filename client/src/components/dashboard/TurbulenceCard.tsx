@@ -42,7 +42,7 @@ export function TurbulenceCard({ windStdDev, meanWindSpeed, representativeTI15 }
               <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(result.tiPercent, 1)}
               </span>
-              <span className="text-sm font-normal text-gray-500">% TI</span>
+              <span className="text-sm font-normal text-black">% TI</span>
             </div>
             <span
               className="text-xs px-2 py-1 rounded-full font-medium"
@@ -69,7 +69,7 @@ export function TurbulenceCard({ windStdDev, meanWindSpeed, representativeTI15 }
                 />
               ))}
             </div>
-            <div className="flex justify-between text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <div className="flex justify-between text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               <span>0%</span>
               <span>C (12%)</span>
               <span>B (14%)</span>
@@ -81,19 +81,19 @@ export function TurbulenceCard({ windStdDev, meanWindSpeed, representativeTI15 }
           {/* Details grid */}
           <div className="grid grid-cols-3 gap-2">
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Mean Wind</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Mean Wind</p>
               <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(meanWindSpeed, 1)} m/s
               </p>
             </div>
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Std Dev (σ)</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Std Dev (σ)</p>
               <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(windStdDev, 2)} m/s
               </p>
             </div>
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>TI (σ/Ū)</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>TI (σ/Ū)</p>
               <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(result.ti, 3)}
               </p>
@@ -103,17 +103,17 @@ export function TurbulenceCard({ windStdDev, meanWindSpeed, representativeTI15 }
           {/* Classification */}
           <div className="pt-2 border-t border-gray-200">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <span className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {result.classification}
               </span>
               {representativeTI15 != null && (
-                <span className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <span className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Rep. TI@15 m/s: {safeFixed(representativeTI15 * 100, 1)}%
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-gray-400 mt-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-              Per IEC 61400-1 Ed.3 — TI = σᵤ / Ū
+            <p className="text-xs text-black mt-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              Per IEC 61400-1 Ed.3 - TI = σᵤ / Ū
             </p>
           </div>
         </div>

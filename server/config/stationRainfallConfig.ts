@@ -6,14 +6,14 @@
  *
  * Historically a hard-coded map; now backed by the `station_calibration`
  * table maintained from the admin `/calibration` page (see
- * server/services/calibrationCache.ts). Callers don't change — they
+ * server/services/calibrationCache.ts). Callers don't change - they
  * still get a `StationRainfallConfig | null` from `getRainfallConfig`.
  *
  * CRBasic programs log rainfall in fundamentally different ways:
  *  - "incremental": each record holds the rain for that scan/period.
  *  - "cumulative_yearly": running counter that resets at year boundary.
  *  - "cumulative_lifetime": never-resetting running counter.
- *  - "tip_count": raw tip counter; multiply by `tipFactor` (default 0.2 mm).
+ *  - "tip_count": raw tip counter; multiply by `tipFactor` (default 0.1 mm).
  *
  * If a station's calibration row says `rainfallType = 'auto'` (the
  * default for newly-added stations), `getRainfallConfig` returns null
@@ -41,7 +41,7 @@ export interface StationRainfallConfig {
 export const DEFAULT_TIMEZONE_OFFSET_HOURS = 2;
 
 /** Default mm-per-tip for tipping-bucket gauges when not specified per station. */
-export const DEFAULT_TIP_FACTOR = 0.2;
+export const DEFAULT_TIP_FACTOR = 0.1;
 
 /**
  * Look up the rainfall interpretation for a station. Returns null when

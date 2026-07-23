@@ -32,7 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useLocation } from "wouter";
 import type { WeatherStation } from "@shared/schema";
-// Skeleton removed — using table layout
+// Skeleton removed - using table layout
 
 interface StationWithReading extends WeatherStation {
   lastReading?: {
@@ -308,7 +308,7 @@ export default function Stations() {
           pollInterval: parseInt(data.pollInterval) || 60,
         });
       } else if (data.connectionType === "arduino_iot") {
-        // Arduino IoT Cloud — OAuth2 client_credentials
+        // Arduino IoT Cloud - OAuth2 client_credentials
         payload.stationType = "arduino";
         payload.protocol = "http";
         payload.connectionConfig = JSON.stringify({
@@ -869,7 +869,7 @@ X-API-Key: your-key (optional)
                         )}
                       </td>
                       <td className="p-3 text-muted-foreground hidden sm:table-cell">
-                        {station.location || '—'}
+                        {station.location || '-'}
                       </td>
                       <td className="p-3 text-muted-foreground hidden md:table-cell">
                         {formatLastSync(station.lastSyncTime)}

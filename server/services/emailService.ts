@@ -24,6 +24,27 @@ const fromEmail = process.env.MAILERSEND_FROM_EMAIL || 'noreply@stratusweather.c
 const fromName = process.env.MAILERSEND_FROM_NAME || 'Stratus Weather';
 const alertsEmail = process.env.MAILERSEND_ALERTS_EMAIL || 'alerts@stratusweather.co.za';
 
+/**
+ * Normalise and de-duplicate a recipient list.
+ * MailerSend rejects the entire request (422 #MS42201) if the same address
+ * appears more than once, so we trim, drop blanks, and dedupe case-insensitively.
+ */
+function normalizeRecipients(to: string | string[]): string[] {
+  const list = Array.isArray(to) ? to : [to];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of list) {
+    if (typeof raw !== 'string') continue;
+    const email = raw.trim();
+    if (!email) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(email);
+  }
+  return out;
+}
+
 export interface EmailOptions {
   to: string | string[];
   subject: string;
@@ -37,7 +58,7 @@ export interface EmailOptions {
   attachments?: Array<{
     filename: string;
     content: Buffer | string;
-    /** MIME type — informational only; MailerSend infers from filename. */
+    /** MIME type - informational only; MailerSend infers from filename. */
     contentType?: string;
   }>;
 }
@@ -56,10 +77,12 @@ export interface AlarmEmailData {
 }
 
 /**
- * Check if email service is configured
+ * Check if email service is configured.
+ * Only the API key is strictly required - from address falls back to
+ * `noreply@stratusweather.co.za` when MAILERSEND_FROM_EMAIL is unset.
  */
 export function isEmailConfigured(): boolean {
-  return !!process.env.MAILERSEND_API_KEY && !!process.env.MAILERSEND_FROM_EMAIL;
+  return !!process.env.MAILERSEND_API_KEY && !!fromEmail;
 }
 
 /**
@@ -72,8 +95,12 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   }
 
   try {
-    const recipients = Array.isArray(options.to) ? options.to : [options.to];
-    
+    const recipients = normalizeRecipients(options.to);
+    if (recipients.length === 0) {
+      console.warn('[Email] No valid recipients after normalization, skipping send.');
+      return false;
+    }
+
     const payload: any = {
       from: {
         email: fromEmail,
@@ -127,8 +154,12 @@ export async function sendAlertEmail(options: EmailOptions): Promise<boolean> {
   }
 
   try {
-    const recipients = Array.isArray(options.to) ? options.to : [options.to];
-    
+    const recipients = normalizeRecipients(options.to);
+    if (recipients.length === 0) {
+      console.warn('[Email/Alert] No valid recipients after normalization, skipping send.');
+      return false;
+    }
+
     const payload = {
       from: {
         email: alertsEmail,
@@ -449,7 +480,7 @@ export async function sendUserInvitationEmail(
       ${data.customMessage ? `
       <div style="background: #f0f4f8; border-left: 4px solid #2563eb; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
         <p style="margin: 0; color: #4b5563; font-style: italic; font-family: Arial, Helvetica, sans-serif;">"${data.customMessage}"</p>
-        ${data.inviterName ? `<p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">— ${data.inviterName}</p>` : ''}
+        ${data.inviterName ? `<p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">- ${data.inviterName}</p>` : ''}
       </div>
       ` : ''}
       

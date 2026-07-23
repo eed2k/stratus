@@ -85,7 +85,7 @@ export default function AccountSettings() {
   return (
     <div className="container mx-auto p-6 space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-semibold">Account Settings</h1>
+        <h1 className="text-2xl font-bold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }}>Account Settings</h1>
         <p className="text-muted-foreground">
           Manage your account settings and preferences.
         </p>

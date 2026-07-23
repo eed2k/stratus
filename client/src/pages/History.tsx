@@ -259,7 +259,7 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
     <div className="flex flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Historical Data Export</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }}>Historical Data Export</h1>
           <p className="text-sm text-muted-foreground">
             View and export historical weather records
           </p>
@@ -351,7 +351,7 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">
-              {weatherData.length} Records — {stations.find(s => String(s.id) === activeStationId)?.name || "Station"}
+              {weatherData.length} Records - {stations.find(s => String(s.id) === activeStationId)?.name || "Station"}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">

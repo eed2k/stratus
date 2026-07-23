@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +45,7 @@ export function EToCard({ dailyETo, weeklyETo, monthlyETo }: EToCardProps) {
 
           {/* FAO Penman-Monteith Formula */}
           <div className="pt-3 border-t border-gray-200">
-            <p className="text-[10px] text-black text-center mb-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <p className="text-xs text-black text-center mb-2" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               FAO-56 Penman-Monteith Reference Evapotranspiration
             </p>
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
@@ -57,8 +57,8 @@ export function EToCard({ dailyETo, weeklyETo, monthlyETo }: EToCardProps) {
                     <span className="text-xs border-b border-black px-2 pb-0.5">
                       0.408 Δ(<span className="italic">R<sub>n</sub></span> − <span className="italic">G</span>) + γ
                       <span className="inline-flex flex-col items-center align-middle mx-0.5">
-                        <span className="text-[10px] border-b border-black px-1">900</span>
-                        <span className="text-[10px] px-1"><span className="italic">T</span> + 273</span>
+                        <span className="text-xs border-b border-black px-1">900</span>
+                        <span className="text-xs px-1"><span className="italic">T</span> + 273</span>
                       </span>
                       <span className="italic">u</span><sub>2</sub>(<span className="italic">e<sub>s</sub></span> − <span className="italic">e<sub>a</sub></span>)
                     </span>
@@ -68,7 +68,7 @@ export function EToCard({ dailyETo, weeklyETo, monthlyETo }: EToCardProps) {
                   </span>
                 </div>
               </div>
-              <div className="flex justify-center gap-4 mt-2 text-[9px] text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <div className="flex justify-center gap-4 mt-2 text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 <span>Δ = slope vapour pressure curve</span>
                 <span>γ = psychrometric constant</span>
               </div>

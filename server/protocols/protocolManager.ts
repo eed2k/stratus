@@ -52,8 +52,14 @@ class ProtocolManagerClass extends EventEmitter {
         if (station.connectionType === 'demo') continue;
         if (!station.isActive) continue;
         
+        // Cloud-service stations supply their own endpoint/login flow internally
+        // (e.g. RikaCloud defaults to cloud.rikacloud.com, Arduino IoT builds its
+        // URL from the Thing ID). These are valid even with a blank apiEndpoint.
+        const selfEndpointTypes = ['rikacloud', 'arduino_iot'];
+        const isSelfEndpoint = selfEndpointTypes.includes((station.connectionType || '').toLowerCase());
+
         // Skip stations that don't have a valid endpoint (import-only stations)
-        const hasValidEndpoint = station.ipAddress || station.apiEndpoint || 
+        const hasValidEndpoint = isSelfEndpoint || station.ipAddress || station.apiEndpoint || 
           (station.connectionConfig && (station.connectionConfig.host || station.connectionConfig.apiEndpoint || station.connectionConfig.broker));
         
         if (!hasValidEndpoint) {
@@ -174,9 +180,12 @@ class ProtocolManagerClass extends EventEmitter {
   private getStationPollInterval(config: ProtocolConfig): number {
     const endpoint = config.apiEndpoint?.toLowerCase() || '';
     const host = config.host?.toLowerCase() || '';
+    const explicitType = ((config as any).type || (config as any).serviceType || '')
+      .toString()
+      .toLowerCase();
     
     // Rika Cloud API: 30-minute standard poll interval
-    if (endpoint.includes('rika') || host.includes('rika')) {
+    if (explicitType === 'rikacloud' || endpoint.includes('rika') || host.includes('rika')) {
       return 1800000; // 30 minutes
     }
     
@@ -298,7 +307,7 @@ class ProtocolManagerClass extends EventEmitter {
 
   private async handleIncomingData(stationId: number, data: NormalizedWeatherData): Promise<void> {
     try {
-      // Build data object dynamically — include all non-null fields
+      // Build data object dynamically - include all non-null fields
       const weatherFields: Record<string, any> = {};
       for (const [key, value] of Object.entries(data)) {
         // Skip metadata fields, only include weather measurements

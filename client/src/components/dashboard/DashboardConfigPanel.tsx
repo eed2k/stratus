@@ -1,11 +1,10 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -276,34 +275,6 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
                   </div>
                 </div>
 
-                <Separator />
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="showTrendCharts">Show Trend Charts</Label>
-                    <Switch
-                      id="showTrendCharts"
-                      checked={localConfig.showTrendCharts}
-                      onCheckedChange={(v) => setLocalConfig((prev: DashboardConfig) => ({ ...prev, showTrendCharts: v }))}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="showWindRose">Show Wind Rose</Label>
-                    <Switch
-                      id="showWindRose"
-                      checked={localConfig.showWindRose}
-                      onCheckedChange={(v) => setLocalConfig((prev: DashboardConfig) => ({ ...prev, showWindRose: v }))}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="compactMode">Compact Mode</Label>
-                    <Switch
-                      id="compactMode"
-                      checked={localConfig.compactMode}
-                      onCheckedChange={(v) => setLocalConfig((prev: DashboardConfig) => ({ ...prev, compactMode: v }))}
-                    />
-                  </div>
-                </div>
               </CardContent>
             </Card>
 
@@ -319,19 +290,19 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
               </CardHeader>
               <CardContent className="space-y-3">
                 {availableSections.map((key) => (
-                  <div key={key} className="flex items-center justify-between">
-                    <Label htmlFor={`section-${key}`}>{SECTION_LABELS[key]}</Label>
-                    <Switch
+                  <div key={key} className="flex items-center gap-3">
+                    <Checkbox
                       id={`section-${key}`}
                       checked={(localConfig.sectionVisibility ?? DEFAULT_SECTION_VISIBILITY)[key]}
-                      onCheckedChange={(v) => setLocalConfig((prev: DashboardConfig) => ({
+                      onCheckedChange={(checked) => setLocalConfig((prev: DashboardConfig) => ({
                         ...prev,
                         sectionVisibility: {
                           ...(prev.sectionVisibility ?? DEFAULT_SECTION_VISIBILITY),
-                          [key]: v
+                          [key]: checked as boolean
                         }
                       }))}
                     />
+                    <Label htmlFor={`section-${key}`} className="cursor-pointer">{SECTION_LABELS[key]}</Label>
                   </div>
                 ))}
               </CardContent>
@@ -395,9 +366,9 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
                                 <div className="grid gap-0.5 leading-none">
                                   <Label htmlFor={param.id} className="text-sm cursor-pointer">
                                     {param.name}
-                                    <span className="text-muted-foreground ml-1">({param.unit})</span>
+                                    <span className="text-black ml-1">({param.unit})</span>
                                   </Label>
-                                  <p className="text-xs text-muted-foreground">
+                                  <p className="text-xs text-black">
                                     {param.description}
                                   </p>
                                 </div>

@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useRef } from "react";
@@ -151,14 +151,14 @@ export function DataImport({ stationId, stationName }: DataImportProps) {
           {isImporting ? (
             <div className="flex flex-col items-center gap-2">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              <p className="text-sm text-muted-foreground">Importing data...</p>
+              <p className="text-sm text-black">Importing data...</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
               <p className="text-sm font-medium">
                 Drop file here or click to browse
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-black">
                 Supports TOA5, TOB1, and CSV formats
               </p>
             </div>
@@ -177,7 +177,7 @@ export function DataImport({ stationId, stationName }: DataImportProps) {
               {result.errors.length > 0 && (
                 <div className="mt-2">
                   <p className="text-destructive font-medium">Errors ({result.errors.length}):</p>
-                  <ul className="list-disc list-inside text-xs text-muted-foreground max-h-24 overflow-y-auto">
+                  <ul className="list-disc list-inside text-xs text-black max-h-24 overflow-y-auto">
                     {result.errors.slice(0, 5).map((err, i) => (
                       <li key={i}>{err}</li>
                     ))}

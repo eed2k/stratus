@@ -6,13 +6,13 @@
  *
  * Historically a hard-coded map; now backed by the `station_calibration`
  * table maintained from the admin `/calibration` page (see
- * server/services/calibrationCache.ts). Callers do not need to change —
+ * server/services/calibrationCache.ts). Callers do not need to change -
  * `applyRainfallOffset(stationId, raw)` keeps the same signature.
  *
  * Some stations (e.g. RIKA cloud-fed devices) report a CUMULATIVE rainfall
  * counter that includes rain accumulated before the device was integrated
  * into Stratus. The offset is the cumulative value AT THE POINT OF INTEGRATION
- * — subtracting it gives the cumulative rain since integration.
+ * - subtracting it gives the cumulative rain since integration.
  *
  * The offset is also useful for suppressing PHANTOM RAIN after a hardware
  * counter reset.

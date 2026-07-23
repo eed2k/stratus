@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,7 +49,7 @@ export function WaterBalanceCard({
               <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {balance.balance > 0 ? '+' : ''}{safeFixed(balance.balance, 1)}
               </span>
-              <span className="text-sm font-normal text-gray-500">mm</span>
+              <span className="text-sm font-normal text-black">mm</span>
             </div>
             <span
               className="text-xs px-2 py-1 rounded-full font-medium"
@@ -62,13 +62,13 @@ export function WaterBalanceCard({
           {/* Rainfall vs ET₀ */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-2 bg-blue-50 rounded">
-              <p className="text-[10px] text-gray-400 mb-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Total Rainfall</p>
+              <p className="text-xs text-black mb-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Total Rainfall</p>
               <p className="text-sm font-medium text-blue-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(totalRainfall, 1)} mm
               </p>
             </div>
             <div className="p-2 bg-orange-50 rounded">
-              <p className="text-[10px] text-gray-400 mb-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Total ET₀</p>
+              <p className="text-xs text-black mb-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Total ET₀</p>
               <p className="text-sm font-medium text-orange-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(totalETo, 1)} mm
               </p>
@@ -79,7 +79,7 @@ export function WaterBalanceCard({
           {currentRainfall != null && currentRainfall > 0 && (
           <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
             <div>
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Intensity</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Intensity</p>
               <p className="text-sm font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(intensity.ratePerHour, 1)} mm/hr
               </p>
@@ -96,7 +96,7 @@ export function WaterBalanceCard({
           {/* Monthly bar chart */}
           {monthlyData && monthlyData.length > 0 && (
           <div className="space-y-1 pt-2 border-t border-gray-200">
-            <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               Rainfall vs ET₀ ({periodLabel})
             </p>
             <div className="flex items-end gap-1 h-16">
@@ -114,11 +114,11 @@ export function WaterBalanceCard({
                       title={`ET₀: ${safeFixed(d.eto, 1)} mm`}
                     />
                   </div>
-                  <span className="text-[8px] text-gray-400">{d.month}</span>
+                  <span className="text-xs text-black">{d.month}</span>
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-3 text-[9px] text-gray-400">
+            <div className="flex items-center gap-3 text-xs text-black">
               <span><span className="inline-block w-2 h-2 bg-blue-400 rounded-sm mr-1"></span>Rainfall</span>
               <span><span className="inline-block w-2 h-2 bg-orange-400 rounded-sm mr-1"></span>ET₀</span>
             </div>

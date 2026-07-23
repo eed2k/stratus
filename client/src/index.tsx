@@ -37,7 +37,7 @@ const App = () => {
             Stratus
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Modern weather station monitoring — Real-time telemetry, beautiful charts, and an atmospheric UI.
+            Modern weather station monitoring - Real-time telemetry, beautiful charts, and an atmospheric UI.
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">

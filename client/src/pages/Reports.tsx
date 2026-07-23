@@ -2,7 +2,7 @@
 // Created by Lukas Esterhuizen
 
 /**
- * Report Generation page — admin-only, accessible from the sidebar nav at
+ * Report Generation page - admin-only, accessible from the sidebar nav at
  * `/reports`. Renders the existing `ReportGenerator` component which lets
  * an admin build an ad-hoc PDF report (with summary stats and wind rose
  * diagrams) for a single station over a chosen date range.
@@ -29,7 +29,7 @@ export default function Reports() {
       <div className="mx-auto max-w-6xl p-4 md:p-6 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-semibold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <h1 className="text-2xl font-bold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }}>
               Report Generation
             </h1>
             <p className="text-sm text-muted-foreground mt-1">

@@ -28,25 +28,25 @@ interface MpptChargerCardProps {
 
 // Victron MPPT charger state codes
 const CHARGER_STATES: Record<number, { label: string; color: string; description: string }> = {
-  0: { label: "Off", color: "text-gray-500", description: "No charging — panel voltage too low or charger disabled" },
+  0: { label: "Off", color: "text-black", description: "No charging - panel voltage too low or charger disabled" },
   2: { label: "Fault", color: "text-red-500", description: "Charger fault detected" },
-  3: { label: "Bulk", color: "text-yellow-500", description: "Maximum current charging — battery below ~80% SOC" },
-  4: { label: "Absorption", color: "text-orange-500", description: "Constant voltage (14.4V) — battery ~80-100% SOC" },
-  5: { label: "Float", color: "text-green-500", description: "Maintenance voltage (13.8V) — battery fully charged" },
-  6: { label: "Storage", color: "text-blue-400", description: "Reduced voltage — battery in long-term storage mode" },
+  3: { label: "Bulk", color: "text-yellow-500", description: "Maximum current charging - battery below ~80% SOC" },
+  4: { label: "Absorption", color: "text-orange-500", description: "Constant voltage (14.4V) - battery ~80-100% SOC" },
+  5: { label: "Float", color: "text-green-500", description: "Maintenance voltage (13.8V) - battery fully charged" },
+  6: { label: "Storage", color: "text-blue-400", description: "Reduced voltage - battery in long-term storage mode" },
   7: { label: "Equalize", color: "text-blue-500", description: "Controlled overcharge to balance cells" },
   252: { label: "Ext. Control", color: "text-teal-600", description: "Charger controlled by external device" },
 };
 
 function getChargerStateLabel(state: number | null): { label: string; color: string; description: string } {
-  if (state === null || state === undefined) return { label: "Unknown", color: "text-gray-400", description: "No data available" };
+  if (state === null || state === undefined) return { label: "Unknown", color: "text-black", description: "No data available" };
   const rounded = Math.round(state);
-  return CHARGER_STATES[rounded] || { label: `State ${state}`, color: "text-gray-500", description: "Unknown charger state" };
+  return CHARGER_STATES[rounded] || { label: `State ${state}`, color: "text-black", description: "Unknown charger state" };
 }
 
 function getBatteryHealth(voltage: number | null): { label: string; color: string; percentage: number } {
   if (voltage === null || voltage === undefined || voltage === 0) {
-    return { label: "No Data", color: "text-gray-400", percentage: 0 };
+    return { label: "No Data", color: "text-black", percentage: 0 };
   }
   // 12V LiFePO4 (4S) battery range: 10.0V (empty) - 14.6V (full charge)
   const min = 10.0;
@@ -85,7 +85,7 @@ export const MpptChargerCard = memo(function MpptChargerCard({
 
   const FONT = { fontFamily: 'Arial, Helvetica, sans-serif' } as const;
   const HEADING = "text-sm font-semibold text-black";
-  const LABEL = "text-[11px] font-normal text-gray-700";
+  const LABEL = "text-xs font-normal text-black";
   const VALUE = "text-base font-normal text-black";
 
   return (
@@ -109,7 +109,7 @@ export const MpptChargerCard = memo(function MpptChargerCard({
           {/* State Legend */}
           <div style={FONT}>
             <p className={`${LABEL} mb-0.5`} style={FONT}>Charger State Legend</p>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 pl-2 text-[11px]">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 pl-2 text-xs">
               {Object.entries(CHARGER_STATES).filter(([k]) => [0, 3, 4, 5].includes(Number(k))).map(([code, info]) => (
                 <div key={code} className="flex items-center gap-1">
                   <span className={`font-medium ${info.color}`} style={FONT}>{code}</span>

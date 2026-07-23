@@ -578,14 +578,14 @@ export class DatabaseStorage {
       return undefined;
     }
 
-    // No table name — merge latest records from ALL tables for this station
+    // No table name - merge latest records from ALL tables for this station
     // This ensures multi-table stations (e.g. Table5m, Table10m, TableHour) show all fields
     if (usePostgres) {
       const tableNames = await postgres.getDistinctTableNames(stationId);
       if (tableNames.length === 0) return undefined;
       
       if (tableNames.length === 1) {
-        // Single table — fast path, no merge needed
+        // Single table - fast path, no merge needed
         const record = await postgres.getLatestWeatherData(stationId, tableNames[0]);
         if (record) return this.mapPgWeatherData(record);
         return undefined;
@@ -594,7 +594,7 @@ export class DatabaseStorage {
       // Multi-table: fetch latest record from each table, then merge with the
       // freshest table as the base so its values win for overlapping fields.
       // (Without this ordering, an older table whose name happens to sort first
-      //  permanently shadows newer values from other tables — e.g. station 18
+      //  permanently shadows newer values from other tables - e.g. station 18
       //  has both "Data" (stale) and "TableHour" (live) and Data was winning.)
       const fetched: { tbl: string; record: WeatherData }[] = [];
       for (const tbl of tableNames) {
@@ -726,7 +726,7 @@ export class DatabaseStorage {
             triggered = Math.abs(numValue - alarm.threshold) < 0.01;
             break;
           case 'change':
-            // For "change" condition, we'd need previous value — skip for now
+            // For "change" condition, we'd need previous value - skip for now
             break;
           case 'stale': {
             // Check if data hasn't updated within the configured staleMinutes window
@@ -767,12 +767,12 @@ export class DatabaseStorage {
         // - If condition IS met AND alarm already active → skip (already alerted)
         // - If condition IS met AND alarm NOT active → trigger + send email
         if (!triggered) {
-          // Condition cleared — reset alarm state silently
+          // Condition cleared - reset alarm state silently
           this.activeAlarms.delete(alarm.id);
           continue;
         }
 
-        // Alarm condition is met — check if already in active state
+        // Alarm condition is met - check if already in active state
         if (this.activeAlarms.has(alarm.id)) {
           // Already alerted for this breach event, skip
           continue;
@@ -1858,7 +1858,7 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.connection_type,
-      // Location fields — keep raw pg values (strings)
+      // Location fields - keep raw pg values (strings)
       location: station.location || undefined,
       latitude: station.latitude ?? undefined,
       longitude: station.longitude ?? undefined,
@@ -1923,7 +1923,7 @@ export class DatabaseStorage {
       apiKey: connectionConfig.apiKey,
       apiEndpoint: connectionConfig.apiEndpoint,
       stationType: connectionConfig.stationType || station.stationType || station.connectionType,
-      // Location fields — keep raw pg values (strings)
+      // Location fields - keep raw pg values (strings)
       location: station.location || undefined,
       latitude: station.latitude ?? undefined,
       longitude: station.longitude ?? undefined,
@@ -1958,9 +1958,9 @@ export class DatabaseStorage {
       data = {};
     }
 
-    // Helper: charger voltage sanity — values > 100V are likely in mV
+    // Helper: charger voltage sanity - values > 100V are likely in mV
     const sanitizeChargerVoltage = (v: number | null) => v !== null && v > 100 ? v / 100 : v;
-    // Helper: solar radiation cap — values > 2000 W/m² are unrealistic raw readings
+    // Helper: solar radiation cap - values > 2000 W/m² are unrealistic raw readings
     const sanitizeSolarRadiation = (v: number | null) => v !== null && v > 2000 ? null : v;
     // Helper: convert pg REAL/FLOAT columns (returned as strings) to numbers
     const toNum = (v: any): number | null => {
@@ -2067,9 +2067,9 @@ export class DatabaseStorage {
       data = {};
     }
 
-    // Helper: charger voltage sanity — values > 100V are likely in mV
+    // Helper: charger voltage sanity - values > 100V are likely in mV
     const sanitizeChargerVoltage = (v: number | null) => v !== null && v > 100 ? v / 100 : v;
-    // Helper: solar radiation cap — values > 2000 W/m² are unrealistic raw readings
+    // Helper: solar radiation cap - values > 2000 W/m² are unrealistic raw readings
     const sanitizeSolarRadiation = (v: number | null) => v !== null && v > 2000 ? null : v;
     // Helper: convert pg REAL/FLOAT columns (returned as strings) to numbers
     const toNum = (v: any): number | null => {

@@ -6,7 +6,7 @@
  *
  * Used by two callers:
  *   1. GET /api/reports/pdf?stationId=&from=&to=&fields=&format=...
- *      — admin-only on-demand download (also reused by the new
+ *      - admin-only on-demand download (also reused by the new
  *        Report Generation page when "PDF" is preferred over the
  *        client-side jsPDF render).
  *   2. The scheduler (server/services/reportSchedulerService.ts) attaches
@@ -18,7 +18,7 @@
  *     (keeps the Docker image small).
  *   - The wind rose SVG is a server-side port of the one in
  *     client/src/components/reports/ReportGenerator.tsx.
- *   - Charts are simple SVG line plots — good enough for an attached
+ *   - Charts are simple SVG line plots - good enough for an attached
  *     PDF; the dashboard remains the rich interactive view.
  */
 
@@ -31,7 +31,7 @@ import { applyRainfallOffset } from "../config/stationRainfallOffsets";
 const REPORTS_TZ = process.env.REPORTS_TZ || "Africa/Johannesburg";
 
 // ─────────────────────────────────────────────────────────────────────
-// Wind direction / speed class constants — keep these in lock-step with
+// Wind direction / speed class constants - keep these in lock-step with
 // client/src/components/reports/ReportGenerator.tsx so the PDF matches
 // what the dashboard / browser-side PDF show.
 // ─────────────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ function dirBin(deg: number): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Field aliases — match the catalogues used by reportSchedulerService
+// Field aliases - match the catalogues used by reportSchedulerService
 // so the PDF can pull a couple of raw series (temperature, rainfall,
 // wind) for the line charts.
 // ─────────────────────────────────────────────────────────────────────
@@ -406,7 +406,7 @@ function decimalsFor(key: string, unit: string): number {
 }
 
 /**
- * Build the PDF and return it as a Buffer. Never throws — on failure
+ * Build the PDF and return it as a Buffer. Never throws - on failure
  * returns a 1-page PDF that explains the error so scheduled emails
  * still go out with *some* attachment.
  */
@@ -554,7 +554,7 @@ function buildRainSeries(stationId: number, raw: RawRecord[]): ChartSeries[] {
       // Sanity-clamp deltas so a counter reset / glitch can't blow up the chart
       if (delta > 0 && delta < 100) cum += delta;
       else if (delta <= 0 && v < 100) {
-        // Likely incremental — add the value itself
+        // Likely incremental - add the value itself
         if (v > 0 && v < 100) cum += v;
       }
     } else if (v > 0 && v < 100) {

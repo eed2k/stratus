@@ -421,8 +421,8 @@ export function StationImageDisplay({
   if (!image) {
     // Default placeholder with Stratus logo only, no background
     return (
-      <div className="w-full h-32 rounded-t-lg overflow-hidden flex items-center justify-center">
-        <svg viewBox="0 0 256 256" fill="none" className="h-20 w-20">
+      <div className="w-full h-24 overflow-hidden flex items-center justify-center">
+        <svg viewBox="0 0 256 256" fill="none" className="h-16 w-16">
           <circle cx="128" cy="128" r="120" fill="#1e3a5f"/>
           <circle cx="128" cy="128" r="32" fill="#ffffff"/>
           <circle cx="128" cy="128" r="118" stroke="#ffffff" strokeWidth="2" fill="none" opacity="0.2"/>
@@ -430,9 +430,9 @@ export function StationImageDisplay({
       </div>
     );
   }
-  
+
   return (
-    <div className="w-full h-48 rounded-t-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+    <div className="w-full h-36 overflow-hidden bg-white flex items-center justify-center">
       <img
         src={image}
         alt={`${stationName} station`}

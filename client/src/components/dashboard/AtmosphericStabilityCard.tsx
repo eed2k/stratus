@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +31,7 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {result.description}
               </p>
-              <p className="text-xs text-gray-500">Pasquill-Gifford Class</p>
+              <p className="text-xs text-black">Pasquill-Gifford Class</p>
           </div>
 
           {/* Stability class scale A-F */}
@@ -59,7 +59,7 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
 
           {/* Dispersion conditions */}
           <div className="pt-2 border-t border-gray-200">
-            <p className="text-xs text-gray-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               {result.dispersionCondition}
             </p>
           </div>
@@ -67,13 +67,13 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
           {/* Mixing height & inversion */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
             <div className="text-center">
-              <p className="text-xs text-gray-500">Mixing Height</p>
+              <p className="text-xs text-black">Mixing Height</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 ~{result.mixingHeight} m
               </p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500">Inversion</p>
+              <p className="text-xs text-black">Inversion</p>
               <p className={`text-sm font-normal ${result.inversionDetected ? 'text-red-500' : 'text-green-600'}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {result.inversionDetected ? 'Detected' : 'None'}
               </p>
@@ -84,7 +84,7 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
           {deltaTemperature != null && (
             <div className="pt-2 border-t border-gray-200">
               <div className="flex justify-between text-xs">
-                <span className="text-gray-500">ΔT (8m − 2m)</span>
+                <span className="text-black">ΔT (8m − 2m)</span>
                 <span className={`font-normal ${deltaTemperature > 0 ? 'text-red-500' : 'text-green-600'}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {deltaTemperature > 0 ? '+' : ''}{safeFixed(deltaTemperature, 2)} °C
                 </span>
@@ -95,20 +95,20 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
           {/* Input values */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
             <div className="text-center">
-              <p className="text-xs text-gray-500">Wind Speed</p>
+              <p className="text-xs text-black">Wind Speed</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(windSpeed, 1)} m/s
               </p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500">Solar Radiation</p>
+              <p className="text-xs text-black">Solar Radiation</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(solarRadiation, 0)} W/m²
               </p>
             </div>
           </div>
 
-          <p className="text-xs text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-xs text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Pasquill-Gifford stability classification for atmospheric dispersion. Class A (extremely unstable) favours 
             rapid pollutant dispersion, Class F (stable) indicates pollutant trapping. Used for mining blast planning, 
             industrial emissions monitoring, and air quality management.

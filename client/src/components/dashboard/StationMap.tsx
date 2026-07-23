@@ -179,7 +179,7 @@ class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorBoundary
           <CardContent>
             <div className="flex flex-col items-center justify-center h-64 text-amber-600 gap-2">
               <p className="text-sm text-center">Map failed to load</p>
-              <p className="text-xs text-muted-foreground text-center max-w-xs">
+              <p className="text-xs text-black text-center max-w-xs">
                 {this.state.error?.message || 'Unknown error'}
               </p>
               <Button 
@@ -245,7 +245,7 @@ export function StationMap({
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const windArrowRef = useRef<any>(null);
-  const activeLayerRef = useRef<'street' | 'satellite'>('street');
+  const activeLayerRef = useRef<'street' | 'satellite'>('satellite');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
@@ -394,7 +394,7 @@ export function StationMap({
           zoomAnimation: true,
         });
 
-        // Tile layers — Street (CARTO Voyager) and Satellite (Esri World Imagery).
+        // Tile layers - Street (CARTO Voyager) and Satellite (Esri World Imagery).
         // NOTE: we deliberately do NOT use raw tile.openstreetmap.org tiles here.
         // OSM's tile usage policy forbids production/heavy use and returns HTTP 403
         // for flagged referrers. CARTO + Esri both permit web embedding, are CORS
@@ -416,12 +416,13 @@ export function StationMap({
           errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         });
         
-        streetLayer.addTo(map);
+        // Satellite is the default base layer; users can toggle to Street.
+        satelliteLayer.addTo(map);
 
         // Add layer control toggle
         const baseMaps = {
-          "Street": streetLayer,
           "Satellite": satelliteLayer,
+          "Street": streetLayer,
         };
         L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
 
@@ -555,7 +556,7 @@ export function StationMap({
       return dirs[Math.round(windDirection / 22.5) % 16];
     })();
 
-    const speedLabel = windSpeed != null ? `${safeFixed(windSpeed, 1)} m/s` : '—';
+    const speedLabel = windSpeed != null ? `${safeFixed(windSpeed, 1)} m/s` : '-';
 
     // Create a fixed-position overlay in the top-left corner
     const overlay = document.createElement('div');
@@ -611,7 +612,7 @@ export function StationMap({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+          <div className="flex flex-col items-center justify-center h-64 text-black">
             <MapPin className="h-12 w-12 mb-4 opacity-50" />
             <p className="text-sm text-center">
               No location coordinates configured.
@@ -648,7 +649,7 @@ export function StationMap({
         {(editable || onLocationSelect) && (
           <div className="relative mt-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
               <Input
                 placeholder="Search location..."
                 value={searchQuery}
@@ -667,7 +668,7 @@ export function StationMap({
                 </Button>
               )}
               {isSearching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-black" />
               )}
             </div>
             
@@ -681,7 +682,7 @@ export function StationMap({
                     onClick={() => handleSelectLocation(result)}
                   >
                     <div className="font-medium truncate">{result.display_name.split(',')[0]}</div>
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className="text-xs text-black truncate">
                       {result.display_name.split(',').slice(1, 3).join(',')}
                     </div>
                   </button>
@@ -705,10 +706,10 @@ export function StationMap({
                 }}
               />
               <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
-                <MapPin className="h-8 w-8 text-muted-foreground/50" />
+                <MapPin className="h-8 w-8 text-black/50" />
               </div>
             </div>
-            <p className="text-sm text-muted-foreground text-center">{error}</p>
+            <p className="text-sm text-black text-center">{error}</p>
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
@@ -732,7 +733,7 @@ export function StationMap({
           <div className="relative">
             {/* Loading overlay */}
             {isLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center h-64 text-muted-foreground gap-2 bg-background z-10">
+              <div className="absolute inset-0 flex flex-col items-center justify-center h-64 text-black gap-2 bg-background z-10">
                 <Loader2 className="h-8 w-8 animate-spin" />
                 <p className="text-sm">Loading map...</p>
               </div>
@@ -746,7 +747,7 @@ export function StationMap({
           </div>
         )}
         {altitude !== undefined && (
-          <div className="mt-2 text-xs text-muted-foreground text-center">
+          <div className="mt-2 text-xs text-black text-center">
             Altitude: {altitude} m above sea level
           </div>
         )}

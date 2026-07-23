@@ -1,4 +1,4 @@
-﻿// Stratus Weather Server
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { STANDARD_AIR_DENSITY_KGM3 } from './weatherConstants';
@@ -1019,16 +1019,16 @@ export function calculateDensityAltitude(
     dewPoint: number = 0,
     stationElevation: number = 0
 ): DensityAltitudeResult {
-    // Pressure altitude (feet) = (1013.25 - QNH) Ã— 30 + field elevation
+    // Pressure altitude (feet) = (1013.25 - QNH) Ã- 30 + field elevation
     // More accurate: using hypsometric equation
     const pressureAltitudeFt = (1 - Math.pow(stationPressure / 1013.25, 0.190284)) * 145366.45;
 
-    // ISA standard temperature at pressure altitude: 15 - (PA_ft Ã— 0.001981)Â°C
+    // ISA standard temperature at pressure altitude: 15 - (PA_ft Ã- 0.001981)Â°C
     const isaTemp = 15 - (pressureAltitudeFt * 0.001981);
     const isaDeviation = temperature - isaTemp;
 
     // Virtual temperature correction for humidity (vapour pressure effect)
-    // e = 6.11 Ã— 10^(7.5 Ã— Td / (237.7 + Td))  [hPa]
+    // e = 6.11 Ã- 10^(7.5 Ã- Td / (237.7 + Td))  [hPa]
     const e = 6.11 * Math.pow(10, (7.5 * dewPoint) / (237.7 + dewPoint));
     const Tv = (temperature + 273.15) / (1 - 0.378 * (e / stationPressure)) - 273.15;
 
@@ -1105,7 +1105,7 @@ export function formatMETAR(
 ): METARResult {
     const parts: string[] = [];
 
-    // Wind: dddffGff KT (convert m/s to knots: Ã—1.94384)
+    // Wind: dddffGff KT (convert m/s to knots: Ã-1.94384)
     if (windDirection != null && windSpeed != null) {
         const dir = String(Math.round(windDirection)).padStart(3, '0');
         const spd = String(Math.round(windSpeed * 1.94384)).padStart(2, '0');
@@ -1530,14 +1530,14 @@ export interface TurbulenceResult {
  */
 export function calculateTurbulenceIntensity(stdDev: number, meanSpeed: number): TurbulenceResult {
     if (meanSpeed < 0.5) {
-        return { ti: 0, tiPercent: 0, iecCategory: '-', iecColor: '#6b7280', classification: 'Calm — TI undefined' };
+        return { ti: 0, tiPercent: 0, iecCategory: '-', iecColor: '#6b7280', classification: 'Calm - TI undefined' };
     }
 
     const ti = stdDev / meanSpeed;
     const tiPercent = Math.round(ti * 1000) / 10;
 
     // IEC 61400-1 Ed.3 reference TI at 15 m/s: A=0.16, B=0.14, C=0.12
-    // But applies at any speed — classify based on ratio
+    // But applies at any speed - classify based on ratio
     let iecCategory: string;
     let iecColor: string;
     let classification: string;
@@ -1623,7 +1623,7 @@ export interface WeatherTrendResult {
  * Classify weather trend from barometric pressure changes.
  * pressureNow: current pressure in hPa
  * pressure3hAgo: pressure 3 hours ago in hPa
- * pressure6hAgo: pressure 6 hours ago in hPa (optional — improves accuracy)
+ * pressure6hAgo: pressure 6 hours ago in hPa (optional - improves accuracy)
  */
 export function calculateWeatherTrend(
     pressureNow: number,

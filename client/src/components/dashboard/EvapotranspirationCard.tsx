@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,19 +86,19 @@ export function EvapotranspirationCard({
               <p className={`text-sm ${status.color}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{status.status}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Rate</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Rate</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(currentETo, 3)} mm/hr</p>
             </div>
           </div>
 
           {/* Status description */}
           <div className="p-2 rounded-lg bg-gray-50 border border-gray-200">
-            <p className="text-xs text-gray-600" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{status.description}</p>
+            <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{status.description}</p>
           </div>
 
           {/* Hourly ETo chart */}
           <div className="space-y-1">
-            <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>24-Hour Pattern</p>
+            <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>24-Hour Pattern</p>
             {chartData.length > 0 ? (
               <div className="h-12 flex items-end gap-0.5">
                 {chartData.map((val, i) => {
@@ -114,7 +114,7 @@ export function EvapotranspirationCard({
                 })}
               </div>
             ) : (
-              <div className="h-12 flex items-center justify-center text-xs text-gray-400">
+              <div className="h-12 flex items-center justify-center text-xs text-black">
                 No historical data available
               </div>
             )}
@@ -123,19 +123,19 @@ export function EvapotranspirationCard({
           {/* Cumulative values */}
           <div className="grid grid-cols-4 gap-2">
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>24h</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>24h</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(dailyETo, 1)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>7d</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>7d</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(weeklyETo ?? dailyETo * 7, 1)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>30d</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>30d</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(monthlyETo ?? dailyETo * 30, 0)} mm</p>
             </div>
             <div className="text-center p-2 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Year</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Year</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(yearlyETo ?? dailyETo * 365, 0)} mm</p>
             </div>
           </div>
@@ -188,7 +188,7 @@ export function EvapotranspirationCard({
 
           {/* FAO method note */}
           <div className="text-center pt-2 border-t border-gray-200">
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-black">
               FAO Penman-Monteith Method
             </p>
           </div>

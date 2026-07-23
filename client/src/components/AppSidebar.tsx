@@ -35,7 +35,7 @@ const adminNavItems = [
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
   { title: "Historical Data Export", url: "/history" },
-  { title: "Alarms", url: "/alarms" },
+  { title: "Alerts", url: "/alarms" },
   { title: "Report Generation", url: "/reports" },
   { title: "Report Scheduling", url: "/reports/schedule" },
   { title: "Settings", url: "/settings" },
@@ -59,13 +59,15 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           {/* Dark Blue Circle with White Dot Logo */}
-          <div className="w-9 h-9 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-md border border-white/10 flex-shrink-0">
-            <div className="w-3 h-3 rounded-full bg-white"></div>
+          <div className="w-8 h-8 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-md border border-white/10 flex-shrink-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-white"></div>
           </div>
           <div className="inline-flex flex-col items-center pt-[5px]">
-            <h2 className="text-[20px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</h2>
-            <span className="text-[10px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>V1.3.1</span>
+            <h2 className="text-[18px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</h2>
+            <span className="text-[9px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>METRON (PTY) LTD</span>
           </div>
+          {/* Metron company logo */}
+          <img src="/metron-logo.png" alt="Metron" className="w-8 h-8 object-contain flex-shrink-0 ml-1" />
         </div>
       </SidebarHeader>
 
@@ -124,7 +126,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           </div>
         )}
         <div className="text-center text-xs text-muted-foreground pt-2 border-t border-sidebar-border">
-          <p>Stratus Weather Station Server V1.3.1 [2026]</p>
+          <p>Stratus Weather Station Server V2.1.0 [2026]</p>
         </div>
       </SidebarFooter>
     </Sidebar>

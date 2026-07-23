@@ -173,7 +173,7 @@ export function useAuth() {
       return;
     }
 
-    // No stored user — show login page
+    // No stored user - show login page
     setUser(null);
     setNeedsSetup(true);
     setIsLoading(false);

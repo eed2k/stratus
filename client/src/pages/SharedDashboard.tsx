@@ -76,7 +76,7 @@ const WeibullCard = lazy(() => import("@/components/dashboard/WeibullCard").then
 
 const ChartFallback = () => (
   <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg animate-pulse">
-    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    <Loader2 className="h-6 w-6 animate-spin text-black" />
   </div>
 );
 
@@ -931,13 +931,13 @@ function SharedDashboardContent() {
 
   const windEnergyData = useMemo(() => processWindEnergyData(sortedHistoricalData, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit, chartTimeRange), [sortedHistoricalData, currentData.airDensity, windSpeedUnit, chartTimeRange]);
 
-  // Wind power rose data — always 30-day, independent of chart time range
+  // Wind power rose data - always 30-day, independent of chart time range
   const windPowerRoseData = useMemo(() => {
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     return processWindPowerRoseData(dataSource, currentData.airDensity || STANDARD_AIR_DENSITY_KGM3, windSpeedUnit);
   }, [sortedStatsData, sortedHistoricalData, currentData.airDensity, windSpeedUnit]);
 
-  // Wind power rose data — 365-day (only if we have >30 days of data)
+  // Wind power rose data - 365-day (only if we have >30 days of data)
   const sortedWind365Data = useMemo(() => {
     if (wind365Data.length === 0) return [];
     return [...wind365Data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -1548,7 +1548,7 @@ function SharedDashboardContent() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
+            <p className="text-black">
               {(slugError as Error)?.message || 'This link is invalid or has expired.'}
             </p>
             <Button className="mt-4 w-full" variant="outline" onClick={() => window.location.href = '/'}>
@@ -1566,7 +1566,7 @@ function SharedDashboardContent() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardContent className="py-12 text-center">
-            <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+            <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-black" />
             <p>Loading dashboard...</p>
           </CardContent>
         </Card>
@@ -1585,7 +1585,7 @@ function SharedDashboardContent() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
+            <p className="text-black">
               {(shareError as Error)?.message || 'This share link is invalid or has expired.'}
             </p>
             <Button className="mt-4 w-full" variant="outline" onClick={() => window.location.href = '/'}>
@@ -1640,7 +1640,7 @@ function SharedDashboardContent() {
   if (!access) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+        <RefreshCw className="h-8 w-8 animate-spin text-black" />
       </div>
     );
   }
@@ -1653,12 +1653,12 @@ function SharedDashboardContent() {
           <div className="flex items-center gap-3">
             <div>
               <h1 className="text-xl font-semibold">{station.name}</h1>
-              <p className="text-sm text-muted-foreground">{station.location}</p>
+              <p className="text-sm text-black">{station.location}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {weatherData?.timestamp && (
-            <span className="text-xs text-muted-foreground hidden sm:inline">
+            <span className="text-xs text-black hidden sm:inline">
               Synced: {(() => {
                 const ts = new Date((weatherData as any).collectedAt || weatherData.timestamp);
                 if (isNaN(ts.getTime())) return '--';
@@ -1701,7 +1701,7 @@ function SharedDashboardContent() {
       {/* Time Range Selector */}
       <div className="border-b bg-card">
         <div className="container py-2 px-4 flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground mr-1">Time Range:</span>
+          <span className="text-sm text-black mr-1">Time Range:</span>
           {[
             { label: '1h', hours: 1 },
             { label: '6h', hours: 6 },
@@ -1748,28 +1748,28 @@ function SharedDashboardContent() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Station Name</p>
+                    <p className="text-xs text-black">Station Name</p>
                     <p className="text-sm font-normal">{station.name || 'Not set'}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="text-xs text-black">Location</p>
                     <p className="text-sm font-normal">{station.location || 'Not specified'}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Latitude</p>
+                    <p className="text-xs text-black">Latitude</p>
                     <p className="text-sm font-normal">{safeFixed(station.latitude, 6, 'Not set')}°</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Longitude</p>
+                    <p className="text-xs text-black">Longitude</p>
                     <p className="text-sm font-normal">{safeFixed(station.longitude, 6, 'Not set')}°</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Altitude</p>
+                    <p className="text-xs text-black">Altitude</p>
                     <p className="text-sm font-normal">{station.altitude ? `${station.altitude} m` : 'Not set'}</p>
                   </div>
 
                 </div>
-                <p className="text-xs text-muted-foreground italic mt-3 flex items-center gap-1">
+                <p className="text-xs text-black italic mt-3 flex items-center gap-1">
                   <Layers className="h-3 w-3 inline" /> Click the layers icon on the map (top-right) to switch between street and satellite view
                 </p>
               </CardContent>
@@ -1783,7 +1783,7 @@ function SharedDashboardContent() {
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
-            <span className="text-base font-normal text-muted-foreground">(Live data)</span>
+            <span className="text-base font-normal text-black">(Live data)</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             {availableFields.temperature && (
@@ -2364,35 +2364,35 @@ function SharedDashboardContent() {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(rad, 0)} W/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Efficiency</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Efficiency</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(eff * 100, 0)}%</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.peakSunHours, 1)} hrs</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Radiation</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Radiation</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(estimateRad, 0)} W/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.dailyEnergy, 2)} kWh/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.monthlyEnergy, 1)} kWh/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(est.yearlyEnergy, 0)} kWh/m²</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <p className="text-xs text-black italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Estimates based on {safeFixed(eff * 100, 0)}% panel efficiency, {safeFixed(losses * 100, 0)}% system losses (wiring, inverter, dust), 1 m² panel area, and {safeFixed(estimateRad, 0)} W/m² average radiation. Actual output depends on panel orientation, shading, and local conditions. Yearly estimate includes 15% seasonal reduction factor.
                 </p>
               </CardContent>
@@ -2628,35 +2628,35 @@ function SharedDashboardContent() {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust Power</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gust Power</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(gustPower, 1)} W/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Air Density</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Air Density</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(density, 3)} kg/m³</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Speed (Recent)</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Speed (Recent)</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgSpd, 1)} {windUnitLabel}</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Power (Recent)</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Power (Recent)</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(avgPwr, 1)} W/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy Potential</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Daily Energy Potential</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(dailyEnergy, 2)} kWh/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Monthly Energy Potential</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(monthlyEnergy, 1)} kWh/m²</p>
                   </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy Potential</p>
+                    <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Yearly Energy Potential</p>
                     <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(yearlyEnergy, 0)} kWh/m²</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <p className="text-xs text-black italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Wind power density calculated using P = ½ × ρ × v³ where ρ = {safeFixed(density, 3)} kg/m³ (air density) and v = wind speed in m/s. Energy potential assumes continuous operation at average power. Monthly and yearly projections extrapolated from daily cumulative energy. Yearly estimate includes 15% capacity reduction for variable wind conditions.
                 </p>
               </CardContent>
@@ -2793,36 +2793,16 @@ function SharedDashboardContent() {
                     const isCurrent = entry.year === currentYear;
                     return (
                       <div key={entry.year} className={`rounded-lg border p-3 ${isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{entry.year}{isCurrent ? ' (YTD)' : ''}</p>
+                        <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{entry.year}{isCurrent ? ' (YTD)' : ''}</p>
                         <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{`${safeFixed(entry.total, 1)} mm`}</p>
-                        <p className="text-[10px] text-gray-400">{(entry.readings || 0).toLocaleString()} readings</p>
+                        <p className="text-xs text-black">{(entry.readings || 0).toLocaleString()} readings</p>
                       </div>
                     );
                   })}
                 </div>
-                <p className="text-xs text-gray-400 italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <p className="text-xs text-black italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
                 </p>
-                <details className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  <summary className="cursor-pointer text-gray-600 hover:text-gray-800">How yearly totals are calculated</summary>
-                  <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200">
-                    <p>The server auto-detects whether the gauge reports <strong>incremental</strong> (rain per interval) or <strong>cumulative</strong> (running counter) values from the year's readings, then totals accordingly.</p>
-                    <p><strong>Detection signals</strong> per year (n readings, deltas dᵢ = rᵢ − rᵢ₋₁):</p>
-                    <ul className="list-disc list-inside space-y-0.5">
-                      <li>zeroFrac = fraction of zero readings</li>
-                      <li>meanPos = mean of positive readings</li>
-                      <li>maxVal = maximum reading</li>
-                      <li>increaseFrac = fraction of dᵢ &gt; 0.01</li>
-                      <li>resetCount = count of dᵢ &lt; −1</li>
-                    </ul>
-                    <p><strong>Cumulative</strong> if any of: (maxVal &gt; 100 AND resetCount &lt; 3), (increaseFrac &lt; 0.05 AND maxVal &gt; 10), or (zeroFrac &lt; 0.5 AND meanPos &gt; 5 AND increaseFrac &lt; 0.2). Otherwise <strong>incremental</strong>.</p>
-                    <p><strong>Total formula:</strong></p>
-                    <ul className="list-disc list-inside space-y-0.5">
-                      <li>Incremental: T = Σ min(max(rᵢ, 0), 50) — per-reading 50 mm cap filters spikes</li>
-                      <li>Cumulative: T = Σ dᵢ where 0 &lt; dᵢ &lt; 200 — per-step 200 mm cap, negative deltas treated as logger resets</li>
-                    </ul>
-                  </div>
-                </details>
               </CardContent>
             </Card>
             );
@@ -2831,7 +2811,7 @@ function SharedDashboardContent() {
         )}
 
 
-        {/* ETo vs Rainfall (last 30 days) — only when there was rain */}
+        {/* ETo vs Rainfall (last 30 days) - only when there was rain */}
         {availableFields.rainfall && shareToken && etoRainDaily.totalRain > 0 && etoRainDaily.data.length > 0 && (
         <section className="space-y-4">
           <Suspense fallback={<ChartFallback />}>
@@ -2857,7 +2837,7 @@ function SharedDashboardContent() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-base font-normal text-foreground">Historical Data</h2>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Time Range:</span>
+              <span className="text-xs text-black">Time Range:</span>
               <div className="flex gap-1">
                 {[
                   { label: "1h", hours: 1 },
@@ -3027,7 +3007,7 @@ function SharedDashboardContent() {
         )}
 
         {/* Footer */}
-        <div className="text-center text-sm text-muted-foreground pt-4 border-t space-y-1">
+        <div className="text-center text-sm text-black pt-4 border-t space-y-1">
           <p>
             Shared Dashboard • Station data: {(() => {
               const ts = new Date((currentData as any)?.collectedAt || currentData?.timestamp);
@@ -3035,8 +3015,8 @@ function SharedDashboardContent() {
               return ts.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
             })()}
           </p>
-          <p className="text-xs text-muted-foreground/70">Powered by Stratus Weather Server V1.3.1 [2026]</p>
-          <p className="text-xs text-muted-foreground/70 max-w-3xl mx-auto px-4">
+          <p className="text-xs text-black/70">Powered by Stratus Weather Server V2.1.0 [2026]</p>
+          <p className="text-xs text-black/70 max-w-3xl mx-auto px-4">
             Data is provided for informational and reference purposes only. Readings may contain
             inaccuracies due to sensor calibration, environmental conditions, or transmission gaps,
             and should be independently verified before being used for operational, agricultural,

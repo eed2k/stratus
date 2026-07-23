@@ -56,7 +56,7 @@ interface SolarPowerHarvestCardProps {
 }
 
 /**
- * Solar Power Harvesting card — matches WindPowerCard layout.
+ * Solar Power Harvesting card - matches WindPowerCard layout.
  * Shows current output + 2x2 grid of key metrics.
  */
 export function SolarPowerHarvestCard({
@@ -112,22 +112,22 @@ export function SolarPowerHarvestCard({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Current Radiation</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(currentRadiation ?? 0, 0)} W/m²</p>
             </div>
 
             <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Efficiency</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Panel Efficiency</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(panelEfficiency * 100, 0)}%</p>
             </div>
 
             <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Peak Sun Hours</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(estimates.peakSunHours, 1)} hrs</p>
             </div>
 
             <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Radiation</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Avg Radiation</p>
               <p className="text-lg font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(estimateRadiation, 0)} W/m²</p>
             </div>
           </div>

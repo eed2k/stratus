@@ -110,7 +110,7 @@ export function FireDangerCard({
           </div>
         )}
 
-        {/* LFDI Formula — professional boxed equation */}
+        {/* LFDI Formula - professional boxed equation */}
         <div className="pt-2 border-t">
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
             <div className="flex items-center justify-center gap-2 text-black" style={{ fontFamily: 'Times New Roman, serif', fontSize: '15px' }}>
@@ -119,23 +119,23 @@ export function FireDangerCard({
               <span>(</span>
               <span className="inline-flex flex-col items-center mx-0.5">
                 <span className="font-medium" style={{ fontSize: '15px' }}>{safeFixed(bi, 1)}</span>
-                <span className="text-[9px] text-gray-500 -mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>BI</span>
+                <span className="text-xs text-black -mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>BI</span>
               </span>
               <span>+</span>
               <span className="inline-flex flex-col items-center mx-0.5">
                 <span className="font-medium" style={{ fontSize: '15px' }}>{safeFixed(wf, 1)}</span>
-                <span className="text-[9px] text-gray-500 -mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>WF</span>
+                <span className="text-xs text-black -mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>WF</span>
               </span>
               <span>)</span>
               <span>×</span>
               <span className="inline-flex flex-col items-center mx-0.5">
                 <span className="font-medium" style={{ fontSize: '15px' }}>{safeFixed(rcf, 2)}</span>
-                <span className="text-[9px] text-gray-500 -mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>RCF</span>
+                <span className="text-xs text-black -mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>RCF</span>
               </span>
               <span>=</span>
               <span className="font-semibold" style={{ fontSize: '16px', color: fireDanger.rating.color }}>{safeFixed(fireDanger.ffdi, 1)}</span>
             </div>
-            <div className="flex justify-center gap-3 mt-1.5 text-[9px] text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <div className="flex justify-center gap-3 mt-1.5 text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               <span>BI = Burning Index</span>
               <span>WF = Wind Factor</span>
               <span>RCF = Rain Correction</span>

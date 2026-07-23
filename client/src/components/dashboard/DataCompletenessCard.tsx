@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,7 +49,7 @@ export function DataCompletenessCard({
               <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(result.overallPercent, 1)}
               </span>
-              <span className="text-sm font-normal text-gray-500">%</span>
+              <span className="text-sm font-normal text-black">%</span>
             </div>
             <span
               className="text-xs px-2 py-1 rounded-full font-medium"
@@ -67,7 +67,7 @@ export function DataCompletenessCard({
                 style={{ width: `${gaugePercent}%`, backgroundColor: color }}
               />
             </div>
-            <div className="flex justify-between text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <div className="flex justify-between text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               <span>{periodLabel}</span>
               <span>{result.actualReadings} / {result.expectedReadings} readings</span>
             </div>
@@ -76,19 +76,19 @@ export function DataCompletenessCard({
           {/* Stats grid */}
           <div className="grid grid-cols-3 gap-2">
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Missing</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Missing</p>
               <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {result.expectedReadings - result.actualReadings}
               </p>
             </div>
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gaps</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Gaps</p>
               <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {result.gapCount}
               </p>
             </div>
             <div className="text-center p-1.5 bg-gray-50 rounded">
-              <p className="text-[10px] text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Longest Gap</p>
+              <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>Longest Gap</p>
               <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {result.longestGapMinutes >= 60
                   ? `${safeFixed(result.longestGapMinutes / 60, 1)} hrs`

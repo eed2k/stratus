@@ -191,7 +191,7 @@ export async function gatherStationData(
     if (fields.has('battery_avg')) stats['battery_avg'] = { value: r.rows[0].av != null ? Number(r.rows[0].av) : null, readings: n };
   }
 
-  // ── Rainfall total — use cumulative-aware delta sum with per-station offset ──
+  // ── Rainfall total - use cumulative-aware delta sum with per-station offset ──
   if (fields.has('rainfall_total')) {
     const r = await pg.query(`
       WITH r AS (
@@ -223,7 +223,7 @@ export async function gatherStationData(
     }
   }
 
-  // ── ETo total (sum of per-record ETo) — cheap approximation: integrate solar MJ ──
+  // ── ETo total (sum of per-record ETo) - cheap approximation: integrate solar MJ ──
   if (fields.has('eto_total')) {
     // We approximate: ETo total ~= 0.5 * solar MJ total (rough ref ET coefficient).
     // Better: compute per-row using FAO PM, but that's heavy in SQL.
@@ -532,7 +532,7 @@ async function runSchedule(s: ReportSchedule): Promise<{ ok: boolean; message: s
     const { subject, text, html } = await buildReportBody(s);
 
     // Build a PDF attachment so recipients also get charts, wind roses
-    // and summary tables. Failure here must NOT block the email — the
+    // and summary tables. Failure here must NOT block the email - the
     // text/html body is still useful on its own.
     let attachments: Array<{ filename: string; content: Buffer; contentType?: string }> | undefined;
     try {

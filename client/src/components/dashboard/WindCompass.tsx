@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,8 @@ interface WindCompassProps {
   speed: number;
   gust?: number;
   unit?: string;
+  sizeClass?: string; // override container size, e.g. "w-32 h-32"
+  bare?: boolean; // render without the Card wrapper/title (for compact layouts)
 }
 
 const getCardinalDirection = (degrees: number): string => {
@@ -22,18 +24,14 @@ const getCardinalDirection = (degrees: number): string => {
   return directions[index];
 };
 
-export function WindCompass({ direction, speed, gust, unit = "m/s" }: WindCompassProps) {
+export function WindCompass({ direction, speed, gust, unit = "m/s", sizeClass, bare = false }: WindCompassProps) {
   const cardinal = getCardinalDirection(direction);
   const displayDirection = Math.round(direction); // No decimal places
-  
-  return (
-    <Card className="h-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-normal">Wind Direction</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center p-4">
-        {/* Compass Container */}
-        <div className="relative w-48 h-48 sm:w-56 sm:h-56">
+
+  const compassBody = (
+    <>
+      {/* Compass Container */}
+      <div className={`relative ${sizeClass ?? "w-48 h-48 sm:w-56 sm:h-56"}`}>
           {/* Outer Ring */}
           <svg viewBox="0 0 200 200" className="w-full h-full">
             {/* Background circle */}
@@ -44,7 +42,7 @@ export function WindCompass({ direction, speed, gust, unit = "m/s" }: WindCompas
               fill="none" 
               stroke="currentColor" 
               strokeWidth="2" 
-              className="text-muted-foreground/20"
+              className="text-black/20"
             />
             
             {/* Degree markers */}
@@ -67,7 +65,7 @@ export function WindCompass({ direction, speed, gust, unit = "m/s" }: WindCompas
                   y2={100 + outerR * Math.sin(radian)}
                   stroke="currentColor"
                   strokeWidth={isCardinal ? 2 : isIntercardinal ? 1.5 : 1}
-                  className={isCardinal || isIntercardinal ? "text-foreground/60" : "text-muted-foreground/30"}
+                  className={isCardinal || isIntercardinal ? "text-foreground/60" : "text-black/30"}
                 />
               );
             })}
@@ -160,20 +158,38 @@ export function WindCompass({ direction, speed, gust, unit = "m/s" }: WindCompas
             </g>
           </svg>
         </div>
-        
+
         {/* Wind info below compass */}
-        <div className="mt-4 text-center space-y-1">
+        <div className={`${bare ? "mt-2" : "mt-4"} text-center space-y-1`}>
           <div className="flex items-baseline justify-center gap-2">
-            <span className="text-3xl font-normal">{displayDirection}°</span>
-            <span className="text-xl font-normal text-primary">{cardinal}</span>
+            <span className={`${bare ? "text-xl" : "text-3xl"} font-normal`}>{displayDirection}°</span>
+            <span className={`${bare ? "text-base" : "text-xl"} font-normal text-primary`}>{cardinal}</span>
           </div>
-          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+          <div className={`flex items-center justify-center gap-4 ${bare ? "text-xs" : "text-sm"} text-black`}>
             <span>Speed: <span className="font-normal text-foreground">{safeFixed(speed, 1)} {unit}</span></span>
             {gust !== undefined && (
               <span>Gust: <span className="font-normal text-foreground">{safeFixed(gust, 1)} {unit}</span></span>
             )}
           </div>
         </div>
+    </>
+  );
+
+  if (bare) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full w-full">
+        {compassBody}
+      </div>
+    );
+  }
+
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg font-normal">Wind Direction</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center justify-center p-4">
+        {compassBody}
       </CardContent>
     </Card>
   );

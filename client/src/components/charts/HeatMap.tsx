@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useMemo } from "react";
@@ -123,7 +123,7 @@ export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatM
 
   if (data.length === 0) {
     return (
-      <div className="p-4 text-center text-muted-foreground">
+      <div className="p-4 text-center text-black">
         No data available for heat map
       </div>
     );
@@ -133,7 +133,7 @@ export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatM
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-medium">{title}</h3>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-black">
           <span>{safeFixed(minValue, 1)}</span>
           <div className="flex h-3 w-24 rounded overflow-hidden">
             {scale.map((s, i) => (
@@ -156,7 +156,7 @@ export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatM
               {hours.filter((_, i) => i % 3 === 0).map((hour) => (
                 <div
                   key={hour}
-                  className="flex-1 text-center text-xs text-muted-foreground"
+                  className="flex-1 text-center text-xs text-black"
                   style={{ minWidth: "12px" }}
                 >
                   {formatHour(hour)}
@@ -167,7 +167,7 @@ export function HeatMap({ data, title, unit, colorScale = "temperature" }: HeatM
 
           {grid.map((row) => (
             <div key={row.day} className="flex items-center">
-              <div className="w-20 shrink-0 text-xs text-muted-foreground pr-2 text-right">
+              <div className="w-20 shrink-0 text-xs text-black pr-2 text-right">
                 {formatDay(row.day)}
               </div>
               <div className="flex flex-1 gap-px">

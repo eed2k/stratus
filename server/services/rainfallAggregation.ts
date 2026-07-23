@@ -189,7 +189,7 @@ export async function getRainfallTotals(
           break;
       }
     } else {
-      // Legacy heuristic — same as the previous endpoint.
+      // Legacy heuristic - same as the previous endpoint.
       const zeroFraction = readings > 0 ? zeroCount / readings : 0;
       const increaseFraction = readings > 0 ? increaseCount / readings : 0;
 

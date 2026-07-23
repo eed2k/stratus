@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState } from "react";
@@ -55,7 +55,7 @@ export function StationSelector({ stations, selectedId, onSelect }: StationSelec
               />
               <div>
                 <p className="font-medium">{station.name}</p>
-                <p className="text-xs text-muted-foreground">{station.location}</p>
+                <p className="text-xs text-black">{station.location}</p>
               </div>
             </div>
           </SelectItem>

@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, memo } from "react";
@@ -51,7 +51,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               {isDailyAggregated ? `Avg ${entry.name}` : entry.name}: {formatTooltipValue(entry.value)} {entry.payload?.unit || ''}
             </p>
             {hasMinMax && (
-              <p className="text-muted-foreground ml-2" style={{ fontSize: '0.65rem' }}>
+              <p className="text-black ml-2" style={{ fontSize: '0.65rem' }}>
                 Min: {formatTooltipValue(dataPoint[minKey])} / Max: {formatTooltipValue(dataPoint[maxKey])}
               </p>
             )}
@@ -81,6 +81,8 @@ interface WeatherChartProps {
   timeRanges?: string[];
   defaultRange?: string;
   onRangeChange?: (range: string) => void;
+  heightClass?: string; // override chart area height, e.g. "h-full" for flexible layouts
+  compact?: boolean; // hide legend, colour-code title by series, 6-hour time ticks
 }
 
 export const WeatherChart = memo(function WeatherChart({
@@ -90,6 +92,8 @@ export const WeatherChart = memo(function WeatherChart({
   timeRanges = [],
   defaultRange = "24hr",
   onRangeChange,
+  heightClass,
+  compact = false,
 }: WeatherChartProps) {
   const [selectedRange, setSelectedRange] = useState(defaultRange);
 
@@ -98,10 +102,29 @@ export const WeatherChart = memo(function WeatherChart({
     onRangeChange?.(range);
   };
 
+  // Format an ISO timestamp as HH:mm for compact axis ticks
+  const formatTick = (ts: string) => {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return ts;
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  // Coloured title: each series name in its own colour, joined by " vs "
+  const colouredTitle = (
+    <span>
+      {series.map((s, i) => (
+        <span key={s.dataKey}>
+          {i > 0 && <span className="text-black"> vs </span>}
+          <span style={{ color: s.color }}>{s.name}</span>
+        </span>
+      ))}
+    </span>
+  );
+
   return (
-    <Card data-testid={`card-chart-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card data-testid={`card-chart-${title.toLowerCase().replace(/\s+/g, '-')}`} className={heightClass ? "h-full flex flex-col" : undefined}>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 pb-2">
-        <CardTitle className="text-lg font-normal">{title}</CardTitle>
+        <CardTitle className="text-lg font-normal">{compact ? colouredTitle : title}</CardTitle>
         <div className="flex flex-wrap gap-1">
           {timeRanges.map((range) => (
             <Button
@@ -116,8 +139,8 @@ export const WeatherChart = memo(function WeatherChart({
           ))}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="h-72">
+      <CardContent className={heightClass ? "flex-1 min-h-0" : undefined}>
+        <div className={heightClass ?? "h-72"}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
@@ -126,6 +149,9 @@ export const WeatherChart = memo(function WeatherChart({
                 tick={{ fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
+                tickFormatter={compact ? formatTick : undefined}
+                interval={compact ? "preserveStartEnd" : undefined}
+                minTickGap={compact ? 60 : undefined}
               />
               <YAxis
                 tick={{ fontSize: 11 }}
@@ -134,7 +160,7 @@ export const WeatherChart = memo(function WeatherChart({
                 width={40}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend iconSize={0} />
+              {!compact && <Legend iconSize={0} />}
               {series.map((s) => (
                 <Line
                   key={s.dataKey}

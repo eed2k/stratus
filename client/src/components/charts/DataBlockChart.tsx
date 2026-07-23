@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, memo } from "react";
@@ -58,7 +58,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                 className="w-3 h-3 rounded-full" 
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <span className="text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {isDailyAggregated ? `Avg ${entry.name}` : entry.name}:
               </span>
               <span className="font-medium" style={{ color: entry.color }}>
@@ -66,7 +66,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               </span>
             </div>
             {hasMinMax && (
-              <div className="ml-5 text-xs text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <div className="ml-5 text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 Min: {formatValue(dataPoint[minKey])} / Max: {formatValue(dataPoint[maxKey])}
               </div>
             )}
@@ -451,7 +451,7 @@ export const DataBlockChart = memo(function DataBlockChart({
         
         {/* Statistics row - only show when valid data exists */}
         {showMinMax && !compact && hasStats && (
-          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+          <div className="flex gap-4 mt-2 text-xs text-black">
             <span>Min: <span className="font-medium text-foreground">{formatValue(min)} {primaryUnit}</span></span>
             <span>Max: <span className="font-medium text-foreground">{formatValue(max)} {primaryUnit}</span></span>
             {showAverage && (
@@ -465,7 +465,7 @@ export const DataBlockChart = memo(function DataBlockChart({
         <div style={{ height: chartHeight, position: 'relative' }}>
           {data.length === 0 && (
             <div 
-              className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-2 z-10 bg-background"
+              className="absolute inset-0 flex flex-col items-center justify-center text-black gap-2 z-10 bg-background"
             >
               <p className="text-sm">No data available for this time range</p>
               <p className="text-xs opacity-70">Try selecting a different time period or check station sync</p>
@@ -476,7 +476,7 @@ export const DataBlockChart = memo(function DataBlockChart({
           </ResponsiveContainer>
         </div>
         {footer && (
-          <p className="text-xs text-gray-400 italic mt-1 px-2">{footer}</p>
+          <p className="text-xs text-black italic mt-1 px-2">{footer}</p>
         )}
       </CardContent>
     </Card>

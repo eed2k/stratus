@@ -2,7 +2,7 @@
 // Created by Lukas Esterhuizen
 
 /**
- * Calibration page — admin-only, intentionally NOT in the sidebar nav.
+ * Calibration page - admin-only, intentionally NOT in the sidebar nav.
  * Reachable only by URL: stratusweather.co.za/calibration
  *
  * Lets the admin tune how raw rainfall data coming from each station is
@@ -15,11 +15,11 @@
  * Per-station controls:
  *   1. Rainfall calculation mode  (auto / incremental / cumulative_yearly /
  *                                  cumulative_lifetime / tip_count)
- *   2. Rainfall offset (mm)       — subtracted from cumulative readings so
+ *   2. Rainfall offset (mm)       - subtracted from cumulative readings so
  *                                   today's running total starts at 0 mm
- *   3. Tip factor (mm per tip)    — only used when mode = tip_count
- *   4. Daily reset hour (0-23 SAST) — when the "today" bucket resets
- *   5. Scaling multiplier         — applied to every reading (default 1.0)
+ *   3. Tip factor (mm per tip)    - only used when mode = tip_count
+ *   4. Daily reset hour (0-23 SAST) - when the "today" bucket resets
+ *   5. Scaling multiplier         - applied to every reading (default 1.0)
  */
 
 import { useState, useEffect } from "react";
@@ -57,7 +57,8 @@ const DEFAULT_CAL = (stationId: number): Calibration => ({
   stationId,
   rainfallType: "auto",
   rainfallOffset: 0,
-  tipFactor: 0.2,
+  // 0.1 mm/tip is the most common resolution for the tipping buckets we deploy
+  tipFactor: 0.1,
   dailyResetHour: 0,
   scalingMultiplier: 1,
   sourceField: null,
@@ -65,6 +66,62 @@ const DEFAULT_CAL = (stationId: number): Calibration => ({
   timezoneOffsetHours: 2,
   updatedAt: null,
 });
+
+// Quick presets for common rain-sensor hardware.  Selecting a preset only
+// adjusts the rainfall mode + tip factor client-side; the operator can still
+// fine-tune the individual fields before saving.
+type SensorPreset = {
+  id: string;
+  label: string;
+  rainfallType: RainfallType;
+  tipFactor: number;
+  hint: string;
+};
+
+const SENSOR_PRESETS: SensorPreset[] = [
+  {
+    id: "tb-0.1",
+    label: "Tipping bucket - 0.1 mm/tip",
+    rainfallType: "tip_count",
+    tipFactor: 0.1,
+    hint: "Most common - Texas / Davis / Hydrological Services style buckets.",
+  },
+  {
+    id: "tb-0.2",
+    label: "Tipping bucket - 0.2 mm/tip",
+    rainfallType: "tip_count",
+    tipFactor: 0.2,
+    hint: "Some older Campbell / RIMCO buckets and a few SAWS sites.",
+  },
+  {
+    id: "tb-0.5",
+    label: "Tipping bucket - 0.5 mm/tip",
+    rainfallType: "tip_count",
+    tipFactor: 0.5,
+    hint: "Coarser buckets used at remote / low-rainfall sites.",
+  },
+  {
+    id: "optical",
+    label: "Radar / optical rain gauge (mm direct)",
+    rainfallType: "incremental",
+    tipFactor: 0,
+    hint: "Non-tipping sensors (e.g. OTT Parsivel, Lufft WS, Vaisala WXT) report mm directly per record.",
+  },
+  {
+    id: "cum-year",
+    label: "Cumulative total - resets yearly",
+    rainfallType: "cumulative_yearly",
+    tipFactor: 0,
+    hint: "Datalogger reports an ever-growing total that wraps to 0 each new year.",
+  },
+  {
+    id: "cum-life",
+    label: "Cumulative total - never resets",
+    rainfallType: "cumulative_lifetime",
+    tipFactor: 0,
+    hint: "Datalogger reports lifetime cumulative mm; use rainfall offset to zero today.",
+  },
+];
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await authFetch(path, {
@@ -106,7 +163,7 @@ function StationCalibrationCard({
         body: JSON.stringify({
           rainfallType: cal.rainfallType,
           rainfallOffset: Number(cal.rainfallOffset) || 0,
-          tipFactor: Number(cal.tipFactor) || 0.2,
+          tipFactor: Number(cal.tipFactor) || 0.1,
           dailyResetHour: Math.max(0, Math.min(23, Number(cal.dailyResetHour) || 0)),
           scalingMultiplier: Number(cal.scalingMultiplier) || 1,
           sourceField: cal.sourceField || null,
@@ -131,7 +188,7 @@ function StationCalibrationCard({
           <div>
             <CardTitle className="text-base">{station.name}</CardTitle>
             <CardDescription>
-              Station #{station.id}{station.location ? ` — ${station.location}` : ""}
+              Station #{station.id}{station.location ? ` - ${station.location}` : ""}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -145,6 +202,35 @@ function StationCalibrationCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+          <Label className="text-sm font-medium">Rain sensor preset</Label>
+          <Select
+            value={""}
+            onValueChange={(id) => {
+              const p = SENSOR_PRESETS.find((x) => x.id === id);
+              if (!p) return;
+              setCal((c) => ({
+                ...c,
+                rainfallType: p.rainfallType,
+                tipFactor: p.rainfallType === "tip_count" ? p.tipFactor : c.tipFactor,
+              }));
+              setMsg(null);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Pick a hardware preset to auto-fill mode + tip factor" />
+            </SelectTrigger>
+            <SelectContent>
+              {SENSOR_PRESETS.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Most of our tipping buckets are 0.1 mm/tip (Texas, Davis, Hydrological Services style); a few legacy units are 0.2 mm/tip.
+            For radar/optical gauges (OTT Parsivel, Lufft WS, Vaisala WXT, etc.) that report mm directly per record, pick the "mm direct" preset - they don't tip.
+          </p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>Rainfall calculation mode</Label>
@@ -155,10 +241,10 @@ function StationCalibrationCard({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="auto">Auto-detect (recommended)</SelectItem>
-                <SelectItem value="incremental">Incremental (mm per record)</SelectItem>
-                <SelectItem value="cumulative_yearly">Cumulative — yearly reset</SelectItem>
-                <SelectItem value="cumulative_lifetime">Cumulative — lifetime total</SelectItem>
-                <SelectItem value="tip_count">Tip count (multiply by tip factor)</SelectItem>
+                <SelectItem value="incremental">Incremental (mm per record - radar / optical)</SelectItem>
+                <SelectItem value="cumulative_yearly">Cumulative - yearly reset</SelectItem>
+                <SelectItem value="cumulative_lifetime">Cumulative - lifetime total</SelectItem>
+                <SelectItem value="tip_count">Tip count (tipping bucket - multiply by tip factor)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
@@ -191,7 +277,10 @@ function StationCalibrationCard({
               disabled={cal.rainfallType !== "tip_count"}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Default 0.2 mm. Only used when mode = Tip count.
+              Common resolutions: <strong>0.1 mm/tip</strong> (Texas, Davis, Hydrological Services tipping buckets - most of our fleet), 
+              <strong>0.2 mm/tip</strong> (some legacy Campbell/RIMCO units and SAWS sites), 
+              <strong>0.5 mm/tip</strong> (coarser units at remote/low-rainfall sites).
+              Only used when mode = Tip count.
             </p>
           </div>
 
@@ -286,13 +375,11 @@ export default function Calibration() {
     <div className="min-h-screen w-full bg-slate-50">
       <div className="mx-auto max-w-5xl p-4 md:p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <h1 className="text-2xl font-bold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Calibration
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Tune how raw rainfall data from each weather station is interpreted and corrected.
-            This page is intentionally hidden from the main navigation — access it via
-            <code className="mx-1">stratusweather.co.za/calibration</code>.
           </p>
         </div>
 

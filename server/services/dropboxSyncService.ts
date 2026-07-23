@@ -400,7 +400,7 @@ export class DropboxSyncService extends EventEmitter {
 
     // If no main config, skip main sync but still process DB configs
     if (!this.config) {
-      console.log('[DropboxSync] No main config — skipping main sync, processing DB configs only');
+      console.log('[DropboxSync] No main config - skipping main sync, processing DB configs only');
       this.isSyncing = true;
       try {
         const dbResults = await this.syncDbConfigs();
@@ -450,11 +450,11 @@ export class DropboxSyncService extends EventEmitter {
         }
       }
       
-      // Create station if none found — BUT only if stationId was 0 (auto-detect mode)
-      // If stationId was explicitly set and not found, that's an error — don't auto-create
+      // Create station if none found - BUT only if stationId was 0 (auto-detect mode)
+      // If stationId was explicitly set and not found, that's an error - don't auto-create
       if (!station) {
         if (this.config!.stationId > 0) {
-          console.error(`[DropboxSync] Configured station ID ${this.config!.stationId} not found — aborting sync. Do NOT auto-create.`);
+          console.error(`[DropboxSync] Configured station ID ${this.config!.stationId} not found - aborting sync. Do NOT auto-create.`);
           return { success: false, filesProcessed: 0, recordsImported: 0, error: `Station ID ${this.config!.stationId} not found` };
         }
         console.log(`[DropboxSync] Creating new station: ${stationName}`);
@@ -512,7 +512,7 @@ export class DropboxSyncService extends EventEmitter {
       } catch (listErr: any) {
         // If folder path not found (409), fall through to DB configs
         if (listErr.message?.includes('409') || listErr.message?.includes('not_found')) {
-          console.log(`[DropboxSync] Main sync folder not found (${this.config.folderPath}) — skipping to DB configs`);
+          console.log(`[DropboxSync] Main sync folder not found (${this.config.folderPath}) - skipping to DB configs`);
           const dbResults = await this.syncDbConfigs();
           return { success: true, filesProcessed: dbResults.filesProcessed, recordsImported: dbResults.recordsImported };
         }
@@ -549,7 +549,7 @@ export class DropboxSyncService extends EventEmitter {
         return bTime - aTime;
       });
 
-      // Process all matching .dat files — rev check skips unchanged files efficiently
+      // Process all matching .dat files - rev check skips unchanged files efficiently
       const filesToProcess = datFiles;
       console.log(`[DropboxSync] Processing ${filesToProcess.length} matching .dat files`);
 
@@ -597,7 +597,7 @@ export class DropboxSyncService extends EventEmitter {
             // already in the DB for this station, falling back to a 48-hour
             // window if there is no existing data. Using the DB high-water-mark
             // ensures gaps are filled when a station resumes after being offline
-            // for longer than the 48-hour window — the previous fixed 48-hour
+            // for longer than the 48-hour window - the previous fixed 48-hour
             // cutoff dropped any records older than that on every sync, leaving
             // permanent holes in the data.
             const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
@@ -756,12 +756,12 @@ export class DropboxSyncService extends EventEmitter {
       }
 
       // Filter out DB configs that duplicate the main env-configured sync
-      // Only skip if main sync actually imported records — if 0 records, let DB config handle it
+      // Only skip if main sync actually imported records - if 0 records, let DB config handle it
       const mainStationId = this.config?.stationId;
       const filteredConfigs = this.dbConfigs.filter(c => {
         if (mainStationId && c.stationId === mainStationId && mainSyncRecords > 0) {
-          console.log(`[DropboxSync] Skipping DB config "${c.name}" — already synced by main sync (station ${mainStationId}, ${mainSyncRecords} records)`);
-          // Still mark as success since main sync handled it — pass actual record count
+          console.log(`[DropboxSync] Skipping DB config "${c.name}" - already synced by main sync (station ${mainStationId}, ${mainSyncRecords} records)`);
+          // Still mark as success since main sync handled it - pass actual record count
           storage.updateDropboxSyncStatus(c.id, 'success (handled by main sync)', mainSyncRecords).catch(() => {});
           return false;
         }
@@ -798,11 +798,11 @@ export class DropboxSyncService extends EventEmitter {
             // Auto-append wildcard if pattern looks like a prefix (no wildcards and no file extension)
             if (!effectivePattern.includes('*') && !effectivePattern.includes('?')) {
               if (!effectivePattern.includes('.')) {
-                // Looks like a prefix (e.g. "Inteltronics_SAWS_TestBed_5263") — treat as prefix match
+                // Looks like a prefix (e.g. "Inteltronics_SAWS_TestBed_5263") - treat as prefix match
                 effectivePattern = effectivePattern + '*';
-                console.log(`[DropboxSync] Pattern "${dbConfig.filePattern}" has no wildcard or extension — auto-expanded to "${effectivePattern}"`);
+                console.log(`[DropboxSync] Pattern "${dbConfig.filePattern}" has no wildcard or extension - auto-expanded to "${effectivePattern}"`);
               } else {
-                // Has a dot, looks like an exact filename (e.g. "MyFile.dat") — do exact match
+                // Has a dot, looks like an exact filename (e.g. "MyFile.dat") - do exact match
                 return inFolder && file.name.toLowerCase() === effectivePattern.toLowerCase();
               }
             }
@@ -864,7 +864,7 @@ export class DropboxSyncService extends EventEmitter {
             if (!station) {
               // If stationId was explicitly set in config, don't auto-create
               if (dbConfig.stationId && dbConfig.stationId > 0) {
-                console.error(`[DropboxSync] Config "${dbConfig.name}" station ID ${dbConfig.stationId} not found — skipping. Do NOT auto-create.`);
+                console.error(`[DropboxSync] Config "${dbConfig.name}" station ID ${dbConfig.stationId} not found - skipping. Do NOT auto-create.`);
                 continue;
               }
               console.log(`[DropboxSync] Creating new station: ${stationName}`);
@@ -908,7 +908,7 @@ export class DropboxSyncService extends EventEmitter {
               const recentCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
               if (latestExisting && latestExisting >= recentCutoff) {
-                // Already have recent data — just import newer records
+                // Already have recent data - just import newer records
                 recordsToImport = parsed.records.filter((r: any) => r.timestamp > latestExisting);
                 console.log(`[DropboxSync] Resuming import for "${dbConfig.name}": ${recordsToImport.length} new records (after ${latestExisting.toISOString()})`);
               } else {
@@ -935,7 +935,7 @@ export class DropboxSyncService extends EventEmitter {
               // Normal sync: pull records newer than the last record in DB,
               // falling back to a 48-hour window if no record exists. This
               // ensures gaps are filled automatically when a station resumes
-              // after being offline for more than 48 hours — the previous
+              // after being offline for more than 48 hours - the previous
               // fixed-48h cutoff used to drop any records older than that on
               // every sync, leaving permanent holes.
               const cutoffTime = new Date();
@@ -1284,7 +1284,7 @@ export class DropboxSyncService extends EventEmitter {
   }
 
   /**
-   * Preview a specific file from Dropbox — downloads and returns header + last N data lines
+   * Preview a specific file from Dropbox - downloads and returns header + last N data lines
    * Used to check if a .dat file has recent records before setting up sync
    */
   async previewFile(filePath: string, tailLines: number = 10): Promise<{

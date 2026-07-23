@@ -1,4 +1,4 @@
-// Stratus Weather System
+﻿// Stratus Weather System
 // Created by Lukas Esterhuizen
 
 import { useMemo, memo } from "react";
@@ -119,7 +119,7 @@ export const FireDangerChart = memo(function FireDangerChart({
           <p style={{ color: rating?.color }}>
             <span className="font-semibold">Rating:</span> {rating?.label}
           </p>
-          <div className="border-t pt-1 mt-1 text-muted-foreground">
+          <div className="border-t pt-1 mt-1 text-black">
             <p>Temp: {safeFixed(data.temperature, 1)}°C</p>
             <p>Humidity: {safeFixed(data.humidity, 0)}%</p>
             <p>Wind: {safeFixed(data.windSpeed, 1)} m/s</p>
@@ -161,19 +161,19 @@ export const FireDangerChart = memo(function FireDangerChart({
         {showStatistics && statistics && (
           <div className="grid grid-cols-4 gap-4 mb-4 text-center">
             <div className="rounded bg-muted/50 p-2">
-              <p className="text-xs text-muted-foreground">Current</p>
+              <p className="text-xs text-black">Current</p>
               <p className="text-lg font-semibold">{safeFixed(statistics.current, 1)}</p>
             </div>
             <div className="rounded bg-muted/50 p-2">
-              <p className="text-xs text-muted-foreground">Max</p>
+              <p className="text-xs text-black">Max</p>
               <p className="text-lg font-semibold text-red-500">{safeFixed(statistics.max, 1)}</p>
             </div>
             <div className="rounded bg-muted/50 p-2">
-              <p className="text-xs text-muted-foreground">Min</p>
+              <p className="text-xs text-black">Min</p>
               <p className="text-lg font-semibold text-green-500">{safeFixed(statistics.min, 1)}</p>
             </div>
             <div className="rounded bg-muted/50 p-2">
-              <p className="text-xs text-muted-foreground">Average</p>
+              <p className="text-xs text-black">Average</p>
               <p className="text-lg font-semibold">{safeFixed(statistics.avg, 1)}</p>
             </div>
           </div>
@@ -301,7 +301,7 @@ export const FireDangerChart = memo(function FireDangerChart({
         {/* Time in danger zones */}
         {showStatistics && statistics && (
           <div className="mt-4 pt-3 border-t">
-            <p className="text-xs text-muted-foreground mb-2">Time in danger zones:</p>
+            <p className="text-xs text-black mb-2">Time in danger zones:</p>
             <div className="flex flex-wrap gap-2">
               {statistics.timeInDanger
                 .filter((t: FireDangerRating & { count: number }) => t.count > 0)
@@ -332,7 +332,7 @@ export const FireDangerChart = memo(function FireDangerChart({
                 className="w-3 h-3 rounded-sm" 
                 style={{ backgroundColor: rating.color }}
               />
-              <span className="text-muted-foreground">{rating.label}</span>
+              <span className="text-black">{rating.label}</span>
             </div>
           ))}
         </div>

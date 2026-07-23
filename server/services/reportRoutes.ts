@@ -40,7 +40,7 @@ function getReportsPassword(): string | null {
 }
 
 function getSecret(): string {
-  // Reuse SESSION_SECRET if set, else derive from password — guarantees
+  // Reuse SESSION_SECRET if set, else derive from password - guarantees
   // tokens are invalidated whenever the password changes.
   return process.env.REPORTS_COOKIE_SECRET
       || process.env.SESSION_SECRET
@@ -295,7 +295,7 @@ router.post('/schedules/:id/send-now', async (req, res) => {
   }
 });
 
-/** Render plain-text body without sending — for "Preview" button. */
+/** Render plain-text body without sending - for "Preview" button. */
 router.post('/preview', async (req, res) => {
   const v = validateInput(req.body);
   if (!v.ok) { res.status(400).json({ error: v.error }); return; }
@@ -352,10 +352,10 @@ router.post('/send-demo', async (req, res) => {
  * bypass automatically via the early-return in that middleware).
  *
  * Query params:
- *   stationId / stationIds — single id or comma list (required)
- *   from / to               — ISO timestamps (optional, default last 24h)
- *   fields                  — comma-separated REPORT_FIELDS keys (optional → all)
- *   title                   — optional cover-page title
+ *   stationId / stationIds - single id or comma list (required)
+ *   from / to               - ISO timestamps (optional, default last 24h)
+ *   fields                  - comma-separated REPORT_FIELDS keys (optional → all)
+ *   title                   - optional cover-page title
  */
 router.get('/pdf', async (req, res) => {
   try {

@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +47,7 @@ export function CrosswindCard({ windSpeed, windDirection, defaultRunwayHeading =
         <div className="space-y-3">
           {/* Runway heading input */}
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500 whitespace-nowrap" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <label className="text-xs text-black whitespace-nowrap" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               Runway Heading:
             </label>
             <input
@@ -59,41 +59,41 @@ export function CrosswindCard({ windSpeed, windDirection, defaultRunwayHeading =
               className="w-20 text-sm border border-gray-300 rounded px-2 py-1 text-black"
               style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
             />
-            <span className="text-sm font-medium text-gray-600">(°)</span>
+            <span className="text-sm font-medium text-black">(°)</span>
           </div>
 
           {/* Wind components */}
           <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200">
             <div className="text-center rounded-lg border p-3" style={{ borderColor: result.tailwind ? '#ef4444' : '#22c55e' }}>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-black">
                 {result.tailwind ? 'Tailwind' : 'Headwind'}
               </p>
               <p className={`text-2xl font-normal ${result.tailwind ? 'text-red-500' : 'text-green-600'}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(Math.abs(result.headwind), 1)}
               </p>
-              <p className="text-xs text-gray-500">kt</p>
+              <p className="text-xs text-black">kt</p>
             </div>
             <div className="text-center rounded-lg border p-3" style={{ borderColor: limitColor }}>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-black">
                 Crosswind ({result.crosswindSide})
               </p>
               <p className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif', color: result.crosswind > lightLimit ? limitColor : undefined }}>
                 {safeFixed(result.crosswind, 1)}
               </p>
-              <p className="text-xs text-gray-500">kt</p>
+              <p className="text-xs text-black">kt</p>
             </div>
           </div>
 
           {/* Wind info */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
             <div className="text-center">
-              <p className="text-xs text-gray-500">Wind</p>
+              <p className="text-xs text-black">Wind</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {Math.round(windDirection)}° / {safeFixed(windKt, 0)} kt
               </p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500">Angle Off</p>
+              <p className="text-xs text-black">Angle Off</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(Math.abs(((windDirection - runwayHeading + 540) % 360) - 180), 0)}°
               </p>
@@ -112,20 +112,20 @@ export function CrosswindCard({ windSpeed, windDirection, defaultRunwayHeading =
           {/* Crosswind limits reference */}
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200">
             <div className="text-center">
-              <p className="text-[10px] text-gray-400">Light</p>
-              <p className="text-xs text-gray-500">{lightLimit} kt</p>
+              <p className="text-xs text-black">Light</p>
+              <p className="text-xs text-black">{lightLimit} kt</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] text-gray-400">Medium</p>
-              <p className="text-xs text-gray-500">{mediumLimit} kt</p>
+              <p className="text-xs text-black">Medium</p>
+              <p className="text-xs text-black">{mediumLimit} kt</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] text-gray-400">Heavy</p>
-              <p className="text-xs text-gray-500">{heavyLimit} kt</p>
+              <p className="text-xs text-black">Heavy</p>
+              <p className="text-xs text-black">{heavyLimit} kt</p>
             </div>
           </div>
 
-          <p className="text-xs text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-xs text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Crosswind limits are advisory. Actual limits vary by aircraft type, pilot experience, and runway conditions.
           </p>
         </div>

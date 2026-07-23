@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useMemo, useRef, useCallback, memo } from "react";
@@ -242,7 +242,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              className="h-7 px-2 text-xs text-black hover:text-foreground"
               onClick={handleExportImage}
               title="Export as image"
             >
@@ -275,7 +275,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
               <text
                 x={center + 5}
                 y={center - circle.radius + 12}
-                className="fill-muted-foreground text-[9px]"
+                className="fill-muted-foreground text-xs"
               >
                 {safeFixed(circle.speed, 0)} {unitLabel}
               </text>
@@ -295,7 +295,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
                   y={labelPos.y}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  className={`fill-foreground ${isCardinal ? 'text-xs font-medium' : 'text-[10px]'}`}
+                  className={`fill-foreground ${isCardinal ? 'text-xs font-medium' : 'text-xs'}`}
                 >
                   {dir}
                 </text>
@@ -333,26 +333,26 @@ export const WindRoseScatter = memo(function WindRoseScatter({
             cy={center}
             r={4}
             fill="currentColor"
-            className="text-muted-foreground/50"
+            className="text-black/50"
           />
         </svg>
 
         {/* Statistics */}
         <div className="mt-3 grid grid-cols-4 gap-2 text-xs text-center w-full">
           <div className="rounded bg-muted/50 p-2">
-            <div className="text-muted-foreground">Avg</div>
+            <div className="text-black">Avg</div>
             <div className="font-normal">{safeFixed(stats.avgSpeed, 1)} {unitLabel}</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
-            <div className="text-muted-foreground">Max</div>
+            <div className="text-black">Max</div>
             <div className="font-normal">{safeFixed(stats.maxSpeed, 1)} {unitLabel}</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
-            <div className="text-muted-foreground">Min</div>
+            <div className="text-black">Min</div>
             <div className="font-normal">{safeFixed(stats.minSpeed, 1)} {unitLabel}</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
-            <div className="text-muted-foreground">Dominant</div>
+            <div className="text-black">Dominant</div>
             <div className="font-normal">{stats.dominantDirection}</div>
           </div>
         </div>
@@ -361,12 +361,12 @@ export const WindRoseScatter = memo(function WindRoseScatter({
         {showLegend && activeClasses.length > 0 && (
           <div className="mt-3 flex flex-wrap justify-center gap-1">
             {activeClasses.map((sc) => (
-              <div key={sc.label} className="flex items-center gap-1 text-[10px]">
+              <div key={sc.label} className="flex items-center gap-1 text-xs">
                 <div
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ backgroundColor: sc.color }}
                 />
-                <span className="text-muted-foreground">{sc.label}</span>
+                <span className="text-black">{sc.label}</span>
               </div>
             ))}
           </div>

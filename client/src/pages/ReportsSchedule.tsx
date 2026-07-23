@@ -2,7 +2,7 @@
 // Created by Lukas Esterhuizen
 
 /**
- * Report Scheduling page — admin-only, accessible from the sidebar nav
+ * Report Scheduling page - admin-only, accessible from the sidebar nav
  * at `/reports/schedule`.
  *
  * Lets administrators create / edit / delete recurring email reports
@@ -515,11 +515,11 @@ export default function ReportsSchedule() {
       <div className="mx-auto max-w-5xl p-4 md:p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <h1 className="text-2xl font-bold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }}>
               Report Scheduling
             </h1>
             <p className="text-sm text-muted-foreground">
-              Automated email reports (with PDF attachment) sent from <code>noreply@stratusweather.co.za</code>
+              Automated email reports (with PDF attachment) sent from noreply@stratusweather.co.za
             </p>
           </div>
         </div>

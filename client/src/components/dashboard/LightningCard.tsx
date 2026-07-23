@@ -203,10 +203,10 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
                   <span className="text-3xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                     {safeFixed(lightningDistance!, 1)}
                   </span>
-                  <span className="text-sm font-normal text-gray-500">km</span>
+                  <span className="text-sm font-normal text-black">km</span>
                 </>
               ) : (
-                <span className="text-xl font-normal text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <span className="text-xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   No strikes detected
                 </span>
               )}
@@ -228,7 +228,7 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
             <div ref={mapRef} className="w-full rounded-md overflow-hidden border border-gray-200" style={{ height: 300 }} />
           ) : (
             <div className="flex items-center justify-center rounded-md border border-gray-200 bg-gray-50" style={{ height: 300 }}>
-              <p className="text-xs text-gray-400">Station coordinates not set — map unavailable</p>
+              <p className="text-xs text-black">Station coordinates not set - map unavailable</p>
             </div>
           )}
 
@@ -236,13 +236,13 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
             {lightningCount != null && (
               <div className="text-center">
-                <p className="text-xs text-gray-500">Strike Count</p>
+                <p className="text-xs text-black">Strike Count</p>
                 <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{lightningCount}</p>
               </div>
             )}
             {lightningEnergy != null && (
               <div className="text-center">
-                <p className="text-xs text-gray-500">Energy</p>
+                <p className="text-xs text-black">Energy</p>
                 <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(lightningEnergy, 0)}</p>
               </div>
             )}

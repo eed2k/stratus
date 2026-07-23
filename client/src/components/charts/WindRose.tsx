@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useMemo, useRef, useCallback, memo } from "react";
@@ -27,6 +27,8 @@ interface WindRoseProps {
   maxWindSpeed?: number;
   showWMOInfo?: boolean;
   windSpeedUnit?: WindSpeedUnit;
+  size?: number;
+  bare?: boolean; // render only the rose svg + small title (for compact layouts)
 }
 
 /**
@@ -57,13 +59,15 @@ const calculateWindStats = (data: WindRoseData[]) => {
   };
 };
 
-export const WindRose = memo(function WindRose({ 
-  data, 
-  speedClasses, 
-  title = "Wind Rose", 
+export const WindRose = memo(function WindRose({
+  data,
+  speedClasses,
+  title = "Wind Rose",
   maxWindSpeed,
   showWMOInfo = true,
   windSpeedUnit = 'ms',
+  size: sizeProp,
+  bare = false,
 }: WindRoseProps) {
   const unitLabel = getWindUnitLabel(windSpeedUnit);
   // Calculate max wind speed from data if not provided
@@ -102,7 +106,7 @@ export const WindRose = memo(function WindRose({
     return max || 1;
   }, [data]);
 
-  const size = 320;
+  const size = sizeProp ?? 320;
   const center = size / 2;
   const maxRadius = size / 2 - 40;
 
@@ -230,6 +234,38 @@ export const WindRose = memo(function WindRose({
     return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${outerRadius} ${outerRadius} 0 0 1 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${innerRadius} ${innerRadius} 0 0 0 ${p1.x} ${p1.y} Z`;
   };
 
+  if (bare) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full w-full">
+        <div className="text-xs text-black font-medium mb-0.5">{title}</div>
+        <svg data-windrose width={size} height={size} className="overflow-visible">
+          {[0.25, 0.5, 0.75, 1].map((ratio) => (
+            <g key={ratio}>
+              <circle cx={center} cy={center} r={maxRadius * ratio} fill="none" stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />
+              <text x={center + 5} y={center - maxRadius * ratio + 12} className="fill-muted-foreground text-xs">{safeFixed(ratio * 100, 0)}%</text>
+            </g>
+          ))}
+          {WIND_DIRECTIONS.map((dir, i) => {
+            const pos = polarToCart(i * 22.5, maxRadius + 20);
+            return (<text key={dir} x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-xs font-normal">{dir}</text>);
+          })}
+          {data.map((d, dirIndex) => {
+            let currentRadius = 0;
+            return d.speeds.map((count, speedIndex) => {
+              const roundedCount = Number(safeFixed(count, 3));
+              const innerRadius = currentRadius;
+              const height = (roundedCount / maxValue) * maxRadius;
+              currentRadius += height;
+              if (roundedCount === 0) return null;
+              return (<path key={`${dirIndex}-${speedIndex}`} d={createWedge(dirIndex, innerRadius, currentRadius)} fill={activeSpeedClasses[speedIndex]?.color || "#3b82f6"} stroke="white" strokeWidth={0.5} opacity={0.85} />);
+            });
+          })}
+          <circle cx={center} cy={center} r={8} fill="currentColor" className="text-black/30" />
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <Card ref={cardRef} data-testid="card-wind-rose">
       <CardHeader className="pb-2">
@@ -239,7 +275,7 @@ export const WindRose = memo(function WindRose({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              className="h-7 px-2 text-xs text-black hover:text-foreground"
               onClick={handleExportImage}
               title="Export as image"
             >
@@ -271,7 +307,7 @@ export const WindRose = memo(function WindRose({
               <text
                 x={center + 5}
                 y={center - maxRadius * ratio + 12}
-                className="fill-muted-foreground text-[10px]"
+                className="fill-muted-foreground text-xs"
               >
                 {safeFixed(ratio * 100, 0)}%
               </text>
@@ -326,7 +362,7 @@ export const WindRose = memo(function WindRose({
             cy={center}
             r={8}
             fill="currentColor"
-            className="text-muted-foreground/30"
+            className="text-black/30"
           />
         </svg>
 
@@ -334,30 +370,30 @@ export const WindRose = memo(function WindRose({
         {showWMOInfo && (
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-center w-full">
             <div className="rounded bg-muted/50 p-2">
-              <div className="text-muted-foreground">Dominant</div>
+              <div className="text-black">Dominant</div>
               <div className="font-normal">{windStats.dominantDirection} ({windStats.dominantPercentage}%)</div>
             </div>
             <div className="rounded bg-muted/50 p-2">
-              <div className="text-muted-foreground">Calm</div>
+              <div className="text-black">Calm</div>
               <div className="font-normal">{windStats.calmPercentage}%</div>
             </div>
           </div>
         )}
 
         {/* Max wind speed and current classification */}
-        <div className="mt-2 text-center text-xs text-muted-foreground">
+        <div className="mt-2 text-center text-xs text-black">
           Max: {safeFixed(calculatedMaxSpeed, 1)} {unitLabel} ({getWindDescription(calculatedMaxSpeed, windSpeedUnit)})
         </div>
 
         {/* Legend */}
         <div className="mt-3 flex flex-wrap justify-center gap-1">
           {activeSpeedClasses.map((sc) => (
-            <div key={sc.label} className="flex items-center gap-1 text-[10px]">
+            <div key={sc.label} className="flex items-center gap-1 text-xs">
               <div
                 className="h-2.5 w-2.5 rounded-sm"
                 style={{ backgroundColor: sc.color }}
               />
-              <span className="text-muted-foreground">{sc.label}</span>
+              <span className="text-black">{sc.label}</span>
             </div>
           ))}
         </div>

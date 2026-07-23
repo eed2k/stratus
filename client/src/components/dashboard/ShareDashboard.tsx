@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useEffect } from "react";
@@ -74,6 +74,8 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [copiedCompactToken, setCopiedCompactToken] = useState<string | null>(null);
+  const [compactTimeframe, setCompactTimeframe] = useState<Record<string, string>>({});
   const [serverAddress, setServerAddress] = useState<string>('');
   
   // Detect the server's network address
@@ -235,6 +237,23 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
 
   const shares: StationShare[] = sharesData?.shares || [];
 
+  // Compact links always use the token form (not slug) so the /compact route resolves cleanly.
+  const buildCompactUrl = (token: string, tf: string) => {
+    const protocol = window.location.protocol;
+    return `${protocol}//${serverAddress}/shared/${token}/compact?tf=${tf}`;
+  };
+
+  const copyCompactLink = (token: string) => {
+    const tf = compactTimeframe[token] || '24h';
+    navigator.clipboard.writeText(buildCompactUrl(token, tf));
+    setCopiedCompactToken(token);
+    setTimeout(() => setCopiedCompactToken(null), 3000);
+    toast({
+      title: "Compact link copied!",
+      description: `Single-screen compact dashboard (${tf}) link copied to clipboard.`,
+    });
+  };
+
   return (
     <>
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -249,7 +268,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
               Share Dashboard
             </SheetTitle>
             <SheetDescription>
-              Create share links to give clients read-only access to this weather station's dashboard.
+              Create share links to give clients read-only access. Each link offers a full dashboard and a compact single-screen version.
             </SheetDescription>
           </SheetHeader>
 
@@ -262,15 +281,15 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
             </Button>
 
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground">
+              <h4 className="text-sm font-medium text-black">
                 Active Share Links ({shares.filter(s => s.isActive).length})
               </h4>
               
               {isLoading ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
+                <div className="text-sm text-black">Loading...</div>
               ) : shares.length === 0 ? (
                 <Card>
-                  <CardContent className="py-6 text-center text-muted-foreground">
+                  <CardContent className="py-6 text-center text-black">
                     <p>No share links yet</p>
                     <p className="text-xs mt-1">Create a share link to give clients access</p>
                   </CardContent>
@@ -301,7 +320,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0 space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-black">
                         {share.password && (
                           <span className="flex items-center gap-1">
                             <Lock className="h-3 w-3" /> Password
@@ -351,6 +370,49 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
+
+                      {/* Compact single-screen dashboard link */}
+                      <div className="flex items-center gap-2 pt-1 border-t mt-1">
+                        <span className="text-xs text-black whitespace-nowrap">Compact</span>
+                        <Select
+                          value={compactTimeframe[share.shareToken] || '24h'}
+                          onValueChange={(v) => setCompactTimeframe((prev) => ({ ...prev, [share.shareToken]: v }))}
+                        >
+                          <SelectTrigger className="h-8 w-20 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="24h">24h</SelectItem>
+                            <SelectItem value="7d">7 days</SelectItem>
+                            <SelectItem value="30d">30 days</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-1"
+                          onClick={() => copyCompactLink(share.shareToken)}
+                        >
+                          {copiedCompactToken === share.shareToken ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              Copy Compact Link
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(`/shared/${share.shareToken}/compact?tf=${compactTimeframe[share.shareToken] || '24h'}`, '_blank')}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))
@@ -379,7 +441,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
                 value={newShare.name}
                 onChange={(e) => setNewShare({ ...newShare, name: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-black">
                 A name to identify this share link
               </p>
             </div>
@@ -387,7 +449,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
             <div className="space-y-2">
               <Label htmlFor="share-slug">Friendly URL (optional)</Label>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{window.location.origin}/</span>
+                <span className="text-sm text-black whitespace-nowrap">{window.location.origin}/</span>
                 <Input
                   id="share-slug"
                   placeholder=""
@@ -395,7 +457,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
                   onChange={(e) => setNewShare({ ...newShare, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-') })}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-black">
                 Leave empty for a random link. Use a short, memorable slug like "swakop-uranium"
               </p>
             </div>
@@ -432,7 +494,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
             <div className="flex items-center justify-between py-2">
               <div className="space-y-0.5">
                 <Label htmlFor="use-password">Password Protection</Label>
-                <p className="text-xs text-muted-foreground">Require password to access</p>
+                <p className="text-xs text-black">Require password to access</p>
               </div>
               <Switch
                 id="use-password"
@@ -452,7 +514,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
             <div className="flex items-center justify-between py-2">
               <div className="space-y-0.5">
                 <Label htmlFor="use-expiry">Expiration Date</Label>
-                <p className="text-xs text-muted-foreground">Link expires after date</p>
+                <p className="text-xs text-black">Link expires after date</p>
               </div>
               <Switch
                 id="use-expiry"

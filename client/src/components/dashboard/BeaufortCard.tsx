@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +34,7 @@ export function BeaufortCard({ windSpeed }: BeaufortCardProps) {
                 <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {result.description}
                 </p>
-                <p className="text-xs text-gray-500">{safeFixed(windSpeed, 1)} m/s ({safeFixed(windSpeed * 1.94384, 0)} kt)</p>
+                <p className="text-xs text-black">{safeFixed(windSpeed, 1)} m/s ({safeFixed(windSpeed * 1.94384, 0)} kt)</p>
               </div>
             </div>
             {result.smallCraftAdvisory && (
@@ -64,7 +64,7 @@ export function BeaufortCard({ windSpeed }: BeaufortCardProps) {
               );
             })}
           </div>
-          <div className="flex justify-between text-[9px] text-gray-400 px-0.5">
+          <div className="flex justify-between text-xs text-black px-0.5">
             <span>0</span>
             <span>3</span>
             <span>6</span>
@@ -75,19 +75,19 @@ export function BeaufortCard({ windSpeed }: BeaufortCardProps) {
           {/* Sea state */}
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200">
             <div className="text-center">
-              <p className="text-xs text-gray-500">Sea State</p>
+              <p className="text-xs text-black">Sea State</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {result.seaState}
               </p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500">Wave Height</p>
+              <p className="text-xs text-black">Wave Height</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(result.probableWaveHeight, 1)} m
               </p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500">Max Wave</p>
+              <p className="text-xs text-black">Max Wave</p>
               <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {safeFixed(result.maxWaveHeight, 1)} m
               </p>
@@ -96,13 +96,13 @@ export function BeaufortCard({ windSpeed }: BeaufortCardProps) {
 
           {/* Land effect */}
           <div className="pt-2 border-t border-gray-200">
-            <p className="text-xs text-gray-500 mb-1">Effect on Land</p>
-            <p className="text-xs text-gray-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            <p className="text-xs text-black mb-1">Effect on Land</p>
+            <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
               {result.landEffect}
             </p>
           </div>
 
-          <p className="text-xs text-gray-400 italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <p className="text-xs text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Beaufort Scale (WMO) classifies wind conditions from Force 0 (calm) to Force 12 (hurricane).
             Wave heights are for open ocean; coastal and sheltered waters will differ.
             Small craft advisory issued at Force 6+ (Strong Breeze, &gt;10.8 m/s).

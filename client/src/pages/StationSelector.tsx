@@ -183,14 +183,14 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <div className="min-h-screen bg-white">
       <div className="container mx-auto p-4 sm:p-6 pt-2 sm:pt-3 space-y-3 sm:space-y-4">
         {/* Station Cards */}
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {accessibleStations.map(station => (
             <Card 
               key={station.id} 
-              className="group cursor-pointer transition-all border-2 border-border shadow-md hover:shadow-xl hover:border-primary active:scale-[0.98]"
+              className="group cursor-pointer transition-all border border-border rounded-none shadow-none hover:shadow-md active:scale-[0.98]"
               onClick={() => onSelectStation(station.id)}
             >
               {/* Station Image */}
@@ -213,10 +213,10 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                 )}
               </div>
               
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-1 pt-3 px-3">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <CardTitle className="text-lg sm:text-xl" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <CardTitle className="text-base sm:text-lg font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                       <span className="truncate">{station.name}</span>
                     </CardTitle>
                     {station.location && (
@@ -242,8 +242,8 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                 </div>
               </CardHeader>
               
-              <CardContent className="space-y-4">
-                
+              <CardContent className="space-y-3 px-3 pb-3">
+
                 {/* Stats Footer */}
                 <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t">
                   {station.name?.toUpperCase().includes('MPPT TEST') ? (

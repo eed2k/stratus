@@ -40,7 +40,7 @@ const degreesToIndex8 = (degrees: number): number => {
 };
 
 /**
- * WMO-compliant Wind Rose — polar bar chart (SVG)
+ * WMO-compliant Wind Rose - polar bar chart (SVG)
  * Each bar extends outward from center proportional to frequency %
  * 8 cardinal/intercardinal directions, N at top
  */
@@ -76,7 +76,7 @@ function WMOWindRose({ data, maxPercent }: { data: { direction: string; percenta
       {rings.map((ring, i) => (
         <g key={i}>
           <circle cx={cx} cy={cy} r={ring.r} fill="none" stroke="#e5e7eb" strokeWidth={0.5} strokeDasharray="3 3" />
-          <text x={cx + 4} y={cy - ring.r + 12} fontSize={8} fill="#9ca3af" fontFamily="Arial, sans-serif">
+          <text x={cx + 4} y={cy - ring.r + 12} fontSize={8} fill="#000" fontFamily="Arial, sans-serif">
             {ring.pct}%
           </text>
         </g>
@@ -95,7 +95,7 @@ function WMOWindRose({ data, maxPercent }: { data: { direction: string; percenta
         );
       })}
 
-      {/* Frequency bars — polar wedge/sector for each direction */}
+      {/* Frequency bars - polar wedge/sector for each direction */}
       {data.map((d, i) => {
         if (d.percentage <= 0) return null;
         const angleDeg = DIRECTION_ANGLES_8[i];
@@ -167,7 +167,7 @@ function WMOWindRose({ data, maxPercent }: { data: { direction: string; percenta
       })}
 
       {/* Center label */}
-      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="#6b7280" fontFamily="Arial, sans-serif">
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="#000" fontFamily="Arial, sans-serif">
         CALM
       </text>
     </svg>
@@ -249,8 +249,8 @@ export function WindDirectionChart({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <p className="text-sm font-medium text-muted-foreground">No Data</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">
+            <p className="text-sm font-medium text-black">No Data</p>
+            <p className="text-xs text-black/70 mt-1">
               Wind direction data is not available for this station
             </p>
           </div>
@@ -277,14 +277,14 @@ export function WindDirectionChart({
               <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {hasData ? degreesToDirection(currentDirection!) : '--'}
               </span>
-              <span className="text-sm font-normal text-muted-foreground" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <span className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 ({hasData ? `${safeFixed(currentDirection, 0)}°` : '--'})
               </span>
             </div>
             {currentSpeed !== null && currentSpeed !== undefined && (
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>{safeFixed(currentSpeed, 1)} m/s</p>
-                <p className="text-xs text-muted-foreground" style={{ fontFamily: 'Arial, sans-serif' }}>Current Speed</p>
+                <p className="text-sm font-medium text-black" style={{ fontFamily: 'Arial, sans-serif' }}>{safeFixed(currentSpeed, 1)} m/s</p>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, sans-serif' }}>Current Speed</p>
               </div>
             )}
           </div>
@@ -292,27 +292,27 @@ export function WindDirectionChart({
           {/* Stats Bar */}
           <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-gray-50">
             <div className="flex-1">
-              <p className="text-xs font-medium text-gray-600" style={{ fontFamily: 'Arial, sans-serif' }}>Dominant</p>
-              <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
+              <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, sans-serif' }}>Dominant</p>
+              <p className="text-lg font-semibold text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
                 {directionStats.dominantDirection}
               </p>
             </div>
             <div className="flex-1 text-center">
-              <p className="text-xs font-medium text-gray-600" style={{ fontFamily: 'Arial, sans-serif' }}>Frequency</p>
-              <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
+              <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, sans-serif' }}>Frequency</p>
+              <p className="text-lg font-semibold text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
                 {safeFixed(directionStats.dominantPercentage, 1)}%
               </p>
             </div>
             <div className="flex-1 text-right">
-              <p className="text-xs font-medium text-gray-600" style={{ fontFamily: 'Arial, sans-serif' }}>Obs</p>
-              <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
+              <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, sans-serif' }}>Obs</p>
+              <p className="text-lg font-semibold text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
                 {directionStats.totalObservations}
               </p>
             </div>
             {directionStats.calmPercentage > 0 && (
               <div className="flex-1 text-right">
-                <p className="text-xs font-medium text-gray-600" style={{ fontFamily: 'Arial, sans-serif' }}>Calm</p>
-                <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
+                <p className="text-xs font-medium text-black" style={{ fontFamily: 'Arial, sans-serif' }}>Calm</p>
+                <p className="text-lg font-semibold text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
                   {safeFixed(directionStats.calmPercentage, 1)}%
                 </p>
               </div>
@@ -324,17 +324,17 @@ export function WindDirectionChart({
             <WMOWindRose data={directionStats.distribution} maxPercent={maxPercent} />
           </div>
 
-          {/* Direction frequency legend — compact grid */}
+          {/* Direction frequency legend - compact grid */}
           <div className="grid grid-cols-4 gap-1.5 text-center">
             {directionStats.distribution.map((d) => (
               <div
                 key={d.direction}
                 className="rounded border border-gray-200 px-2 py-1"
               >
-                <p className="text-xs font-semibold text-gray-700" style={{ fontFamily: 'Arial, sans-serif' }}>
+                <p className="text-xs font-semibold text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
                   {d.direction}
                 </p>
-                <p className="text-[10px] text-gray-500" style={{ fontFamily: 'Arial, sans-serif' }}>
+                <p className="text-xs text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
                   {safeFixed(d.percentage, 1)}%
                 </p>
               </div>

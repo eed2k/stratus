@@ -119,7 +119,7 @@ export default function Alarms() {
     queryKey: ["/api/stations"],
   });
 
-  // Battery charging daily check — fetch 24h data for each station
+  // Battery charging daily check - fetch 24h data for each station
   const { data: batteryAlerts = [] } = useQuery<Array<{ stationId: number; stationName: string; maxV: number; minV: number }>>({
     queryKey: ["/api/battery-charging-check", stations.map(s => s.id).join(",")],
     queryFn: async () => {
@@ -296,7 +296,7 @@ export default function Alarms() {
     <div className="flex flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Alarm Management</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#1e3a5f', fontFamily: 'Arial, Helvetica, sans-serif' }} data-testid="text-page-title">Alert Management</h1>
           <p className="text-sm text-muted-foreground">Configure alerts for weather conditions</p>
         </div>
 
@@ -463,7 +463,7 @@ export default function Alarms() {
         </Dialog>
       </div>
 
-      {/* System Battery Charging Alerts — dashboard-only, no email */}
+      {/* System Battery Charging Alerts - dashboard-only, no email */}
       {batteryAlerts.length > 0 && (
         <Card className="border-amber-200 bg-amber-50">
           <CardHeader className="pb-2">
@@ -480,7 +480,7 @@ export default function Alarms() {
                 <div key={alert.stationId} className="flex items-center justify-between p-2 rounded bg-white/60 border border-amber-100">
                   <span className="text-sm font-medium text-amber-900">{alert.stationName}</span>
                   <span className="text-xs text-amber-600">
-                    Range: {alert.minV.toFixed(2)}V – {alert.maxV.toFixed(2)}V — Check solar panel or charge controller
+                    Range: {alert.minV.toFixed(2)}V – {alert.maxV.toFixed(2)}V - Check solar panel or charge controller
                   </span>
                 </div>
               ))}

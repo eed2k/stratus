@@ -172,7 +172,7 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-normal">{title}</CardTitle>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground" onClick={handleExportImage} title="Export as image">
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-black hover:text-foreground" onClick={handleExportImage} title="Export as image">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
@@ -188,7 +188,7 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
           {[0.25, 0.5, 0.75, 1].map(ratio => (
             <g key={ratio}>
               <circle cx={center} cy={center} r={maxRadius * ratio} fill="none" stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />
-              <text x={center + 5} y={center - maxRadius * ratio + 12} className="fill-muted-foreground text-[10px]">
+              <text x={center + 5} y={center - maxRadius * ratio + 12} className="fill-muted-foreground text-xs">
                 {safeFixed(ratio * maxContribution * 100, 0)}%
               </text>
             </g>
@@ -204,7 +204,7 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
             );
           })}
 
-          {/* Power petals — single wedge per direction coloured by mean power */}
+          {/* Power petals - single wedge per direction coloured by mean power */}
           {data.map((d, i) => {
             const outerR = Math.max(2, (d.energyContribution / maxContribution) * maxRadius);
             if (d.count === 0) return null;
@@ -223,34 +223,34 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
           })}
 
           {/* Centre dot */}
-          <circle cx={center} cy={center} r={8} fill="currentColor" className="text-muted-foreground/30" />
+          <circle cx={center} cy={center} r={8} fill="currentColor" className="text-black/30" />
         </svg>
 
         {/* Stats */}
         <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-center w-full">
           <div className="rounded bg-muted/50 p-2">
-            <div className="text-muted-foreground">Dominant</div>
+            <div className="text-black">Dominant</div>
             <div className="font-normal">{stats.dominantDirection} ({stats.dominantPct}%)</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
-            <div className="text-muted-foreground">Overall Avg</div>
+            <div className="text-black">Overall Avg</div>
             <div className="font-normal">{stats.overallMeanPower} W/m²</div>
           </div>
           <div className="rounded bg-muted/50 p-2">
-            <div className="text-muted-foreground">Readings</div>
+            <div className="text-black">Readings</div>
             <div className="font-normal">{data.reduce((s, d) => s + d.count, 0)}</div>
           </div>
         </div>
 
-        {/* Legend — W/m² power density by wind direction */}
-        <p className="mt-3 text-[10px] text-muted-foreground text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+        {/* Legend - W/m² power density by wind direction */}
+        <p className="mt-3 text-xs text-black text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
           Petal length = energy contribution (%). Colour = mean wind power density (W/m²) per direction.
         </p>
         <div className="mt-1 flex flex-wrap justify-center gap-1">
           {POWER_CLASSES.map(pc => (
-            <div key={pc.label} className="flex items-center gap-1 text-[10px]">
+            <div key={pc.label} className="flex items-center gap-1 text-xs">
               <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: pc.color }} />
-              <span className="text-muted-foreground">{pc.label}</span>
+              <span className="text-black">{pc.label}</span>
             </div>
           ))}
         </div>

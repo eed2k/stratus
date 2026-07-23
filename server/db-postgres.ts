@@ -255,7 +255,7 @@ async function createTables(): Promise<void> {
   `);
   pgLog.info('Dropbox configs table ready');
 
-  // Report schedules — used by /reports password-protected portal to send
+  // Report schedules - used by /reports password-protected portal to send
   // automated MailerSend emails on a daily/weekly/monthly cadence.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS report_schedules (
@@ -845,7 +845,7 @@ export async function deleteStation(id: number): Promise<void> {
     const fallbackClient = await getClient();
     try {
       await fallbackClient.query('BEGIN');
-      // Force-delete the station — ON DELETE CASCADE handles all child rows
+      // Force-delete the station - ON DELETE CASCADE handles all child rows
       await fallbackClient.query('DELETE FROM dropbox_configs WHERE station_id = $1', [id]);
       await fallbackClient.query('DELETE FROM stations WHERE id = $1', [id]);
       await fallbackClient.query('COMMIT');
@@ -1066,7 +1066,7 @@ export async function getLatestWeatherData(stationId: number, tableName?: string
       LIMIT 1
     `, [stationId, tableName]);
   } else {
-    // No table name filter — get the absolute latest record for this station
+    // No table name filter - get the absolute latest record for this station
     result = await query(`
       SELECT id, station_id, table_name, record_number, timestamp, data, collected_at,
              mppt_solar_voltage, mppt_solar_current, mppt_solar_power,

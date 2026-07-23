@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
+import { Loader2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, ChevronDown, ChevronRight, FolderOpen, Wifi, WifiOff, Plug, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAllUsers, updateUser } from "@/hooks/useAuth";
 import { verifyPassword } from "@/lib/passwordUtils";
@@ -86,9 +86,12 @@ export default function Settings() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [newConfigStationId, setNewConfigStationId] = useState<string>('');
 
-  // Delete account state
+    // Delete account state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // RIKA live-status / reconnect state
+  const [rikaBusy, setRikaBusy] = useState<Record<number, 'test' | 'reconnect' | null>>({});
 
   // Fetch Dropbox configs from server
   const { data: dropboxConfigs, refetch: refetchDropboxConfigs } = useQuery<DropboxConfig[]>({
@@ -123,7 +126,7 @@ export default function Settings() {
     gcTime: 10 * 60 * 1000,
   });
 
-  // Fetch stations for the station selector dropdown
+    // Fetch stations for the station selector dropdown
   const { data: stations } = useQuery<{ id: number; name: string }[]>({
     queryKey: ['/api/stations'],
     queryFn: async () => {
@@ -131,6 +134,23 @@ export default function Settings() {
       if (!res.ok) return [];
       return res.json();
     },
+  });
+
+  // Live protocol connection status for all stations (keyed by station id).
+  // Auto-refreshes every 30s so the RIKA panel reflects the live VPS state.
+  const { data: protocolStatuses, refetch: refetchProtocolStatuses, isFetching: isFetchingStatuses } = useQuery<Record<number, {
+    connected: boolean;
+    lastConnected?: string;
+    lastError?: string;
+    isSimulation?: boolean;
+  }>>({
+    queryKey: ['/api/protocols/status'],
+    queryFn: async () => {
+      const res = await authFetch('/api/protocols/status');
+      if (!res.ok) return {};
+      return res.json();
+    },
+    refetchInterval: 30000,
   });
 
   // Fetch file preview when a file is selected
@@ -482,6 +502,45 @@ export default function Settings() {
       });
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+    // Test a RIKA (or any protocol) station connection live on the server.
+  const handleRikaTest = async (stationId: number, stationName: string) => {
+    setRikaBusy(prev => ({ ...prev, [stationId]: 'test' }));
+    try {
+      const res = await authFetch(`/api/protocols/test/${stationId}`, { method: 'POST' });
+      const result = await res.json();
+      if (result.success) {
+        toast({ title: `${stationName}: connection OK`, description: result.message || 'Connected and received data.' });
+      } else {
+        toast({ title: `${stationName}: connection failed`, description: result.message || 'Could not connect.', variant: 'destructive' });
+      }
+      refetchProtocolStatuses();
+    } catch (error: any) {
+      toast({ title: 'Test failed', description: error.message || 'Request error', variant: 'destructive' });
+    } finally {
+      setRikaBusy(prev => ({ ...prev, [stationId]: null }));
+    }
+  };
+
+  // Force a reconnect (re-login + re-register) of a RIKA station on the live server.
+  const handleRikaReconnect = async (stationId: number, stationName: string) => {
+    setRikaBusy(prev => ({ ...prev, [stationId]: 'reconnect' }));
+    try {
+      const res = await authFetch(`/api/protocols/reconnect/${stationId}`, { method: 'POST' });
+      const result = await res.json().catch(() => ({}));
+      if (res.ok && (result.success !== false)) {
+        toast({ title: `${stationName}: reconnecting`, description: 'Session reset and re-registered. Status will update shortly.' });
+      } else {
+        toast({ title: `${stationName}: reconnect failed`, description: result.message || 'Could not reconnect.', variant: 'destructive' });
+      }
+      // Give the server a moment to re-establish before refreshing status.
+      setTimeout(() => refetchProtocolStatuses(), 3000);
+    } catch (error: any) {
+      toast({ title: 'Reconnect failed', description: error.message || 'Request error', variant: 'destructive' });
+    } finally {
+      setRikaBusy(prev => ({ ...prev, [stationId]: null }));
     }
   };
 

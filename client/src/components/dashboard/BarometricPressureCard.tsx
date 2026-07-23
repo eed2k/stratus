@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,28 +70,28 @@ export function BarometricPressureCard({
           <div className="grid grid-cols-2 gap-4">
             {/* Station Pressure */}
             <div className="space-y-2 p-3 rounded-lg border border-gray-200 bg-gray-50">
-              <div className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <div className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 Station Level {altitude > 0 && `(${altitude}m)`}
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(stationPressure, 1)}
                 </span>
-                <span className="text-sm text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>hPa</span>
+                <span className="text-sm text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>hPa</span>
               </div>
 
             </div>
 
             {/* Sea Level Pressure */}
             <div className="space-y-2 p-3 rounded-lg border border-gray-200 bg-blue-50">
-              <div className="text-xs text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <div className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 Sea Level (QNH)
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {safeFixed(calculatedSeaLevel, 1)}
                 </span>
-                <span className="text-sm text-gray-500" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>hPa</span>
+                <span className="text-sm text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>hPa</span>
               </div>
 
             </div>
@@ -106,7 +106,7 @@ export function BarometricPressureCard({
               <span className={`text-sm font-normal ${pressureTrend.color}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 {pressureTrend.label}
               </span>
-              <span className="text-xs text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              <span className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                 ({trend >= 0 ? '+' : ''}{safeFixed(trend, 1)} hPa/3h)
               </span>
             </div>
@@ -114,11 +114,11 @@ export function BarometricPressureCard({
 
           {/* Weather outlook */}
           <div className="text-center py-2 px-3 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100">
-            <p className="text-sm text-gray-700" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{weatherOutlook}</p>
+            <p className="text-sm text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{weatherOutlook}</p>
           </div>
 
           {/* Conversion info */}
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 text-xs text-gray-400" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
             <div className="text-center">
               <p>Station: {safeFixed(stationPressure * 0.02953, 2)} inHg</p>
             </div>

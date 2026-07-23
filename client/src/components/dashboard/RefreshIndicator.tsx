@@ -1,4 +1,4 @@
-// Stratus Weather Server
+﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useEffect } from "react";
@@ -63,7 +63,7 @@ export function RefreshIndicator({
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-black">
         {autoRefresh && <Check className="h-4 w-4 text-green-500" />}
         <span>Updated {timeAgo}</span>
       </div>

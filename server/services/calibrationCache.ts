@@ -10,7 +10,7 @@
  * in stationRainfallConfig.ts) can stay synchronous.
  *
  * The table is created on first use (idempotent CREATE TABLE IF NOT EXISTS)
- * — drizzle-kit migrations are not wired up in this deployment, so we
+ * - drizzle-kit migrations are not wired up in this deployment, so we
  * own the DDL here. After admin updates, call `reloadCalibrationCache()`
  * to refresh the snapshot.
  */
@@ -45,7 +45,7 @@ const CREATE_SQL = `
     station_id INTEGER PRIMARY KEY,
     rainfall_type VARCHAR(32) NOT NULL DEFAULT 'auto',
     rainfall_offset REAL NOT NULL DEFAULT 0,
-    tip_factor REAL NOT NULL DEFAULT 0.2,
+    tip_factor REAL NOT NULL DEFAULT 0.1,
     daily_reset_hour INTEGER NOT NULL DEFAULT 0,
     scaling_multiplier REAL NOT NULL DEFAULT 1,
     source_field TEXT,
@@ -60,7 +60,7 @@ function rowFromDb(r: any): CalibrationRow {
     stationId: Number(r.station_id),
     rainfallType: (r.rainfall_type || "auto") as RainfallType,
     rainfallOffset: Number(r.rainfall_offset) || 0,
-    tipFactor: Number(r.tip_factor) || 0.2,
+    tipFactor: Number(r.tip_factor) || 0.1,
     dailyResetHour: Number(r.daily_reset_hour) || 0,
     scalingMultiplier: Number(r.scaling_multiplier) || 1,
     sourceField: r.source_field ?? null,
@@ -72,7 +72,7 @@ function rowFromDb(r: any): CalibrationRow {
 
 /**
  * Ensure the table exists and the cache is populated. Safe to call many
- * times — the underlying CREATE / SELECT only runs once.
+ * times - the underlying CREATE / SELECT only runs once.
  */
 export async function ensureCalibrationCache(): Promise<void> {
   if (initPromise) return initPromise;
@@ -81,7 +81,7 @@ export async function ensureCalibrationCache(): Promise<void> {
       await query(CREATE_SQL);
       await reloadCalibrationCache();
       // Seed the historical RIKA R25021205 (station #2) offset if no
-      // explicit row exists — preserves legacy behaviour for callers
+      // explicit row exists - preserves legacy behaviour for callers
       // upgrading from the hard-coded config.
       if (!cache.has(2)) {
         try {
@@ -94,7 +94,7 @@ export async function ensureCalibrationCache(): Promise<void> {
           );
           await reloadCalibrationCache();
         } catch {
-          // Station #2 may not exist on this deployment — that's fine.
+          // Station #2 may not exist on this deployment - that's fine.
         }
       }
     } catch (err) {
