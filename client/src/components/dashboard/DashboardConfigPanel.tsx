@@ -37,6 +37,7 @@ import {
   UPDATE_PERIOD_OPTIONS,
   DEFAULT_DASHBOARD_CONFIG,
   DEFAULT_SECTION_VISIBILITY,
+  resolveChartTimeRanges,
   type DashboardConfig,
   type DashboardCategory,
   type DashboardParameter,
@@ -112,11 +113,8 @@ const SECTION_FIELD_DEPS: Record<keyof SectionVisibility, string[]> = {
   visibilityClouds: ['visibility', 'atmosphericVisibility', 'cloudBase', 'cloudCover'],
   airQuality: ['pm10', 'pm25', 'pm1', 'co2', 'tvoc'],
   atmosphericStability: ['windSpeed', 'solarRadiation'],
-  lightning: ['lightningDistance', 'lightning'],
+  lightning: ['lightningDistance', 'lightning', 'lightningEnergy'],
   aviation: ['pressure', 'temperature'],
-  transportation: ['temperature', 'humidity'],
-  oceanography: ['windSpeed'],
-  agriculture: ['temperature'],
 };
 
 /** Check if a parameter is available based on available fields */
@@ -132,11 +130,11 @@ function isParamAvailable(param: DashboardParameter, availableFields: Record<str
 }
 
 const CHART_TIME_RANGE_OPTIONS = [
+  { value: 1, label: '1 hour' },
   { value: 6, label: '6 hours' },
   { value: 12, label: '12 hours' },
   { value: 24, label: '24 hours' },
   { value: 48, label: '48 hours' },
-  { value: 72, label: '3 days' },
   { value: 168, label: '7 days' },
   { value: 720, label: '30 days' },
 ];
@@ -149,20 +147,39 @@ interface DashboardConfigPanelProps {
 }
 
 export function DashboardConfigPanel({ config, onConfigChange, availableFields }: DashboardConfigPanelProps) {
-  const [localConfig, setLocalConfig] = useState<DashboardConfig>(config);
+  // Normalise any partial/legacy config so array fields are always defined.
+  const normalise = (c: DashboardConfig): DashboardConfig => ({
+    ...DEFAULT_DASHBOARD_CONFIG,
+    ...c,
+    enabledParameters: Array.isArray(c?.enabledParameters)
+      ? c.enabledParameters
+      : (DEFAULT_DASHBOARD_CONFIG.enabledParameters ?? []),
+    sectionVisibility: {
+      ...(DEFAULT_DASHBOARD_CONFIG.sectionVisibility ?? {}),
+      ...(c?.sectionVisibility ?? {}),
+    },
+  });
+  const [localConfig, setLocalConfig] = useState<DashboardConfig>(() => normalise(config));
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    setLocalConfig(config);
+    setLocalConfig(normalise(config));
   }, [config]);
 
+  // Windows this station offers. Unrestricted stations get the full set, so this
+  // is a no-op for everything except a deliberately limited dashboard.
+  const offeredRanges = resolveChartTimeRanges(localConfig.allowedChartTimeRanges);
+
   const handleParameterToggle = (parameterId: string, enabled: boolean) => {
-    setLocalConfig((prev: DashboardConfig) => ({
-      ...prev,
-      enabledParameters: enabled
-        ? [...prev.enabledParameters, parameterId]
-        : prev.enabledParameters.filter((p: string) => p !== parameterId)
-    }));
+    setLocalConfig((prev: DashboardConfig) => {
+      const current = Array.isArray(prev.enabledParameters) ? prev.enabledParameters : [];
+      return {
+        ...prev,
+        enabledParameters: enabled
+          ? [...current, parameterId]
+          : current.filter((p: string) => p !== parameterId)
+      };
+    });
   };
 
   const handleCategoryToggleAll = (category: DashboardCategory, enabled: boolean) => {
@@ -170,12 +187,15 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
     const availableParamIds = category.parameters
       .filter((p: DashboardParameter) => !availableFields || isParamAvailable(p, availableFields))
       .map((p: DashboardParameter) => p.id);
-    setLocalConfig((prev: DashboardConfig) => ({
-      ...prev,
-      enabledParameters: enabled
-        ? [...new Set([...prev.enabledParameters, ...availableParamIds])]
-        : prev.enabledParameters.filter((p: string) => !availableParamIds.includes(p))
-    }));
+    setLocalConfig((prev: DashboardConfig) => {
+      const current = Array.isArray(prev.enabledParameters) ? prev.enabledParameters : [];
+      return {
+        ...prev,
+        enabledParameters: enabled
+          ? [...new Set([...current, ...availableParamIds])]
+          : current.filter((p: string) => !availableParamIds.includes(p))
+      };
+    });
   };
 
   const handleSave = () => {
@@ -205,7 +225,8 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
       })
     : (Object.keys(SECTION_LABELS) as (keyof SectionVisibility)[]);
 
-  const enabledCount = localConfig.enabledParameters.filter(id =>
+  const enabledParams = Array.isArray(localConfig.enabledParameters) ? localConfig.enabledParameters : [];
+  const enabledCount = enabledParams.filter(id =>
     filteredCategories.some(cat => cat.parameters.some(p => p.id === id))
   ).length;
   const totalCount = filteredCategories.reduce((sum: number, cat: DashboardCategory) => sum + cat.parameters.length, 0);
@@ -265,7 +286,11 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {CHART_TIME_RANGE_OPTIONS.map(opt => (
+                        {/* Restricted to what this station offers, so the panel
+                            cannot select a window the dashboard will not show. */}
+                        {CHART_TIME_RANGE_OPTIONS
+                          .filter(opt => offeredRanges.includes(opt.value))
+                          .map(opt => (
                           <SelectItem key={opt.value} value={String(opt.value)}>
                             {opt.label}
                           </SelectItem>
@@ -323,7 +348,7 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
                 <Accordion type="multiple" defaultValue={['temperature', 'wind', 'precipitation']}>
                   {filteredCategories.map((category: DashboardCategory) => {
                     const enabledInCategory = category.parameters.filter(
-                      (p: DashboardParameter) => localConfig.enabledParameters.includes(p.id)
+                      (p: DashboardParameter) => enabledParams.includes(p.id)
                     ).length;
                     const allEnabled = enabledInCategory === category.parameters.length;
                     const someEnabled = enabledInCategory > 0 && !allEnabled;
@@ -358,7 +383,7 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
                               <div key={param.id} className="flex items-start gap-3 pl-2">
                                 <Checkbox
                                   id={param.id}
-                                  checked={localConfig.enabledParameters.includes(param.id)}
+                                  checked={enabledParams.includes(param.id)}
                                   onCheckedChange={(checked) => 
                                     handleParameterToggle(param.id, checked as boolean)
                                   }

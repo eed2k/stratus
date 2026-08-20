@@ -9,8 +9,253 @@ import { setupAuth, isAuthenticated, isAdmin, getUserId } from "./localAuth";
 import { z } from "zod";
 import path from "path";
 import fs from "fs";
+import * as crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { auditLog, AUDIT_ACTIONS, type AuditAction } from "./services/auditLogService";
+import {
+  normaliseUplink,
+  describeUplinkFormat,
+  type NormalisedUplink,
+} from "./protocols/uplinkNormaliser";
+import {
+  decodePayload,
+  validateDecoderSpec,
+  type PayloadDecoderSpec,
+} from "./protocols/payloadDecoder";
+
+/**
+ * When on, the public ingest endpoint refuses stations that have no API key
+ * configured instead of accepting anonymous writes. Off by default so existing
+ * loggers keep working; turn it on once every station has a key.
+ */
+const INGEST_REQUIRE_API_KEY = process.env.INGEST_REQUIRE_API_KEY === 'true';
+
+/**
+ * Constant-time string comparison. A plain `!==` on a secret leaks its length
+ * and, in principle, its contents through response timing.
+ */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  // Hash first so differing lengths do not short-circuit the comparison.
+  const digestA = crypto.createHash('sha256').update(bufA).digest();
+  const digestB = crypto.createHash('sha256').update(bufB).digest();
+  return crypto.timingSafeEqual(digestA, digestB);
+}
+
+// ── Station payload redaction ──────────────────────────────────────────────
+
+/** True when the request carries an authenticated admin session. */
+function isAdminRequest(req: any): boolean {
+  const user = req?.user;
+  return !!user && user.isAuthenticated === true && user.role === 'admin';
+}
+
+/**
+ * connectionConfig keys a non-admin caller is allowed to see.
+ *
+ * Everything else in that object is either a credential or setup detail. The
+ * only key the dashboards actually read is pressureIsSLP, which decides whether
+ * the station already reports sea-level corrected pressure.
+ */
+const PUBLIC_CONNECTION_CONFIG_KEYS = new Set(['type', 'pressureIsSLP', 'pollInterval']);
+
+/** Station columns that are operationally sensitive outside the admin UI. */
+const ADMIN_ONLY_STATION_FIELDS = ['apiKey', 'securityCode'] as const;
+
+/**
+ * Strip credentials from a station record for non-admin callers.
+ * Admins get the row untouched, because the setup and settings screens need it.
+ */
+function sanitiseStationForCaller<T extends Record<string, any>>(station: T, isAdminCaller: boolean): T {
+  if (isAdminCaller) return station;
+
+  const config = readConnectionConfig(station.connectionConfig);
+  const safeConfig: Record<string, any> = {};
+  for (const key of Object.keys(config)) {
+    if (PUBLIC_CONNECTION_CONFIG_KEYS.has(key)) safeConfig[key] = config[key];
+  }
+
+  const copy: Record<string, any> = { ...station, connectionConfig: safeConfig };
+  for (const field of ADMIN_ONLY_STATION_FIELDS) delete copy[field];
+  return copy as T;
+}
+
+// ── Sigfox / LoRaWAN uplink ingest helpers ─────────────────────────────────
+
+/** Parse a stored connectionConfig that may be JSON text or an object. */
+function readConnectionConfig(raw: any): Record<string, any> {
+  if (!raw) return {};
+  if (typeof raw === 'object') return { ...raw };
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Find the station that owns a device identifier from an uplink.
+ *
+ * Matches (case-insensitively) against the station's configured
+ * uplinkDeviceId / sigfoxDeviceId / devEui, and falls back to the station's
+ * own ingest ID so an operator can reuse that value as the device name in the
+ * network server.
+ */
+async function findStationByUplinkDevice(deviceIds: string[]): Promise<any | null> {
+  if (deviceIds.length === 0) return null;
+  const wanted = new Set(deviceIds.map((d) => d.trim().toLowerCase()).filter(Boolean));
+  if (wanted.size === 0) return null;
+
+  const stations = await storage.getStations();
+  for (const station of stations) {
+    const cfg = readConnectionConfig((station as any).connectionConfig);
+    const candidates = [
+      cfg.uplinkDeviceId, cfg.sigfoxDeviceId, cfg.devEui, cfg.deviceEui, cfg.deviceId,
+      (station as any).ingestId,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate !== 'string' && typeof candidate !== 'number') continue;
+      const value = String(candidate).trim().toLowerCase();
+      if (value && wanted.has(value)) return station;
+    }
+  }
+  return null;
+}
+
+/** Cap on stored keys, so a hostile or misconfigured sender cannot bloat a row. */
+const MAX_UPLINK_FIELDS = 200;
+
+interface PreparedUplink {
+  ok: boolean;
+  message: string;
+  format: string;
+  data: Record<string, unknown>;
+  timestamp: Date;
+  tableName: string;
+  warnings: string[];
+}
+
+/**
+ * Turn any accepted request body into the record we store.
+ *
+ * Order of precedence for values: the station's own byte decoder (explicit
+ * operator configuration) wins over whatever the network server decoded for
+ * us, which in turn wins over nothing. Signal quality metadata is stored
+ * alongside the readings because on a LoRa or Sigfox link it is the first thing
+ * you look at when data goes missing.
+ */
+async function prepareUplinkPayload(
+  body: any,
+  stationConfig: Record<string, any>,
+  stationId: number,
+  pre?: NormalisedUplink,
+): Promise<PreparedUplink> {
+  const warnings: string[] = [];
+  const uplink = pre ?? normaliseUplink(body);
+
+  const fail = (message: string): PreparedUplink => ({
+    ok: false, message, format: uplink.format, data: {}, timestamp: new Date(),
+    tableName: 'datalogger', warnings,
+  });
+
+  // Native Stratus body keeps its existing behaviour exactly.
+  if (uplink.format === 'stratus') {
+    const data = body?.data;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return fail("Missing or invalid 'data' object");
+    }
+    const keys = Object.keys(data);
+    if (keys.length > MAX_UPLINK_FIELDS) {
+      return fail(`Payload contains ${keys.length} fields, which exceeds the ${MAX_UPLINK_FIELDS} field limit`);
+    }
+    return {
+      ok: true, message: 'ok', format: uplink.format, data,
+      timestamp: uplink.timestamp ?? new Date(),
+      tableName: 'datalogger', warnings,
+    };
+  }
+
+  if (uplink.format === 'unknown') {
+    return fail("Unrecognised payload. Send { \"data\": { ... } }, a Sigfox callback, or a LoRaWAN webhook body.");
+  }
+
+  const data: Record<string, unknown> = { ...uplink.decoded };
+
+  // Apply the station's byte decoder when the frame arrived as raw bytes.
+  const decoderSpec = stationConfig.uplinkDecoder;
+  if (uplink.raw && uplink.raw.length > 0) {
+    if (decoderSpec) {
+      const validation = validateDecoderSpec(decoderSpec);
+      if (!validation.valid) {
+        warnings.push(`Payload decoder is invalid and was skipped: ${validation.errors.join(' ')}`);
+      } else {
+        const decoded = decodePayload(uplink.raw, decoderSpec as PayloadDecoderSpec);
+        Object.assign(data, decoded.values);
+        if (decoded.skipped.length > 0) {
+          warnings.push(
+            `Frame was ${uplink.raw.length} byte(s), too short for: ${decoded.skipped.join(', ')}. ` +
+            `The decoder needs ${validation.requiredBytes} byte(s).`,
+          );
+        }
+      }
+    } else if (Object.keys(data).length === 0) {
+      warnings.push(
+        `Received ${uplink.raw.length} raw byte(s) but this station has no payload decoder configured, ` +
+        `so no readings could be extracted. Add a decoder on the station, or decode the payload in the network server.`,
+      );
+    }
+    // Keep the raw frame so a decoder added later can be validated against it.
+    if (stationConfig.uplinkStoreRaw !== false) {
+      data.uplinkRaw = uplink.raw.toString('hex');
+    }
+  }
+
+  // Signal quality and link counters, invaluable when diagnosing a LoRa link.
+  if (stationConfig.uplinkStoreMetadata !== false) {
+    const meta = uplink.metadata;
+    if (meta.rssi !== undefined) data.rssi = meta.rssi;
+    if (meta.snr !== undefined) data.snr = meta.snr;
+    if (meta.spreadingFactor !== undefined) data.spreadingFactor = meta.spreadingFactor;
+    if (meta.frameCounter !== undefined) data.frameCounter = meta.frameCounter;
+    if (meta.port !== undefined) data.uplinkPort = meta.port;
+    if (meta.gatewayCount !== undefined) data.gatewayCount = meta.gatewayCount;
+    if (meta.gatewayId !== undefined) data.gatewayId = meta.gatewayId;
+    if (meta.duplicate !== undefined) data.uplinkDuplicate = meta.duplicate;
+  }
+
+  const readingKeys = Object.keys(data).filter((k) => k !== 'uplinkRaw');
+  if (readingKeys.length === 0) {
+    return fail(
+      "Uplink was understood but contained no usable values. " +
+      "Either configure a payload decoder on the station or have the network server decode the payload.",
+    );
+  }
+  if (readingKeys.length > MAX_UPLINK_FIELDS) {
+    return fail(`Payload contains ${readingKeys.length} fields, which exceeds the ${MAX_UPLINK_FIELDS} field limit`);
+  }
+
+  const tableName = uplink.format === 'sigfox' ? 'sigfox'
+    : uplink.format === 'flat' ? 'datalogger'
+    : 'lorawan';
+
+  if (!uplink.timestamp) {
+    warnings.push('Uplink carried no timestamp, so the server receive time was used.');
+  }
+
+  console.log(
+    `[Ingest] Station ${stationId}: ${describeUplinkFormat(uplink.format)}, ` +
+    `${readingKeys.length} field(s)${uplink.raw ? `, ${uplink.raw.length} raw byte(s)` : ''}` +
+    `${warnings.length ? `, ${warnings.length} warning(s)` : ''}`,
+  );
+
+  return {
+    ok: true, message: 'ok', format: uplink.format, data,
+    timestamp: uplink.timestamp ?? new Date(),
+    tableName, warnings,
+  };
+}
 
 // Helper function to safely parse integer parameters with NaN validation
 function parseIntSafe(value: string | undefined, paramName: string): { value: number | null; error: string | null } {
@@ -531,7 +776,9 @@ export async function registerRoutes(
   }
 
   // Protocol Manager API endpoints
-  app.get("/api/protocols/status", optionalAuth, async (req, res) => {
+  // These expose live connection state and can force reconnects, so they are
+  // restricted to authenticated users (mutating ones to admins).
+  app.get("/api/protocols/status", isAuthenticated, async (req, res) => {
     try {
       const statuses: Record<number, any> = {};
       const allStatuses = protocolManager.getAllStationStatuses();
@@ -544,7 +791,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/protocols/status/:stationId", optionalAuth, async (req, res) => {
+  app.get("/api/protocols/status/:stationId", isAuthenticated, async (req, res) => {
     try {
       const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
       if (error || stationId === null) {
@@ -560,7 +807,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/protocols/test/:stationId", optionalAuth, async (req, res) => {
+  app.post("/api/protocols/test/:stationId", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
       if (error || stationId === null) {
@@ -573,7 +820,56 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/protocols/reconnect/:stationId", optionalAuth, async (req, res) => {
+  /**
+   * Parse a station's stored connectionConfig, which may be a JSON string or
+   * an already-parsed object depending on the storage backend.
+   */
+  const parseConnectionConfig = (raw: any): Record<string, any> => {
+    if (!raw) return {};
+    if (typeof raw === 'object') return { ...raw };
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  /**
+   * Tear down and re-create a station's protocol adapter so it performs a
+   * fresh connect (for RikaCloud that means a fresh login and a new session
+   * token). Used by the reconnect endpoint and after credentials are changed.
+   */
+  const reregisterStation = async (stationId: number): Promise<void> => {
+    const station = await storage.getWeatherStation(stationId);
+    if (!station) throw new Error('Station not found');
+
+    await protocolManager.unregisterStation(stationId);
+
+    const connectionConfig = parseConnectionConfig(station.connectionConfig);
+
+    // Map connection type to protocol
+    const protocolMap: Record<string, string> = {
+      'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
+      'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus',
+      'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
+      'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus', 'rikacloud': 'http',
+      'arduino_iot': 'http',
+    };
+
+    await protocolManager.registerStation(stationId, {
+      stationId,
+      protocol: (protocolMap[station.connectionType || ''] || 'http') as any,
+      connectionType: (station.connectionType as any) || 'http',
+      host: station.ipAddress || connectionConfig.broker,
+      port: station.port || connectionConfig.port,
+      apiKey: station.apiKey || undefined,
+      apiEndpoint: station.apiEndpoint || connectionConfig.topic,
+      ...connectionConfig,
+    });
+  };
+
+  app.post("/api/protocols/reconnect/:stationId", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
       if (error || stationId === null) {
@@ -583,44 +879,160 @@ export async function registerRoutes(
       if (!station) {
         return res.status(404).json({ message: "Station not found" });
       }
-      
-      // Re-register station to force reconnection
-      await protocolManager.unregisterStation(stationId);
-      
-      let connectionConfig: any = {};
-      if (station.connectionConfig) {
-        try {
-          connectionConfig = typeof station.connectionConfig === 'string' 
-            ? JSON.parse(station.connectionConfig) 
-            : station.connectionConfig;
-        } catch (e) {
-          connectionConfig = {};
-        }
-      }
-      
-      // Map connection type to protocol
-      const protocolMap: Record<string, string> = {
-        'mqtt': 'mqtt', 'http': 'http', 'ip': 'http', 'wifi': 'http',
-        'tcp': 'http', 'tcp_ip': 'http', 'lora': 'lora', 'serial': 'modbus', 
-        'satellite': 'satellite', 'dropbox': 'http', 'http_post': 'http',
-        'gsm': 'http', '4g': 'http', 'pakbus': 'pakbus', 'rikacloud': 'http',
-        'arduino_iot': 'http',
-      };
-      
-      await protocolManager.registerStation(stationId, {
-        stationId,
-        protocol: (protocolMap[station.connectionType || ''] || 'http') as any,
-        connectionType: (station.connectionType as any) || 'http',
-        host: station.ipAddress || connectionConfig.broker,
-        port: station.port || connectionConfig.port,
-        apiKey: station.apiKey || undefined,
-        apiEndpoint: station.apiEndpoint || connectionConfig.topic,
-        ...connectionConfig,
-      });
-      
+
+      await reregisterStation(stationId);
+
       res.json({ success: true, message: "Station reconnected" });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // ── RikaCloud troubleshooting ────────────────────────────────────────────
+  // Lets an admin diagnose and repair a lost RikaCloud login from the
+  // Settings page instead of needing a code change and redeploy.
+
+  /** Build the probe input for a station from its stored connection config. */
+  const rikaProbeConfigFor = (station: any, overrides?: Record<string, any>) => {
+    const cfg = { ...parseConnectionConfig(station.connectionConfig), ...(overrides || {}) };
+    const pollInterval = Number(cfg.pollInterval);
+    return {
+      account: cfg.rikaEmail || cfg.rikaAccount || null,
+      password: cfg.rikaPassword || null,
+      apiEndpoint: cfg.apiEndpoint || station.apiEndpoint || null,
+      farmId: cfg.rikaFarmId ?? null,
+      deviceId: cfg.rikaDeviceId ?? null,
+      pollIntervalSeconds: Number.isFinite(pollInterval) && pollInterval > 0 ? pollInterval : null,
+    };
+  };
+
+  /**
+   * Run a full RikaCloud probe (login, farm discovery, device read, mapping,
+   * freshness) and return every step. Optionally accepts candidate credentials
+   * in the body so they can be verified before being saved.
+   */
+  app.post("/api/protocols/rika/:stationId/diagnose", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const station = await storage.getWeatherStation(stationId);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+
+      // Only fields that make sense to trial-run are accepted here.
+      const body = req.body || {};
+      const overrides: Record<string, any> = {};
+      for (const key of ['rikaEmail', 'rikaAccount', 'rikaPassword', 'rikaFarmId', 'rikaDeviceId', 'apiEndpoint'] as const) {
+        if (typeof body[key] === 'string' && body[key].trim() !== '') overrides[key] = body[key].trim();
+      }
+
+      const { runRikaDiagnostics } = await import('./protocols/rikaDiagnostics');
+      const diagnostics = await runRikaDiagnostics(rikaProbeConfigFor(station, overrides));
+
+      const adapterStatus = protocolManager.getStationStatus(stationId) || null;
+      res.json({
+        stationId,
+        stationName: station.name,
+        usedOverrides: Object.keys(overrides).filter((k) => k !== 'rikaPassword'),
+        adapterStatus,
+        diagnostics,
+      });
+    } catch (error: any) {
+      console.error('[Rika] Diagnostics failed:', error);
+      res.status(500).json({ message: error.message || 'diagnostics failed' });
+    }
+  });
+
+  /**
+   * Update a RikaCloud station's credentials / farm / device pinning and
+   * immediately reconnect it. Set verify=false to skip the pre-save probe.
+   */
+  app.put("/api/protocols/rika/:stationId/credentials", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const station = await storage.getWeatherStation(stationId);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+
+      const body = req.body || {};
+      const existing = parseConnectionConfig(station.connectionConfig);
+      const next: Record<string, any> = { ...existing };
+
+      const setText = (key: string, value: any, { allowClear = false } = {}) => {
+        if (typeof value !== 'string') return;
+        const trimmed = value.trim();
+        if (trimmed === '') {
+          if (allowClear) delete next[key];
+          return; // blank means "leave unchanged" for secrets
+        }
+        next[key] = trimmed;
+      };
+
+      setText('rikaEmail', body.rikaEmail);
+      setText('rikaAccount', body.rikaAccount);
+      setText('rikaPassword', body.rikaPassword);           // blank keeps the stored password
+      setText('rikaFarmId', body.rikaFarmId, { allowClear: true });
+      setText('rikaDeviceId', body.rikaDeviceId, { allowClear: true });
+      setText('apiEndpoint', body.apiEndpoint, { allowClear: true });
+
+      if (body.pollInterval !== undefined && body.pollInterval !== null && body.pollInterval !== '') {
+        const poll = Number(body.pollInterval);
+        if (!Number.isFinite(poll) || poll < 30 || poll > 86400) {
+          return res.status(400).json({ message: 'pollInterval must be between 30 and 86400 seconds' });
+        }
+        next.pollInterval = Math.round(poll);
+      }
+
+      const account = next.rikaEmail || next.rikaAccount;
+      if (!account || !next.rikaPassword) {
+        return res.status(400).json({ message: 'A RikaCloud account and password are required' });
+      }
+
+      const { runRikaDiagnostics } = await import('./protocols/rikaDiagnostics');
+
+      // Verify before persisting so a typo cannot take a working feed offline.
+      const verify = body.verify !== false;
+      let diagnostics = null as Awaited<ReturnType<typeof runRikaDiagnostics>> | null;
+      if (verify) {
+        diagnostics = await runRikaDiagnostics(rikaProbeConfigFor(station, next));
+        const loginStep = diagnostics.steps.find((s) => s.id === 'login');
+        if (loginStep && loginStep.status === 'fail') {
+          return res.status(400).json({
+            success: false,
+            message: loginStep.message,
+            diagnostics,
+          });
+        }
+      }
+
+      await storage.updateStation(stationId, { connectionConfig: next } as any);
+      await reregisterStation(stationId);
+      console.log(`[Rika] Credentials updated and station #${stationId} reconnected by admin.`);
+
+      res.json({
+        success: true,
+        message: 'Credentials saved and the station was reconnected.',
+        diagnostics,
+        // Echo back the non-secret config so the form can refresh itself.
+        config: {
+          rikaEmail: next.rikaEmail || next.rikaAccount || null,
+          rikaFarmId: next.rikaFarmId ?? null,
+          rikaDeviceId: next.rikaDeviceId ?? null,
+          apiEndpoint: next.apiEndpoint ?? null,
+          pollInterval: next.pollInterval ?? null,
+          hasPassword: !!next.rikaPassword,
+        },
+      });
+    } catch (error: any) {
+      console.error('[Rika] Credential update failed:', error);
+      res.status(500).json({ success: false, message: error.message || 'update failed' });
     }
   });
 
@@ -993,11 +1405,15 @@ export async function registerRoutes(
     }
   });
 
-  // Weather Stations routes (demo mode bypasses auth)
+  // Weather Stations routes (demo mode bypasses auth).
+  // Non-admin callers get a redacted copy: connectionConfig holds live
+  // credentials (RIKA password, ingest API key, Dropbox and Arduino secrets),
+  // and there is no reason for a viewer or a demo visitor to receive them.
   app.get("/api/stations", optionalAuth, async (req, res) => {
     try {
       const stations = await storage.getStations();
-      res.json(stations);
+      const admin = isAdminRequest(req);
+      res.json(stations.map((s) => sanitiseStationForCaller(s, admin)));
     } catch (error) {
       console.error("Error fetching stations:", error);
       res.status(500).json({ message: "Failed to fetch stations" });
@@ -1014,7 +1430,7 @@ export async function registerRoutes(
       if (!station) {
         return res.status(404).json({ message: "Station not found" });
       }
-      res.json(station);
+      res.json(sanitiseStationForCaller(station, isAdminRequest(req)));
     } catch (error) {
       console.error("Error fetching station:", error);
       res.status(500).json({ message: "Failed to fetch station" });
@@ -1704,50 +2120,203 @@ export async function registerRoutes(
         });
       }
       
-      // Optional API key validation (if station has apiKey configured)
-      const providedKey = req.headers['x-api-key'] as string;
-      const stationConfig = station.connectionConfig as any;
-      if (stationConfig?.apiKey && stationConfig.apiKey !== providedKey) {
-        return res.status(401).json({ 
+      // API key validation. Compared in constant time so the endpoint cannot
+      // be used as an oracle to recover the key one byte at a time.
+      const providedKey = typeof req.headers['x-api-key'] === 'string' ? req.headers['x-api-key'] as string : '';
+      const stationConfig = parseConnectionConfig(station.connectionConfig);
+      const expectedKey = typeof stationConfig.apiKey === 'string' ? stationConfig.apiKey : '';
+
+      if (expectedKey) {
+        if (!timingSafeEqualStr(providedKey, expectedKey)) {
+          return res.status(401).json({
+            success: false,
+            message: "Invalid API key"
+          });
+        }
+      } else if (INGEST_REQUIRE_API_KEY) {
+        // Opt-in strict mode: refuse stations that have no key configured
+        // rather than silently accepting anonymous writes.
+        console.warn(`[Ingest] Rejected unauthenticated write to station ${stationId}: no API key configured and INGEST_REQUIRE_API_KEY is on.`);
+        return res.status(401).json({
           success: false,
-          message: "Invalid API key" 
+          message: "This station requires an API key. Configure one on the station and send it in the X-API-Key header."
         });
       }
       
-      // Parse and validate data
-      const { data, timestamp, source } = req.body;
-      
-      if (!data || typeof data !== 'object') {
-        return res.status(400).json({ 
-          success: false,
-          message: "Missing or invalid 'data' object" 
-        });
+      // Normalise the body. Native Stratus JSON, Sigfox callbacks, TTN,
+      // ChirpStack and Helium webhooks and flat JSON all end up in one shape.
+      const prepared = await prepareUplinkPayload(req.body, stationConfig, stationId);
+      if (!prepared.ok) {
+        return res.status(400).json({ success: false, message: prepared.message, format: prepared.format });
       }
-      
-      // Insert weather data
+
       const weatherData = await storage.insertWeatherData({
         stationId,
-        timestamp: timestamp ? new Date(timestamp) : new Date(),
-        tableName: source || 'datalogger',
-        data
+        timestamp: prepared.timestamp,
+        tableName: (typeof req.body?.source === 'string' && req.body.source) || prepared.tableName,
+        data: prepared.data,
       });
-      
+
       // Broadcast to connected WebSocket clients
       broadcastWeatherData(stationId, weatherData);
-      
-      res.status(201).json({ 
+
+      res.status(201).json({
         success: true,
         message: "Data received",
         id: weatherData.id,
-        timestamp: weatherData.timestamp
+        timestamp: weatherData.timestamp,
+        format: prepared.format,
+        fields: Object.keys(prepared.data).length,
+        ...(prepared.warnings.length ? { warnings: prepared.warnings } : {}),
       });
-      
+
     } catch (error) {
       console.error("Error ingesting weather data:", error);
       res.status(500).json({ 
         success: false,
         message: "Failed to ingest weather data" 
       });
+    }
+  });
+
+  /**
+   * Device-routed uplink endpoint.
+   *
+   * Sigfox and most LoRaWAN network servers let you configure exactly one
+   * callback or webhook URL for a whole device type / application, so the
+   * station cannot be identified by the URL. This endpoint reads the device
+   * identifier out of the uplink itself (Sigfox device ID, LoRaWAN DevEUI or
+   * device ID) and matches it against the station's configured uplinkDeviceId,
+   * so one URL serves an entire fleet.
+   */
+  app.post("/api/ingest/uplink", ingestRateLimiter, async (req, res) => {
+    try {
+      const uplink = normaliseUplink(req.body);
+      if (uplink.format === 'unknown') {
+        return res.status(400).json({
+          success: false,
+          message: "Unrecognised uplink payload. Expected a Sigfox callback, a LoRaWAN webhook (TTN, ChirpStack, Helium) or Stratus JSON.",
+        });
+      }
+      if (uplink.deviceIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Uplink contained no device identifier, so the station could not be resolved. Post to /api/ingest/{ingest-id} instead.",
+          format: uplink.format,
+        });
+      }
+
+      const station = await findStationByUplinkDevice(uplink.deviceIds);
+      if (!station) {
+        return res.status(404).json({
+          success: false,
+          message: "No station is configured for this device.",
+          format: uplink.format,
+          deviceIds: uplink.deviceIds,
+        });
+      }
+      const stationId: number = station.id;
+      const stationConfig = parseConnectionConfig(station.connectionConfig);
+
+      // Same API key rules as the station-routed endpoint.
+      const providedKey = typeof req.headers['x-api-key'] === 'string' ? req.headers['x-api-key'] as string : '';
+      const expectedKey = typeof stationConfig.apiKey === 'string' ? stationConfig.apiKey : '';
+      if (expectedKey) {
+        if (!timingSafeEqualStr(providedKey, expectedKey)) {
+          return res.status(401).json({ success: false, message: "Invalid API key" });
+        }
+      } else if (INGEST_REQUIRE_API_KEY) {
+        console.warn(`[Ingest] Rejected unauthenticated uplink for station ${stationId}: no API key configured and INGEST_REQUIRE_API_KEY is on.`);
+        return res.status(401).json({
+          success: false,
+          message: "This station requires an API key. Configure one on the station and send it in the X-API-Key header."
+        });
+      }
+
+      const prepared = await prepareUplinkPayload(req.body, stationConfig, stationId, uplink);
+      if (!prepared.ok) {
+        return res.status(400).json({ success: false, message: prepared.message, format: prepared.format });
+      }
+
+      const weatherData = await storage.insertWeatherData({
+        stationId,
+        timestamp: prepared.timestamp,
+        tableName: prepared.tableName,
+        data: prepared.data,
+      });
+
+      broadcastWeatherData(stationId, weatherData);
+
+      res.status(201).json({
+        success: true,
+        message: "Data received",
+        id: weatherData.id,
+        stationId,
+        stationName: station.name,
+        timestamp: weatherData.timestamp,
+        format: prepared.format,
+        fields: Object.keys(prepared.data).length,
+        ...(prepared.warnings.length ? { warnings: prepared.warnings } : {}),
+      });
+    } catch (error) {
+      console.error("Error ingesting uplink:", error);
+      res.status(500).json({ success: false, message: "Failed to ingest uplink" });
+    }
+  });
+
+  /**
+   * Ready-made payload decoder presets for the station setup screen, so an
+   * operator does not have to hand-write a field map.
+   */
+  app.get("/api/ingest/decoder-presets", isAuthenticated, async (_req, res) => {
+    try {
+      const { DECODER_PRESETS } = await import('./protocols/payloadDecoder');
+      res.json(DECODER_PRESETS);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'could not load presets' });
+    }
+  });
+
+  /**
+   * Dry-run an uplink body against a station's decoder without storing anything.
+   * Lets an operator paste a real Sigfox / LoRaWAN sample in the setup screen
+   * and see exactly which fields Stratus would extract.
+   */
+  app.post("/api/ingest/preview/:stationId", isAuthenticated, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+      const station = await storage.getStation(stationId);
+      if (!station) return res.status(404).json({ message: "Station not found" });
+
+      const stationConfig = parseConnectionConfig(station.connectionConfig);
+      // Allow a candidate decoder in the body so it can be tested before saving.
+      if (req.body?.decoder !== undefined) stationConfig.uplinkDecoder = req.body.decoder;
+
+      const body = req.body?.payload !== undefined ? req.body.payload : req.body;
+      const uplink = normaliseUplink(body);
+      const prepared = await prepareUplinkPayload(body, stationConfig, stationId, uplink);
+
+      res.json({
+        format: uplink.format,
+        formatLabel: describeUplinkFormat(uplink.format),
+        deviceIds: uplink.deviceIds,
+        timestamp: prepared.ok ? prepared.timestamp.toISOString() : null,
+        providerDecoded: uplink.decoded,
+        rawBytes: uplink.raw ? uplink.raw.length : 0,
+        rawEncoding: uplink.rawEncoding ?? null,
+        metadata: uplink.metadata,
+        stored: prepared.ok ? prepared.data : {},
+        mappedFields: prepared.ok ? Object.keys(prepared.data) : [],
+        warnings: prepared.warnings,
+        ok: prepared.ok,
+        message: prepared.ok ? "Payload accepted" : prepared.message,
+      });
+    } catch (err: any) {
+      console.error('[Ingest] Preview failed:', err);
+      res.status(500).json({ message: err?.message || 'preview failed' });
     }
   });
 
@@ -1785,25 +2354,33 @@ export async function registerRoutes(
           
           // Only insert if we have some valid data
           if (Object.values(weatherData).some(v => v !== null)) {
+            /**
+             * Store every channel the parser recognised, plus the original
+             * Campbell column names.
+             *
+             * This used to enumerate thirteen fields by hand, which silently
+             * discarded everything else the parser had already mapped:
+             * lightning strike count, distance and intensity, solar energy
+             * total, UV index, visibility, PM2.5 and PM10, minimum wind speed,
+             * wind direction standard deviation and the whole MPPT charger set.
+             * A file could import "successfully" while the readings the
+             * operator cared about never reached the database.
+             *
+             * Keeping the raw record alongside the mapped fields matches what
+             * the Dropbox sync path does, and readers in this codebase resolve
+             * either spelling, so nothing downstream has to change.
+             */
+            const mapped: Record<string, number> = {};
+            for (const [key, value] of Object.entries(weatherData)) {
+              if (value !== null && value !== undefined && Number.isFinite(value)) {
+                mapped[key] = value;
+              }
+            }
             await storage.insertWeatherData({
               stationId,
               timestamp: record.timestamp,
               tableName: 'import',
-              data: {
-                temperature: weatherData.temperature ?? undefined,
-                humidity: weatherData.humidity ?? undefined,
-                pressure: weatherData.pressure ?? undefined,
-                windSpeed: weatherData.windSpeed ?? undefined,
-                windDirection: weatherData.windDirection ?? undefined,
-                windGust: weatherData.windGust ?? undefined,
-                solarRadiation: weatherData.solarRadiation ?? undefined,
-                rainfall: weatherData.rainfall ?? undefined,
-                dewPoint: weatherData.dewPoint ?? undefined,
-                soilTemperature: weatherData.soilTemperature ?? undefined,
-                soilMoisture: weatherData.soilMoisture ?? undefined,
-                batteryVoltage: weatherData.batteryVoltage ?? undefined,
-                panelTemperature: weatherData.panelTemperature ?? undefined,
-              }
+              data: { ...record.data, ...mapped },
             });
             importedCount++;
           }

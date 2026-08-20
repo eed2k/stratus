@@ -5,6 +5,7 @@
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
+import { DashboardLoadingOverlay } from "@/components/DashboardLoadingOverlay";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WindCompass } from "@/components/dashboard/WindCompass";
 // WindPowerCard replaced with inline Card layout
@@ -45,6 +46,35 @@ const FireDangerChart = lazy(() => import("@/components/charts/FireDangerChart")
 const StationMapWithErrorBoundary = lazy(() => import("@/components/dashboard/StationMap").then(m => ({ default: m.StationMapWithErrorBoundary })));
 const SolarPositionCard = lazy(() => import("@/components/dashboard/SolarPositionCard").then(m => ({ default: m.SolarPositionCard })));
 
+// Merge any partial/legacy saved config over defaults so required array/object
+// fields (enabledParameters, sectionVisibility) are never undefined, which would
+// otherwise crash the dashboard and config panel. Also clamps chartTimeRange.
+function normaliseDashboardConfig(c: Partial<DashboardConfig> | null | undefined): DashboardConfig {
+  const merged: DashboardConfig = {
+    ...DEFAULT_DASHBOARD_CONFIG,
+    ...(c ?? {}),
+    enabledParameters: Array.isArray(c?.enabledParameters)
+      ? (c!.enabledParameters as string[])
+      : (DEFAULT_DASHBOARD_CONFIG.enabledParameters ?? []),
+    sectionVisibility: {
+      ...(DEFAULT_DASHBOARD_CONFIG.sectionVisibility ?? {}),
+      ...(c?.sectionVisibility ?? {}),
+    },
+    // Only carry the restriction through when it is a usable list. A malformed
+    // value is dropped rather than stored, so it cannot later empty the range
+    // selector.
+    allowedChartTimeRanges: Array.isArray(c?.allowedChartTimeRanges)
+      ? (c!.allowedChartTimeRanges as number[]).filter((h) => typeof h === "number")
+      : undefined,
+  };
+  if (merged.chartTimeRange > 720) merged.chartTimeRange = 720;
+  // Keep the saved window inside what this station actually offers, otherwise a
+  // restricted station could load pointing at a range it will not display.
+  merged.chartTimeRange = defaultChartTimeRange(
+    merged.allowedChartTimeRanges, merged.chartTimeRange);
+  return merged;
+}
+
 // Chart loading placeholder
 const ChartFallback = () => (
   <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg animate-pulse">
@@ -78,7 +108,18 @@ import {
   calculateHeatIndex,
   calculateWindChill,
 } from "@shared/utils/calc";
-import { DEFAULT_DASHBOARD_CONFIG, DASHBOARD_CATEGORIES, type DashboardConfig } from "../../../shared/dashboardConfig";
+import { interpretLightningIntensity } from "@shared/utils/lightning";
+import { rainfallTotalFromRecords, type RainfallType } from "@shared/utils/rainfall";
+import { CHART_COLOURS } from "@shared/chartColours";
+import {
+  DEFAULT_DASHBOARD_CONFIG,
+  DASHBOARD_CATEGORIES,
+  isParameterEnabled,
+  resolveChartTimeRanges,
+  defaultChartTimeRange,
+  chartTimeRangeLabel,
+  type DashboardConfig,
+} from "../../../shared/dashboardConfig";
 import { getSimplifiedClasses, getWindUnitLabel, getWindDirectionLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import {
   STANDARD_SEA_LEVEL_PRESSURE_HPA,
@@ -250,6 +291,9 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         batteryVoltage: avgNonNull(dayData.map(d => d.batteryVoltage ?? null)),
         batteryVoltageMin: minNonNull(dayData.map(d => d.batteryVoltage ?? null)),
         batteryVoltageMax: maxNonNull(dayData.map(d => d.batteryVoltage ?? null)),
+        batteryVoltage2: avgNonNull(dayData.map(d => d.batteryVoltage2 ?? null)),
+        batteryVoltage2Min: minNonNull(dayData.map(d => d.batteryVoltage2 ?? null)),
+        batteryVoltage2Max: maxNonNull(dayData.map(d => d.batteryVoltage2 ?? null)),
         waterLevel: avgNonNull(dayData.map(d => d.waterLevel ?? null)),
         temperatureSwitch: avgNonNull(dayData.map(d => d.temperatureSwitch ?? null)),
         levelSwitch: avgNonNull(dayData.map(d => d.levelSwitch ?? null)),
@@ -422,6 +466,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       pm10: d.pm10 ?? null,
       pm25: d.pm25 ?? null,
       batteryVoltage: d.batteryVoltage ?? null,
+      batteryVoltage2: d.batteryVoltage2 ?? null,
       waterLevel: d.waterLevel ?? null,
       temperatureSwitch: d.temperatureSwitch ?? null,
       levelSwitch: d.levelSwitch ?? null,
@@ -644,9 +689,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     if (stationId) {
       const stationSaved = localStorage.getItem(`dashboardConfig_${stationId}`);
       if (stationSaved) {
-        const parsed = JSON.parse(stationSaved);
-        if (parsed.chartTimeRange > 720) parsed.chartTimeRange = 720;
-        return parsed;
+        return normaliseDashboardConfig(JSON.parse(stationSaved));
       }
     }
     return DEFAULT_DASHBOARD_CONFIG;
@@ -655,6 +698,26 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const [historicalChartRange, setHistoricalChartRange] = useState(24);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  /**
+   * Ranges this station offers, and a guard that keeps the current selection
+   * inside them.
+   *
+   * The selection lives in local state and starts at 24h, so on a station that
+   * does not offer 24h it would otherwise sit on a range with no button lit and
+   * query a window the operator cannot see.
+   */
+  const offeredChartRanges = useMemo(
+    () => resolveChartTimeRanges(dashboardConfig.allowedChartTimeRanges),
+    [dashboardConfig.allowedChartTimeRanges],
+  );
+
+  useEffect(() => {
+    if (!offeredChartRanges.includes(historicalChartRange)) {
+      setHistoricalChartRange(defaultChartTimeRange(
+        dashboardConfig.allowedChartTimeRanges, historicalChartRange));
+    }
+  }, [offeredChartRanges, historicalChartRange, dashboardConfig.allowedChartTimeRanges]);
 
   const { data: allStations = [], isLoading: stationsLoading } = useQuery<WeatherStation[]>({
     queryKey: ["/api/stations"],
@@ -676,9 +739,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     if (!activeStationId) return;
     const stationSaved = localStorage.getItem(`dashboardConfig_${activeStationId}`);
     if (stationSaved) {
-      const parsed = JSON.parse(stationSaved);
-      if (parsed.chartTimeRange > 720) parsed.chartTimeRange = 720;
-      setDashboardConfig(parsed);
+      setDashboardConfig(normaliseDashboardConfig(JSON.parse(stationSaved)));
     } else {
       // No config saved for this station. use clean defaults (not another station's config)
       setDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
@@ -702,13 +763,12 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // saved layout survives a fresh login or cleared local storage.
   useEffect(() => {
     if (!activeStationId || !serverDashboardConfig) return;
-    const parsed = { ...serverDashboardConfig };
-    if (parsed.chartTimeRange > 720) parsed.chartTimeRange = 720;
+    const parsed = normaliseDashboardConfig(serverDashboardConfig);
     setDashboardConfig(parsed);
     localStorage.setItem(`dashboardConfig_${activeStationId}`, JSON.stringify(parsed));
   }, [serverDashboardConfig, activeStationId]);
 
-  const { data: latestData, isLoading: dataLoading } = useQuery<WeatherData>({
+  const { data: latestData, isLoading: dataLoading, isSuccess: latestReady } = useQuery<WeatherData>({
     queryKey: ["/api/stations", activeStationId, "data", "latest"],
     enabled: !!activeStationId,
     refetchInterval: dashboardConfig.updatePeriod * 1000, // Auto-refresh based on config
@@ -734,7 +794,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Fetch historical data for charts and wind roses (based on configured time range)
   // Auto-expands to 30 days, then falls back to station's actual data range
-  const { data: historicalData = [], refetch: refetchHistorical } = useQuery<WeatherData[]>({
+  const { data: historicalData = [], refetch: refetchHistorical, isSuccess: historyReady } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "history", dashboardConfig.chartTimeRange, dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
@@ -782,7 +842,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Separate query for 30-day stats data (always fetches 30 days regardless of chart time range)
   const statsTimeRangeHours = 30 * 24; // 720 hours = 30 days
-  const { data: statsData = [] } = useQuery<WeatherData[]>({
+  const { data: statsData = [], isSuccess: statsReady } = useQuery<WeatherData[]>({
     queryKey: ["/api/stations", activeStationId, "data", "stats-30d", dataRange?.latest],
     queryFn: async () => {
       if (!activeStationId) return [];
@@ -911,6 +971,17 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   });
   const rainfallType = rainfallConfig?.type ?? 'auto';
 
+  // The operator-configured type wins. When a station has never been calibrated
+  // the type is 'auto'; for RIKA we still know the answer from the protocol
+  // itself (RikaCloud reports a lifetime counter), so seed that rather than
+  // leaving the generic detector to guess from a short window.
+  // NOTE: derived from selectedStation directly - `isRikaStation` is declared
+  // further down the component and referencing it here would be a TDZ error.
+  const effectiveRainfallType: RainfallType =
+    rainfallType !== 'auto'
+      ? rainfallType
+      : (selectedStation?.connectionType === 'rikacloud' ? 'cumulative_lifetime' : 'auto');
+
   // Process historical section chart data
   const historicalChartData = useMemo(() => {
     if (historicalSectionData.length === 0) return [];
@@ -955,8 +1026,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     // Fields that are always 0 (disconnected sensors) are treated as unavailable
     // allowZero: rainfall can be 0 and still mean the sensor exists
     const hasData = (field: keyof WeatherData, allowZero = false) => {
-      // If this field is a toggleable parameter and was disabled in config, hide it
-      if (Array.isArray(ep) && toggleableFields.has(field) && !ep.includes(field)) {
+      // If this field is a toggleable parameter and was disabled in config, hide it.
+      // Parameters added to the catalogue after a config was saved stay visible
+      // (see LATE_ADDED_PARAMETERS) so new sensors are not silently hidden.
+      if (toggleableFields.has(field) && !isParameterEnabled(field, ep)) {
         return false;
       }
 
@@ -993,6 +1066,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       soilTemperature: hasData('soilTemperature'),
       soilMoisture: hasData('soilMoisture'),
       batteryVoltage: hasData('batteryVoltage'),
+      batteryVoltage2: hasData('batteryVoltage2'),
       waterLevel: hasData('waterLevel'),
       temperatureSwitch: hasData('temperatureSwitch'),
       levelSwitch: hasData('levelSwitch'),
@@ -1340,6 +1414,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         airDensity: null,
         eto: null,
         batteryVoltage: null,
+        batteryVoltage2: null,
         particulateCount: null,
         pm25: null,
         pm10: null,
@@ -1597,40 +1672,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
     const last24hData = dataSource.filter(d => new Date(d.timestamp).getTime() > twentyFourHoursAgo);
 
-    const rainfallReadings = last24hData
-      .map(d => d.rainfall)
-      .filter((v): v is number => v !== null && v !== undefined);
-
-    if (rainfallReadings.length === 0) {
-      return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: currentData.rainfall ?? 0 };
+    if (last24hData.length === 0) {
+      // No window to integrate over. Report nothing rather than falling back to
+      // `currentData.rainfall`, which for a cumulative station is the lifetime
+      // counter (hundreds of mm) and would read as a 24-hour total.
+      return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: 0 };
     }
 
-    let total = 0;
-    if (isRikaStation) {
-      // RIKA reports a CUMULATIVE rainfall counter (mm since device creation).
-      // Count only realistic positive increments; ignore counter spikes, resets
-      // and the corrupt large values in its history. Cap each step at 15 mm.
-      for (let i = 1; i < rainfallReadings.length; i++) {
-        const diff = rainfallReadings[i] - rainfallReadings[i - 1];
-        if (diff > 0 && diff < 15) total += diff;
-      }
-    } else {
-      const maxVal = Math.max(...rainfallReadings);
-      if (maxVal <= 50) {
-        // Incremental logger: sum the raw values (cap each value to filter outliers)
-        total = rainfallReadings.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
-      } else {
-        // Cumulative counter: sum positive deltas with a per-step spike cap
-        for (let i = 1; i < rainfallReadings.length; i++) {
-          const diff = rainfallReadings[i] - rainfallReadings[i - 1];
-          if (diff > 0 && diff < 200) total += diff;
-        }
-      }
-    }
-    const isStale = total < 0.05;
-    const rounded = Math.round(total * 100) / 100;
-    return { accumulatedRainfall: rounded, isRainfallStale: isStale, effectiveRainfall: rounded };
-  }, [sortedStatsData, sortedHistoricalData, currentData.rainfall, referenceNow]);
+    const total = rainfallTotalFromRecords(last24hData, effectiveRainfallType, rainfallConfig?.tipFactor ?? 0.2);
+    return { accumulatedRainfall: total, isRainfallStale: total < 0.05, effectiveRainfall: total };
+  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallConfig?.tipFactor]);
 
   // Rainfall totals over standard reporting periods (24h / yesterday / this week / this month)
   // Uses the same incremental-vs-cumulative auto-detection as effectiveRainfall.
@@ -1785,35 +1836,91 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     return { rainfall7day, daysSinceRain };
   }, [sortedStatsData, sortedHistoricalData, referenceNow]);
 
-  // Extract battery voltage from historical data for proper charting
+  // Extract battery voltage from historical data for proper charting.
+  // Both banks are carried so installations with two batteries chart each one.
   const batteryChartData = useMemo(() => {
     const effectiveRange = dashboardConfig.chartTimeRange || 24;
+    const round2 = (v: number) => Math.round(v * 100) / 100;
+    const mean = (a: number[]) => round2(a.reduce((x, y) => x + y, 0) / a.length);
+
     if (effectiveRange >= 168 && sortedHistoricalData.length > 0) {
       // Daily aggregation for 7d+ ranges
-      const dayBuckets = new Map<string, number[]>();
+      const dayBuckets = new Map<string, { bank1: number[]; bank2: number[] }>();
       sortedHistoricalData.forEach(d => {
-        if (d.batteryVoltage == null) return;
+        if (d.batteryVoltage == null && d.batteryVoltage2 == null) return;
         const key = new Date(d.timestamp).toISOString().slice(0, 10);
-        if (!dayBuckets.has(key)) dayBuckets.set(key, []);
-        dayBuckets.get(key)!.push(d.batteryVoltage);
+        if (!dayBuckets.has(key)) dayBuckets.set(key, { bank1: [], bank2: [] });
+        const bucket = dayBuckets.get(key)!;
+        if (d.batteryVoltage != null) bucket.bank1.push(d.batteryVoltage);
+        if (d.batteryVoltage2 != null) bucket.bank2.push(d.batteryVoltage2);
       });
       return [...dayBuckets.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([dateKey, voltages]) => {
+        .map(([dateKey, { bank1, bank2 }]) => {
           const date = new Date(dateKey + 'T12:00:00');
           return {
             timestamp: date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" }),
-            batteryVoltage: Math.round((voltages.reduce((a, b) => a + b, 0) / voltages.length) * 100) / 100,
-            batteryVoltageMin: Math.round(Math.min(...voltages) * 100) / 100,
-            batteryVoltageMax: Math.round(Math.max(...voltages) * 100) / 100,
+            batteryVoltage: bank1.length ? mean(bank1) : null,
+            batteryVoltageMin: bank1.length ? round2(Math.min(...bank1)) : null,
+            batteryVoltageMax: bank1.length ? round2(Math.max(...bank1)) : null,
+            batteryVoltage2: bank2.length ? mean(bank2) : null,
+            batteryVoltage2Min: bank2.length ? round2(Math.min(...bank2)) : null,
+            batteryVoltage2Max: bank2.length ? round2(Math.max(...bank2)) : null,
           };
         });
     }
     return sortedHistoricalData.map(d => ({
       timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
       batteryVoltage: d.batteryVoltage ?? 0,
+      batteryVoltage2: d.batteryVoltage2 ?? null,
     }));
   }, [sortedHistoricalData, dashboardConfig.chartTimeRange]);
+
+  /**
+   * Daily solar energy harvested per charge regulator, in watt-hours.
+   *
+   * The regulator reports instantaneous panel power, which on its own says
+   * nothing about how much the array actually delivered. Integrating power over
+   * the sample interval (trapezoidal, with a 2 hour cap so a data gap cannot
+   * invent energy) turns that into a daily yield figure, which is the number
+   * that matters when sizing or fault-finding a solar installation.
+   */
+  const chargerEnergyData = useMemo(() => {
+    if (sortedHistoricalData.length < 2) return [];
+    const MAX_GAP_MS = 2 * 60 * 60 * 1000;
+    const days = new Map<string, { wh1: number; wh2: number }>();
+
+    for (let i = 1; i < sortedHistoricalData.length; i++) {
+      const prev = sortedHistoricalData[i - 1];
+      const curr = sortedHistoricalData[i];
+      const dtMs = new Date(curr.timestamp).getTime() - new Date(prev.timestamp).getTime();
+      if (!(dtMs > 0) || dtMs > MAX_GAP_MS) continue;
+      const hours = dtMs / 3600000;
+      const key = new Date(curr.timestamp).toISOString().slice(0, 10);
+      if (!days.has(key)) days.set(key, { wh1: 0, wh2: 0 });
+      const bucket = days.get(key)!;
+
+      const p1a = Number(prev.mpptSolarPower);
+      const p1b = Number(curr.mpptSolarPower);
+      if (Number.isFinite(p1a) && Number.isFinite(p1b)) {
+        bucket.wh1 += ((Math.max(0, p1a) + Math.max(0, p1b)) / 2) * hours;
+      }
+      const p2a = Number(prev.mppt2SolarPower);
+      const p2b = Number(curr.mppt2SolarPower);
+      if (Number.isFinite(p2a) && Number.isFinite(p2b)) {
+        bucket.wh2 += ((Math.max(0, p2a) + Math.max(0, p2b)) / 2) * hours;
+      }
+    }
+
+    return [...days.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateKey, { wh1, wh2 }]) => ({
+        timestamp: new Date(dateKey + 'T12:00:00').toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
+        chargerEnergy1: Math.round(wh1 * 10) / 10,
+        chargerEnergy2: Math.round(wh2 * 10) / 10,
+        chargerEnergyTotal: Math.round((wh1 + wh2) * 10) / 10,
+      }));
+  }, [sortedHistoricalData]);
 
   // Battery charging daily check. detect if battery charged in the last 24h
   const batteryChargingStatus = useMemo(() => {
@@ -1890,8 +1997,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     );
   }
 
+  // Hold the loader until the current reading, chart history and 30-day stats
+  // for the selected station have all arrived, so the dashboard never appears
+  // with empty cards that fill in a beat later.
+  const loadSteps = [latestReady, historyReady, statsReady];
+  const loadReady = loadSteps.filter(Boolean).length;
+  const loadDone = loadSteps.every(Boolean);
+
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
+      <DashboardLoadingOverlay ready={loadReady} total={loadSteps.length} done={loadDone} />
       {/* Header Section */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between no-print">
         <div className="flex items-center gap-3">
@@ -1967,7 +2082,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           windGust={availableFields.windSpeed ? (currentData.windGust ?? undefined) : undefined}
           windDirection={availableFields.windDirection ? (currentData.windDirection ?? undefined) : undefined}
           solarRadiation={availableFields.solarRadiation ? (currentData.solarRadiation ?? undefined) : undefined}
-          rainfall={availableFields.rainfall ? (currentData.rainfall ?? undefined) : undefined}
+          /* 24-hour accumulation, NOT currentData.rainfall. For cumulative
+             stations (RIKA) the raw field is a lifetime counter, so passing it
+             here reported hundreds of mm as if it had fallen today. */
+          rainfall={availableFields.rainfall ? effectiveRainfall : undefined}
           dewPoint={effectiveDewPoint != null && effectiveDewPoint !== 0 ? effectiveDewPoint : undefined}
           isOnline={selectedStation?.isActive || false}
           connectionType={selectedStation?.connectionType ?? undefined}
@@ -2084,7 +2202,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Barometric Pressure History"
               data={chartData}
               series={[
-                { dataKey: "pressure", name: "Station Pressure", color: "#3b82f6", unit: "hPa" },
+                { dataKey: "pressure", name: "Station Pressure", color: CHART_COLOURS.pressure, unit: "hPa" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2108,7 +2226,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               <div>
                 <p className="text-sm font-medium">Battery Not Charging</p>
                 <p className="text-xs text-amber-600">
-                  No charging activity detected in the last 24 hours. Voltage range: {batteryChargingStatus.minVoltage.toFixed(2)}V – {batteryChargingStatus.maxVoltage.toFixed(2)}V. 
+                  No charging activity detected in the last 24 hours. Voltage range: {batteryChargingStatus.minVoltage.toFixed(2)}V to {batteryChargingStatus.maxVoltage.toFixed(2)}V. 
                   Check solar panel, wiring, or charge controller.
                 </p>
               </div>
@@ -2125,7 +2243,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Battery Voltage History"
               data={batteryChartData}
               series={[
-                { dataKey: "batteryVoltage", name: "Battery Voltage", color: "#22c55e", unit: "V" },
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.batteryVoltage, unit: "V" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2140,7 +2258,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Battery Voltage vs Solar Irradiance"
               data={chartData}
               series={[
-                { dataKey: "batteryVoltage", name: "Battery Voltage", color: "#22c55e", unit: "V", yAxisId: "left" },
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.batteryVoltage, unit: "V", yAxisId: "left" },
                 { dataKey: "solar", name: "Solar Irradiance", color: "#f59e0b", unit: "W/m²", yAxisId: "right", strokeDasharray: "4 3" },
               ]}
               chartType="line"
@@ -2190,7 +2308,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <h2 className="text-base font-normal text-foreground">MPPT Solar Charge Controller</h2>
           {isMpptOnlyStation && (
           <div className="rounded-md border border-gray-300 px-4 py-2 text-sm text-black">
-            Test Data – MPPT values shown below are simulated for demonstration purposes and do not represent real-world measurements.
+            Test Data - MPPT values shown below are simulated for demonstration purposes and do not represent real-world measurements.
           </div>
           )}
           {/* Charger Cards */}
@@ -2218,6 +2336,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             {availableFields.mppt2SolarVoltage && (
             <MpptChargerCard
               label="Charger 2"
+              testIdSuffix="-2"
               solarVoltage={currentData.mppt2SolarVoltage ?? null}
               solarCurrent={currentData.mppt2SolarCurrent ?? null}
               solarPower={currentData.mppt2SolarPower ?? null}
@@ -2260,7 +2379,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               data={chartData}
               series={[
                 ...(availableFields.mpptLoadVoltage ? [{ dataKey: "mpptLoadVoltage", name: "Load Voltage", color: "#ef4444", unit: "V" }] : []),
-                ...(availableFields.mpptBatteryVoltage ? [{ dataKey: "mpptBatteryVoltage", name: "Battery Voltage", color: "#3b82f6", unit: "V" }] : []),
+                ...(availableFields.mpptBatteryVoltage ? [{ dataKey: "mpptBatteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.mpptBatteryVoltage, unit: "V" }] : []),
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2276,7 +2395,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           {availableFields.mppt2SolarVoltage && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <DataBlockChart
-              title="Solar Voltage – Charger 1 vs 2"
+              title="Solar Voltage: Charger 1 vs 2"
               data={chartData}
               series={[
                 { dataKey: "mpptSolarVoltage", name: "Charger 1", color: "#ef4444", unit: "V" },
@@ -2291,11 +2410,11 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisDomain={[0, 'auto']}
             />
             <DataBlockChart
-              title="Battery Voltage – Charger 1 vs 2"
+              title="Battery Voltage: Charger 1 vs 2"
               data={chartData}
               series={[
-                { dataKey: "mpptBatteryVoltage", name: "Charger 1", color: "#22c55e", unit: "V" },
-                { dataKey: "mppt2BatteryVoltage", name: "Charger 2", color: "#f97316", unit: "V" },
+                { dataKey: "mpptBatteryVoltage", name: "Charger 1", color: CHART_COLOURS.mpptBatteryVoltage, unit: "V" },
+                { dataKey: "mppt2BatteryVoltage", name: "Charger 2", color: CHART_COLOURS.mppt2BatteryVoltage, unit: "V" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2311,7 +2430,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {(availableFields.mpptSolarCurrent || availableFields.mpptLoadCurrent || availableFields.mpptAbsiAvg) && (
             <DataBlockChart
-              title={availableFields.mppt2SolarVoltage ? "Charger 1 – Current" : "Solar Current, Load Current & MPPT Current"}
+              title={availableFields.mppt2SolarVoltage ? "Charger 1 Current" : "Solar Current, Load Current & MPPT Current"}
               data={chartData}
               series={[
                 ...(availableFields.mpptSolarCurrent ? [{ dataKey: "mpptSolarCurrent", name: "Solar Current", color: "#ef4444", unit: "mA" }] : []),
@@ -2329,7 +2448,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.mppt2SolarCurrent && (
             <DataBlockChart
-              title="Charger 2 – Current"
+              title="Charger 2 Current"
               data={chartData}
               series={[
                 { dataKey: "mppt2SolarCurrent", name: "Solar Current", color: "#3b82f6", unit: "mA" },
@@ -2346,7 +2465,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.mpptSolarPower && (
             <DataBlockChart
-              title={availableFields.mppt2SolarPower ? "Charger 1 – Solar Power" : "Solar Power"}
+              title={availableFields.mppt2SolarPower ? "Charger 1 Solar Power" : "Solar Power"}
               data={chartData}
               series={[
                 { dataKey: "mpptSolarPower", name: "Solar Power", color: "#ef4444", unit: "W" },
@@ -2363,7 +2482,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.mppt2SolarPower && (
             <DataBlockChart
-              title="Charger 2 – Solar Power"
+              title="Charger 2 Solar Power"
               data={chartData}
               series={[
                 { dataKey: "mppt2SolarPower", name: "Solar Power", color: "#f97316", unit: "W" },
@@ -2395,6 +2514,31 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               showAverage={true}
               showMinMax={true}
               defaultExpanded={isMpptOnlyStation}
+            />
+          </div>
+          )}
+          {/* Daily yield: what the array actually delivered, not just peak power */}
+          {chargerEnergyData.length > 0 && (availableFields.mpptSolarPower || availableFields.mppt2SolarPower) && (
+          <div className="grid grid-cols-1 gap-6">
+            <DataBlockChart
+              title="Daily Solar Energy Harvested"
+              data={chargerEnergyData}
+              series={[
+                ...(availableFields.mpptSolarPower ? [{ dataKey: "chargerEnergy1", name: availableFields.mppt2SolarPower ? "Charger 1" : "Harvested", color: "#f59e0b", unit: "Wh" }] : []),
+                ...(availableFields.mppt2SolarPower ? [{ dataKey: "chargerEnergy2", name: "Charger 2", color: CHART_COLOURS.chargerEnergy2, unit: "Wh" }] : []),
+                // With two regulators the system total is the figure that matters
+                // when judging whether the installation is meeting its load.
+                ...(availableFields.mpptSolarPower && availableFields.mppt2SolarPower
+                  ? [{ dataKey: "chargerEnergyTotal", name: "System total", color: "#1e3a5f", unit: "Wh" }]
+                  : []),
+              ]}
+              chartType="bar"
+              xAxisLabel="Day"
+              yAxisLabel="Energy (Wh)"
+              showAverage={true}
+              showMinMax={true}
+              defaultExpanded={isMpptOnlyStation}
+              yAxisDomain={[0, 'auto']}
             />
           </div>
           )}
@@ -2463,10 +2607,15 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               />
             )}
             {availableFields.lightningEnergy && (
+              // The AS3935 intensity register has no physical unit, so show the
+              // relative 0 to 100 figure and its band rather than a bare number.
               <MetricCard
-                title="Strike Energy"
-                value={formatValue(currentData.lightningEnergy || 0, 0)}
-                unit=""
+                title="Strike Intensity"
+                value={formatValue(interpretLightningIntensity(currentData.lightningEnergy).relative, 1)}
+                unit="of 100"
+                subMetrics={[
+                  { label: interpretLightningIntensity(currentData.lightningEnergy).label, value: `raw ${formatValue(currentData.lightningEnergy || 0, 0)}` },
+                ]}
               />
             )}
             {availableFields.chargerVoltage && (
@@ -2589,10 +2738,10 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             )}
             {availableFields.lightningEnergy && (
             <DataBlockChart
-              title="Lightning Strike Energy"
+              title="Lightning Strike Intensity (relative, no physical unit)"
               data={chartData}
               series={[
-                { dataKey: "lightningEnergy", name: "Strike Energy", color: "#f97316", unit: "" },
+                { dataKey: "lightningEnergy", name: "Strike Intensity", color: "#f97316", unit: "" },
               ]}
               chartType="bar"
               xAxisLabel="Time"
@@ -2746,7 +2895,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Reference ETo"
               data={chartData}
               series={[
-                { dataKey: "eto", name: "Reference ETo", color: "#22c55e", unit: "mm/day" },
+                { dataKey: "eto", name: "Reference ETo", color: CHART_COLOURS.eto, unit: "mm/day" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2846,7 +2995,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Wind Chill"
               data={chartData}
               series={[
-                { dataKey: "windChill", name: "Wind Chill", color: "#0ea5e9", unit: "°C" },
+                { dataKey: "windChill", name: "Wind Chill", color: CHART_COLOURS.windChill, unit: "°C" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -3439,6 +3588,16 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           </div>
 
           {(() => {
+            /**
+             * Year-to-date rainfall is hidden for RIKA stations.
+             *
+             * RikaCloud reports a lifetime counter rather than per-interval
+             * rainfall, and the yearly endpoint aggregates it against a
+             * partitioned window, so the "YTD total" it produces for these
+             * stations is not a trustworthy rainfall depth. Rather than show a
+             * confidently wrong figure, the card is omitted for RIKA.
+             */
+            if (isRikaStation) return null;
             const currentYear = new Date().getFullYear();
             // Show ONLY the current calendar year (year-to-date) total.
             const sortedYearly = (rainfallYearly || [])
@@ -3485,7 +3644,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartType="bar"
               series={[
                 { dataKey: "rain", name: "Rainfall (mm)", color: "#3b82f6", unit: "mm", yAxisId: "left" },
-                { dataKey: "eto", name: "ETo (mm/day)", color: "#06b6d4", unit: "mm/day", yAxisId: "right" },
+                { dataKey: "eto", name: "ETo (mm/day)", color: CHART_COLOURS.eto, unit: "mm/day", yAxisId: "right" },
               ]}
               yAxisLabel="Rainfall (mm)"
               rightYAxisLabel="ETo (mm/day)"
@@ -3502,16 +3661,14 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
             <h2 className="text-base font-normal text-foreground">Historical Data</h2>
             <div className="flex items-center gap-2">
               <span className="text-xs text-black">Time Range:</span>
+              {/*
+                Ranges come from the station's dashboard config rather than a
+                literal list here, so a station whose record only spans a fixed
+                window is not offered ranges that fall outside it. With no
+                config set, every range is offered exactly as before.
+              */}
               <div className="flex gap-1">
-                {[
-                  { label: "1h", hours: 1 },
-                  { label: "6h", hours: 6 },
-                  { label: "12h", hours: 12 },
-                  { label: "24h", hours: 24 },
-                  { label: "48h", hours: 48 },
-                  { label: "7d", hours: 168 },
-                  { label: "30d", hours: 720 },
-                ].map(({ label, hours }) => (
+                {offeredChartRanges.map((hours) => (
                   <Button
                     key={hours}
                     variant={historicalChartRange === hours ? "default" : "outline"}
@@ -3519,7 +3676,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                     className="h-7 px-2 text-xs"
                     onClick={() => setHistoricalChartRange(hours)}
                   >
-                    {label}
+                    {chartTimeRangeLabel(hours)}
                   </Button>
                 ))}
               </div>
@@ -3586,7 +3743,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Barometric Pressure"
                 data={historicalChartData}
                 series={[
-                  { dataKey: "pressure", name: "Pressure (hPa)", color: "#3b82f6" },
+                  { dataKey: "pressure", name: "Pressure (hPa)", color: CHART_COLOURS.pressure },
                 ]}
               />
             </TabsContent>

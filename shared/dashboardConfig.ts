@@ -676,10 +676,11 @@ export const DASHBOARD_CATEGORIES: DashboardCategory[] = [
       },
       {
         id: 'lightningEnergy',
-        name: 'Lightning Energy',
+        name: 'Lightning Intensity',
         category: 'water',
         unit: '',
-        description: 'Relative lightning strike energy',
+        // The AS3935 register has no physical unit, so this is comparative only.
+        description: 'Relative strike intensity from the AS3935 sensor (no physical unit)',
         dataField: 'lightningEnergy',
         chartType: 'bar',
         defaultEnabled: true,
@@ -991,6 +992,60 @@ export interface DashboardConfig {
   showWindRose: boolean;
   compactMode: boolean;
   sectionVisibility: SectionVisibility;
+  /**
+   * Which time-range buttons the dashboard offers, in hours.
+   *
+   * Omit it (the normal case) and every range in ALL_CHART_TIME_RANGES is
+   * offered. Set it to restrict a station to a subset, which is what a
+   * demonstration station wants: a fixed record has no point offering ranges
+   * that fall outside it. Values not present in ALL_CHART_TIME_RANGES are
+   * ignored, and an empty or fully invalid list falls back to the full set so a
+   * bad config can never leave a dashboard with no way to pick a range.
+   */
+  allowedChartTimeRanges?: number[];
+}
+
+/**
+ * Every selectable chart window, in hours. Single source of truth for both the
+ * range buttons on the dashboard and the dropdown in the configuration panel,
+ * which previously each carried their own copy of this list.
+ */
+export const ALL_CHART_TIME_RANGES: readonly number[] = [1, 6, 12, 24, 48, 168, 720];
+
+/** Short label for a range, e.g. 1 -> "1h", 168 -> "7d". */
+export function chartTimeRangeLabel(hours: number): string {
+  return hours >= 24 && hours % 24 === 0 ? `${hours / 24}d` : `${hours}h`;
+}
+
+/**
+ * Resolve the ranges a dashboard should offer.
+ *
+ * Falls back to the full set when the config says nothing useful, so a station
+ * can never end up with an empty range selector.
+ */
+export function resolveChartTimeRanges(
+  allowed?: number[] | null,
+): number[] {
+  if (!Array.isArray(allowed)) return [...ALL_CHART_TIME_RANGES];
+  const valid = ALL_CHART_TIME_RANGES.filter((h) => allowed.includes(h));
+  return valid.length > 0 ? valid : [...ALL_CHART_TIME_RANGES];
+}
+
+/**
+ * Pick a sensible initial range from those on offer: the preferred value when
+ * it is available, otherwise the closest one, so a restricted station does not
+ * start on a range it cannot show.
+ */
+export function defaultChartTimeRange(
+  allowed?: number[] | null,
+  preferred = 24,
+): number {
+  const ranges = resolveChartTimeRanges(allowed);
+  if (ranges.includes(preferred)) return preferred;
+  return ranges.reduce(
+    (best, h) => (Math.abs(h - preferred) < Math.abs(best - preferred) ? h : best),
+    ranges[0],
+  );
 }
 
 // Get all parameter IDs for full demo experience
@@ -1008,6 +1063,27 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
   compactMode: false,
   sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY },
 };
+
+/**
+ * Parameters added to the catalogue after dashboards were already being saved.
+ *
+ * A saved dashboard config stores an explicit `enabledParameters` list, so any
+ * parameter added later would be treated as "switched off" and silently vanish
+ * for existing stations. Fields listed here stay visible when the data is
+ * present unless the user explicitly turns them off, which keeps newly
+ * supported sensors from being hidden on existing dashboards.
+ */
+export const LATE_ADDED_PARAMETERS: ReadonlySet<string> = new Set<string>([]);
+
+/**
+ * Whether a catalogued parameter should be treated as enabled.
+ * `enabledParameters` may be undefined for dashboards that were never configured.
+ */
+export function isParameterEnabled(dataField: string, enabledParameters?: string[] | null): boolean {
+  if (!Array.isArray(enabledParameters)) return true;
+  if (enabledParameters.includes(dataField)) return true;
+  return LATE_ADDED_PARAMETERS.has(dataField);
+}
 
 // Helper to get all parameters as flat array
 export function getAllParameters(): DashboardParameter[] {
