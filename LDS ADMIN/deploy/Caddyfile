@@ -1,0 +1,10 @@
+{$DOMAIN} {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000
+    # Lock the alert ingest endpoint to your Pi's public IP if you have a
+    # static one. Comment this out otherwise.
+    # @notpi not remote_ip <PI_PUBLIC_IP>
+    # handle /api/v1/lightning {
+    #     respond @notpi 403
+    # }
+}

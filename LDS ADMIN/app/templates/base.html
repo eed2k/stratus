@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>LDS STRATUS</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body class="{{ 'is-app' if user else 'is-auth' }}">
+{% if user %}
+<div class="appwindow">
+  <div class="titlebar">
+    <span class="titlebar-name">STRATUS WEATHER &nbsp;::&nbsp; Lightning Alert Console</span>
+    <span class="titlebar-meta">v1.0 &nbsp;|&nbsp; <span id="sast-clock" class="sast-clock">--:--:--</span> SAST (UTC+2)</span>
+  </div>
+  <div class="menubar">
+    <nav>
+      <a href="{{ base }}/">Dashboard</a>
+      <a href="{{ base }}/recipients">Recipients</a>
+      {% if user.role in ['admin','operator'] %}<a href="{{ base }}/groups">Groups</a>{% endif %}
+      {% if user.role in ['admin','operator'] %}<a href="{{ base }}/stations">Stations</a>{% endif %}
+      <a href="{{ base }}/events">Events</a>
+      <a href="{{ base }}/reports">Reports</a>
+      {% if user.role in ['admin','operator'] %}<a href="{{ base }}/test">Test Alert</a>{% endif %}
+      {% if user.role == 'admin' %}<a href="{{ base }}/users">Users</a>{% endif %}
+      {% if user.role == 'admin' %}<a href="{{ base }}/settings">Settings</a>{% endif %}
+      {# Client-panel management is only offered on the platform panel itself. #}
+      {% if is_platform_admin and not base %}<a href="/tenants">Clients</a>{% endif %}
+    </nav>
+    <div class="menubar-user">
+      {% if tenant_name %}<span class="menubar-tenant">{{ tenant_name }}</span>{% endif %}
+      <span>{{ user.email }} [{{ user.role }}]</span>
+      <a href="{{ base }}/account/password" class="btn-link">Change Password</a>
+      <a href="{{ base }}/logout" class="btn-link">Log Out</a>
+    </div>
+  </div>
+  <main class="workarea">
+{% else %}
+<main class="login-wrap">
+{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+{% if user %}
+  <div class="statusbar">
+    <span>Operator: {{ user.email }}</span>
+    <span>Role: {{ user.role }}</span>
+    {% if user.role == 'admin' %}<span>SMS gateway: Clickatell</span>{% endif %}
+    <span class="statusbar-right">Stratus Weather Lightning Alert System</span>
+  </div>
+</div>
+{% endif %}
+{# Page-specific scripts. Declared per page so the chart bundles are not
+   downloaded on pages that have no chart. Every src must be same-origin:
+   the panel sends Content-Security-Policy "script-src 'self'". #}
+{% block scripts %}{% endblock %}
+</body>
+</html>

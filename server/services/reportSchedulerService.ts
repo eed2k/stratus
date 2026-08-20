@@ -67,9 +67,13 @@ export interface ReportSchedule {
   lastStatus: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Derived, not stored: next fire time for an enabled schedule. */
+  nextRunAt?: Date | null;
 }
 
 const tasks = new Map<number, cron.ScheduledTask>();
+/** Guards against a slow run overlapping its own next tick. */
+const running = new Set<number>();
 
 function rowToSchedule(row: any): ReportSchedule {
   return {
@@ -87,7 +91,65 @@ function rowToSchedule(row: any): ReportSchedule {
     lastStatus: row.last_status,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
+    nextRunAt: row.enabled
+      ? computeNextRun({ frequency: row.frequency, hour: row.hour, weekday: row.weekday, dayOfMonth: row.day_of_month })
+      : null,
   };
+}
+
+/**
+ * Offset between UTC and REPORTS_TZ at a given instant, in ms.
+ * Africa/Johannesburg has no DST, so this is exact for the default config;
+ * for a DST zone the computed next-run can be off by an hour across the
+ * transition (display only - node-cron still fires on the correct wall time).
+ */
+function tzOffsetMs(at: Date): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: REPORTS_TZ, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  const p: Record<string, string> = {};
+  for (const part of dtf.formatToParts(at)) {
+    if (part.type !== 'literal') p[part.type] = part.value;
+  }
+  const asUTC = Date.UTC(
+    Number(p.year), Number(p.month) - 1, Number(p.day),
+    Number(p.hour) % 24, Number(p.minute), Number(p.second),
+  );
+  return asUTC - (at.getTime() - at.getMilliseconds());
+}
+
+/** Next fire time for a schedule, expressed as a real (UTC) instant. */
+export function computeNextRun(
+  s: { frequency: ReportFrequency; hour: number; weekday: number | null; dayOfMonth: number | null },
+  from: Date = new Date(),
+): Date | null {
+  const hour = Math.max(0, Math.min(23, Number(s.hour) || 0));
+  const offset = tzOffsetMs(from);
+  const local = new Date(from.getTime() + offset);
+  const y = local.getUTCFullYear();
+  const mo = local.getUTCMonth();
+  const day = local.getUTCDate();
+  // Date.UTC normalises day/month overflow, so day+1 / month+1 are safe.
+  const at = (yy: number, mm: number, dd: number) => new Date(Date.UTC(yy, mm, dd, hour, 0, 0) - offset);
+
+  if (s.frequency === 'daily') {
+    const today = at(y, mo, day);
+    return today > from ? today : at(y, mo, day + 1);
+  }
+  if (s.frequency === 'weekly') {
+    const target = s.weekday == null ? 1 : Math.max(0, Math.min(6, s.weekday));
+    const delta = (target - local.getUTCDay() + 7) % 7;
+    const candidate = at(y, mo, day + delta);
+    return candidate > from ? candidate : at(y, mo, day + delta + 7);
+  }
+  if (s.frequency === 'monthly') {
+    const dom = s.dayOfMonth == null ? 1 : Math.max(1, Math.min(28, s.dayOfMonth));
+    const candidate = at(y, mo, dom);
+    return candidate > from ? candidate : at(y, mo + 1, dom);
+  }
+  return null;
 }
 
 function cronExprFor(s: ReportSchedule): string | null {
@@ -135,14 +197,126 @@ const LIGHTNING_COALESCE = `COALESCE(data->>'lightning', data->>'Lightning_Tot',
 const LIGHTNING_DIST_COALESCE = `COALESCE(data->>'lightningDistance', data->>'LightningDist', data->>'Lightning_Dist')::numeric`;
 const LIGHTNING_ENERGY_COALESCE = `COALESCE(data->>'lightningEnergy', data->>'LightningEnergy', data->>'Lightning_Energy')::numeric`;
 
+/**
+ * FAO-56 Penman-Monteith reference evapotranspiration (mm/day).
+ * Mirrors calculateETo in shared/utils/calc.ts - the server build has
+ * rootDir=./server and excludes shared/, so it is duplicated deliberately.
+ */
+function fao56Eto(
+  tMean: number, rh: number, u2: number, rsMJ: number,
+  altitude: number, latitude: number, dayOfYear: number,
+): number {
+  const P = 101.3 * Math.pow((293 - 0.0065 * altitude) / 293, 5.26);
+  const gamma = 0.665e-3 * P;
+  const es = 0.6108 * Math.exp((17.27 * tMean) / (tMean + 237.3));
+  const delta = (4098 * es) / Math.pow(tMean + 237.3, 2);
+  const ea = (es * rh) / 100;
+  const dr = 1 + 0.033 * Math.cos((2 * Math.PI * dayOfYear) / 365);
+  const decl = 0.409 * Math.sin((2 * Math.PI * dayOfYear) / 365 - 1.39);
+  const phi = (latitude * Math.PI) / 180;
+  const ws = Math.acos(Math.max(-1, Math.min(1, -Math.tan(phi) * Math.tan(decl))));
+  const Ra = ((24 * 60) / Math.PI) * 0.082 * dr *
+    (ws * Math.sin(phi) * Math.sin(decl) + Math.cos(phi) * Math.cos(decl) * Math.sin(ws));
+  const Rso = (0.75 + 2e-5 * altitude) * Ra;
+  const Rns = 0.77 * rsMJ;
+  const Tk = tMean + 273.16;
+  const clearness = Rso > 0 ? Math.max(0, Math.min(1, rsMJ / Rso)) : 0.5;
+  const Rnl = 4.903e-9 * Math.pow(Tk, 4) * (0.34 - 0.14 * Math.sqrt(Math.max(ea, 0))) * (1.35 * clearness - 0.35);
+  const Rn = Rns - Rnl;
+  const eto = (0.408 * delta * Rn + gamma * (900 / (tMean + 273)) * u2 * (es - ea)) /
+    (delta + gamma * (1 + 0.34 * u2));
+  return Math.max(0, eto);
+}
+
+/**
+ * Sum daily FAO-56 ETo across the reporting period.
+ *
+ * Daily means are aggregated in SQL (grouped by local calendar day) so a
+ * 30-day report stays a single round trip. Falls back to the old
+ * solar-energy approximation if the station has no latitude on file or the
+ * timezone-aware grouping is unavailable.
+ */
+async function computeEtoTotal(
+  stationId: number,
+  start: Date,
+  end: Date,
+  latitude: number | null,
+  altitude: number,
+): Promise<FieldStat> {
+  const approximate = async (): Promise<FieldStat> => {
+    const r = await pg.query(
+      `SELECT SUM(${SOLAR_MJ_COALESCE}) AS s, COUNT(*) AS n FROM weather_data
+        WHERE station_id = $1 AND timestamp >= $2 AND timestamp < $3`,
+      [stationId, start, end],
+    );
+    const mjSum = r.rows[0].s != null ? Number(r.rows[0].s) : 0;
+    return { value: mjSum > 0 ? Math.round(mjSum * 0.5 * 100) / 100 : 0, readings: Number(r.rows[0].n) };
+  };
+
+  if (latitude == null) return approximate();
+
+  try {
+    const r = await pg.query(`
+      SELECT (timestamp AT TIME ZONE 'UTC' AT TIME ZONE $4)::date AS day,
+             AVG(${TEMP_COALESCE})     AS t_avg,
+             AVG(${HUMIDITY_COALESCE}) AS rh_avg,
+             AVG(${WIND_COALESCE})     AS u_avg,
+             AVG(${SOLAR_COALESCE})    AS solar_w_avg,
+             SUM(${SOLAR_MJ_COALESCE}) AS solar_mj,
+             COUNT(*)                  AS n
+        FROM weather_data
+       WHERE station_id = $1 AND timestamp >= $2 AND timestamp < $3
+       GROUP BY day
+       ORDER BY day
+    `, [stationId, start, end, REPORTS_TZ]);
+
+    let total = 0;
+    let days = 0;
+    for (const row of r.rows) {
+      const t = row.t_avg != null ? Number(row.t_avg) : null;
+      const rh = row.rh_avg != null ? Number(row.rh_avg) : null;
+      const u = row.u_avg != null ? Number(row.u_avg) : 1;
+      const solarMJ = row.solar_mj != null ? Number(row.solar_mj) : 0;
+      const solarW = row.solar_w_avg != null ? Number(row.solar_w_avg) : null;
+      // Prefer the logger's MJ total; otherwise integrate the mean W/m2.
+      const rsMJ = solarMJ > 0 ? solarMJ : (solarW != null ? (solarW * 86400) / 1e6 : null);
+      if (t == null || rh == null || rsMJ == null) continue;
+      const day = new Date(`${new Date(row.day).toISOString().slice(0, 10)}T12:00:00Z`);
+      const doy = Math.floor((day.getTime() - Date.UTC(day.getUTCFullYear(), 0, 0)) / 86400000);
+      total += fao56Eto(t, rh, u, rsMJ, altitude, latitude, doy);
+      days++;
+    }
+    if (days === 0) return approximate();
+    return { value: Math.round(total * 100) / 100, readings: days };
+  } catch (err: any) {
+    console.warn(`[Reports] FAO-56 ETo aggregation failed for station ${stationId}, using approximation:`, err?.message || err);
+    return approximate();
+  }
+}
+
 export async function gatherStationData(
   stationId: number,
   startMs: number,
   endMs: number,
   fields: Set<string>
-): Promise<{ name: string; stats: Record<string, FieldStat>; }> {
-  const stationRow = await pg.query(`SELECT name FROM stations WHERE id = $1`, [stationId]);
+): Promise<{
+  name: string;
+  stats: Record<string, FieldStat>;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+}> {
+  // Longitude is selected alongside latitude and altitude so the email body can
+  // print the full site geometry. Latitude and altitude are also used below for
+  // the FAO-56 ETo calculation.
+  const stationRow = await pg.query(`SELECT name, latitude, longitude, altitude FROM stations WHERE id = $1`, [stationId]);
   const name = stationRow.rows[0]?.name || `Station ${stationId}`;
+  const stationLat = stationRow.rows[0]?.latitude != null ? Number(stationRow.rows[0].latitude) : null;
+  const stationLon = stationRow.rows[0]?.longitude != null ? Number(stationRow.rows[0].longitude) : null;
+  const stationAlt = stationRow.rows[0]?.altitude != null ? Number(stationRow.rows[0].altitude) : 0;
+  // ETo needs a number and treats a missing altitude as sea level, but the
+  // header must distinguish "0 m" from "not recorded", so keep the raw value.
+  const reportedAlt = stationRow.rows[0]?.altitude != null ? Number(stationRow.rows[0].altitude) : null;
 
   const stats: Record<string, FieldStat> = {};
   const start = new Date(startMs);
@@ -223,13 +397,9 @@ export async function gatherStationData(
     }
   }
 
-  // ── ETo total (sum of per-record ETo) - cheap approximation: integrate solar MJ ──
+  // ── ETo total: proper FAO-56 Penman-Monteith, summed over whole days ──
   if (fields.has('eto_total')) {
-    // We approximate: ETo total ~= 0.5 * solar MJ total (rough ref ET coefficient).
-    // Better: compute per-row using FAO PM, but that's heavy in SQL.
-    const r = await pg.query(`SELECT SUM(${SOLAR_MJ_COALESCE}) AS s, COUNT(*) AS n FROM weather_data WHERE station_id = $1 AND timestamp >= $2 AND timestamp < $3`, [stationId, start, end]);
-    const mjSum = r.rows[0].s != null ? Number(r.rows[0].s) : 0;
-    stats['eto_total'] = { value: mjSum > 0 ? Math.round(mjSum * 0.5 * 100) / 100 : 0, readings: Number(r.rows[0].n) };
+    stats['eto_total'] = await computeEtoTotal(stationId, start, end, stationLat, stationAlt);
   }
 
   // ── Lightning ──
@@ -272,7 +442,12 @@ export async function gatherStationData(
     if (fields.has('lightning_energy_avg')) stats['lightning_energy_avg'] = { value: r.rows[0].av != null ? Number(r.rows[0].av) : null, readings: n };
   }
 
-  return { name, stats };
+  return {
+    name, stats,
+    latitude: stationLat,
+    longitude: stationLon,
+    altitude: reportedAlt,
+  };
 }
 
 function fmtVal(v: number | null, decimals = 1): string {
@@ -289,6 +464,50 @@ interface RenderRow {
   value: string;
   unit: string;
   readings: number;
+  /**
+   * What the count represents. Most rows aggregate raw logger readings, but a
+   * daily quantity like ETo aggregates one value per calendar day, so its
+   * count is a number of days - not readings. Labelling that "31 readings"
+   * next to "718 readings" looks like missing data, so ETo says "days".
+   */
+  countNoun?: string;
+}
+
+/**
+ * Site geometry as a single plain-text line, shared by the email body and the
+ * PDF header so the two can never word it differently.
+ *
+ * Written in decimal degrees with an explicit hemisphere letter rather than a
+ * signed number, because a signed latitude on a printed report is easy to
+ * misread. Altitude is metres above mean sea level.
+ *
+ * ASCII only. In the PDF this string passes through pdfSafe() and PDFKit's
+ * built-in Helvetica is WinAnsi-encoded, so the degree sign is deliberately
+ * omitted, the same reason the rest of the report writes "degC".
+ *
+ * Returns null when the station has neither coordinates nor an altitude
+ * recorded, so callers can omit the line rather than print "not set".
+ */
+export function formatSiteLine(meta: {
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+}): string | null {
+  const parts: string[] = [];
+
+  const lat = meta.latitude;
+  const lon = meta.longitude;
+  if (lat != null && Number.isFinite(lat) && lon != null && Number.isFinite(lon)) {
+    parts.push(`Lat ${Math.abs(lat).toFixed(5)} ${lat >= 0 ? 'N' : 'S'}`);
+    parts.push(`Lon ${Math.abs(lon).toFixed(5)} ${lon >= 0 ? 'E' : 'W'}`);
+  }
+
+  const alt = meta.altitude;
+  if (alt != null && Number.isFinite(alt)) {
+    parts.push(`Altitude ${Math.round(alt)} m AMSL`);
+  }
+
+  return parts.length ? parts.join('  |  ') : null;
 }
 
 interface StationSection {
@@ -296,6 +515,12 @@ interface StationSection {
   stationId: number | null;
   rows: RenderRow[];
   emptyMessage?: string;
+  /**
+   * Site geometry, already formatted for display by formatSiteLine(). Null when
+   * the station has no coordinates or altitude recorded, in which case the line
+   * is omitted rather than showing a placeholder.
+   */
+  siteLine?: string | null;
 }
 
 function renderEmail(opts: {
@@ -323,12 +548,19 @@ function renderEmail(opts: {
     const heading = sec.stationId != null ? `${sec.name} (id ${sec.stationId})` : sec.name;
     tLines.push(heading);
     tLines.push('-'.repeat(Math.min(heading.length, 60)));
+    // Site geometry sits directly under the station heading: reference ETo is a
+    // function of latitude and altitude, so the reader needs them to reproduce
+    // the derived figures below.
+    if (sec.siteLine) {
+      tLines.push(`  ${sec.siteLine}`);
+      tLines.push('');
+    }
     if (sec.rows.length === 0) {
       tLines.push(sec.emptyMessage || '  (no data)');
     } else {
       for (const r of sec.rows) {
         const v = r.unit ? `${r.value} ${r.unit}` : r.value;
-        const tag = r.readings > 0 ? `(${r.readings} readings)` : '(no data)';
+        const tag = r.readings > 0 ? `(${r.readings} ${r.countNoun || 'readings'})` : '(no data)';
         tLines.push(`  ${r.label.padEnd(40)} ${v.padEnd(14)} ${tag}`);
       }
     }
@@ -346,13 +578,19 @@ function renderEmail(opts: {
   // ── HTML ──
   const sectionsHtml = sections.map(sec => {
     const heading = sec.stationId != null ? `${escapeHtml(sec.name)} (id ${sec.stationId})` : escapeHtml(sec.name);
+    // Site geometry under the station heading. Rendered for the no-data case too,
+    // since where the station is remains useful even when it reported nothing.
+    const siteHtml = sec.siteLine
+      ? `<p style="margin:6px 0 0 0;font-size:12px;color:#64748b;">${escapeHtml(sec.siteLine)}</p>`
+      : '';
     if (sec.rows.length === 0) {
       return `<h3 style="margin:24px 0 8px 0;font-size:15px;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:6px;">${heading}</h3>
+              ${siteHtml}
               <p style="margin:8px 0;color:#64748b;font-size:13px;">${escapeHtml(sec.emptyMessage || 'No data available for this period.')}</p>`;
     }
     const rowsHtml = sec.rows.map(r => {
       const v = r.unit ? `${escapeHtml(r.value)} <span style="color:#64748b;">${escapeHtml(r.unit)}</span>` : escapeHtml(r.value);
-      const tag = r.readings > 0 ? `${r.readings} readings` : 'no data';
+      const tag = r.readings > 0 ? `${r.readings} ${escapeHtml(r.countNoun || 'readings')}` : 'no data';
       return `<tr>
         <td style="padding:6px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155;">${escapeHtml(r.label)}</td>
         <td style="padding:6px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#0f172a;text-align:right;font-variant-numeric:tabular-nums;">${v}</td>
@@ -360,6 +598,7 @@ function renderEmail(opts: {
       </tr>`;
     }).join('');
     return `<h3 style="margin:24px 0 8px 0;font-size:15px;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:6px;">${heading}</h3>
+            ${siteHtml}
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rowsHtml}</table>`;
   }).join('');
 
@@ -436,7 +675,8 @@ export async function buildReportBody(s: ReportSchedule): Promise<{ subject: str
 
   const sections: StationSection[] = [];
   for (const stationId of s.stationIds) {
-    const { name, stats } = await gatherStationData(stationId, startMs, endMs, fieldSet);
+    const { name, stats, latitude, longitude, altitude } =
+      await gatherStationData(stationId, startMs, endMs, fieldSet);
     const rows: RenderRow[] = [];
     for (const f of REPORT_FIELDS) {
       if (!fieldSet.has(f.key)) continue;
@@ -447,6 +687,8 @@ export async function buildReportBody(s: ReportSchedule): Promise<{ subject: str
         value: stat ? fmtVal(stat.value, decimals) : 'n/a',
         unit: f.unit,
         readings: stat ? stat.readings : 0,
+        // ETo is a daily total, so its count is days, not raw readings.
+        countNoun: f.key === 'eto_total' ? 'days' : 'readings',
       });
     }
     const anyData = rows.some(r => r.readings > 0);
@@ -455,6 +697,7 @@ export async function buildReportBody(s: ReportSchedule): Promise<{ subject: str
       stationId,
       rows: anyData ? rows : [],
       emptyMessage: 'No readings recorded for this station during the selected period.',
+      siteLine: formatSiteLine({ latitude, longitude, altitude }),
     });
   }
 
@@ -515,6 +758,19 @@ export function buildDemoLightningReport(): { subject: string; text: string; htm
 }
 
 async function runSchedule(s: ReportSchedule): Promise<{ ok: boolean; message: string }> {
+  if (running.has(s.id)) {
+    console.warn(`[Reports] Schedule "${s.name}" (#${s.id}) is still running, skipping this tick.`);
+    return { ok: false, message: 'previous run still in progress' };
+  }
+  running.add(s.id);
+  try {
+    return await runScheduleInner(s);
+  } finally {
+    running.delete(s.id);
+  }
+}
+
+async function runScheduleInner(s: ReportSchedule): Promise<{ ok: boolean; message: string }> {
   if (!isEmailConfigured()) {
     const msg = 'MailerSend not configured';
     await pg.query(`UPDATE report_schedules SET last_run_at = NOW(), last_status = $1 WHERE id = $2`, [`error: ${msg}`, s.id]);
@@ -535,6 +791,7 @@ async function runSchedule(s: ReportSchedule): Promise<{ ok: boolean; message: s
     // and summary tables. Failure here must NOT block the email - the
     // text/html body is still useful on its own.
     let attachments: Array<{ filename: string; content: Buffer; contentType?: string }> | undefined;
+    let pdfNote = 'no PDF';
     try {
       const { buildSchedulePdfBuffer } = await import('./pdfReportService');
       const { startMs, endMs } = periodFor(s.frequency);
@@ -553,14 +810,27 @@ async function runSchedule(s: ReportSchedule): Promise<{ ok: boolean; message: s
         content: pdf,
         contentType: 'application/pdf',
       }];
+      pdfNote = `PDF ${Math.round(pdf.length / 1024)} KB`;
     } catch (pdfErr: any) {
+      pdfNote = 'PDF failed';
       console.warn(`[Reports] PDF attachment failed for "${s.name}" (#${s.id}):`, pdfErr?.message || pdfErr);
     }
 
-    const sent = await sendEmail({ to: s.recipients, subject, text, html, attachments });
-    const status = sent ? `sent to ${s.recipients.length} recipient(s)` : 'send failed';
+    // One retry: MailerSend occasionally 429s or drops a connection, and a
+    // scheduled report only gets one shot per period.
+    let sent = await sendEmail({ to: s.recipients, subject, text, html, attachments });
+    if (!sent) {
+      console.warn(`[Reports] First send attempt failed for "${s.name}" (#${s.id}), retrying in 5s...`);
+      await new Promise((r) => setTimeout(r, 5000));
+      sent = await sendEmail({ to: s.recipients, subject, text, html, attachments });
+    }
+
+    const status = sent
+      ? `sent to ${s.recipients.length} recipient(s) (${pdfNote})`
+      : `send failed (${pdfNote})`;
     await pg.query(`UPDATE report_schedules SET last_run_at = NOW(), last_status = $1 WHERE id = $2`, [status, s.id]);
-    console.log(`[Reports] Schedule "${s.name}" (#${s.id}): ${status}`);
+    const next = computeNextRun(s);
+    console.log(`[Reports] Schedule "${s.name}" (#${s.id}): ${status}${next ? `; next run ${next.toISOString()}` : ''}`);
     return { ok: sent, message: status };
   } catch (err: any) {
     const msg = err.message || String(err);
@@ -665,9 +935,18 @@ function registerTask(s: ReportSchedule): void {
     return;
   }
   const task = cron.schedule(expr, () => {
-    runSchedule(s).catch(err => console.error(`[Reports] Scheduled run #${s.id} failed:`, err));
+    // Re-read the row at fire time so recipients / fields / stations edited
+    // since registration are always honoured.
+    (async () => {
+      const fresh = await getSchedule(s.id);
+      if (!fresh) { console.warn(`[Reports] Schedule #${s.id} vanished, unregistering.`); unregisterTask(s.id); return; }
+      if (!fresh.enabled) { console.log(`[Reports] Schedule #${s.id} is disabled, skipping.`); return; }
+      await runSchedule(fresh);
+    })().catch(err => console.error(`[Reports] Scheduled run #${s.id} failed:`, err));
   }, { timezone: REPORTS_TZ });
   tasks.set(s.id, task);
+  const next = computeNextRun(s);
+  console.log(`[Reports] Registered "${s.name}" (#${s.id}) [${expr} ${REPORTS_TZ}]${next ? ` - next run ${next.toISOString()}` : ''}`);
 }
 
 function unregisterTask(id: number): void {
@@ -678,11 +957,96 @@ function unregisterTask(id: number): void {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Default daily report bootstrap
+//
+// Guarantees there is always an enabled daily email report going to the
+// operations address. Idempotent: it creates the schedule only when no daily
+// schedule already targets that address, and otherwise just re-enables an
+// existing one that was switched off. Set DEFAULT_DAILY_REPORT=off to skip.
+// ─────────────────────────────────────────────────────────────────────
+
+const DEFAULT_DAILY_RECIPIENT = (process.env.DEFAULT_DAILY_REPORT_EMAIL || 'esterhuizen2k@proton.me').trim();
+const DEFAULT_DAILY_HOUR = (() => {
+  const h = Number(process.env.DEFAULT_DAILY_REPORT_HOUR);
+  return Number.isInteger(h) && h >= 0 && h <= 23 ? h : 7;
+})();
+const DEFAULT_DAILY_NAME = process.env.DEFAULT_DAILY_REPORT_NAME || 'Daily Weather Report';
+
+/** Field set for the auto-provisioned daily report. */
+const DEFAULT_DAILY_FIELDS = [
+  'temp_min', 'temp_avg', 'temp_max',
+  'humidity_avg', 'pressure_avg',
+  'wind_avg', 'wind_max', 'wind_gust_max',
+  'rainfall_total', 'solar_total', 'solar_avg', 'eto_total',
+  'battery_min', 'battery_avg',
+  'lightning_strikes',
+];
+
+export async function ensureDefaultDailyReport(): Promise<void> {
+  if ((process.env.DEFAULT_DAILY_REPORT || '').toLowerCase() === 'off') {
+    console.log('[Reports] Default daily report bootstrap disabled (DEFAULT_DAILY_REPORT=off).');
+    return;
+  }
+  if (!DEFAULT_DAILY_RECIPIENT) return;
+
+  const target = DEFAULT_DAILY_RECIPIENT.toLowerCase();
+  try {
+    const all = await loadAll();
+    const matching = all.filter(s =>
+      s.frequency === 'daily' &&
+      (s.recipients || []).some(r => String(r).trim().toLowerCase() === target),
+    );
+
+    if (matching.length > 0) {
+      for (const s of matching) {
+        if (!s.enabled) {
+          await updateSchedule(s.id, { enabled: true });
+          console.log(`[Reports] Re-enabled daily schedule "${s.name}" (#${s.id}) for ${DEFAULT_DAILY_RECIPIENT}.`);
+        }
+      }
+      console.log(`[Reports] Daily email to ${DEFAULT_DAILY_RECIPIENT} is active (${matching.length} schedule(s)).`);
+      return;
+    }
+
+    const stationsRes = await pg.query(`SELECT id FROM stations WHERE is_active = true ORDER BY id`);
+    const stationIds: number[] = stationsRes.rows.map((r: any) => Number(r.id)).filter((n: number) => Number.isInteger(n));
+    if (stationIds.length === 0) {
+      console.warn(`[Reports] No active stations, cannot provision the daily report for ${DEFAULT_DAILY_RECIPIENT}.`);
+      return;
+    }
+
+    const validKeys = new Set(REPORT_FIELDS.map(f => f.key as string));
+    const created = await createSchedule({
+      name: DEFAULT_DAILY_NAME,
+      stationIds,
+      fields: DEFAULT_DAILY_FIELDS.filter(k => validKeys.has(k)),
+      recipients: [DEFAULT_DAILY_RECIPIENT],
+      frequency: 'daily',
+      hour: DEFAULT_DAILY_HOUR,
+      enabled: true,
+    });
+    const next = computeNextRun(created);
+    console.log(
+      `[Reports] Provisioned daily report "${created.name}" (#${created.id}) to ${DEFAULT_DAILY_RECIPIENT} ` +
+      `at ${String(DEFAULT_DAILY_HOUR).padStart(2, '0')}:00 ${REPORTS_TZ} across ${stationIds.length} station(s)` +
+      `${next ? `; next run ${next.toISOString()}` : ''}.`,
+    );
+  } catch (err: any) {
+    console.error('[Reports] Default daily report bootstrap failed:', err?.message || err);
+  }
+}
+
 export async function initReportScheduler(): Promise<void> {
   try {
     const all = await loadAll();
     for (const s of all) registerTask(s);
     console.log(`[Reports] Scheduler initialised: ${tasks.size} active task(s) of ${all.length} schedule(s)`);
+    // Runs after registration so create/update can (un)register cleanly.
+    await ensureDefaultDailyReport();
+    if (!isEmailConfigured()) {
+      console.warn('[Reports] MailerSend is not configured - scheduled reports will fail until MAILERSEND_API_KEY is set.');
+    }
   } catch (err: any) {
     console.error('[Reports] Failed to initialise scheduler:', err.message);
   }

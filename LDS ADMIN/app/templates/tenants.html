@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Client Panels</h1>
+
+<p class="muted" style="text-align:left;padding:0 0 10px;">
+  Each client gets their own lightning panel at
+  <code>adminpanel.stratusweather.co.za/&lt;address&gt;</code>. The client's own
+  admin signs in there and manages only their recipients, groups and alerts.
+  You (Stratus) can open any client panel from the list below.
+</p>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <h3>Create a client panel</h3>
+  <form method="post" action="/tenants/create" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Client name<input name="name" placeholder="Glencore" required></label>
+    <label>Panel address (slug)
+      <input name="slug" placeholder="glencore" pattern="[a-z0-9-]+" required>
+    </label>
+    <label>Site name in SMS<input name="site_name" placeholder="Glencore Wonderkop"></label>
+    <label>Client admin e-mail<input type="email" name="admin_email" required></label>
+    <label>Client admin password
+      <input type="password" name="admin_password" minlength="10" required>
+    </label>
+    <button class="primary" type="submit">Create Panel</button>
+  </form>
+  <p class="muted" style="text-align:left;padding:8px 0 0;">
+    Address: 2-40 characters, lower-case letters, numbers and hyphens.
+  </p>
+</div>
+
+<table>
+  <thead>
+    <tr><th>Client</th><th>Address</th><th>Users</th><th>Recipients</th>
+        <th>Events</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr class="{{ '' if row.t.is_active else 'dim' }}">
+      <td>{{ row.t.name }}</td>
+      <td><code>/{{ row.t.slug }}</code></td>
+      <td>{{ row.users }}</td>
+      <td>{{ row.recipients }}</td>
+      <td>{{ row.units }}</td>
+      <td>{{ 'active' if row.t.is_active else 'disabled' }}</td>
+      <td>
+        <a class="btn-link" href="{{ row.url }}">Open panel</a>
+        {% if row.t.slug != platform_slug %}
+        <form method="post" action="/tenants/{{ row.t.id }}/toggle" class="inline"
+              data-confirm="Change this client panel's status?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit">{{ 'Disable' if row.t.is_active else 'Enable' }}</button>
+        </form>
+        {% else %}<span class="muted">platform</span>{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="center">No client panels yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

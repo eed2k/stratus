@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<title>Technical Report - {{ meta.site }} - {{ period.label }}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { font-family: Arial, "Liberation Sans", sans-serif; color: #111111;
+         font-size: 11pt; line-height: 1.4; }
+  h1 { color: #1b3a5b; font-size: 18pt; margin: 0 0 2mm; }
+  h2 { color: #1b3a5b; font-size: 13pt; margin: 6mm 0 2mm;
+       border-bottom: 1.5pt solid #1b3a5b; padding-bottom: 1mm; }
+  .banner { background: #1b3a5b; color: #ffffff; padding: 6mm; }
+  .banner .sub { font-size: 10pt; opacity: 0.9; }
+  .meta-grid { width: 100%; border-collapse: collapse; margin: 3mm 0; }
+  .meta-grid td { padding: 1.5mm 2mm; vertical-align: top; }
+  .meta-grid td.k { color: #6b7280; width: 32%; }
+  table.data { width: 100%; border-collapse: collapse; margin: 2mm 0; }
+  table.data th, table.data td { border: 0.75pt solid #d9dee5; padding: 1.5mm 2mm;
+       text-align: left; font-size: 10pt; }
+  table.data th { background: #eef1f5; color: #1b3a5b; }
+  .chart { margin: 3mm 0; }
+  .muted { color: #6b7280; font-size: 9pt; }
+  .note { color: #6b7280; font-size: 9pt; margin-top: 6mm;
+          border-top: 0.75pt solid #d9dee5; padding-top: 2mm; }
+  .nodata { color: #6b7280; font-style: italic; padding: 8mm 0; }
+</style>
+</head>
+<body>
+  <div class="banner">
+    <h1 style="color:#fff;">Lightning Detection System</h1>
+    <div class="sub">Technical System and Health Report</div>
+  </div>
+
+  <table class="meta-grid">
+    <tr><td class="k">Site</td><td>{{ meta.site }}</td></tr>
+    <tr><td class="k">Station</td><td>{{ meta.station_id }}</td></tr>
+    <tr><td class="k">Coordinates</td><td>{{ meta.coords_text }}</td></tr>
+    <tr><td class="k">Reporting period</td><td>{{ period.label }} (SAST)</td></tr>
+    <tr><td class="k">Generated</td><td>{{ generated_at.strftime('%Y-%m-%d %H:%M') }} SAST</td></tr>
+  </table>
+
+  {% if not has_data %}
+  <p class="nodata">No system or lightning data was recorded for {{ period.label }}.</p>
+  {% else %}
+
+  <h2>System availability</h2>
+  <div class="chart">{{ charts.uptime|safe }}</div>
+  <p class="muted">Availability is derived from hourly heartbeat continuity over
+    the period. Uptime for {{ period.label }}: {{ '%.1f'|format(uptime_pct) }}%.</p>
+
+  <h2>CPU temperature</h2>
+  <table class="data">
+    <tr><th>Samples</th><th>Minimum</th><th>Maximum</th><th>Average</th>
+        <th>WARN ({{ cpu.warn|int }} C)</th><th>CRIT ({{ cpu.crit|int }} C)</th></tr>
+    <tr>
+      <td>{{ cpu.count }}</td>
+      <td>{{ '%.1f'|format(cpu.min) if cpu.min is not none else '-' }}</td>
+      <td>{{ '%.1f'|format(cpu.max) if cpu.max is not none else '-' }}</td>
+      <td>{{ '%.1f'|format(cpu.avg) if cpu.avg is not none else '-' }}</td>
+      <td>{{ cpu.warn_count }}</td>
+      <td>{{ cpu.crit_count }}</td>
+    </tr>
+  </table>
+  <div class="chart">{{ charts.cpu|safe }}</div>
+
+  <h2>Calibration activity</h2>
+  <table class="data">
+    <tr><th>RC oscillator recalibrations</th><th>Antenna checks</th></tr>
+    <tr><td>{{ calibration.rc_recal_count }}</td>
+        <td>{{ calibration.antenna_checks|length }}</td></tr>
+  </table>
+  {% if calibration.antenna_checks %}
+  <table class="data">
+    <tr><th>Date</th><th>Frequency (Hz)</th><th>In tolerance</th>
+        <th>Tune cap</th></tr>
+    {% for c in calibration.antenna_checks %}
+    <tr>
+      <td>{{ c.ts.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ c.freq_hz if c.freq_hz is not none else '-' }}</td>
+      <td>{{ 'yes' if c.in_tolerance else 'no' }}</td>
+      <td>{{ c.tune_cap_before if c.tune_cap_before is not none else '-' }}
+          to {{ c.tune_cap_after if c.tune_cap_after is not none else '-' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">No antenna resonance checks were reported this period.</p>
+  {% endif %}
+
+  <h2>Lightning activity</h2>
+  <table class="data">
+    <tr><th>Total in-range strikes</th><th>Closest approach (km)</th></tr>
+    <tr><td>{{ strikes.total }}</td>
+        <td>{{ '%.0f'|format(strikes.closest) if strikes.closest is not none else '-' }}</td></tr>
+  </table>
+  <div class="chart">{{ charts.distance|safe }}</div>
+  <div class="chart">{{ charts.energy|safe }}</div>
+
+  {% endif %}
+
+  <p class="note">
+    Figures reflect data received by the panel. Only in-range strikes forwarded
+    by the detector are recorded. Lightning energy is a relative, dimensionless
+    scale (0 to 2,097,151), not an absolute physical measurement in Joules or
+    Watts. Strike distance is estimated; bearing is not measured by the sensor.
+  </p>
+</body>
+</html>

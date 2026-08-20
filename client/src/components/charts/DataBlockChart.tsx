@@ -210,8 +210,13 @@ export const DataBlockChart = memo(function DataBlockChart({
       if (data.length > 200) return Math.ceil(data.length / 10);
       if (data.length > 100) return Math.ceil(data.length / 12);
       if (data.length > 50) return Math.ceil(data.length / 10);
-      if (data.length >= 25 && data.length <= 35) return 1;
-      if (data.length > 10) return 2;
+      // Bar charts label every category. On a ~30-day daily bar chart such as
+      // "ETo vs Rainfall", skipping every second label leaves half the columns
+      // with no label beneath them, which reads as the whole series being
+      // shifted half a step off the axis. Line charts keep the thinning because
+      // a continuous line has no per-category block to line a label up with.
+      if (data.length >= 25 && data.length <= 35) return chartType === 'bar' ? 0 : 1;
+      if (data.length > 10) return chartType === 'bar' ? 0 : 2;
       return 0;
     };
 
@@ -222,7 +227,12 @@ export const DataBlockChart = memo(function DataBlockChart({
 
     const xAxisProps = {
       dataKey: "timestamp",
-      tick: { fontSize: 9, angle: xAngle, textAnchor: xAnchor, dy: data.length > 10 ? -4 : 0 },
+      // A rotated label is anchored at its END, so it extends up and to the left
+      // from the tick. dy must push it DOWN, away from the axis; a negative dy
+      // lifted it back over the plot and left its visual centre to the left of
+      // the category it belongs to. That offset is what made the columns look
+      // out of step with the axis labels.
+      tick: { fontSize: 9, angle: xAngle, textAnchor: xAnchor, dy: data.length > 10 ? 8 : 0 },
       tickLine: false,
       axisLine: { stroke: 'hsl(var(--border))' },
       interval: getTickInterval() as number,
@@ -327,8 +337,20 @@ export const DataBlockChart = memo(function DataBlockChart({
 
       case "bar":
         return (
-          <BarChart {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={false} />
+          /**
+           * barCategoryGap reserves a margin at each end of the category band so
+           * the first and last columns sit inside the plot area instead of
+           * straddling the y-axis. maxBarSize stops a short series (a handful of
+           * days) from producing slab-wide columns whose centres drift away from
+           * their tick. Both were previously unset, leaving Recharts' defaults to
+           * size the columns purely from the container width.
+           *
+           * Vertical grid lines are enabled here, unlike the line and area
+           * branches: on a column chart the band separators are what let a reader
+           * confirm a column belongs to the tick beneath it.
+           */
+          <BarChart {...commonProps} barCategoryGap="18%" barGap={2} maxBarSize={44}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={true} />
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
             {rightYAxisProps && <YAxis {...rightYAxisProps} />}

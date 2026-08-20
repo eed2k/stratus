@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Recipients{% endblock %}
+{% block content %}
+<h1>Recipients</h1>
+
+{% set can_write = user.role in ['admin','operator'] %}
+
+{% if can_write %}
+<div class="card">
+  <h3>Add recipient</h3>
+  <p class="muted" style="text-align:left;padding:0 0 10px;">
+    SMS-only alerts. Enter the mobile number in E.164 format (e.g. +27821234567).
+  </p>
+  <form method="post" action="{{ base }}/recipients/create" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Name<input name="name" required></label>
+    <label>SMS phone (E.164)<input name="phone" placeholder="+27821234567" required></label>
+    <label>Language<input name="language" value="en"></label>
+    <label>Group
+      <select name="group_id" required>
+        {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="primary" type="submit">Add</button>
+  </form>
+</div>
+{% endif %}
+
+<table>
+  <thead><tr><th>Name</th><th>Group</th><th>SMS number</th><th>Active</th>{% if can_write %}<th></th>{% endif %}</tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr class="{{ '' if r.is_active else 'dim' }}">
+      <td>{{ r.name }}</td>
+      <td>{{ r.group.name if r.group else '-' }}</td>
+      <td>{{ r.phone }}</td>
+      <td>{{ 'yes' if r.is_active else 'no' }}</td>
+      {% if can_write %}
+      <td>
+        <form method="post" action="{{ base }}/recipients/{{ r.id }}/toggle" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit">Toggle</button>
+        </form>
+        <form method="post" action="{{ base }}/recipients/{{ r.id }}/delete" class="inline"
+              data-confirm="Delete this recipient?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="danger" type="submit">Delete</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% else %}
+    <tr><td colspan="{% if can_write %}5{% else %}4{% endif %}" class="center">No recipients available</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

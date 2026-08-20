@@ -9,6 +9,15 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Python virtual environments, including the throwaway one used to run the
+# LDS admin panel test suite locally.
+.venv/
+.venv-*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.hypothesis/
+
 # ── Web build outputs ──
 dist/
 build/
@@ -64,7 +73,10 @@ docker-compose.override.yml
 *.tdf
 *.xlsx
 *.emf
+# Un-ignoring the directory alone is not enough: *.dat above still matches the
+# files inside it, so the demo samples need an explicit negation of their own.
 !demo_data/
+!demo_data/*.dat
 
 # ── CRBasic programs (keep in examples/crbasic/ only) ──
 *.CR300

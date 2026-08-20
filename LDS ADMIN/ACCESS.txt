@@ -1,0 +1,44 @@
+========================================================================
+ STRATUS WEATHER - LIGHTNING ALERT ADMIN PANEL - ACCESS DETAILS
+========================================================================
+
+  NOTE: This is the shareable copy. Live passwords have been redacted.
+  The unredacted version stays in the private working folder.
+
+PANEL URL (HTTPS)
+-----------------
+  https://<your-panel-host>
+
+  Login page:        https://<your-panel-host>/login
+  Webhook from Pi:   https://<your-panel-host>/api/v1/lightning
+  Clickatell DLR:    https://<your-panel-host>/api/clickatell/dlr
+
+
+LOGINS
+------
+  Both accounts are seeded on first boot from the server .env file
+  (INITIAL_ADMIN_* and INITIAL_OPERATOR_*). Set those values before the
+  first start, then change the passwords in-app.
+
+  1) ADMIN  (full access: recipients, groups, events, test alerts,
+             users, settings / gateway status)
+       Email:     <INITIAL_ADMIN_EMAIL from .env>
+       Password:  <INITIAL_ADMIN_PASSWORD from .env>
+
+  2) OPERATOR  (site user: view alerts, add/manage recipients,
+                set alert distance threshold, switch alerts on/off.
+                NO access to users, settings or API/gateway secrets)
+       Email:     <INITIAL_OPERATOR_EMAIL from .env>
+       Password:  <INITIAL_OPERATOR_PASSWORD from .env>
+
+
+NOTES
+-----
+  - Alerts are SMS only.
+  - Change both passwords after first login: top-right "Change password".
+  - Seeding is idempotent: if the database already has an account with the
+    same email it is NOT overwritten, so editing the seed password later
+    has no effect.
+  - Set the panel hostname to match your own DNS record.
+
+========================================================================

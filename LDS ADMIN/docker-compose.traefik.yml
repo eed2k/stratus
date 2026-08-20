@@ -1,0 +1,47 @@
+# Lightning Alert Admin Panel - production compose for the shared Stratus VPS.
+#
+# The main Stratus stack already owns ports 80/443 via Traefik, so this panel
+# must NOT publish ports or run its own Caddy (that is what deploy/Caddyfile is
+# for on a dedicated box). Instead the container joins Traefik's provider
+# network and is routed by host rule, with certificates issued by the same
+# Let's Encrypt resolver the main site uses.
+#
+# Deploy:
+#   cd /opt/lightning-panel
+#   docker compose -f docker-compose.traefik.yml up -d --build
+
+services:
+  panel:
+    build: .
+    image: lightning-alert-panel:latest
+    container_name: lightning-alert-panel
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # SQLite database lives here (DATABASE_URL=sqlite:///./data/panel.db).
+      - ./data:/app/data
+    # No `ports:` on purpose - Traefik reaches the container over the shared
+    # docker network, so port 8000 is never exposed on the host or publicly.
+    networks:
+      - stratus-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5).status==200 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=stratus_stratus-network"
+      # HTTPS router for the admin panel subdomain
+      - "traefik.http.routers.ldspanel.rule=Host(`adminpanel.stratusweather.co.za`)"
+      - "traefik.http.routers.ldspanel.entrypoints=websecure"
+      - "traefik.http.routers.ldspanel.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ldspanel.loadbalancer.server.port=8000"
+
+networks:
+  # Created by the main Stratus stack; Traefik only routes to containers that
+  # are attached to it (--providers.docker.network=stratus_stratus-network).
+  stratus-network:
+    name: stratus_stratus-network
+    external: true

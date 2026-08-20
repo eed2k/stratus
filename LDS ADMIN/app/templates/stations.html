@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Stations{% endblock %}
+{% block content %}
+<h1>Stations</h1>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+<p class="muted" style="text-align:left;padding:0 0 6px;">
+  Set a site label and coordinates for each detector. These appear on the
+  monthly reports and the dashboard. Coordinates are optional: leave both
+  latitude and longitude blank to clear them. Latitude runs from -90 to 90 and
+  longitude from -180 to 180 (decimal degrees).
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Station</th><th>Site label</th><th>Latitude</th><th>Longitude</th>
+      <th>Last seen</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in units %}
+    <tr>
+      <form method="post" action="{{ base }}/stations/{{ u.station_id }}/update" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <td>{{ u.station_id }}</td>
+        <td><input name="site_label" value="{{ u.site_label or '' }}" placeholder="Site name" style="width:160px;"></td>
+        <td><input name="latitude" value="{{ u.latitude if u.latitude is not none else '' }}"
+                   placeholder="not set" style="width:100px;"></td>
+        <td><input name="longitude" value="{{ u.longitude if u.longitude is not none else '' }}"
+                   placeholder="not set" style="width:100px;"></td>
+        <td>{{ u.last_seen.strftime('%Y-%m-%d %H:%M') if u.last_seen else '-' }}</td>
+        <td><button class="primary" type="submit">Save</button></td>
+      </form>
+    </tr>
+    {% endfor %}
+    {% if not units %}
+    <tr><td colspan="6" class="center">No detector units have reported in yet.</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}

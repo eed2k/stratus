@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<h1>Users</h1>
+
+{% set can_write = user.role == 'admin' %}
+
+{% if can_write %}
+<div class="card">
+  <h3>Add user</h3>
+  <form method="post" action="{{ base }}/users/create" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>E-mail<input name="email" type="email" required></label>
+    <label>Password (min 10 chars)<input name="password" type="password" required minlength="10"></label>
+    <label>Role
+      <select name="role">
+        <option value="operator">Operator</option>
+        <option value="admin">Admin</option>
+        <option value="viewer">Viewer</option>
+      </select>
+    </label>
+    <button class="primary" type="submit">Add</button>
+  </form>
+</div>
+{% endif %}
+
+<table>
+  <thead><tr><th>E-mail</th><th>Role</th><th>Active</th>{% if can_write %}<th></th>{% endif %}</tr></thead>
+  <tbody>
+    {% for u in rows %}
+    <tr>
+      <td>{{ u.email }}</td>
+      <td>{{ u.role }}</td>
+      <td>{{ 'yes' if u.is_active else 'no' }}</td>
+      {% if can_write %}
+      <td>
+        <form method="post" action="{{ base }}/users/{{ u.id }}/delete" class="inline"
+              data-confirm="Delete this user?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="danger" type="submit">Delete</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+    {% if not rows %}
+    <tr><td colspan="{% if can_write %}4{% else %}3{% endif %}" class="center">No users available</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}
