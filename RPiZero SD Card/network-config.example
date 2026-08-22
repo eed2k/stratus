@@ -1,0 +1,45 @@
+# cloud-init network config for the Pi Zero W lightning detector.
+#
+# Copy to `network-config` on the SD card's boot partition and fill in your own
+# network. The real file is gitignored on purpose: the wifi entry below is a
+# usable credential, and a PSK in git history stays there permanently even after
+# the repo is made private or the file is deleted.
+#
+# Generating the PSK (preferred over storing the plaintext passphrase):
+#     wpa_passphrase "YOUR_SSID" "your-wifi-passphrase"
+# then copy the 64-character hex `psk` value into `password` below.
+#
+# A plaintext passphrase also works if you would rather not pre-hash it, but the
+# hex form avoids leaving the human-memorable passphrase on the card.
+
+network:
+  version: 2
+  ethernets:
+    # Not present on a Pi Zero W, but harmless to declare, and it means the same
+    # card boots on a Zero 2 W or a Pi 4 without edits.
+    eth0:
+      dhcp4: true
+      dhcp6: true
+      optional: true
+    # USB gadget ethernet. Gives you a fixed address over the single USB cable
+    # when there is no wifi yet, which is what makes first boot recoverable.
+    # Pair with `dtoverlay=dwc2` in config.txt and `modules-load=dwc2,g_ether`
+    # in cmdline.txt.
+    usb0:
+      dhcp4: false
+      addresses:
+        - 192.168.7.2/24
+      optional: true
+  wifis:
+    wlan0:
+      dhcp4: true
+      # Set your own two-letter regulatory domain. This governs legal channels
+      # and transmit power, so a wrong value can cost you 5 GHz channels or
+      # break association outright.
+      regulatory-domain: "ZA"
+      access-points:
+        "YOUR_SSID":
+          password: "REPLACE_WITH_64_CHAR_HEX_PSK_OR_PLAINTEXT_PASSPHRASE"
+      # optional:true lets boot finish when wifi is unavailable, instead of
+      # blocking for the systemd-networkd timeout on every start.
+      optional: true

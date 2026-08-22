@@ -16,7 +16,7 @@ coverage
 *.test.ts
 *.spec.ts
 __tests__
-demo_data
+demo
 scripts
 docs
 examples

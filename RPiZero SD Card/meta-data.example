@@ -1,0 +1,9 @@
+# cloud-init metadata. Copy to `meta-data` on the boot partition.
+#
+# cloud-init will not run at all if this file is missing, even though its only
+# required content is an instance id. An empty file is valid; a absent one is not.
+#
+# Change the id whenever you want cloud-init to treat the card as a new instance
+# and re-run its per-instance modules (users, network, runcmd). Leaving it
+# unchanged after reflashing is a common reason those steps appear to be skipped.
+instance-id: detector-CHANGE_ME-00000000

@@ -1,0 +1,68 @@
+#cloud-config
+# cloud-init user data for the Pi Zero W lightning detector.
+#
+# Copy to `user-data` on the SD card's boot partition and set your own hostname
+# and password hash. The real file is gitignored: `passwd` below is a crackable
+# password hash, and anything committed to git history stays recoverable even
+# after the file is deleted.
+#
+# Generate the hash on any Linux box (or the Pi itself):
+#     openssl passwd -6 'your-password'
+# or, for the yescrypt form Raspberry Pi OS uses by default:
+#     mkpasswd -m yescrypt
+#
+# Prefer key-based SSH. If you add `ssh_authorized_keys` below and drop
+# `ssh_pwauth`, the detector never accepts a password over the network at all,
+# which is the safer default for a device that sits on a shared LAN.
+
+manage_resolv_conf: false
+
+# One hostname per detector. mDNS means you can then reach it as
+# <hostname>.local without knowing its DHCP address.
+hostname: lightning-detector
+manage_etc_hosts: true
+
+packages:
+- avahi-daemon
+
+apt:
+  preserve_sources_list: true
+  conf: |
+    Acquire {
+      # A Pi Zero has no RTC. Until NTP syncs, its clock can be far enough out
+      # that apt rejects repository metadata as "not valid yet". Skipping the
+      # date check is what lets first boot install anything at all.
+      Check-Date "false";
+    };
+
+timezone: Africa/Johannesburg
+keyboard:
+  model: pc105
+  layout: "za"
+
+users:
+- name: CHANGE_ME
+  # gpio, spi and i2c are the ones that matter here: without them the detector
+  # service cannot open /dev/spidev0.0 and every read fails on permissions.
+  groups: users,adm,dialout,audio,netdev,video,plugdev,cdrom,games,input,gpio,spi,i2c,render,sudo
+  shell: /bin/bash
+  lock_passwd: false
+  passwd: "REPLACE_WITH_YOUR_OWN_PASSWORD_HASH"
+  # Recommended. Replace the placeholder with your public key and then remove
+  # `ssh_pwauth: true` below.
+  # ssh_authorized_keys:
+  # - ssh-ed25519 AAAA... you@yourmachine
+
+enable_ssh: true
+# Password SSH is enabled here only to make first boot recoverable before a key
+# is installed. Turn it off once key auth works.
+ssh_pwauth: true
+
+rpi:
+  interfaces:
+    # Serial console. Useful while commissioning; independent of SPI, which is
+    # switched on via `dtparam=spi=on` in config.txt.
+    serial: true
+
+runcmd:
+- [ bash, /boot/firmware/gwld1-deploy/install.sh ]

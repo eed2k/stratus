@@ -67,7 +67,7 @@ tmp/
 # ── Docker ──
 docker-compose.override.yml
 
-# ── Data files (samples live in demo_data/ only) ──
+# ── Data files (samples live in demo/ only) ──
 *.dat
 *.backup
 *.tdf
@@ -75,8 +75,8 @@ docker-compose.override.yml
 *.emf
 # Un-ignoring the directory alone is not enough: *.dat above still matches the
 # files inside it, so the demo samples need an explicit negation of their own.
-!demo_data/
-!demo_data/*.dat
+!demo/
+!demo/*.dat
 
 # ── CRBasic programs (keep in examples/crbasic/ only) ──
 *.CR300
@@ -106,6 +106,13 @@ check_mppt_api.py
 mppt_test.sql
 update_coords.sql
 scripts/login.json
+
+# ── Downloaded VPS backups ──
+# These contain live .env files (database URLs, API keys, webhook tokens) and
+# database dumps. They must never be committed.
+backups/
+deploy/_recon.py
+deploy/_pre_upgrade_backup.py
 
 # ── Deploy state and output files ──
 deploy/deploy_output.txt
@@ -138,3 +145,44 @@ deploy/_sftp.py
 sun-animation12345/
 calibration-rainfall-update/
 LDS ADMIN PANEL/
+
+# ── Environment files beyond the plain `.env` rule above ──
+# `.env` alone does not match `.env.vps`, `.env.staging` and friends, and one of
+# those held a live Clickatell API key. Ignore every variant, then re-admit the
+# documentation templates explicitly.
+.env.*
+!.env.example
+!.env.*.example
+!**/.env.example
+!**/.env.*.example
+
+# ── Raspberry Pi SD card: real credentials ──
+# These three cloud-init files carry a wifi PSK and a user password hash. Both
+# are directly usable, and git history keeps them recoverable forever, so only
+# the sanitised *.example templates are tracked.
+RPiZero SD Card/user-data
+RPiZero SD Card/network-config
+RPiZero SD Card/meta-data
+
+# ── Raspberry Pi SD card: stock Raspberry Pi OS boot firmware ──
+# Around 83 MB of Raspberry Pi Foundation binaries that we do not author and
+# cannot usefully diff. They come back verbatim with any Raspberry Pi OS image,
+# so versioning them only bloats the repo permanently.
+# Tracked from this folder: config.txt, cmdline.txt, FLASH_FROM_SCRATCH.md,
+# gwld1-deploy/ and the *.example templates, which are the parts we actually own.
+RPiZero SD Card/*.dtb
+RPiZero SD Card/*.elf
+RPiZero SD Card/*.img
+RPiZero SD Card/initramfs*
+RPiZero SD Card/bootcode.bin
+RPiZero SD Card/fixup*.dat
+RPiZero SD Card/LICENCE.broadcom
+RPiZero SD Card/issue.txt
+RPiZero SD Card/overlays/
+
+# ── Editor scratch backups ──
+# Left behind by in-place edits; never meant to be committed.
+*.bak.cursor
+*.bak.[0-9]*
+config.txt.bak.*
+cmdline.txt.bak.*
