@@ -89,6 +89,109 @@ def energy_bands_legend():
 
 
 # ---------------------------------------------------------------------------
+# Distance bands for the storm-activity display
+# ---------------------------------------------------------------------------
+#
+# The AS3935 reports distance in 15 discrete steps
+# [1,5,6,8,10,12,14,17,20,24,27,31,34,37,40] and does NOT report bearing, so
+# the display groups strikes into proximity bands rather than plotting them in
+# any direction. These bounds fall between the sensor's steps, so no step
+# straddles a boundary.
+#
+# lower is inclusive, upper is EXCLUSIVE, and the last band has no upper bound.
+# Together they cover [0, inf), which means every strike lands in exactly one
+# band: the per-band counts always sum to the total, with nothing dropped and
+# nothing double counted, including fractional distances.
+DISTANCE_BANDS = (
+    # (key,      label,        display range, lower, upper)
+    ("0-1",   "OVERHEAD",   "\u2264 1 km",  0.0,  1.0001),
+    ("1-10",  "VERY CLOSE", "< 10 km",      1.0001, 10.0),
+    ("10-20", "CLOSE",      "< 20 km",     10.0,  20.0),
+    ("20-30", "DISTANT",    "< 30 km",     20.0,  30.0),
+    ("30-40", "FAR",        "30-40 km",    30.0,  None),
+)
+
+
+def distance_band_summary(strikes):
+    """Aggregate strikes into the five proximity bands.
+
+    `strikes` is any iterable of mappings or objects carrying `distance_km` and
+    `energy`. Rows whose distance cannot be read as a number are counted as
+    `unplaced` rather than silently discarded, so the caller can tell the
+    difference between "quiet" and "bad data".
+
+    Returns a dict::
+
+        {"bands": [ {key, label, range, count, peak, mean, low,
+                     band, colour, share}, ... ],
+         "total": int, "unplaced": int, "peak": int|None}
+
+    `peak`/`mean`/`low` are None for an empty band. `band`/`colour` describe the
+    energy band that the band's MEAN energy falls into, which is what the cell
+    is tinted with. `share` is the band's share of the total, 0.0-1.0, used to
+    drive how often the cell animates.
+
+    Both the dashboard JSON and the PDF report call this, so the two views
+    cannot drift apart.
+    """
+    def _read(row, name):
+        if isinstance(row, dict):
+            return row.get(name)
+        return getattr(row, name, None)
+
+    buckets = [[] for _ in DISTANCE_BANDS]
+    unplaced = 0
+
+    for row in (strikes or []):
+        try:
+            d = float(_read(row, "distance_km"))
+        except (TypeError, ValueError):
+            unplaced += 1
+            continue
+        if d != d or d in (float("inf"), float("-inf")) or d < 0:
+            unplaced += 1
+            continue
+        try:
+            e = int(_read(row, "energy") or 0)
+        except (TypeError, ValueError):
+            e = 0
+        e = max(0, min(ENERGY_MAX, e))
+
+        for i, (_k, _l, _r, lower, upper) in enumerate(DISTANCE_BANDS):
+            if d >= lower and (upper is None or d < upper):
+                buckets[i].append(e)
+                break
+        else:
+            # Unreachable while the last band is open-ended, but if the table
+            # is ever edited into something non-exhaustive this keeps the
+            # count honest instead of losing the strike.
+            unplaced += 1
+
+    total = sum(len(b) for b in buckets)
+    rows = []
+    for (key, label, rng, _lo, _up), es in zip(DISTANCE_BANDS, buckets):
+        if es:
+            mean = int(round(sum(es) / len(es)))
+            eb = energy_band(mean)
+            rows.append({
+                "key": key, "label": label, "range": rng,
+                "count": len(es), "peak": max(es), "mean": mean, "low": min(es),
+                "band": eb["name"], "colour": eb["colour"],
+                "share": (len(es) / total) if total else 0.0,
+            })
+        else:
+            rows.append({
+                "key": key, "label": label, "range": rng,
+                "count": 0, "peak": None, "mean": None, "low": None,
+                "band": None, "colour": None, "share": 0.0,
+            })
+
+    peaks = [r["peak"] for r in rows if r["peak"] is not None]
+    return {"bands": rows, "total": total, "unplaced": unplaced,
+            "peak": max(peaks) if peaks else None}
+
+
+# ---------------------------------------------------------------------------
 # Coordinate validation
 # ---------------------------------------------------------------------------
 

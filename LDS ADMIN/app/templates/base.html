@@ -5,10 +5,48 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>LDS STRATUS</title>
+{#
+  Critical loader styles, inlined on purpose.
+
+  The page used to show a brief unstyled flash on load. An external stylesheet
+  cannot fix that, because the flash happens in the window before that
+  stylesheet arrives. These few rules ship in the first packet of the document,
+  so the overlay covers the page from the very first paint.
+
+  Two safety properties, both deliberate:
+    * The overlay is layered OVER the content. Nothing sets display:none on the
+      page itself, so the content is always present for assistive technology
+      and for a reader with images or scripts blocked.
+    * The dismissal is driven by a CSS animation with a hard timeout, not only
+      by JavaScript. If app.js fails to load or throws, the overlay still
+      clears itself, so a script error can never leave the panel blank.
+#}
+<style>
+#page-loader{position:fixed;inset:0;z-index:9999;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;
+  background:#061a30;opacity:1;
+  animation:pl-auto 3.2s ease-in 1 forwards}
+#page-loader.is-done{animation:none;opacity:0;pointer-events:none;
+  transition:opacity .28s ease}
+@keyframes pl-auto{0%,70%{opacity:1}100%{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){
+  #page-loader{animation-duration:1.2s}
+}
+</style>
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/app.js" defer></script>
 </head>
 <body class="{{ 'is-app' if user else 'is-auth' }}">
+{# Purely visual: the content underneath is never hidden, so this is kept out
+   of the accessibility tree rather than announced as a live region. #}
+<div id="page-loader" aria-hidden="true">
+  <svg class="page-loader-bolt" viewBox="0 0 24 32" focusable="false">
+    <path d="M13.8 0 3 18.4h6.4L7.9 32 21 12.6h-6.7L15.9 0z"/>
+  </svg>
+  <div class="page-loader-name">Stratus Weather</div>
+  <div class="page-loader-sub">Lightning Alert Console</div>
+  <div class="page-loader-track"><i></i></div>
+</div>
 {% if user %}
 <div class="appwindow">
   <div class="titlebar">
@@ -16,18 +54,41 @@
     <span class="titlebar-meta">v1.0 &nbsp;|&nbsp; <span id="sast-clock" class="sast-clock">--:--:--</span> SAST (UTC+2)</span>
   </div>
   <div class="menubar">
+    {#
+      Two different navigations.
+
+      The unprefixed panel, reached by a platform admin, is a MANAGEMENT
+      CONSOLE: create and open client panels, manage platform logins and
+      gateway settings. It is deliberately not a detector console, because a
+      detector always belongs to exactly one client and is operated from that
+      client's own panel.
+
+      Everything under /<slug>/ keeps the full operational navigation.
+    #}
+    {% set platform_console = is_platform_admin and not base %}
     <nav>
-      <a href="{{ base }}/">Dashboard</a>
-      <a href="{{ base }}/recipients">Recipients</a>
-      {% if user.role in ['admin','operator'] %}<a href="{{ base }}/groups">Groups</a>{% endif %}
-      {% if user.role in ['admin','operator'] %}<a href="{{ base }}/stations">Stations</a>{% endif %}
-      <a href="{{ base }}/events">Events</a>
-      <a href="{{ base }}/reports">Reports</a>
-      {% if user.role in ['admin','operator'] %}<a href="{{ base }}/test">Test Alert</a>{% endif %}
-      {% if user.role == 'admin' %}<a href="{{ base }}/users">Users</a>{% endif %}
-      {% if user.role == 'admin' %}<a href="{{ base }}/settings">Settings</a>{% endif %}
-      {# Client-panel management is only offered on the platform panel itself. #}
-      {% if is_platform_admin and not base %}<a href="/tenants">Clients</a>{% endif %}
+      {% if platform_console %}
+        <a href="/tenants">Clients</a>
+        {#
+          Kept on purpose. A detector reporting in for the first time is filed
+          under the platform tenant and stays invisible to every client until
+          an admin assigns it. This page is the only place that assignment can
+          be made, so removing it would leave new units stranded.
+        #}
+        {% if user.role in ['admin','operator'] %}<a href="{{ base }}/stations">Unassigned Units</a>{% endif %}
+        {% if user.role == 'admin' %}<a href="{{ base }}/users">Users</a>{% endif %}
+        {% if user.role == 'admin' %}<a href="{{ base }}/settings">Settings</a>{% endif %}
+      {% else %}
+        <a href="{{ base }}/">Dashboard</a>
+        <a href="{{ base }}/recipients">Recipients</a>
+        {% if user.role in ['admin','operator'] %}<a href="{{ base }}/groups">Groups</a>{% endif %}
+        {% if user.role in ['admin','operator'] %}<a href="{{ base }}/stations">Stations</a>{% endif %}
+        <a href="{{ base }}/events">Events</a>
+        <a href="{{ base }}/reports">Reports</a>
+        {% if user.role in ['admin','operator'] %}<a href="{{ base }}/test">Test Alert</a>{% endif %}
+        {% if user.role == 'admin' %}<a href="{{ base }}/users">Users</a>{% endif %}
+        {% if user.role == 'admin' %}<a href="{{ base }}/settings">Settings</a>{% endif %}
+      {% endif %}
     </nav>
     <div class="menubar-user">
       {% if tenant_name %}<span class="menubar-tenant">{{ tenant_name }}</span>{% endif %}
@@ -46,7 +107,10 @@
   <div class="statusbar">
     <span>Operator: {{ user.email }}</span>
     <span>Role: {{ user.role }}</span>
-    {% if user.role == 'admin' %}<span>SMS gateway: Clickatell</span>{% endif %}
+    {# Platform infrastructure, not client configuration. A client's own admin
+       has role == 'admin' on their tenant, so keying off the role leaked the
+       provider name into every client panel. #}
+    {% if is_platform_admin %}<span>SMS gateway: Clickatell</span>{% endif %}
     <span class="statusbar-right">Stratus Weather Lightning Alert System</span>
   </div>
 </div>

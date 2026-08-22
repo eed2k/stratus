@@ -175,3 +175,100 @@ def test_prune_cutoff_boundary():
     # A sample exactly at the cutoff is retained.
     assert metrics.is_within_retention(cutoff, now, 70) is True
     assert metrics.is_within_retention(cutoff - timedelta(seconds=1), now, 70) is False
+
+
+# ---------------------------------------------------------------------------
+# Distance bands for the storm-activity display
+# ---------------------------------------------------------------------------
+
+def test_distance_bands_are_exhaustive_and_disjoint():
+    """Every strike must land in exactly one band.
+
+    This is the property the whole display rests on: if the bands leak, the
+    dashboard and the PDF quietly under-report storm activity.
+    """
+    probe = [0, 0.5, 1, 1.0001, 1.5, 4.9, 5, 9, 9.99, 10, 19.9, 20, 29.9,
+             30, 34, 40, 63, 999]
+    out = metrics.distance_band_summary(
+        [{"distance_km": d, "energy": 1000} for d in probe])
+    assert out["total"] == len(probe)
+    assert out["unplaced"] == 0
+    assert sum(b["count"] for b in out["bands"]) == len(probe)
+
+
+def test_distance_bands_match_the_sensor_steps():
+    """The AS3935's 15 discrete steps must each fall in one band, with the
+    boundaries sitting between steps rather than on one."""
+    steps = [1, 5, 6, 8, 10, 12, 14, 17, 20, 24, 27, 31, 34, 37, 40]
+    out = metrics.distance_band_summary(
+        [{"distance_km": d, "energy": 500000} for d in steps])
+    counts = [b["count"] for b in out["bands"]]
+    #        <=1  <10  <20  <30  30-40
+    assert counts == [1, 3, 4, 3, 4]
+    assert out["total"] == len(steps)
+
+
+def test_distance_band_stats_are_correct():
+    out = metrics.distance_band_summary([
+        {"distance_km": 5, "energy": 100},
+        {"distance_km": 6, "energy": 300},
+        {"distance_km": 8, "energy": 500},
+    ])
+    near = out["bands"][1]
+    assert near["count"] == 3
+    assert near["peak"] == 500
+    assert near["low"] == 100
+    assert near["mean"] == 300
+    assert near["share"] == 1.0
+    # An empty band reports None rather than 0, so "no data" cannot be mistaken
+    # for "a strike with no energy".
+    assert out["bands"][0]["count"] == 0
+    assert out["bands"][0]["peak"] is None
+    assert out["bands"][0]["mean"] is None
+
+
+def test_distance_band_summary_survives_bad_input():
+    out = metrics.distance_band_summary([
+        {"distance_km": None, "energy": 1},
+        {"distance_km": "not a number", "energy": 1},
+        {"distance_km": float("nan"), "energy": 1},
+        {"distance_km": float("inf"), "energy": 1},
+        {"distance_km": -3, "energy": 1},
+    ])
+    # Counted, not silently dropped: the caller can tell bad data from quiet.
+    assert out["total"] == 0
+    assert out["unplaced"] == 5
+    assert all(b["count"] == 0 for b in out["bands"])
+
+
+def test_distance_band_summary_handles_empty_and_none():
+    for arg in ([], None):
+        out = metrics.distance_band_summary(arg)
+        assert out["total"] == 0
+        assert out["peak"] is None
+        assert len(out["bands"]) == len(metrics.DISTANCE_BANDS)
+
+
+def test_distance_band_summary_clamps_energy_to_full_scale():
+    out = metrics.distance_band_summary(
+        [{"distance_km": 5, "energy": metrics.ENERGY_MAX * 10}])
+    assert out["bands"][1]["peak"] == metrics.ENERGY_MAX
+
+
+def test_distance_band_colours_come_from_the_energy_bands():
+    """The cell tint must be the panel's own energy-band colour, so the display
+    cannot drift from the legend."""
+    out = metrics.distance_band_summary(
+        [{"distance_km": 5, "energy": metrics.ENERGY_MAX}])
+    band = out["bands"][1]
+    assert band["colour"] == metrics.energy_band(metrics.ENERGY_MAX)["colour"]
+    assert band["band"] == metrics.energy_band(metrics.ENERGY_MAX)["name"]
+
+
+def test_distance_band_summary_accepts_objects_as_well_as_dicts():
+    """reports.py passes dicts, but ORM rows are the obvious next caller."""
+    import types
+    rows = [types.SimpleNamespace(distance_km=12, energy=900000)]
+    out = metrics.distance_band_summary(rows)
+    assert out["total"] == 1
+    assert out["bands"][2]["count"] == 1

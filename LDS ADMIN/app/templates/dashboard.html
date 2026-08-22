@@ -64,7 +64,10 @@
         </div>
         <div class="unit-meta">
           <div>Station: {{ u.station_id }}</div>
-          <div>Last seen: {{ u.last_seen.strftime('%Y-%m-%d %H:%M:%S') }} SAST</div>
+          {# last_seen is null for a unit that has been pre-assigned to a client
+             but has never reported in yet. Calling strftime on it took the
+             whole dashboard down with a 500, so it must stay guarded. #}
+          <div>Last seen: {% if u.last_seen %}{{ u.last_seen.strftime('%Y-%m-%d %H:%M:%S') }} SAST{% else %}never{% endif %}</div>
           <div>
             {% if age is not none %}
               {% if age < 90 %}just now
@@ -74,6 +77,19 @@
             {% endif %}
           </div>
           {% if u.cpu_temp_c %}<div>CPU: {{ u.cpu_temp_c | round(1) }} &deg;C</div>{% endif %}
+        </div>
+        {#
+          Chart range selector, in the unit block rather than above the chart.
+
+          Rendered here but hidden: cpu-chart.js reveals it only once the
+          interactive chart has actually rendered. A browser that never runs
+          that file keeps the server-rendered SVG and is not left holding
+          buttons that do nothing.
+        #}
+        <div class="chart-range unit-range" data-cpu-range hidden>
+          <button type="button" data-range="24h" aria-pressed="true">24 H</button>
+          <button type="button" data-range="7d" aria-pressed="false">7 D</button>
+          <button type="button" data-range="30d" aria-pressed="false">30 D</button>
         </div>
       </div>
       <div class="unit-chart">
@@ -119,10 +135,13 @@
       <p class="muted chart-empty">Loading storm activity...</p>
     </div>
     <p class="storm-note">
-      Strikes from the last 24 hours, placed by distance from the detector.
-      The AS3935 reports distance up to 40 km but does not measure bearing, so
-      the direction a strike appears in carries no meaning. Colour shows the
-      relative intensity band.
+      Recorded strikes grouped into five distance bands, nearest first, over the
+      selected window. Each band gives its strike count with the peak, mean and
+      lowest intensity recorded in that band, and flashes more often the busier
+      it is. The AS3935 reports distance up to 40&nbsp;km in 15 discrete steps
+      (&plusmn;4&nbsp;km) but does not measure bearing, so no direction is shown
+      anywhere. Intensity is a relative sensor value for comparing strikes with
+      each other, not joules.
     </p>
   </div>
 </div>

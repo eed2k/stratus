@@ -12,3 +12,10 @@ requests==2.32.3
 python-dotenv==1.0.1
 psycopg[binary]==3.2.3
 weasyprint==62.3
+# pydyf MUST be pinned. weasyprint 62.3 declares only "pydyf >= 0.10.0" with no
+# upper bound, so a fresh build pulled 0.12.1, which removed Stream.transform.
+# Every PDF report then failed with:
+#   AttributeError: 'super' object has no attribute 'transform'
+# Verified in throwaway containers off the production image: 0.12.1 fails,
+# 0.10.0 and 0.11.0 both render valid PDFs. Pinned to the newest known-good.
+pydyf==0.11.0

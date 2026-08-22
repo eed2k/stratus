@@ -288,7 +288,12 @@ form.inline { display: inline; }
 .state-off { color: var(--black); font-weight: 700; }
 
 /* ----------------------- Detector unit block ---------------------- */
-.unit-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+/* One unit per row, each row full width.
+   This was previously `display:flex; flex-wrap:wrap`, which made every
+   .unit-row a flex ITEM that sized to its own content. The chart inside could
+   therefore never grow into the page, no matter what width it asked for.
+   Stacking in a column gives each row the full container width. */
+.unit-grid { display: flex; flex-direction: column; gap: 12px; }
 .unit-block {
   border: 1px solid var(--line-dark);
   background: var(--navy-soft);
@@ -304,23 +309,43 @@ form.inline { display: inline; }
 .unit-active   .unit-dot { background: #1b7f3b; }
 .unit-inactive .unit-dot { background: #b00020; }
 .unit-meta { font-size: 12px; color: var(--muted-solid); line-height: 1.5; }
-/* Each unit renders as a row: info block + chart panel side by side.
-   The chart matches the block height and is ~twice its width. */
+/* Each unit renders as a row: fixed-width info block, then the chart taking
+   whatever width is left.
+   The info block used to be declared twice, once with min-width and again with
+   a hard width, which is why the blocks did not line up. It is declared once
+   now, below, and the duplicate above has been folded into it.
+   The chart was pinned at 480px, so on a wide screen it sat in the middle of
+   the card with the rest of the row empty. flex:1 lets it fill the page. */
 .unit-row { display: flex; gap: 12px; align-items: stretch;
   flex-wrap: wrap; margin-bottom: 12px; }
-.unit-block { flex: 0 0 auto; width: 240px; }
+/* Column layout so the range selector can be pushed to the foot of the block,
+   level with the bottom of the chart beside it. */
+.unit-block { flex: 0 0 240px; width: 240px;
+  display: flex; flex-direction: column; }
 .unit-chart {
-  flex: 0 0 auto;
-  width: 480px;
+  flex: 1 1 520px;
+  min-width: 320px;
+  /* Uniform height for every row. Without this, a unit that has never reported
+     shows a short text placeholder while its neighbours show a full chart, and
+     the rows end up different heights.
+     Raised from 220px: once the chart spans the full page width, a short box
+     reads as a thin strip. */
+  min-height: 300px;
   border: 1px solid var(--line-dark);
   background: var(--navy-soft);
   padding: 8px 10px;
   display: flex;
-  align-items: center;
+  /* stretch, not center: the chart host asks for height:100%, which only
+     resolves if this axis stretches it. With `center` the host collapsed to its
+     own fixed height and left dead space above and below. */
+  align-items: stretch;
   justify-content: center;
 }
-.unit-chart svg { display: block; width: 100%; height: auto; max-height: 100%;
+.unit-chart svg { display: block; width: 100%; height: auto;
   border-radius: 3px; }
+/* The "collecting data" placeholder, centred so it occupies the same box as a
+   rendered chart rather than collapsing the row. */
+.unit-chart .chart-empty { margin: 0; text-align: center; }
 .cooldown-line { margin: 10px 0 4px; }
 .cooldown-form { display: flex; align-items: center; gap: 8px;
   flex-wrap: wrap; margin-top: 4px; }
@@ -429,9 +454,14 @@ code {
 
 /* Host for the Recharts CPU chart. Hidden until the chart has actually
    rendered, so the server-side inline SVG stays visible if anything fails. */
+/* Fills the panel rather than sitting at a fixed 220px inside it, so the plot
+   occupies essentially the whole block height instead of a strip in the middle.
+   min-height keeps it usable if the row is ever squeezed. */
 .cpu-chart {
+  flex: 1 1 auto;
   width: 100%;
-  height: 220px;
+  height: 100%;
+  min-height: 260px;
 }
 .cpu-chart[hidden] { display: none; }
 
@@ -455,6 +485,18 @@ code {
   color: var(--white);
   border-color: var(--navy);
 }
+.chart-range[hidden] { display: none; }
+
+/* The same selector when it sits inside a unit information block: pushed to the
+   bottom of the block so it lines up with the foot of the chart beside it. */
+.unit-range {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px dotted var(--line);
+  /* auto top margin drops it to the foot of the flex column */
+  margin-top: auto;
+}
+.unit-range button { flex: 1 1 0; text-align: center; }
 
 .chart-empty {
   margin: 0;
@@ -491,42 +533,196 @@ code {
   100% { background-position:   0% 50%,  100% 40%,   0% 60%, 0% 0%; }
 }
 
-/* Keep the plot and legend above the backdrop. */
+/* Keep the data above the backdrop. */
 .storm-body { position: relative; z-index: 1; }
 
-.storm-view {
-  max-width: 320px;
-  margin: 0 auto;
-}
-.storm-view svg { display: block; width: 100%; height: auto; }
+.storm-view { width: 100%; }
 
-/* Newly detected strikes pulse once so a reader watching the panel notices
-   the change. Suppressed entirely under prefers-reduced-motion below. */
-.strike-new { animation: strike-pulse 1.6s ease-out 2; transform-origin: center; }
-
-@keyframes strike-pulse {
-  0%   { r: 3.5; fill-opacity: 0.85; }
-  40%  { r: 7;   fill-opacity: 0.35; }
-  100% { r: 3.5; fill-opacity: 0.85; }
-}
-
-.storm-legend {
+/* Summary line plus the 1H..24H range selector. */
+.storm-head {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
+  margin-bottom: 8px;
+}
+.storm-summary {
+  font-family: Consolas, "Courier New", monospace;
   font-size: 11px;
+  line-height: 1.5;
   color: var(--muted-solid);
 }
-.storm-legend-item { display: inline-flex; align-items: center; gap: 5px; }
-.storm-legend-item i {
-  width: 10px;
-  height: 10px;
+.storm-range { display: flex; }
+.storm-range button {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  padding: 6px 11px;
+  background: var(--white);
+  color: var(--navy);
   border: 1px solid var(--line-dark);
-  display: inline-block;
+  border-right: 0;
+  cursor: pointer;
+  text-transform: none;
 }
-.storm-legend-hint { font-style: italic; }
+.storm-range button:last-child { border-right: 1px solid var(--line-dark); }
+.storm-range button:hover { background: var(--navy-soft); }
+.storm-range button[aria-pressed="true"] {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+
+/* Five bands across, nearest first. Collapses to two columns on narrow
+   screens rather than squeezing five unreadable cells. */
+.storm-bands {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--line-dark);
+  padding: 12px;
+}
+@media (max-width: 900px) {
+  .storm-bands { grid-template-columns: repeat(2, 1fr); }
+}
+
+.storm-band { display: flex; flex-direction: column; }
+.storm-band.is-clickable { cursor: pointer; }
+.storm-band svg { display: block; width: 100%; height: auto; }
+
+.storm-band-range {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--white);
+  background: var(--navy);
+  border: 1px solid var(--navy);
+  border-bottom: 0;
+  padding: 5px 4px;
+}
+.storm-band.is-idle .storm-band-range {
+  background: #93a0b0;
+  border-color: #93a0b0;
+}
+
+.storm-band-data {
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--band-colour, var(--navy));
+  background: #fafbfd;
+  padding: 7px 8px 8px;
+  font-family: Consolas, "Courier New", monospace;
+}
+.storm-band-count {
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--muted-solid);
+}
+.storm-band-count span {
+  font-size: 9.5px;
+  font-weight: 400;
+  color: #5b6673;
+}
+.storm-band-label {
+  margin: 1px 0 5px;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--band-colour, #5b6673);
+}
+.storm-band.is-idle .storm-band-label { color: #8c98a8; }
+.storm-band-rows { border-top: 1px dotted var(--line); padding-top: 4px; }
+.storm-band-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  line-height: 1.65;
+  color: #5b6673;
+}
+.storm-band-row b { color: var(--muted-solid); font-weight: 700; }
+.storm-band-row-sep {
+  border-top: 1px dotted var(--line);
+  margin-top: 2px;
+  padding-top: 2px;
+}
+.storm-band-none {
+  padding: 4px 0 2px;
+  text-align: center;
+  font-size: 9.5px;
+  color: #8c98a8;
+}
+
+/* ---- cumulonimbus parts ---- */
+.cb-anvil { fill: #e4eaf1; stroke: var(--line); stroke-width: 0.7; }
+.cb-tower { fill: #dbe3ec; stroke: var(--line-dark); stroke-width: 0.8; }
+.cb-base  { fill: #b7c2d0; stroke: var(--line-dark); stroke-width: 0.8; }
+.storm-band.is-idle .cb-anvil { fill: #f1f3f6; }
+.storm-band.is-idle .cb-tower { fill: #eceff3; }
+.storm-band.is-idle .cb-base  { fill: #d5dbe3; }
+
+.storm-bolt { fill: none; stroke-linecap: round; stroke-linejoin: round;
+              opacity: 0; }
+.storm-halo { opacity: 0; }
+
+/* A recorded strike: very short and sharp, the whole event over inside
+   260 ms, with a double flicker so it reads as a real return stroke rather
+   than a fade. */
+.storm-band.is-flashing .cb-tower { animation: storm-lit 260ms steps(1, end) 1; }
+.storm-band.is-flashing .cb-base { animation: storm-lit-base 260ms steps(1, end) 1; }
+.storm-band.is-flashing .storm-bolt-glow { animation: storm-glow 260ms steps(1, end) 1; }
+.storm-band.is-flashing .storm-bolt-main { animation: storm-main 260ms steps(1, end) 1; }
+.storm-band.is-flashing .storm-bolt-core { animation: storm-core 260ms steps(1, end) 1; }
+.storm-band.is-flashing .storm-halo { animation: storm-halo 260ms ease-out 1; }
+
+@keyframes storm-lit {
+  0%   { fill: #fff6cc; }
+  22%  { fill: #dbe3ec; }
+  38%  { fill: #fff6cc; }
+  54%  { fill: #dbe3ec; }
+  100% { fill: #dbe3ec; }
+}
+@keyframes storm-lit-base {
+  0%   { fill: #ffe9a3; }
+  22%  { fill: #b7c2d0; }
+  38%  { fill: #ffe9a3; }
+  54%  { fill: #b7c2d0; }
+  100% { fill: #b7c2d0; }
+}
+@keyframes storm-main {
+  0%   { opacity: 1; }
+  20%  { opacity: 0; }
+  38%  { opacity: 0.9; }
+  52%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes storm-core {
+  0%   { opacity: 1; }
+  16%  { opacity: 0; }
+  38%  { opacity: 0.8; }
+  48%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes storm-glow {
+  0%   { opacity: 0.5; }
+  22%  { opacity: 0; }
+  38%  { opacity: 0.35; }
+  54%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes storm-halo {
+  0%   { opacity: 0.45; }
+  30%  { opacity: 0.12; }
+  100% { opacity: 0; }
+}
 
 .storm-note {
   margin: 8px 0 0;
@@ -534,11 +730,82 @@ code {
   color: var(--muted-solid);
 }
 
-/* Table shown instead of the plot if the geometry cannot be drawn. */
+/* Table shown instead of the cells if they cannot be drawn. */
 .storm-fallback { margin-top: 8px; }
 
-/* Respect the reader's motion preference: no drifting sky, no strike pulse. */
+/* Respect the reader's motion preference: no drifting sky, no flashes. The
+   channel is left faintly visible so an active band still reads as active. */
 @media (prefers-reduced-motion: reduce) {
   .storm-sky { animation: none; }
-  .strike-new { animation: none; }
+  .storm-band.is-flashing .cb-tower,
+  .storm-band.is-flashing .cb-base,
+  .storm-band.is-flashing .storm-bolt-glow,
+  .storm-band.is-flashing .storm-bolt-main,
+  .storm-band.is-flashing .storm-bolt-core,
+  .storm-band.is-flashing .storm-halo { animation: none; }
+  .storm-band:not(.is-idle) .storm-bolt-main { opacity: 0.55; }
+}
+
+
+/* --------------------------- Page loader ---------------------------- */
+/* The overlay markup and its critical styles are inlined in base.html so it
+   covers the page from the very first paint, before this stylesheet has even
+   been fetched. Everything below is presentation only: if this file is slow,
+   the inline rules still hide the unstyled page.
+
+   The overlay is layered ON TOP of the content and never sets display:none on
+   it, and the inline CSS auto-dismisses it on a timer. So a JavaScript failure
+   can never leave the page permanently hidden. */
+
+.page-loader-bolt {
+  width: 34px;
+  height: 46px;
+  fill: var(--white);
+  animation: loader-bolt 1.15s ease-in-out infinite;
+}
+.page-loader-name {
+  margin-top: 14px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--white);
+}
+.page-loader-sub {
+  margin-top: 5px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #8aa0b8;
+}
+.page-loader-track {
+  margin-top: 16px;
+  width: 132px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+.page-loader-track i {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: var(--white);
+  animation: loader-sweep 1.05s ease-in-out infinite;
+}
+
+@keyframes loader-bolt {
+  0%, 100% { opacity: 0.35; transform: scale(0.94); }
+  12%      { opacity: 1;    transform: scale(1.04); }
+  30%      { opacity: 0.5;  transform: scale(0.98); }
+  46%      { opacity: 1;    transform: scale(1.02); }
+}
+@keyframes loader-sweep {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(260%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loader-bolt { animation: none; opacity: 1; }
+  .page-loader-track i { animation: none; width: 100%; }
 }

@@ -20,12 +20,10 @@
 (function () {
   "use strict";
 
-  var RANGES = ["24h", "7d", "30d"];
-
   // Matches the server-side palette in app/charts.py and style.css so the
   // interactive chart and the printed report look like the same product.
-  var COLOUR_TEMP = "#c0392b";   // red, same accent as the CRIT band
-  var COLOUR_LOAD = "#1b3a5b";   // navy
+  var COLOUR_TEMP = "#c0392b";   // red
+  var COLOUR_LOAD = "#2c7fb8";   // blue, same as the load line in charts.py
   var COLOUR_WARN = "#e08a1e";   // amber
   var COLOUR_CRIT = "#c0392b";
   var COLOUR_GRID = "#d7dee8";
@@ -130,9 +128,41 @@
       contentStyle: { fontSize: "11px", fontFamily: "Arial, Helvetica, sans-serif" }
     }));
 
+    // Legend: a very small caption under the plot, two coloured dots and their
+    // labels. Recharts' default legend draws its own line/square markers, which
+    // is what the icons were; a custom `content` replaces them entirely.
     children.push(h(Recharts.Legend, {
       key: "legend",
-      wrapperStyle: { fontSize: "11px", paddingTop: "4px" }
+      verticalAlign: "bottom",
+      height: 14,
+      content: function () {
+        function item(key, colour, label) {
+          return h("span", {
+            key: key,
+            style: {
+              display: "inline-flex", alignItems: "center",
+              gap: "3px", marginLeft: key === "t" ? 0 : "12px"
+            }
+          }, [
+            h("span", {
+              key: "d",
+              style: {
+                width: "5px", height: "5px", borderRadius: "50%",
+                background: colour, display: "inline-block", flex: "0 0 auto"
+              }
+            }),
+            h("span", { key: "l" }, label)
+          ]);
+        }
+        var items = [item("t", COLOUR_TEMP, "CPU temp")];
+        if (hasLoad) items.push(item("l", COLOUR_LOAD, "Load"));
+        return h("div", {
+          style: {
+            fontSize: "9px", lineHeight: "1", color: COLOUR_MUTED,
+            textAlign: "center", fontFamily: "Arial, Helvetica, sans-serif"
+          }
+        }, items);
+      }
     }));
 
     // WARN and CRIT thresholds come from the payload, not from a constant here,
@@ -189,29 +219,12 @@
     var endpoint = host.getAttribute("data-endpoint");
     if (!endpoint) return;
 
+    // Opening window, taken from data-range on the host (24h). The selector
+    // that changes it lives in the unit information block, not above the
+    // chart, and is bound below once we know this chart can render.
     var range = host.getAttribute("data-range") || "24h";
     var root = ReactDOM.createRoot ? ReactDOM.createRoot(host) : null;
-    var buttons = [];
-
-    // Range buttons are created here rather than in the template so that a
-    // browser which never runs this file is not left with dead controls.
-    var bar = document.createElement("div");
-    bar.className = "chart-range";
-    RANGES.forEach(function (r) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.textContent = r;
-      b.setAttribute("aria-pressed", String(r === range));
-      b.addEventListener("click", function () { load(r); });
-      bar.appendChild(b);
-      buttons.push(b);
-    });
-
-    function markActive(active) {
-      buttons.forEach(function (b) {
-        b.setAttribute("aria-pressed", String(b.textContent === active));
-      });
-    }
+    var rangeBar = null;      // set by bindRange(), revealed on first render
 
     function render(payload) {
       if (!payload.points || payload.points.length === 0) {
@@ -228,7 +241,6 @@
     function load(newRange) {
       range = newRange;
       host.setAttribute("data-range", range);
-      markActive(range);
 
       var sep = endpoint.indexOf("?") === -1 ? "?" : "&";
       fetch(endpoint + sep + "range=" + encodeURIComponent(range), {
@@ -242,10 +254,10 @@
         .then(function (payload) {
           hideFallback(host);
           host.hidden = false;
-          if (bar.parentNode === null && host.parentNode) {
-            host.parentNode.insertBefore(bar, host);
-          }
           render(payload);
+          // Reveal the selector only now: it is proof the interactive chart
+          // works, so the buttons can never appear as dead controls.
+          if (rangeBar) rangeBar.hidden = false;
         })
         .catch(function (err) {
           // Leave the server-rendered SVG in place: a failed fetch must not
@@ -254,10 +266,47 @@
             console.warn("[cpu-chart] falling back to the server-rendered chart:", err);
           }
           host.hidden = true;
-          if (bar.parentNode) bar.parentNode.removeChild(bar);
+          // The buttons drive a chart that is no longer on screen, so take
+          // them away rather than leave dead controls in the unit block.
+          if (rangeBar) rangeBar.hidden = true;
         });
     }
 
+    /* Bind the range selector rendered in this unit's information block.
+
+       Scoped to the unit row so a dashboard with several detectors wires each
+       selector to its own chart. Handlers are attached here but the bar stays
+       hidden until the first successful render, so the buttons only appear once
+       they demonstrably work. */
+    function bindRange() {
+      var row = host.closest ? host.closest(".unit-row") : null;
+      if (!row) return;
+      rangeBar = row.querySelector("[data-cpu-range]");
+      if (!rangeBar) return;
+
+      var buttons = rangeBar.querySelectorAll("button[data-range]");
+      if (!buttons.length) return;
+
+      function markActive(active) {
+        Array.prototype.forEach.call(buttons, function (b) {
+          b.setAttribute("aria-pressed",
+            b.getAttribute("data-range") === active ? "true" : "false");
+        });
+      }
+
+      Array.prototype.forEach.call(buttons, function (b) {
+        b.addEventListener("click", function () {
+          var next = b.getAttribute("data-range");
+          if (!next || next === range) return;
+          markActive(next);
+          load(next);
+        });
+      });
+
+      markActive(range);
+    }
+
+    bindRange();
     load(range);
   }
 

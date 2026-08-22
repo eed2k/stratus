@@ -120,7 +120,10 @@ def gather_report_data(db, tenant, station_id, year, month):
             "distance": charts.distance_histogram_svg(distances),
             "energy": charts.energy_band_histogram_svg(energies),
             "uptime": charts.uptime_gauge_svg(uptime),
-            "storm": charts.storm_rings_svg(
+            # Same renderer family as the dashboard: both go through
+            # metrics.distance_band_summary, so the report cannot disagree with
+            # the panel about how many strikes fell in each proximity band.
+            "storm": charts.storm_bands_svg(
                 [{"distance_km": e.distance_km, "energy": e.energy}
                  for e in evs], 40),
         },

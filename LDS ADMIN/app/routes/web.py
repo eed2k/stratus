@@ -11,7 +11,8 @@ from ..db import get_db
 from ..config import settings
 from ..models import (User, Recipient, Group, AlertEvent, MessageLog,
                       HeartbeatSample, UnitStatus, Tenant)
-from ..metrics import energy_band, valid_coords, CPU_WARN_C, CPU_CRIT_C
+from ..metrics import (energy_band, distance_band_summary, valid_coords,
+                      CPU_WARN_C, CPU_CRIT_C)
 from .. import reports as reports_mod
 from ..auth import (current_user, current_tenant, require_admin, require_writer,
                     require_platform_admin, tenant_id, hash_password,
@@ -184,6 +185,15 @@ def change_password_post(request: Request,
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, user: User = Depends(current_user),
               tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    # A platform admin on the unprefixed panel gets the management console, not a
+    # detector dashboard: a detector belongs to exactly one client and is
+    # operated from that client's own panel. Their navigation has no Dashboard
+    # entry, so landing here after login would otherwise be a dead end.
+    # Client logins are unaffected, and so is a platform admin who has entered a
+    # client's panel at /<slug>/.
+    if user.is_platform_admin and not base_path(request):
+        return RedirectResponse("/tenants", status_code=303)
+
     events_query = scope(db.query(AlertEvent), AlertEvent, tid)\
         .order_by(AlertEvent.timestamp.desc())
     if _is_viewer(user):
@@ -251,8 +261,12 @@ def data_strikes(request: Request, station: str = "", window: int = 1440,
                  tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
     """Recent in-range strikes for the storm-activity display.
 
-    Positioned by distance only (the sensor does not measure bearing). Each
-    strike carries its energy band and accent colour for the legend.
+    Grouped by distance only (the sensor does not measure bearing), into the
+    five proximity bands defined in metrics.DISTANCE_BANDS. The aggregation is
+    done here rather than in the browser so the dashboard and the PDF report
+    are computed by the same function and cannot disagree.
+
+    `strikes` is still returned for the plain-table fallback and for tooltips.
     """
     from datetime import timedelta
     try:
@@ -278,8 +292,12 @@ def data_strikes(request: Request, station: str = "", window: int = 1440,
             "band": band["name"],
             "colour": band["colour"],
         })
+    summary = distance_band_summary(strikes)
     return JSONResponse({"radius_km": _STORM_RADIUS_KM, "rings": _STORM_RINGS_KM,
-                         "bearing_measured": False, "strikes": strikes})
+                         "bearing_measured": False, "window_min": window,
+                         "bands": summary["bands"], "total": summary["total"],
+                         "unplaced": summary["unplaced"],
+                         "strikes": strikes})
 
 
 # -------------------- STATION METADATA (admin / operator) --------------------
@@ -743,7 +761,13 @@ def users_delete(request: Request, uid: int, _: None = Depends(verify_csrf),
 @router.get("/tenants", response_class=HTMLResponse)
 def tenants_list(request: Request, user: User = Depends(require_platform_admin),
                  db: Session = Depends(get_db)):
-    tenants = db.query(Tenant).order_by(Tenant.name).all()
+    # The platform tenant is not a client, so it does not belong in the client
+    # list. Its panel is the unprefixed one you are already signed in to, which
+    # made the "Open panel" link here point at /<platform-slug>/ and read as if
+    # Stratus were one of its own customers.
+    tenants = (db.query(Tenant)
+                 .filter(Tenant.slug != settings.PLATFORM_TENANT_SLUG)
+                 .order_by(Tenant.name).all())
     rows = []
     for t in tenants:
         rows.append({
@@ -765,7 +789,11 @@ def tenant_create(request: Request, name: str = Form(...), slug: str = Form(...)
                   user: User = Depends(require_platform_admin),
                   db: Session = Depends(get_db)):
     def back(err):
-        tenants = db.query(Tenant).order_by(Tenant.name).all()
+        # Same exclusion as tenants_list, so a validation error does not make
+        # the platform tenant reappear in the client list.
+        tenants = (db.query(Tenant)
+                     .filter(Tenant.slug != settings.PLATFORM_TENANT_SLUG)
+                     .order_by(Tenant.name).all())
         rows = [{"t": t, "users": 0, "recipients": 0, "units": 0,
                  "url": f"/{t.slug}/"} for t in tenants]
         return render(request, "tenants.html", user=user, rows=rows,

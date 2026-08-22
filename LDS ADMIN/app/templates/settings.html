@@ -27,6 +27,17 @@
   {% endif %}
 </div>
 
+{#
+  Gateway status is PLATFORM infrastructure and is shown only on the platform
+  console. A client's own admin has role == 'admin' within their tenant, so
+  gating this on the role exposed the provider name and which credentials are
+  configured to every client. Which SMS provider Stratus buys from, and the
+  state of its API keys, is not a client's business.
+
+  A client still sees everything they need on their own Settings page: whether
+  alerts are on, and the cooldown.
+#}
+{% if is_platform_admin %}
 <div class="card">
   <h3>Messaging gateway (SMS only)</h3>
   <table>
@@ -55,5 +66,6 @@
     the server <code>.env</code> and restart the panel.
   </p>
 </div>
+{% endif %}
 {% endblock %}
 {# end settings #}

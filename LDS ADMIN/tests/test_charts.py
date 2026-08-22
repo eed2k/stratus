@@ -61,14 +61,44 @@ def test_uptime_gauge_valid_and_clamped():
         _valid_svg(svg)
 
 
-def test_storm_rings_valid():
+def test_storm_bands_valid():
     strikes = [{"distance_km": 5, "energy": 600000, "colour": "#1b3a5b"},
                {"distance_km": 22, "energy": 1600000},
                {"distance_km": 40, "energy": 100}]
-    svg = charts.storm_rings_svg(strikes, radius_km=40)
+    svg = charts.storm_bands_svg(strikes, radius_km=40)
     _valid_svg(svg)
     assert "bearing not measured" in svg
+    # Every band is drawn, including the ones with no strikes, so the reader can
+    # see that a quiet band is quiet rather than missing.
+    for label in ("OVERHEAD", "VERY CLOSE", "CLOSE", "DISTANT", "FAR"):
+        assert label in svg
+    assert "3 strikes in this period" in svg
 
 
-def test_storm_rings_empty():
-    _valid_svg(charts.storm_rings_svg([], radius_km=40))
+def test_storm_bands_empty():
+    svg = charts.storm_bands_svg([], radius_km=40)
+    _valid_svg(svg)
+    assert "0 strikes in this period" in svg
+    assert "no strikes" in svg
+
+
+def test_storm_bands_counts_match_summary():
+    """The report must agree with the dashboard, which means agreeing with the
+    one function both of them aggregate through."""
+    from app.metrics import distance_band_summary
+    strikes = [{"distance_km": d, "energy": 800000}
+               for d in (1, 5, 6, 8, 10, 14, 20, 27, 31, 40)]
+    summary = distance_band_summary(strikes)
+    assert summary["total"] == len(strikes)
+    svg = charts.storm_bands_svg(strikes, radius_km=40)
+    _valid_svg(svg)
+    for band in summary["bands"]:
+        assert f">{band['count']}<" in svg
+
+
+def test_storm_bands_is_deterministic():
+    """Regenerating the same report must not redraw a different bolt."""
+    strikes = [{"distance_km": 5, "energy": 600000},
+               {"distance_km": 22, "energy": 1600000}]
+    assert (charts.storm_bands_svg(strikes, radius_km=40)
+            == charts.storm_bands_svg(strikes, radius_km=40))

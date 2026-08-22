@@ -40,9 +40,12 @@ def cpu_chart_svg(samples, hours=24):
              .cpu_load_pct (float|None), assumed ordered oldest -> newest.
     Returns an SVG string. If there is no data, returns a small placeholder.
     """
-    # Geometry
-    W, H = 480, 160
-    pad_l, pad_r, pad_t, pad_b = 36, 36, 14, 22
+    # Geometry. The SVG is rendered at width:100% with height:auto, so these
+    # numbers set the aspect ratio and the coordinate space, not the pixel size.
+    # Enlarged from 480x160 so there is room for a denser grid and more time
+    # labels without the text colliding once the chart fills the page width.
+    W, H = 960, 300
+    pad_l, pad_r, pad_t, pad_b = 52, 52, 24, 32
     plot_w = W - pad_l - pad_r
     plot_h = H - pad_t - pad_b
     x0, y0 = pad_l, pad_t
@@ -96,31 +99,40 @@ def cpu_chart_svg(samples, hours=24):
         f'<rect x="0" y="0" width="{W}" height="{H}" fill="#ffffff" stroke="#e0e0e0"/>',
     ]
 
-    # Horizontal gridlines + left (temp) axis labels
-    for frac in (0.0, 0.5, 1.0):
+    # Horizontal gridlines + left (temp) and right (load) axis labels.
+    # Five lines rather than three: at full page width three was too sparse to
+    # read a value off the chart.
+    for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
         gy = y0 + plot_h - frac * plot_h
         tval = t_lo + frac * (t_hi - t_lo)
         parts.append(
             f'<line x1="{x0}" y1="{gy:.1f}" x2="{x0+plot_w}" y2="{gy:.1f}" '
-            f'stroke="#eee" stroke-width="1"/>'
+            f'stroke="#eaeef2" stroke-width="1"/>'
         )
         parts.append(
-            f'<text x="{x0-4}" y="{gy+3:.1f}" text-anchor="end" '
-            f'font-family="Arial" font-size="9" fill="#c0392b">{tval:.0f}</text>'
+            f'<text x="{x0-6}" y="{gy+4:.1f}" text-anchor="end" '
+            f'font-family="Arial" font-size="11" fill="#c0392b">{tval:.0f}</text>'
         )
-        # right (load) axis label
         lval = l_lo + frac * (l_hi - l_lo)
         parts.append(
-            f'<text x="{x0+plot_w+4}" y="{gy+3:.1f}" text-anchor="start" '
-            f'font-family="Arial" font-size="9" fill="#2c7fb8">{lval:.0f}</text>'
+            f'<text x="{x0+plot_w+6}" y="{gy+4:.1f}" text-anchor="start" '
+            f'font-family="Arial" font-size="11" fill="#2c7fb8">{lval:.0f}</text>'
         )
 
-    # X axis time labels (start, mid, end)
-    for frac, lbl in ((0.0, "-24h"), (0.5, "-12h"), (1.0, "now")):
+    # Faint vertical gridlines every 4 hours, so a reading can be placed in time.
+    steps = max(1, hours // 4)
+    for i in range(steps + 1):
+        frac = i / steps
         gx = x0 + frac * plot_w
         parts.append(
-            f'<text x="{gx:.1f}" y="{H-6}" text-anchor="middle" '
-            f'font-family="Arial" font-size="9" fill="#999">{lbl}</text>'
+            f'<line x1="{gx:.1f}" y1="{y0}" x2="{gx:.1f}" y2="{y0+plot_h}" '
+            f'stroke="#f2f5f8" stroke-width="1"/>'
+        )
+        hrs_ago = hours - frac * hours
+        lbl = "now" if hrs_ago < 0.5 else f"-{hrs_ago:.0f}h"
+        parts.append(
+            f'<text x="{gx:.1f}" y="{H-10}" text-anchor="middle" '
+            f'font-family="Arial" font-size="10" fill="#8a929b">{lbl}</text>'
         )
 
     # Data lines: temperature (red), load (blue)
@@ -128,14 +140,15 @@ def cpu_chart_svg(samples, hours=24):
     if load_pts:
         parts.append(_polyline(load_pts, "#2c7fb8"))
 
-    # Legend
+    # Legend: text only, no marker glyphs. The label is drawn in the same colour
+    # as its line, which identifies the series without a square in front of it.
     parts.append(
-        f'<text x="{x0}" y="{pad_t+0}" font-family="Arial" font-size="9" '
-        f'fill="#c0392b">&#9632; Temp &deg;C</text>'
+        f'<text x="{x0}" y="{pad_t-6}" font-family="Arial" font-size="11" '
+        f'fill="#c0392b">Temp &deg;C</text>'
     )
-    legend2 = "&#9632; Load %" if load_pts else "&#9632; Load % (awaiting unit update)"
+    legend2 = "Load %" if load_pts else "Load % (awaiting unit update)"
     parts.append(
-        f'<text x="{x0+70}" y="{pad_t+0}" font-family="Arial" font-size="9" '
+        f'<text x="{x0+110}" y="{pad_t-6}" font-family="Arial" font-size="11" '
         f'fill="#2c7fb8">{legend2}</text>'
     )
 
@@ -168,6 +181,23 @@ def _svg_head(w, h, label):
         f'<rect x="0" y="0" width="{w}" height="{h}" fill="#ffffff" '
         f'stroke="#d9dee5"/>'
     )
+
+
+def _esc(s):
+    """Escape text for XML content.
+
+    Needed because some labels are comparison operators, e.g. "< 10 km". A raw
+    "<" in text content makes the whole SVG unparseable, which in a PDF report
+    surfaces as a failed render rather than a slightly wrong label.
+
+    Uses numeric entities only, matching the no-named-entities rule above.
+    """
+    return (str(s).replace("&", "&#38;")
+                  .replace("<", "&#60;")
+                  .replace(">", "&#62;")
+                  .replace('"', "&#34;")
+                  .replace("\u2264", "&#8804;")
+                  .replace("\u2265", "&#8805;"))
 
 
 def _text(x, y, s, size=11, colour=_INK, anchor="start", weight="normal"):
@@ -370,43 +400,137 @@ def uptime_gauge_svg(pct):
     return "".join(parts)
 
 
-def storm_rings_svg(strikes, radius_km=40):
-    """Concentric distance-ring plot of strikes, coloured by energy band.
+def _cumulonimbus(cx, cy, s, active=True):
+    """One small cumulonimbus: spreading anvil, short tower, flat darker base.
 
-    Positions strikes by distance only (the sensor has no bearing); angles are
-    spread deterministically so overlapping distances remain visible.
+    Static counterpart of drawCloud() in static/js/storm-view.js, using the same
+    geometry table so the report and the dashboard draw the same cloud.
     """
+    if active:
+        anvil, tower, base = "#e4eaf1", "#dbe3ec", "#b7c2d0"
+    else:
+        anvil, tower, base = "#f1f3f6", "#eceff3", "#d5dbe3"
+    out = []
+    for dx, dy, rx, ry in ((0, -15, 32, 5.6), (-13, -12, 13, 4.6),
+                           (14, -12, 12, 4.2)):
+        out.append(f'<ellipse cx="{cx + dx * s:.1f}" cy="{cy + dy * s:.1f}" '
+                   f'rx="{rx * s:.1f}" ry="{ry * s:.1f}" fill="{anvil}" '
+                   f'stroke="#b9c2cf" stroke-width="0.7"/>')
+    for dx, dy, r in ((-7, -6, 9), (3, -8, 9.5), (10, -3, 7.5),
+                      (-13, -2, 7.5), (0, 0, 10.5)):
+        out.append(f'<ellipse cx="{cx + dx * s:.1f}" cy="{cy + dy * s:.1f}" '
+                   f'rx="{r * s:.1f}" ry="{r * s * 0.82:.1f}" fill="{tower}" '
+                   f'stroke="#8c98a8" stroke-width="0.8"/>')
+    out.append(f'<ellipse cx="{cx:.1f}" cy="{cy + 8 * s:.1f}" '
+               f'rx="{20 * s:.1f}" ry="{5 * s:.1f}" fill="{base}" '
+               f'stroke="#8c98a8" stroke-width="0.8"/>')
+    return "".join(out)
+
+
+def _bolt_points(cx, y_top, y_end, seed):
+    """Deterministic sharp channel. Seeded so a regenerated report is
+    byte-identical rather than drawing a different squiggle each run."""
     import math
-    W = H = 300
-    cx, cy = W / 2, H / 2
-    max_r = min(W, H) / 2 - 18
-    radius_km = radius_km or 40
-    rings = [10, 20, 30, 40]
-    parts = [_svg_head(W, H, "Recent strikes by distance")]
-    # Rings and labels.
-    for rk in rings:
-        rr = (rk / radius_km) * max_r
-        parts.append(f'<circle cx="{cx}" cy="{cy}" r="{rr:.1f}" fill="none" '
-                     f'stroke="{_GRID}" stroke-width="1"/>')
-        parts.append(_text(cx + 2, cy - rr + 10, f"{rk} km", size=8,
-                           colour=_MUTED))
-    # Station marker at centre.
-    parts.append(f'<circle cx="{cx}" cy="{cy}" r="3" fill="{_NAVY}"/>')
-    # Strikes.
-    golden = math.pi * (3 - math.sqrt(5))  # spread angle
-    for i, s in enumerate(strikes):
-        try:
-            d = float(s.get("distance_km"))
-        except (TypeError, ValueError, AttributeError):
-            continue
-        rr = (max(0.0, min(radius_km, d)) / radius_km) * max_r
-        ang = i * golden
-        sx = cx + rr * math.cos(ang)
-        sy = cy + rr * math.sin(ang)
-        colour = s.get("colour") or energy_band(s.get("energy", 0))["colour"]
-        parts.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3.5" '
-                     f'fill="{colour}" fill-opacity="0.85"/>')
-    parts.append(_text(cx, H - 6, "Distance only - bearing not measured",
-                       size=8, colour=_MUTED, anchor="middle"))
+    segs = 5
+    dy = (y_end - y_top) / segs
+    pts = [(cx, y_top)]
+    for i in range(1, segs):
+        taper = 1 - abs(i / segs - 0.5) * 1.4
+        # Cheap deterministic jitter in [-1, 1] from the seed and index.
+        j = math.sin((seed + 1) * 12.9898 + i * 78.233) * 43758.5453
+        j = (j - math.floor(j)) * 2 - 1
+        pts.append((cx + j * 5.5 * taper, y_top + dy * i))
+    j = math.sin((seed + 1) * 4.1414 + 9.19) * 21783.13
+    j = (j - math.floor(j)) * 2 - 1
+    pts.append((cx + j * 2.5, y_end))
+    return " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+
+
+def storm_bands_svg(strikes, radius_km=40):
+    """Storm activity as five proximity bands, one cumulonimbus each.
+
+    Static mirror of the dashboard display in static/js/storm-view.js. Both are
+    fed by metrics.distance_band_summary, so the report and the dashboard cannot
+    show different numbers for the same window.
+
+    The AS3935 measures distance but NOT bearing, so nothing is placed in any
+    direction: the bands read nearest to farthest, left to right, which is a
+    proximity ordering and not a map.
+    """
+    from .metrics import distance_band_summary
+
+    summary = distance_band_summary(strikes)
+    bands = summary["bands"]
+
+    cell_w, gap = 104, 8
+    pad_l, pad_t = 10, 10
+    W = pad_l * 2 + cell_w * len(bands) + gap * (len(bands) - 1)
+    head_h, cloud_h, data_h = 16, 84, 66
+    H = pad_t + head_h + cloud_h + data_h + 24
+
+    max_peak = max([b["peak"] for b in bands if b["peak"]] or [0])
+
+    parts = [_svg_head(W, H, "Storm activity by distance band")]
+
+    for i, b in enumerate(bands):
+        x = pad_l + i * (cell_w + gap)
+        active = b["count"] > 0
+        colour = b["colour"] if active and b["colour"] else "#93a0b0"
+
+        # Band header.
+        parts.append(f'<rect x="{x}" y="{pad_t}" width="{cell_w}" '
+                     f'height="{head_h}" fill="{colour if active else "#93a0b0"}"/>')
+        parts.append(_text(x + cell_w / 2, pad_t + 11.5,
+                           _esc(b["range"].upper()),
+                           size=8, colour="#ffffff", anchor="middle",
+                           weight="bold"))
+
+        # Cloud, sized on the band mean against the busiest peak on the page so
+        # the cells stay comparable with one another.
+        frac = (b["mean"] / max_peak) if (active and max_peak) else 0.0
+        s = (0.74 + min(1.0, max(0.0, frac)) * 0.40) * 0.80
+        ccx = x + cell_w / 2
+        ccy = pad_t + head_h + 30
+        parts.append(_cumulonimbus(ccx, ccy, s, active))
+
+        if active:
+            pts = _bolt_points(ccx, ccy + 16, ccy + 46, i)
+            parts.append(f'<polyline points="{pts}" fill="none" '
+                         f'stroke="{colour}" stroke-width="2.2" '
+                         f'stroke-linecap="round" stroke-linejoin="round" '
+                         f'opacity="0.85"/>')
+
+        # Data block.
+        dy = pad_t + head_h + cloud_h
+        parts.append(f'<rect x="{x}" y="{dy}" width="{cell_w}" '
+                     f'height="{data_h}" fill="#fafbfd" stroke="#b9c2cf" '
+                     f'stroke-width="1"/>')
+        parts.append(f'<rect x="{x}" y="{dy}" width="{cell_w}" height="3" '
+                     f'fill="{colour}"/>')
+        parts.append(_text(x + cell_w / 2, dy + 21, str(b["count"]), size=16,
+                           colour=_INK, anchor="middle", weight="bold"))
+        parts.append(_text(x + cell_w / 2, dy + 31,
+                           "strike" if b["count"] == 1 else "strikes",
+                           size=7, colour=_MUTED, anchor="middle"))
+        parts.append(_text(x + cell_w / 2, dy + 41, _esc(b["label"]), size=7,
+                           colour=colour, anchor="middle", weight="bold"))
+        if active:
+            for j, (k, v) in enumerate((("peak", b["peak"]),
+                                        ("mean", b["mean"]),
+                                        ("low", b["low"]))):
+                ry = dy + 51 + j * 8
+                parts.append(_text(x + 7, ry, k, size=7, colour=_MUTED))
+                parts.append(_text(x + cell_w - 7, ry, f"{v / 1e6:.2f}M",
+                                   size=7, colour=_INK, anchor="end",
+                                   weight="bold"))
+        else:
+            parts.append(_text(x + cell_w / 2, dy + 54, "no strikes", size=7,
+                               colour="#8c98a8", anchor="middle"))
+
+    total = summary["total"]
+    foot = (f"{total} strike{'' if total == 1 else 's'} in this period. "
+            f"Nearest band first. Distance only - bearing not measured. "
+            f"Intensity is a relative sensor value, not joules.")
+    parts.append(_text(pad_l, H - 8, _esc(foot), size=8, colour=_MUTED))
     parts.append("</svg>")
     return "".join(parts)

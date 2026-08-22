@@ -97,7 +97,8 @@ def test_chart_endpoints_are_reachable_and_shaped_as_the_charts_expect(client, d
     strikes = client.get("/acme/data/strikes?window=1440")
     assert strikes.status_code == 200
     sbody = strikes.json()
-    for key in ("radius_km", "rings", "bearing_measured", "strikes"):
+    for key in ("radius_km", "rings", "bearing_measured", "strikes",
+                "bands", "total", "unplaced", "window_min"):
         assert key in sbody, f"/data/strikes payload missing {key}"
     assert sbody["bearing_measured"] is False
     assert sbody["radius_km"] == 40
@@ -105,6 +106,52 @@ def test_chart_endpoints_are_reachable_and_shaped_as_the_charts_expect(client, d
     if sbody["strikes"]:
         assert "colour" in sbody["strikes"][0]
         assert "band" in sbody["strikes"][0]
+
+    # storm-view.js renders one cell per band and reads every one of these keys
+    # off the payload, so all five bands must always be present, even empty.
+    assert len(sbody["bands"]) == 5
+    for band in sbody["bands"]:
+        for key in ("key", "label", "range", "count", "peak", "mean", "low",
+                    "band", "colour", "share"):
+            assert key in band, f"/data/strikes band missing {key}"
+    assert sum(b["count"] for b in sbody["bands"]) == sbody["total"]
+
+
+def test_strikes_window_is_honoured_and_bands_stay_consistent(client, db_session):
+    """The 1H..24H selector works by passing `window`, so a narrower window has
+    to return a subset, and the band counts must keep summing to the total."""
+    _seed(db_session)
+    login(client, "/acme", "admin@acme.test")
+
+    wide = client.get("/acme/data/strikes?window=1440").json()
+    narrow = client.get("/acme/data/strikes?window=60").json()
+
+    assert narrow["window_min"] == 60
+    assert wide["window_min"] == 1440
+    assert narrow["total"] <= wide["total"]
+    for payload in (wide, narrow):
+        assert sum(b["count"] for b in payload["bands"]) == payload["total"]
+        assert payload["total"] == len(payload["strikes"]) - payload["unplaced"]
+
+
+def test_dashboard_has_a_loader_and_a_unit_range_selector(client, db_session):
+    """Both fixes have to be in the served markup, not just in the source."""
+    _seed(db_session)
+    login(client, "/acme", "admin@acme.test")
+    r = client.get("/acme/")
+
+    # The loader's critical CSS must be inline, because an external stylesheet
+    # arrives too late to cover the unstyled flash it exists to hide.
+    assert 'id="page-loader"' in r.text
+    assert "#page-loader{" in r.text
+    # It must be able to clear itself without JavaScript.
+    assert "pl-auto" in r.text
+
+    # Range selector lives in the unit block and ships hidden, so it cannot show
+    # up as a dead control when the interactive chart never renders.
+    assert "data-cpu-range" in r.text
+    assert 'data-range="7d"' in r.text
+    assert 'data-range="30d"' in r.text
 
 
 # ---------------------------------------------------------------------------
