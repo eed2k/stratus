@@ -44,6 +44,7 @@ interface Schedule {
   enabled: boolean;
   lastRunAt: string | null;
   lastStatus: string | null;
+  nextRunAt?: string | null;
 }
 
 interface FormState {
@@ -199,7 +200,15 @@ function ScheduleForm({
         <Separator />
 
         <div>
-          <Label className="text-sm font-semibold">Stations ({form.stationIds.length} selected)</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-sm font-semibold">Stations ({form.stationIds.length} selected)</Label>
+            <div className="flex gap-1">
+              <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                onClick={() => set("stationIds", stations.map((s) => s.id))}>Select all</Button>
+              <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                onClick={() => set("stationIds", [])}>Clear</Button>
+            </div>
+          </div>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-auto p-2 border rounded">
             {stations.map((s) => (
               <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -216,7 +225,17 @@ function ScheduleForm({
         </div>
 
         <div>
-          <Label className="text-sm font-semibold">Data fields ({form.fields.length} selected)</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-sm font-semibold">Data fields ({form.fields.length} selected)</Label>
+            <div className="flex gap-1">
+              <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                onClick={() => set("fields", fields.map((f) => f.key))}>Select all</Button>
+              <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                onClick={() => set("fields", groups.general.map((f) => f.key))}>General only</Button>
+              <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                onClick={() => set("fields", [])}>Clear</Button>
+            </div>
+          </div>
           <div className="mt-2 space-y-3">
             <div>
               <p className="text-xs uppercase text-muted-foreground mb-1">General</p>
@@ -308,7 +327,7 @@ function ScheduleForm({
         {err && <p className="text-sm text-red-600">{err}</p>}
 
         {preview && (
-          <Card className="bg-slate-50">
+          <Card className="bg-white">
             <CardHeader>
               <CardTitle className="text-sm">Preview: {preview.subject}</CardTitle>
             </CardHeader>
@@ -387,6 +406,37 @@ function ScheduleRow({
     }
   }
 
+  /** Download the exact PDF that this schedule would attach to its email. */
+  async function downloadPdf() {
+    setBusy("pdf"); setMsg(null);
+    try {
+      const hours = s.frequency === "daily" ? 24 : s.frequency === "weekly" ? 24 * 7 : 24 * 30;
+      const to = new Date();
+      const from = new Date(to.getTime() - hours * 3600 * 1000);
+      const params = new URLSearchParams({
+        stationIds: s.stationIds.join(","),
+        from: from.toISOString(),
+        to: to.toISOString(),
+        fields: s.fields.join(","),
+        title: s.name,
+      });
+      const res = await authFetch(`/api/reports/pdf?${params.toString()}`);
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `${s.name.replace(/[^a-z0-9._-]+/gi, "_")}-${to.toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(href);
+      setMsg({ type: "ok", text: "PDF downloaded" });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message || "PDF download failed" });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function toggleEnabled() {
     setBusy("toggle");
     try {
@@ -438,6 +488,11 @@ function ScheduleRow({
                 Last run: {new Date(s.lastRunAt).toLocaleString("en-ZA")} - {s.lastStatus}
               </p>
             )}
+            {s.enabled && s.nextRunAt && (
+              <p className="text-xs text-muted-foreground">
+                Next run: <span className="text-slate-700">{new Date(s.nextRunAt).toLocaleString("en-ZA")}</span>
+              </p>
+            )}
             {msg && (
               <p className={`text-xs mt-2 ${msg.type === "ok" ? "text-green-700" : "text-red-600"}`}>
                 {msg.text}
@@ -447,6 +502,9 @@ function ScheduleRow({
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={sendNow} disabled={!!busy}>
               {busy === "send" ? "Sending..." : "Send now"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={downloadPdf} disabled={!!busy}>
+              {busy === "pdf" ? "Building..." : "Download PDF"}
             </Button>
             <Button size="sm" variant="outline" onClick={toggleEnabled} disabled={!!busy}>
               {s.enabled ? "Disable" : "Enable"}
@@ -511,7 +569,7 @@ export default function ReportsSchedule() {
   }) : emptyForm();
 
   return (
-    <div className="min-h-screen w-full bg-slate-50">
+    <div className="min-h-screen w-full bg-white">
       <div className="mx-auto max-w-5xl p-4 md:p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -519,7 +577,9 @@ export default function ReportsSchedule() {
               Report Scheduling
             </h1>
             <p className="text-sm text-muted-foreground">
-              Automated email reports (with PDF attachment) sent from noreply@stratusweather.co.za
+              Automated email reports sent from noreply@stratusweather.co.za. Every send attaches a PDF with
+              the summary tables, wind rose, wind scatter and time-series graphs (embedded as vector artwork,
+              so they stay sharp at any zoom or print size).
             </p>
           </div>
         </div>

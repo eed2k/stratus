@@ -226,6 +226,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
               <Route path="/alarms">
                 <AdminRoute isAdmin={isAdmin}><Alarms /></AdminRoute>
               </Route>
+
               <Route path="/reports">
                 <AdminRoute isAdmin={isAdmin}><Reports /></AdminRoute>
               </Route>

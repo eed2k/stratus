@@ -473,6 +473,8 @@ async function createTables(): Promise<void> {
     // Lightning distance and energy columns
     `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS lightning_distance REAL`,
     `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS lightning_energy REAL`,
+    // Second battery bank (installations running two banks)
+    `ALTER TABLE weather_data ADD COLUMN IF NOT EXISTS battery_voltage_2 REAL`,
   ];
   for (const sql of migrations) {
     try {

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 import {
   Select,
@@ -83,6 +84,9 @@ interface StationFormData {
   lastCalibrationDate: string;
   nextCalibrationDate: string;
   siteDescription: string;
+  // Sigfox / LoRaWAN uplink routing and payload decoding
+  uplinkDeviceId: string;
+  uplinkDecoder: string;
   // RikaCloud credentials
   rikaDeviceId: string;
   rikaFarmId: string;
@@ -130,6 +134,9 @@ const initialFormData: StationFormData = {
   lastCalibrationDate: "",
   nextCalibrationDate: "",
   siteDescription: "",
+  // Sigfox / LoRaWAN uplink routing and payload decoding
+  uplinkDeviceId: "",
+  uplinkDecoder: "",
   // RikaCloud credentials
   rikaDeviceId: "",
   rikaFarmId: "",
@@ -148,6 +155,34 @@ export default function Stations() {
   const [deleteStation, setDeleteStation] = useState<StationWithReading | null>(null);
   const [formData, setFormData] = useState<StationFormData>(initialFormData);
   const { toast } = useToast();
+
+  // Payload decoder presets for Sigfox / LoRaWAN stations. Served by the API so
+  // the field maps cannot drift from the decoder that actually runs.
+  const { data: decoderPresets } = useQuery<Array<{ id: string; label: string; note: string; spec: unknown }>>({
+    queryKey: ['/api/ingest/decoder-presets'],
+    queryFn: async () => {
+      const res = await authFetch('/api/ingest/decoder-presets');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+
+  // Live JSON validation for the decoder box, so a typo is caught before saving.
+  const decoderJsonError = (() => {
+    const text = formData.uplinkDecoder?.trim();
+    if (!text) return null;
+    try {
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return 'expected a JSON object';
+      if (!Array.isArray((parsed as any).fields) || (parsed as any).fields.length === 0) {
+        return "expected a 'fields' array with at least one entry";
+      }
+      return null;
+    } catch (err: any) {
+      return err?.message || 'could not be parsed';
+    }
+  })();
 
   // Listen for menu events
   useEffect(() => {
@@ -253,10 +288,23 @@ export default function Stations() {
           syncInterval: parseInt(data.dropboxSyncInterval) || 3600,
         });
       } else if (data.connectionType === "http_post") {
+        // A blank or malformed decoder is stored as undefined rather than
+        // rejected, so a typo cannot block saving the rest of the station.
+        let uplinkDecoder: unknown;
+        const decoderText = data.uplinkDecoder?.trim();
+        if (decoderText) {
+          try {
+            uplinkDecoder = JSON.parse(decoderText);
+          } catch {
+            uplinkDecoder = undefined;
+          }
+        }
         payload.connectionConfig = JSON.stringify({
           type: "http_post",
           apiEndpoint: data.apiEndpoint,
           apiKey: data.apiKey,
+          uplinkDeviceId: data.uplinkDeviceId?.trim() || undefined,
+          uplinkDecoder,
         });
       } else if (data.connectionType === "tcp_ip") {
         payload.connectionConfig = JSON.stringify({
@@ -530,6 +578,136 @@ X-API-Key: your-key (optional)
                       <p className="text-xs text-muted-foreground mt-2">
                         Supported fields: temperature, humidity, pressure, windSpeed, windDirection, windGust, rainfall, solarRadiation, uvIndex, dewPoint, batteryVoltage, soilTemperature, soilMoisture, waterLevel, pm25, pm10, co2, lightning, chargerVoltage, and more. Rate limit: 60 requests/min.
                       </p>
+                    </div>
+
+                    {/* Sigfox / LoRaWAN */}
+                    <div className="rounded-md border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900 p-3 space-y-3">
+                      <p className="text-xs font-medium">Sigfox and LoRaWAN uplinks</p>
+                      <p className="text-xs text-muted-foreground">
+                        The same endpoint accepts Sigfox backend callbacks and LoRaWAN webhooks from The Things Stack v3,
+                        ChirpStack and Helium. Stratus recognises each envelope automatically, so no reformatting is needed.
+                        Signal quality (RSSI, SNR, spreading factor, frame counter, gateway count) is stored with every reading.
+                      </p>
+
+                      <div className="space-y-2">
+                        <Label>Fleet endpoint (one URL for every device)</Label>
+                        <Input
+                          value={`POST ${window.location.origin}/api/ingest/uplink`}
+                          disabled
+                          className="font-mono text-xs bg-muted"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Sigfox and most network servers allow only one callback URL per device type or application.
+                          This endpoint reads the device ID out of the uplink and routes it to the matching station,
+                          so a whole fleet can share one URL. Set the device ID below for that to work.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Device ID (Sigfox device ID or LoRaWAN DevEUI)</Label>
+                        <Input
+                          placeholder="e.g. 1A2B3C or 70B3D57ED0001234"
+                          value={formData.uplinkDeviceId}
+                          onChange={(e) => updateForm({ uplinkDeviceId: e.target.value })}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Matched case-insensitively against the Sigfox device ID, the LoRaWAN DevEUI or the device name.
+                          Leave blank if the device posts to the per-station endpoint instead.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Payload decoder (optional)</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {(decoderPresets || []).map((preset) => (
+                            <Button
+                              key={preset.id}
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              title={preset.note}
+                              onClick={() => updateForm({ uplinkDecoder: JSON.stringify(preset.spec, null, 2) })}
+                            >
+                              {preset.label}
+                            </Button>
+                          ))}
+                          {formData.uplinkDecoder && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => updateForm({ uplinkDecoder: "" })}
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                        <Textarea
+                          placeholder="Leave blank if the network server already decodes the payload into named fields."
+                          value={formData.uplinkDecoder}
+                          onChange={(e) => updateForm({ uplinkDecoder: e.target.value })}
+                          rows={8}
+                          className="font-mono text-xs"
+                        />
+                        {formData.uplinkDecoder.trim() !== "" && (
+                          <p className={`text-xs ${decoderJsonError ? "text-red-600" : "text-green-700"}`}>
+                            {decoderJsonError ? `Invalid JSON: ${decoderJsonError}` : "Valid JSON"}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Only needed when the device sends raw bytes (Sigfox always does). Stratus decodes them with this
+                          field map, so no code change is required when the frame layout changes.
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-950 p-2">
+                        <p className="text-xs font-medium mb-1">Logger channels and frame layout</p>
+                        <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">{`Channel          bit  type    scale   range
+temperature       0   int16   0.01    -327.68 to 327.67 degC
+humidity          1   uint16  0.01    0 to 100 %
+pressure          2   uint16  0.1     0 to 6553.5 hPa
+windSpeed         3   uint16  0.01    0 to 655.35 m/s
+windDirection     4   uint16  1       0 to 360 deg
+rainfall          5   uint16  0.1     0 to 6553.5 mm
+soilTemperature   6   int16   0.01    -327.68 to 327.67 degC
+soilMoisture      7   uint16  0.01    0 to 100 % VWC
+solarRadiation    8   uint16  1       0 to 65535 W/m2
+
+Presence mask frame: [mask hi][mask lo] then only the channels
+whose bit is set, big endian, in the order above.
+Example, temp + humidity + pressure + rainfall + solar:
+  mask = 0x0127, frame = 0127 0869 1590 2796 007C 032C  (12 bytes)
+
+Fixed frame: all nine channels in order, 18 bytes, no mask.
+A short frame just drops the trailing channels.`}</pre>
+                      </div>
+
+                      <div className="rounded-md border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-950 p-2">
+                        <p className="text-xs font-medium mb-1">Sigfox callback body template</p>
+                        <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">{`Type:    DATA / UPLINK
+Channel: URL
+URL:     ${window.location.origin}/api/ingest/uplink
+Method:  POST
+Headers: Content-Type: application/json
+Body:
+{
+  "device": "{device}",
+  "time": {time},
+  "seqNumber": {seqNumber},
+  "data": "{data}",
+  "rssi": {rssi},
+  "snr": {snr},
+  "station": "{station}",
+  "duplicate": {duplicate}
+}`}</pre>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          For LoRaWAN, point the webhook or HTTP integration at the same URL. The Things Stack, ChirpStack
+                          and Helium bodies are all understood as they come, no template needed.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}

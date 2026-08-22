@@ -1,2 +1,54 @@
+# Stratus Weather Server - private application.
+# Nothing here is ever to be indexed by any search engine.
+# Enforced in three layers: this file, a noindex meta tag in index.html, and an
+# X-Robots-Tag: noindex header on every server response (server/index.ts).
+
 User-agent: *
+Disallow: /
+
+# Named crawlers, listed explicitly so a bot that ignores the wildcard still
+# sees a directive addressed to it.
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Googlebot-Image
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: Applebot
+Disallow: /
+
+User-agent: facebookexternalhit
+Disallow: /
+
+User-agent: Twitterbot
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: PerplexityBot
 Disallow: /

@@ -75,7 +75,6 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [copiedCompactToken, setCopiedCompactToken] = useState<string | null>(null);
-  const [compactTimeframe, setCompactTimeframe] = useState<Record<string, string>>({});
   const [serverAddress, setServerAddress] = useState<string>('');
   
   // Detect the server's network address
@@ -238,19 +237,18 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
   const shares: StationShare[] = sharesData?.shares || [];
 
   // Compact links always use the token form (not slug) so the /compact route resolves cleanly.
-  const buildCompactUrl = (token: string, tf: string) => {
+  const buildCompactUrl = (token: string) => {
     const protocol = window.location.protocol;
-    return `${protocol}//${serverAddress}/shared/${token}/compact?tf=${tf}`;
+    return `${protocol}//${serverAddress}/shared/${token}/compact`;
   };
 
   const copyCompactLink = (token: string) => {
-    const tf = compactTimeframe[token] || '24h';
-    navigator.clipboard.writeText(buildCompactUrl(token, tf));
+    navigator.clipboard.writeText(buildCompactUrl(token));
     setCopiedCompactToken(token);
     setTimeout(() => setCopiedCompactToken(null), 3000);
     toast({
       title: "Compact link copied!",
-      description: `Single-screen compact dashboard (${tf}) link copied to clipboard.`,
+      description: "Single-screen compact dashboard link copied to clipboard.",
     });
   };
 
@@ -371,22 +369,13 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
                         </Button>
                       </div>
 
-                      {/* Compact single-screen dashboard link */}
+                      {/* Compact single-screen dashboard link.
+                          No timeframe control: the compact dashboard is a fixed
+                          24-hour single-screen view by design, so offering a
+                          range picker here promised something the page never
+                          honoured. */}
                       <div className="flex items-center gap-2 pt-1 border-t mt-1">
                         <span className="text-xs text-black whitespace-nowrap">Compact</span>
-                        <Select
-                          value={compactTimeframe[share.shareToken] || '24h'}
-                          onValueChange={(v) => setCompactTimeframe((prev) => ({ ...prev, [share.shareToken]: v }))}
-                        >
-                          <SelectTrigger className="h-8 w-20 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="24h">24h</SelectItem>
-                            <SelectItem value="7d">7 days</SelectItem>
-                            <SelectItem value="30d">30 days</SelectItem>
-                          </SelectContent>
-                        </Select>
                         <Button
                           variant="outline"
                           size="sm"
@@ -408,7 +397,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(`/shared/${share.shareToken}/compact?tf=${compactTimeframe[share.shareToken] || '24h'}`, '_blank')}
+                          onClick={() => window.open(`/shared/${share.shareToken}/compact`, '_blank')}
                         >
                           <ExternalLink className="h-3 w-3" />
                         </Button>

@@ -5,14 +5,14 @@
  * scheduler or the email service, so running this cannot register a cron task
  * or send anything.
  *
- *   npx tsx demo_data/verify_demo.ts
+ *   npx tsx demo/verify_demo.ts
  */
 import { readFileSync } from "node:fs";
 import { parseDataFile, mapToWeatherData } from "../server/parsers/campbellScientific";
 
 const FILES = [
-  "demo_data/potchefstroom_full_demo.dat",
-  "demo_data/as3935_lightning_demo.dat",
+  "demo/potchefstroom_full_demo.dat",
+  "demo/as3935_lightning_demo.dat",
 ];
 
 /** Fields the dashboard cares about, so we can prove each one arrives mapped. */

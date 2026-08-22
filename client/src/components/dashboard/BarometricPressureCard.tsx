@@ -7,7 +7,7 @@ import { safeFixed } from "@/lib/utils";
 interface BarometricPressureCardProps {
   stationPressure: number;      // hPa/mbar at station altitude
   seaLevelPressure?: number;    // hPa/mbar calibrated to sea level
-  altitude?: number;            // meters
+  altitude?: number;            // metres
   temperature?: number;         // °C (for calculation if needed)
   trend?: number;               // Change in last 3 hours (hPa)
 

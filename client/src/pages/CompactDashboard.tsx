@@ -2,7 +2,7 @@
 // Created by Lukas Esterhuizen
 // Compact shared dashboard - single desktop screen, no scroll, live sync data only.
 // Scales to fit any desktop screen size (laptop, monitor, TV).
-import { useMemo, lazy, Suspense } from "react";
+import { useMemo, useEffect, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import type { WeatherData } from "@shared/schema";
+import { CHART_COLOURS } from "@shared/chartColours";
+import { rainfallTotalFromRecords, type RainfallType } from "@shared/utils/rainfall";
+import { DashboardLoadingOverlay } from "@/components/DashboardLoadingOverlay";
 import {
   calculateDewPoint,
   calculateETo,
@@ -59,6 +62,9 @@ const processWindRoseData = (data: WeatherData[], windUnit: WindSpeedUnit = "ms"
   return rose;
 };
 
+/** Shared type face for the header row, so every item matches exactly. */
+const HEADER_FONT = { fontFamily: 'Arial, Helvetica, sans-serif' } as const;
+
 // Primary metric tile styled like the standard dashboard (greyish infill)
 interface PrimaryTileProps {
   label: string;
@@ -76,10 +82,40 @@ function PrimaryTile({ label, value, sub, valueColor }: PrimaryTileProps) {
   );
 }
 
+/**
+ * Smallest viewport the compact dashboard is designed for.
+ *
+ * This view deliberately packs a whole station onto one non-scrolling screen:
+ * a 4x3 tile grid, two wind roses and two dual-axis charts. Below roughly a
+ * tablet's width those elements cannot be read at all, so the page refuses to
+ * render rather than presenting an unusable squashed layout. Viewers on a phone
+ * are pointed at the full shared dashboard, which is responsive.
+ */
+const COMPACT_MIN_WIDTH = 900;
+
+function useIsTooNarrow(minWidth: number): boolean {
+  const [tooNarrow, setTooNarrow] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < minWidth,
+  );
+  useEffect(() => {
+    const check = () => setTooNarrow(window.innerWidth < minWidth);
+    check();
+    window.addEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
+    return () => {
+      window.removeEventListener("resize", check);
+      window.removeEventListener("orientationchange", check);
+    };
+  }, [minWidth]);
+  return tooNarrow;
+}
+
 export default function CompactDashboard() {
   // Parse token from URL: /shared/{token}/compact
   const path = window.location.pathname;
   const shareToken = path.replace("/shared/", "").replace(/\/compact$/, "");
+
+  const isTooNarrow = useIsTooNarrow(COMPACT_MIN_WIDTH);
 
   const [sessionToken, setSessionToken] = useState<string | undefined>();
   const [passwordInput, setPasswordInput] = useState("");
@@ -102,7 +138,7 @@ export default function CompactDashboard() {
   const requiresPassword = shareInfo?.share?.requiresPassword && !sessionToken;
 
   // Station info
-  const { data: stationData } = useQuery<{ station: any }>({
+  const { data: stationData, isSuccess: stationReady } = useQuery<{ station: any }>({
     queryKey: ["compact-station", shareToken, sessionToken],
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}/station`, { headers: shareHeaders });
@@ -115,8 +151,24 @@ export default function CompactDashboard() {
   const windSpeedUnit: WindSpeedUnit = station?.windSpeedUnit === "kmh" ? "kmh" : "ms";
   const windUnitLabel = getWindUnitLabel(windSpeedUnit);
 
+  // Authoritative rainfall shape for this station. The shared station payload
+  // omits connectionType, and auto-detection is unreliable on a short window
+  // (a single cumulative reading of ~1000 mm looks like 1000 mm of fresh rain),
+  // so read the configured type from the share's rainfall-config endpoint.
+  const { data: rainfallConfig } = useQuery<{ type: RainfallType; tipFactor: number }>({
+    queryKey: ["compact-rainfall-config", shareToken],
+    queryFn: async () => {
+      const res = await fetch(`/api/shares/${shareToken}/rainfall-config`, { headers: shareHeaders });
+      if (!res.ok) return { type: "auto", tipFactor: 0.2 };
+      return res.json();
+    },
+    enabled: !!shareToken && !requiresPassword,
+  });
+  const rainfallType: RainfallType = rainfallConfig?.type ?? "auto";
+  const rainfallTipFactor = rainfallConfig?.tipFactor ?? 0.2;
+
   // Latest reading (live sync data) - refreshes with station sync
-  const { data: latest } = useQuery<WeatherData>({
+  const { data: latest, isSuccess: latestReady } = useQuery<WeatherData>({
     queryKey: ["compact-latest", shareToken, sessionToken],
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}/data/latest`, { headers: shareHeaders });
@@ -128,7 +180,7 @@ export default function CompactDashboard() {
   });
 
   // Recent 24h window for wind rose + temp/humidity chart (fixed, no user options)
-  const { data: recentData = [] } = useQuery<WeatherData[]>({
+  const { data: recentData = [], isSuccess: recentReady } = useQuery<WeatherData[]>({
     queryKey: ["compact-recent", shareToken, sessionToken, latest?.timestamp],
     queryFn: async () => {
       const endTime = latest?.timestamp ? new Date(latest.timestamp) : new Date();
@@ -184,15 +236,32 @@ export default function CompactDashboard() {
       }));
   }, [recentData]);
 
-  const batterySolarData = useMemo(() => {
+  // ET₀ (FAO-56 Penman-Monteith, per reading) vs solar irradiance.
+  // ET₀ needs temperature, humidity, wind and solar together, so rows missing
+  // any of those inputs yield a null ET₀ point while still plotting solar.
+  const etoSolarData = useMemo(() => {
+    const alt = station?.altitude != null ? Number(station.altitude) : 0;
+    const lat = station?.latitude != null ? Number(station.latitude) : 0;
     return recentData
-      .filter((d) => d.batteryVoltage != null || d.solarRadiation != null)
-      .map((d) => ({
-        timestamp: new Date(d.timestamp).toISOString(),
-        batteryVoltage: num(d.batteryVoltage),
-        solarRadiation: num(d.solarRadiation),
-      }));
-  }, [recentData]);
+      .filter((d) => d.solarRadiation != null || (d.temperature != null && d.humidity != null))
+      .map((d) => {
+        const t = num(d.temperature);
+        const h = num(d.humidity);
+        const ws = num(d.windSpeed);
+        const sr = num(d.solarRadiation);
+        const wMs = ws != null ? (windSpeedUnit === "kmh" ? kmhToMs(ws) : ws) : null;
+        const mj = sr != null ? wattsToMJPerDay(sr, 24) : null;
+        const etoPoint =
+          t != null && h != null && wMs != null && mj != null
+            ? Math.round(calculateETo(t, h, wMs, mj, alt, lat, getDayOfYear(new Date(d.timestamp))) * 100) / 100
+            : null;
+        return {
+          timestamp: new Date(d.timestamp).toISOString(),
+          eto: etoPoint,
+          solarRadiation: sr,
+        };
+      });
+  }, [recentData, station?.altitude, station?.latitude, windSpeedUnit]);
 
   const fmt = (v: number | null, dec = 1): string => (v == null ? "--" : (Math.round(v * 10 ** dec) / 10 ** dec).toString());
 
@@ -204,7 +273,29 @@ export default function CompactDashboard() {
   const windGust = num(latest?.windGust);
   const windDir = num(latest?.windDirection);
   const solar = num(latest?.solarRadiation);
-  const rain24h = num(latest?.rainfall);
+  /**
+   * 24-hour rainfall, integrated over the window.
+   *
+   * Deliberately NOT `latest.rainfall`: RIKA stations report a cumulative
+   * counter (mm since commissioning), so the latest raw reading is a lifetime
+   * total and displaying it as "Rain (24h)" showed hundreds of millimetres on a
+   * dry day. `recentData` is the same 24-hour window the charts use.
+   */
+  const rain24h = useMemo(
+    () => rainfallTotalFromRecords(recentData, rainfallType, rainfallTipFactor),
+    [recentData, rainfallType, rainfallTipFactor],
+  );
+  const batteryVoltage = num(latest?.batteryVoltage);
+  const lastSynced = latest?.timestamp
+    ? new Date(latest.timestamp).toLocaleString("en-ZA", {
+        timeZone: "Africa/Johannesburg",
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    : "--";
   const dewPoint = temp != null && hum != null ? calculateDewPoint(temp, hum) : null;
   const windDirLabel = windDir != null ? getWindDirectionLabel(windDir) : "--";
 
@@ -225,6 +316,32 @@ export default function CompactDashboard() {
   const fdiColor = fdiResult?.rating?.color;
 
   // ---- Render states ----
+  if (isTooNarrow) {
+    // The full shared dashboard lives at the same token without /compact.
+    const fullUrl = `/shared/${shareToken}`;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white p-6">
+        <div className="max-w-sm text-center space-y-3">
+          <div className="mx-auto w-10 h-10 rounded-full bg-[#1e3a5f] flex items-center justify-center">
+            <div className="w-3 h-3 rounded-full bg-white" />
+          </div>
+          <p className="text-base font-semibold text-black">Screen too small</p>
+          <p className="text-sm text-black">
+            The compact dashboard is a single-screen wall display built for a laptop,
+            monitor or TV. Open the full dashboard instead, which is designed for
+            phones and tablets.
+          </p>
+          <a
+            href={fullUrl}
+            className="inline-block rounded-md px-4 py-2 text-sm font-medium text-white"
+            style={{ backgroundColor: "#1e3a5f" }}
+          >
+            Open full dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
   if (!shareToken) {
     return <div className="h-screen flex items-center justify-center text-black">Invalid link</div>;
   }
@@ -268,17 +385,43 @@ export default function CompactDashboard() {
   const latStr = station?.latitude != null ? `${Number(station.latitude).toFixed(6)}°` : "--";
   const lngStr = station?.longitude != null ? `${Number(station.longitude).toFixed(6)}°` : "--";
 
+  // Hold the loading overlay until the station, latest reading and 24h window
+  // have all arrived, so the wall display never flashes half its tiles.
+  const loadSteps = [stationReady, latestReady, recentReady];
+  const loadReady = loadSteps.filter(Boolean).length;
+  const loadDone = loadSteps.every(Boolean);
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-white flex flex-col p-[0.8vw] gap-[1vh]">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-shrink-0 gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="font-bold text-black truncate" style={{ fontSize: "clamp(0.95rem, 1.5vw, 1.3rem)" }}>
+      <DashboardLoadingOverlay ready={loadReady} total={loadSteps.length} done={loadDone} />
+      {/* Header: station identity and health on the left, branding pinned to the
+          top right. Every item uses the same weight and size so the row reads as
+          one line of information rather than a hierarchy. */}
+      <div className="flex items-start justify-between gap-4 flex-shrink-0">
+        <div className="flex items-baseline gap-4 min-w-0 text-xs text-black font-normal" style={HEADER_FONT}>
+          <span className="truncate">
             {station?.name || shareInfo?.share?.name || "Weather Station"}
-          </h1>
-          <p className="text-xs text-black truncate">
-            {station?.location || ""} · {latStr}, {lngStr} · Live
-          </p>
+            {station?.location ? `, ${station.location}` : ""} · {latStr}, {lngStr} · Live
+          </span>
+          <span className="whitespace-nowrap flex-shrink-0">Battery {fmt(batteryVoltage, 2)} V</span>
+          <span className="whitespace-nowrap flex-shrink-0">Last synced {lastSynced}</span>
+        </div>
+
+        {/* Powered by Stratus / Metron, top right corner */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs text-black font-normal whitespace-nowrap" style={HEADER_FONT}>
+            Powered by
+          </span>
+          {/* Stratus mark: dark blue circle with white dot (matches the app sidebar) */}
+          <div className="w-6 h-6 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-sm border border-white/10 flex-shrink-0">
+            <div className="w-2 h-2 rounded-full bg-white" />
+          </div>
+          <div className="inline-flex flex-col items-center flex-shrink-0">
+            <span className="text-[13px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</span>
+            <span className="text-[7px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>METRON (PTY) LTD</span>
+          </div>
+          {/* Metron company logo */}
+          <img src="/metron-logo.png" alt="Metron" className="w-6 h-6 object-contain flex-shrink-0" />
         </div>
       </div>
 
@@ -308,9 +451,10 @@ export default function CompactDashboard() {
               data={chartData}
               heightClass="h-full"
               compact
+              dualAxis
               series={[
-                { dataKey: "temperature", name: "Temperature", color: "#ef4444", unit: "°C" },
-                { dataKey: "humidity", name: "Humidity", color: "#3b82f6", unit: "%" },
+                { dataKey: "temperature", name: "Temperature", color: CHART_COLOURS.temperature, unit: "°C" },
+                { dataKey: "humidity", name: "Humidity", color: CHART_COLOURS.humidity, unit: "%" },
               ]}
             />
           </Suspense>
@@ -342,17 +486,18 @@ export default function CompactDashboard() {
           </div>
         </div>
 
-        {/* Bottom-right: Battery Voltage vs Solar Irradiance chart */}
+        {/* Bottom-right: ET₀ vs Solar Irradiance chart */}
         <div className="min-h-0 overflow-hidden">
           <Suspense fallback={<ChartFallback />}>
             <WeatherChart
-              title="Battery Voltage vs Solar Irradiance (24h)"
-              data={batterySolarData}
+              title="ET₀ vs Solar Irradiance (24h)"
+              data={etoSolarData}
               heightClass="h-full"
               compact
+              dualAxis
               series={[
-                { dataKey: "batteryVoltage", name: "Battery", color: "#16a34a", unit: "V" },
-                { dataKey: "solarRadiation", name: "Solar", color: "#f59e0b", unit: "W/m²" },
+                { dataKey: "eto", name: "ET₀", color: CHART_COLOURS.eto, unit: "mm/d" },
+                { dataKey: "solarRadiation", name: "Solar", color: CHART_COLOURS.solarRadiation, unit: "W/m²" },
               ]}
             />
           </Suspense>

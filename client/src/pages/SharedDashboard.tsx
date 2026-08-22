@@ -12,6 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { MetricCard } from "@/components/dashboard/MetricCard";
+import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
+import { DashboardLoadingOverlay } from "@/components/DashboardLoadingOverlay";
+import { rainfallTotalFromRecords, isCumulativeType, type RainfallType } from "@shared/utils/rainfall";
 import { WindCompass } from "@/components/dashboard/WindCompass";
 // WindPowerCard replaced with inline Card layout
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
@@ -42,7 +45,7 @@ import {
   Layers,
 } from "lucide-react";
 import type { WeatherData } from "@shared/schema";
-import { DEFAULT_SECTION_VISIBILITY, DASHBOARD_CATEGORIES, type SectionVisibility } from "../../../shared/dashboardConfig";
+import { DEFAULT_SECTION_VISIBILITY, DASHBOARD_CATEGORIES, isParameterEnabled, type SectionVisibility } from "../../../shared/dashboardConfig";
 import { 
   calculateSeaLevelPressure,
   calculateStationPressure,
@@ -56,6 +59,8 @@ import {
   calculateHeatIndex,
   calculateWindChill,
 } from "@shared/utils/calc";
+import { interpretLightningIntensity } from "@shared/utils/lightning";
+import { CHART_COLOURS } from "@shared/chartColours";
 import { getSimplifiedClasses, getWindUnitLabel, getWindDirectionLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import {
   STANDARD_SEA_LEVEL_PRESSURE_HPA,
@@ -207,6 +212,9 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
         batteryVoltage: avgNonNull(dayData.map(d => d.batteryVoltage ?? null)),
         batteryVoltageMin: minNonNull(dayData.map(d => d.batteryVoltage ?? null)),
         batteryVoltageMax: maxNonNull(dayData.map(d => d.batteryVoltage ?? null)),
+        batteryVoltage2: avgNonNull(dayData.map(d => d.batteryVoltage2 ?? null)),
+        batteryVoltage2Min: minNonNull(dayData.map(d => d.batteryVoltage2 ?? null)),
+        batteryVoltage2Max: maxNonNull(dayData.map(d => d.batteryVoltage2 ?? null)),
         waterLevel: avgNonNull(dayData.map(d => d.waterLevel ?? null)),
         temperatureSwitch: avgNonNull(dayData.map(d => d.temperatureSwitch ?? null)),
         temperatureSwitchOutlet: avgNonNull(dayData.map(d => d.temperatureSwitchOutlet ?? null)),
@@ -359,6 +367,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       pm10: d.pm10 ?? null,
       pm25: d.pm25 ?? null,
       batteryVoltage: d.batteryVoltage ?? null,
+      batteryVoltage2: d.batteryVoltage2 ?? null,
       waterLevel: d.waterLevel ?? null,
       temperatureSwitch: d.temperatureSwitch ?? null,
       temperatureSwitchOutlet: d.temperatureSwitchOutlet ?? null,
@@ -596,7 +605,7 @@ function SharedDashboardContent() {
   });
 
   // Fetch latest weather data via share token (public, no auth needed)
-  const { data: weatherData } = useQuery<WeatherData>({
+  const { data: weatherData, isSuccess: weatherReady } = useQuery<WeatherData>({
     queryKey: ['shared-weather', shareToken, 'latest'],
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}/data/latest`, { headers: shareHeaders });
@@ -611,7 +620,7 @@ function SharedDashboardContent() {
   const [chartTimeRange, setChartTimeRange] = useState(24);
 
   // Fetch historical data for charts via share token (public, no auth needed)
-  const { data: historicalData = [] } = useQuery<WeatherData[]>({
+  const { data: historicalData = [], isSuccess: historyReady } = useQuery<WeatherData[]>({
     queryKey: ['shared-weather', shareToken, 'history', chartTimeRange, dataRange?.latest],
     queryFn: async () => {
       const limit = chartTimeRange > 168 ? 5000 : chartTimeRange > 72 ? 2000 : 1000;
@@ -655,7 +664,7 @@ function SharedDashboardContent() {
   });
 
   // Separate query for 30-day stats data (always fetches 30 days regardless of chart time range)
-  const { data: statsData = [] } = useQuery<WeatherData[]>({
+  const { data: statsData = [], isSuccess: statsReady } = useQuery<WeatherData[]>({
     queryKey: ['shared-weather', shareToken, 'stats-30d', dataRange?.latest],
     queryFn: async () => {
       const endTime = new Date();
@@ -711,7 +720,7 @@ function SharedDashboardContent() {
   });
 
   // Fetch station info via share token
-  const { data: stationData } = useQuery({
+  const { data: stationData, isSuccess: stationReady } = useQuery({
     queryKey: ['shared-station', shareToken],
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}/station`, { headers: shareHeaders });
@@ -840,8 +849,9 @@ function SharedDashboardContent() {
     const ep = sharedEnabledParameters;
 
     const hasData = (field: keyof WeatherData, allowZero = false) => {
-      // If parameter was disabled in config, hide it
-      if (Array.isArray(ep) && toggleableFields.has(field) && !ep.includes(field)) {
+      // If parameter was disabled in config, hide it. Parameters added to the
+      // catalogue after a config was saved stay visible (LATE_ADDED_PARAMETERS).
+      if (toggleableFields.has(field) && !isParameterEnabled(field, ep)) {
         return false;
       }
       if (historicalData.length > 0) {
@@ -871,6 +881,7 @@ function SharedDashboardContent() {
       soilTemperature: hasData('soilTemperature'),
       soilMoisture: hasData('soilMoisture'),
       batteryVoltage: hasData('batteryVoltage'),
+      batteryVoltage2: hasData('batteryVoltage2'),
       waterLevel: hasData('waterLevel'),
       temperatureSwitch: hasData('temperatureSwitch'),
       chargerVoltage: hasData('chargerVoltage'),
@@ -1032,72 +1043,42 @@ function SharedDashboardContent() {
     return calculateSeaLevelPressure(currentData.pressure || STANDARD_SEA_LEVEL_PRESSURE_HPA, station?.altitude || 0, currentData.temperature || DEFAULT_TEMPERATURE_C);
   }, [currentData.pressure, currentData.temperature, station?.altitude, pressureIsSLP]);
 
-  // Rainfall (24h window).
-  // Auto-detects whether the logger emits incremental (CRBasic Totalize) or cumulative readings:
-  //   - Incremental: each value is rainfall during the interval -> total = SUM
-  //   - Cumulative: monotonically increasing counter -> total = SUM of positive deltas
+  /**
+   * Rainfall shape for this station, from the share's own rainfall-config.
+   *
+   * The shared station payload deliberately omits `connectionType`, so the old
+   * `connectionType === 'rikacloud'` test here was always false and a lifetime
+   * counter got summed as if every reading were fresh rain. The configured type
+   * is authoritative; 'auto' leaves detection to the shared helper.
+   */
+  const effectiveRainfallType: RainfallType = rainfallConfig?.type ?? 'auto';
+  const rainfallTipFactor = rainfallConfig?.tipFactor ?? 0.2;
+
+  // Rainfall over the last 24h, via the one canonical implementation.
   const { effectiveRainfall } = useMemo(() => {
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     const now = referenceNow;
     const last24h = dataSource.filter(d => new Date(d.timestamp).getTime() > now - 24 * 60 * 60 * 1000);
-    const readings = last24h.map(d => d.rainfall).filter((v): v is number => v != null);
-    if (readings.length === 0) {
-      return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: currentData.rainfall ?? 0 };
+    if (last24h.length === 0) {
+      // No window to measure. Falling back to currentData.rainfall used to
+      // report a cumulative counter (e.g. 1490 mm) as the 24h total, so report
+      // nothing instead of something wrong.
+      return { accumulatedRainfall: 0, isRainfallStale: true, effectiveRainfall: 0 };
     }
-    const isRika = (station as any)?.connectionType === 'rikacloud';
-    let total = 0;
-    if (isRika) {
-      // RIKA cumulative counter: count only realistic positive increments.
-      for (let i = 1; i < readings.length; i++) {
-        const diff = readings[i] - readings[i - 1];
-        if (diff > 0 && diff < 15) total += diff;
-      }
-    } else {
-      const maxVal = Math.max(...readings);
-      if (maxVal <= 50) {
-        total = readings.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
-      } else {
-        for (let i = 1; i < readings.length; i++) {
-          const diff = readings[i] - readings[i - 1];
-          if (diff > 0 && diff < 200) total += diff;
-        }
-      }
-    }
-    const rounded = Math.round(total * 100) / 100;
-    return { accumulatedRainfall: rounded, isRainfallStale: rounded < 0.05, effectiveRainfall: rounded };
-  }, [sortedStatsData, sortedHistoricalData, currentData.rainfall, referenceNow]);
+    const total = rainfallTotalFromRecords(last24h, effectiveRainfallType, rainfallTipFactor);
+    return { accumulatedRainfall: total, isRainfallStale: total < 0.05, effectiveRainfall: total };
+  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallTipFactor]);
 
   // Rainfall totals over standard reporting periods (24h / yesterday / this week / this month)
   const rainfallPeriods = useMemo(() => {
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     const sumWindow = (startMs: number, endMs: number) => {
-      const window = dataSource
-        .filter(d => {
-          const t = new Date(d.timestamp).getTime();
-          return t > startMs && t <= endMs;
-        })
-        .map(d => d.rainfall)
-        .filter((v): v is number => v != null);
+      const window = dataSource.filter(d => {
+        const t = new Date(d.timestamp).getTime();
+        return t > startMs && t <= endMs;
+      });
       if (window.length === 0) return 0;
-      const isRika = (station as any)?.connectionType === 'rikacloud';
-      let total = 0;
-      if (isRika) {
-        for (let i = 1; i < window.length; i++) {
-          const diff = window[i] - window[i - 1];
-          if (diff > 0 && diff < 15) total += diff;
-        }
-      } else {
-        const maxVal = Math.max(...window);
-        if (maxVal <= 50) {
-          total = window.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
-        } else {
-          for (let i = 1; i < window.length; i++) {
-            const diff = window[i] - window[i - 1];
-            if (diff > 0 && diff < 200) total += diff;
-          }
-        }
-      }
-      return Math.round(total * 100) / 100;
+      return rainfallTotalFromRecords(window, effectiveRainfallType, rainfallTipFactor);
     };
     const now = referenceNow;
     const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
@@ -1108,7 +1089,7 @@ function SharedDashboardContent() {
       thisWeek: sumWindow(now - 7 * 24 * 60 * 60 * 1000, now),
       thisMonth: sumWindow(now - 30 * 24 * 60 * 60 * 1000, now),
     };
-  }, [sortedStatsData, sortedHistoricalData, referenceNow]);
+  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallTipFactor]);
 
   // Daily ETo vs Rainfall over the last 30 days (fixed window).
   // Always uses sortedStatsData (always-30-day query) so this chart is NOT
@@ -1133,21 +1114,8 @@ function SharedDashboardContent() {
       buckets.get(key)!.push(d);
     });
 
-    const dayRainTotal = (records: WeatherData[]) => {
-      const vals = records.map(r => r.rainfall).filter((v): v is number => v != null);
-      if (vals.length === 0) return 0;
-      const maxVal = Math.max(...vals);
-      let total = 0;
-      if (maxVal <= 50) {
-        total = vals.reduce((s, v) => s + Math.min(Math.max(v, 0), 50), 0);
-      } else {
-        for (let i = 1; i < vals.length; i++) {
-          const diff = vals[i] - vals[i - 1];
-          if (diff > 0 && diff < 200) total += diff;
-        }
-      }
-      return Math.round(total * 100) / 100;
-    };
+    const dayRainTotal = (records: WeatherData[]) =>
+      rainfallTotalFromRecords(records, effectiveRainfallType, rainfallTipFactor);
 
     const dayEto = (records: WeatherData[]) => {
       const etoValues = records
@@ -1210,34 +1178,90 @@ function SharedDashboardContent() {
     }
 
     return { rainfall7day, daysSinceRain };
-  }, [sortedStatsData, sortedHistoricalData, referenceNow]);
+  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallTipFactor]);
 
-  // Battery chart data
+  /**
+   * Daily solar energy harvested per charge regulator, in watt-hours.
+   *
+   * The regulator reports instantaneous panel power, which on its own says
+   * nothing about how much the array actually delivered. Integrating power over
+   * the sample interval (trapezoidal, with a 2 hour cap so a data gap cannot
+   * invent energy) turns that into a daily yield figure, which is the number
+   * that matters when sizing or fault-finding a solar installation.
+   */
+  const chargerEnergyData = useMemo(() => {
+    if (sortedHistoricalData.length < 2) return [];
+    const MAX_GAP_MS = 2 * 60 * 60 * 1000;
+    const days = new Map<string, { wh1: number; wh2: number }>();
+
+    for (let i = 1; i < sortedHistoricalData.length; i++) {
+      const prev = sortedHistoricalData[i - 1];
+      const curr = sortedHistoricalData[i];
+      const dtMs = new Date(curr.timestamp).getTime() - new Date(prev.timestamp).getTime();
+      if (!(dtMs > 0) || dtMs > MAX_GAP_MS) continue;
+      const hours = dtMs / 3600000;
+      const key = new Date(curr.timestamp).toISOString().slice(0, 10);
+      if (!days.has(key)) days.set(key, { wh1: 0, wh2: 0 });
+      const bucket = days.get(key)!;
+
+      const p1a = Number(prev.mpptSolarPower);
+      const p1b = Number(curr.mpptSolarPower);
+      if (Number.isFinite(p1a) && Number.isFinite(p1b)) {
+        bucket.wh1 += ((Math.max(0, p1a) + Math.max(0, p1b)) / 2) * hours;
+      }
+      const p2a = Number(prev.mppt2SolarPower);
+      const p2b = Number(curr.mppt2SolarPower);
+      if (Number.isFinite(p2a) && Number.isFinite(p2b)) {
+        bucket.wh2 += ((Math.max(0, p2a) + Math.max(0, p2b)) / 2) * hours;
+      }
+    }
+
+    return [...days.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateKey, { wh1, wh2 }]) => ({
+        timestamp: new Date(dateKey + 'T12:00:00').toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
+        chargerEnergy1: Math.round(wh1 * 10) / 10,
+        chargerEnergy2: Math.round(wh2 * 10) / 10,
+        chargerEnergyTotal: Math.round((wh1 + wh2) * 10) / 10,
+      }));
+  }, [sortedHistoricalData]);
+
+  // Battery chart data. Both banks are carried so installations with two
+  // batteries chart each one.
   const batteryChartData = useMemo(() => {
     const effectiveRange = chartTimeRange || 24;
+    const round2 = (v: number) => Math.round(v * 100) / 100;
+    const mean = (a: number[]) => round2(a.reduce((x, y) => x + y, 0) / a.length);
+
     if (effectiveRange >= 168 && sortedHistoricalData.length > 0) {
-      const dayBuckets = new Map<string, number[]>();
+      const dayBuckets = new Map<string, { bank1: number[]; bank2: number[] }>();
       sortedHistoricalData.forEach(d => {
-        if (d.batteryVoltage == null) return;
+        if (d.batteryVoltage == null && d.batteryVoltage2 == null) return;
         const key = new Date(d.timestamp).toISOString().slice(0, 10);
-        if (!dayBuckets.has(key)) dayBuckets.set(key, []);
-        dayBuckets.get(key)!.push(d.batteryVoltage);
+        if (!dayBuckets.has(key)) dayBuckets.set(key, { bank1: [], bank2: [] });
+        const bucket = dayBuckets.get(key)!;
+        if (d.batteryVoltage != null) bucket.bank1.push(d.batteryVoltage);
+        if (d.batteryVoltage2 != null) bucket.bank2.push(d.batteryVoltage2);
       });
       return [...dayBuckets.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([dateKey, voltages]) => {
+        .map(([dateKey, { bank1, bank2 }]) => {
           const date = new Date(dateKey + 'T12:00:00');
           return {
             timestamp: date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" }),
-            batteryVoltage: Math.round((voltages.reduce((a, b) => a + b, 0) / voltages.length) * 100) / 100,
-            batteryVoltageMin: Math.round(Math.min(...voltages) * 100) / 100,
-            batteryVoltageMax: Math.round(Math.max(...voltages) * 100) / 100,
+            batteryVoltage: bank1.length ? mean(bank1) : null,
+            batteryVoltageMin: bank1.length ? round2(Math.min(...bank1)) : null,
+            batteryVoltageMax: bank1.length ? round2(Math.max(...bank1)) : null,
+            batteryVoltage2: bank2.length ? mean(bank2) : null,
+            batteryVoltage2Min: bank2.length ? round2(Math.min(...bank2)) : null,
+            batteryVoltage2Max: bank2.length ? round2(Math.max(...bank2)) : null,
           };
         });
     }
     return sortedHistoricalData.map(d => ({
       timestamp: new Date(d.timestamp).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
       batteryVoltage: d.batteryVoltage ?? 0,
+      batteryVoltage2: d.batteryVoltage2 ?? null,
     }));
   }, [sortedHistoricalData, chartTimeRange]);
 
@@ -1285,7 +1309,7 @@ function SharedDashboardContent() {
       has14d: last14d.some(d => d.temperature != null && new Date(d.timestamp).getTime() < sevenDaysAgo),
       has30d: last30d.some(d => d.temperature != null && new Date(d.timestamp).getTime() < fourteenDaysAgo),
     };
-  }, [sortedStatsData, sortedHistoricalData, referenceNow]);
+  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallTipFactor]);
 
   // Solar stats
   const solarStats = useMemo(() => {
@@ -1645,8 +1669,15 @@ function SharedDashboardContent() {
     );
   }
 
+  // Gate the page behind the loader until the station, current reading and the
+  // chart/stats series have all arrived, so nothing renders half-populated.
+  const loadSteps = [stationReady, weatherReady, historyReady, statsReady];
+  const loadReady = loadSteps.filter(Boolean).length;
+  const loadDone = loadSteps.every(Boolean);
+
   return (
     <div className="min-h-screen bg-background">
+      <DashboardLoadingOverlay ready={loadReady} total={loadSteps.length} done={loadDone} />
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container py-4 px-4 flex items-center justify-between">
@@ -1781,76 +1812,29 @@ function SharedDashboardContent() {
         {/* Primary Metrics */}
         {sv.primaryMetrics !== false && (availableFields.temperature || availableFields.humidity || availableFields.pressure || availableFields.windSpeed || availableFields.rainfall) && (
         <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-normal text-foreground">Primary Metrics</h2>
-            <span className="text-base font-normal text-black">(Live data)</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {availableFields.temperature && (
-            <MetricCard
-              title="Temperature"
-              value={formatValue(currentData.temperature || 0, 1)}
-              unit="°C"
-              trend={trends.temperature !== null ? { value: parseFloat(safeFixed(trends.temperature, 1, "0")), label: "vs avg" } : undefined}
-              subMetrics={effectiveDewPoint != null ? [{ label: "Dew Point", value: `${formatValue(effectiveDewPoint, 1)} °C` }] : undefined}
-            />
-            )}
-            {availableFields.humidity && (
-            <MetricCard
-              title="Relative Humidity"
-              value={formatValue(currentData.humidity || 0, 1)}
-              unit="%"
-              trend={trends.humidity !== null ? { value: parseFloat(safeFixed(trends.humidity, 1, "0")), label: "vs avg" } : undefined}
-            />
-            )}
-            {availableFields.windDirection && (
-            <MetricCard
-              title="Wind Direction"
-              value={currentData.windDirection != null ? getWindDirectionLabel(currentData.windDirection) : '--'}
-              unit={currentData.windDirection != null ? `${Math.round(currentData.windDirection)}°` : ''}
-              subMetrics={(() => {
-                const dirs = sortedHistoricalData
-                  .filter(d => d.windDirection != null && new Date(d.timestamp).getTime() > referenceNow - 24 * 60 * 60 * 1000)
-                  .map(d => d.windDirection!);
-                if (dirs.length === 0) return undefined;
-                const bins = new Array(16).fill(0);
-                dirs.forEach(d => { bins[Math.round(d / 22.5) % 16]++; });
-                const dominant = bins.indexOf(Math.max(...bins)) * 22.5;
-                return [{ label: "Dominant 24h", value: `${getWindDirectionLabel(dominant)} (${Math.round(dominant)}°)` }];
-              })()}
-            />
-            )}
-            {availableFields.pressure && (
-            <MetricCard
-              title="Pressure"
-              value={formatValue(currentData.pressure || 0, 1)}
-              unit="hPa"
-              trend={trends.pressure !== null ? { value: parseFloat(safeFixed(trends.pressure, 1, "0")), label: "vs avg" } : undefined}
-            />
-            )}
-            {availableFields.windSpeed && (
-            <MetricCard
-              title="Wind Speed"
-              value={formatValue(currentData.windSpeed || 0, 1)}
-              unit={windUnitLabel}
-              subMetrics={[{ label: "Gust", value: `${formatValue(currentData.windGust || 0, 1)} ${windUnitLabel}` }]}
-            />
-            )}
-            {availableFields.rainfall && (
-            <MetricCard
-              title="Rainfall (24h)"
-              value={formatValue(effectiveRainfall, 2)}
-              unit="mm"
-            />
-            )}
-            {availableFields.temperature && availableFields.humidity && currentData.temperature != null && currentData.humidity != null && (
-            <MetricCard
-              title="Heat Index"
-              value={formatValue(calculateHeatIndex(currentData.temperature, currentData.humidity), 1)}
-              unit="°C"
-            />
-            )}
-          </div>
+          {/* Primary metrics: identical presentation to the main dashboard
+              (station header + grey metric blocks) so a shared link looks the
+              same as what the owner sees. */}
+          <CurrentConditions
+            stationName={station.name || "Weather Station"}
+            lastUpdate={(currentData as any)?.collectedAt || currentData?.timestamp || "No data"}
+            temperature={availableFields.temperature ? (currentData.temperature ?? undefined) : undefined}
+            humidity={availableFields.humidity ? (currentData.humidity ?? undefined) : undefined}
+            pressure={availableFields.pressure ? (currentData.pressure ?? undefined) : undefined}
+            windSpeed={availableFields.windSpeed ? (currentData.windSpeed ?? undefined) : undefined}
+            windGust={availableFields.windSpeed ? (currentData.windGust ?? undefined) : undefined}
+            windDirection={availableFields.windDirection ? (currentData.windDirection ?? undefined) : undefined}
+            solarRadiation={availableFields.solarRadiation ? (currentData.solarRadiation ?? undefined) : undefined}
+            /* 24-hour accumulation, not currentData.rainfall: on cumulative
+               stations (RIKA) the raw field is a lifetime counter. */
+            rainfall={availableFields.rainfall ? effectiveRainfall : undefined}
+            dewPoint={effectiveDewPoint != null && effectiveDewPoint !== 0 ? effectiveDewPoint : undefined}
+            isOnline={(station as any)?.isActive ?? true}
+            connectionType={(station as any)?.connectionType ?? undefined}
+            syncInterval={3600000}
+            latitude={station.latitude ?? undefined}
+            longitude={station.longitude ?? undefined}
+          />
 
           {/* Primary Charts */}
           <Suspense fallback={<ChartFallback />}>
@@ -1886,7 +1870,7 @@ function SharedDashboardContent() {
             />
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Barometric Pressure History" data={chartData}
-              series={[{ dataKey: "pressure", name: "Station Pressure", color: "#3b82f6", unit: "hPa" }]}
+              series={[{ dataKey: "pressure", name: "Station Pressure", color: CHART_COLOURS.pressure, unit: "hPa" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Pressure"
               showAverage={true} showMinMax={true} currentValue={currentData.pressure || 0}
             />
@@ -1896,7 +1880,7 @@ function SharedDashboardContent() {
         </section>
         )}
 
-        {/* Logger Battery Section */}
+        {/* Logger Battery Section - Only show if battery data exists */}
         {sv.loggerBattery !== false && availableFields.batteryVoltage && (
         <section className="space-y-4">
           <h2 className="text-base font-normal text-foreground">Logger Battery Status</h2>
@@ -1905,7 +1889,7 @@ function SharedDashboardContent() {
               <div>
                 <p className="text-sm font-medium">Battery Not Charging</p>
                 <p className="text-xs text-amber-600">
-                  No charging activity detected in the last 24 hours. Voltage range: {batteryChargingStatus.minVoltage.toFixed(2)}V – {batteryChargingStatus.maxVoltage.toFixed(2)}V.
+                  No charging activity detected in the last 24 hours. Voltage range: {batteryChargingStatus.minVoltage.toFixed(2)}V to {batteryChargingStatus.maxVoltage.toFixed(2)}V.
                 </p>
               </div>
             </div>
@@ -1919,7 +1903,9 @@ function SharedDashboardContent() {
             />
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Battery Voltage History" data={batteryChartData}
-              series={[{ dataKey: "batteryVoltage", name: "Battery Voltage", color: "#22c55e", unit: "V" }]}
+              series={[
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.batteryVoltage, unit: "V" },
+              ]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Voltage"
               showAverage={true} showMinMax={true} currentValue={currentData.batteryVoltage || 0}
               defaultExpanded={false}
@@ -1929,7 +1915,7 @@ function SharedDashboardContent() {
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Battery Voltage vs Solar Irradiance" data={chartData}
               series={[
-                { dataKey: "batteryVoltage", name: "Battery Voltage", color: "#22c55e", unit: "V", yAxisId: "left" },
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.batteryVoltage, unit: "V", yAxisId: "left" },
                 { dataKey: "solar", name: "Solar Irradiance", color: "#f59e0b", unit: "W/m²", yAxisId: "right", strokeDasharray: "4 3" },
               ]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Voltage (V)"
@@ -1984,6 +1970,7 @@ function SharedDashboardContent() {
             {availableFields.mppt2SolarVoltage && (
             <MpptChargerCard
               label="Charger 2"
+              testIdSuffix="-2"
               solarVoltage={currentData.mppt2SolarVoltage ?? null}
               solarCurrent={currentData.mppt2SolarCurrent ?? null}
               solarPower={currentData.mppt2SolarPower ?? null}
@@ -2005,7 +1992,7 @@ function SharedDashboardContent() {
           <Suspense fallback={<ChartFallback />}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {availableFields.mpptSolarPower && (
-            <DataBlockChart title={availableFields.mppt2SolarPower ? "Charger 1 – Solar Power" : "Solar Power"} data={chartData}
+            <DataBlockChart title={availableFields.mppt2SolarPower ? "Charger 1 Solar Power" : "Solar Power"} data={chartData}
               series={[{ dataKey: "mpptSolarPower", name: "Solar Power", color: "#ef4444", unit: "W" }]}
               chartType="area" xAxisLabel="Time" yAxisLabel="Power"
               showAverage={true} showMinMax={true} currentValue={currentData.mpptSolarPower ?? 0}
@@ -2013,7 +2000,7 @@ function SharedDashboardContent() {
             />
             )}
             {availableFields.mppt2SolarPower && (
-            <DataBlockChart title="Charger 2 – Solar Power" data={chartData}
+            <DataBlockChart title="Charger 2 Solar Power" data={chartData}
               series={[{ dataKey: "mppt2SolarPower", name: "Solar Power", color: "#f97316", unit: "W" }]}
               chartType="area" xAxisLabel="Time" yAxisLabel="Power"
               showAverage={true} showMinMax={true} currentValue={currentData.mppt2SolarPower ?? 0}
@@ -2032,6 +2019,25 @@ function SharedDashboardContent() {
             )}
           </div>
           </Suspense>
+          {/* Daily yield: what the array actually delivered, not just peak power */}
+          {chargerEnergyData.length > 0 && (availableFields.mpptSolarPower || availableFields.mppt2SolarPower) && (
+          <Suspense fallback={<ChartFallback />}>
+          <div className="grid grid-cols-1 gap-6">
+            <DataBlockChart title="Daily Solar Energy Harvested" data={chargerEnergyData}
+              series={[
+                ...(availableFields.mpptSolarPower ? [{ dataKey: "chargerEnergy1", name: availableFields.mppt2SolarPower ? "Charger 1" : "Harvested", color: "#f59e0b", unit: "Wh" }] : []),
+                ...(availableFields.mppt2SolarPower ? [{ dataKey: "chargerEnergy2", name: "Charger 2", color: CHART_COLOURS.chargerEnergy2, unit: "Wh" }] : []),
+                ...(availableFields.mpptSolarPower && availableFields.mppt2SolarPower
+                  ? [{ dataKey: "chargerEnergyTotal", name: "System total", color: "#1e3a5f", unit: "Wh" }]
+                  : []),
+              ]}
+              chartType="bar" xAxisLabel="Day" yAxisLabel="Energy (Wh)"
+              showAverage={true} showMinMax={true}
+              yAxisDomain={[0, 'auto']}
+            />
+          </div>
+          </Suspense>
+          )}
         </section>
         )}
 
@@ -2065,7 +2071,15 @@ function SharedDashboardContent() {
             <MetricCard title="Strike Distance" value={formatValue(currentData.lightningDistance != null && currentData.lightningDistance > 0 ? currentData.lightningDistance : 0, 0)} unit="km" />
             )}
             {availableFields.lightningEnergy && (
-            <MetricCard title="Strike Energy" value={formatValue(currentData.lightningEnergy || 0, 0)} unit="" />
+            // Relative band + 0 to 100 figure, since the AS3935 register has no unit.
+            <MetricCard
+              title="Strike Intensity"
+              value={formatValue(interpretLightningIntensity(currentData.lightningEnergy).relative, 1)}
+              unit="of 100"
+              subMetrics={[
+                { label: interpretLightningIntensity(currentData.lightningEnergy).label, value: `raw ${formatValue(currentData.lightningEnergy || 0, 0)}` },
+              ]}
+            />
             )}
             {availableFields.chargerVoltage && (
             <MetricCard title="Charger Voltage" value={formatValue(currentData.chargerVoltage || 0, 2)} unit="V" />
@@ -2145,10 +2159,10 @@ function SharedDashboardContent() {
             )}
             {availableFields.lightningEnergy && (
             <DataBlockChart
-              title="Lightning Strike Energy"
+              title="Lightning Strike Intensity (relative, no physical unit)"
               data={chartData}
               series={[
-                { dataKey: "lightningEnergy", name: "Strike Energy", color: "#f97316", unit: "" },
+                { dataKey: "lightningEnergy", name: "Strike Intensity", color: "#f97316", unit: "" },
               ]}
               chartType="bar"
               xAxisLabel="Time"
@@ -2283,7 +2297,7 @@ function SharedDashboardContent() {
             )}
             {availableFields.solarRadiation && (
             <DataBlockChart title="Reference ETo" data={chartData}
-              series={[{ dataKey: "eto", name: "Reference ETo", color: "#22c55e", unit: "mm/day" }]}
+              series={[{ dataKey: "eto", name: "Reference ETo", color: CHART_COLOURS.eto, unit: "mm/day" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="ETo (mm/day)"
               showAverage={true} showMinMax={true} currentValue={currentData.eto ?? calculatedETo ?? 0}
             />
@@ -2336,7 +2350,7 @@ function SharedDashboardContent() {
             )}
             {availableFields.temperature && availableFields.windSpeed && (
             <DataBlockChart title="Wind Chill" data={chartData}
-              series={[{ dataKey: "windChill", name: "Wind Chill", color: "#0ea5e9", unit: "°C" }]}
+              series={[{ dataKey: "windChill", name: "Wind Chill", color: CHART_COLOURS.windChill, unit: "°C" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Wind Chill (°C)"
               showAverage={true} showMinMax={true}
               currentValue={currentData.temperature != null && currentData.windSpeed != null ? calculateWindChill(currentData.temperature, windSpeedUnit === 'kmh' ? kmhToMs(currentData.windSpeed) : currentData.windSpeed) : 0}
@@ -2777,6 +2791,14 @@ function SharedDashboardContent() {
             <MetricCard title="Rainfall (This Month)" value={formatValue(rainfallPeriods.thisMonth, 2)} unit="mm" />
           </div>
           {(() => {
+            /**
+             * Hidden for cumulative-counter stations (e.g. RIKA reports a
+             * lifetime millimetre counter), where a yearly aggregate is not a
+             * trustworthy rainfall depth. The shared station payload does not
+             * expose connectionType, so we key off the configured rainfall
+             * type instead - which is the authoritative signal anyway.
+             */
+            if (isCumulativeType(effectiveRainfallType)) return null;
             const currentYear = new Date().getFullYear();
             // Show ONLY the current calendar year (year-to-date) total.
             const sortedYearly = (rainfallYearly || [])
@@ -2821,7 +2843,7 @@ function SharedDashboardContent() {
               chartType="bar"
               series={[
                 { dataKey: "rain", name: "Rainfall (mm)", color: "#3b82f6", unit: "mm", yAxisId: "left" },
-                { dataKey: "eto", name: "ETo (mm/day)", color: "#06b6d4", unit: "mm/day", yAxisId: "right" },
+                { dataKey: "eto", name: "ETo (mm/day)", color: CHART_COLOURS.eto, unit: "mm/day", yAxisId: "right" },
               ]}
               yAxisLabel="Rainfall (mm)"
               rightYAxisLabel="ETo (mm/day)"
@@ -2907,7 +2929,7 @@ function SharedDashboardContent() {
             {availableFields.pressure && (
             <TabsContent value="pressure" className="mt-4">
               <WeatherChart title="Barometric Pressure" data={historicalChartData}
-                series={[{ dataKey: "pressure", name: "Pressure (hPa)", color: "#3b82f6" }]}
+                series={[{ dataKey: "pressure", name: "Pressure (hPa)", color: CHART_COLOURS.pressure }]}
               />
             </TabsContent>
             )}

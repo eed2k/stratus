@@ -4,6 +4,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { safeFixed } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import {
+  interpretLightningIntensity,
+  estimateRelativeStrikeStrength,
+  describeStormProximity,
+} from "@shared/utils/lightning";
 
 // CDN sources for Leaflet (reuse same CDN list as StationMap)
 const LEAFLET_CDNS = [
@@ -59,6 +64,10 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
   const hasCoords = latitude != null && longitude != null;
   const hasDistance = lightningDistance != null && lightningDistance > 0;
   const isDetected = hasDistance && lightningDistance! <= 40;
+
+  const intensity = interpretLightningIntensity(lightningEnergy);
+  const strength = estimateRelativeStrikeStrength(lightningEnergy, lightningDistance);
+  const proximity = describeStormProximity(lightningDistance);
 
   // Initialise map
   useEffect(() => {
@@ -212,9 +221,13 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
               )}
             </div>
             {isDetected ? (
-              <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-600 flex items-center gap-1">
-                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                Detected
+              <span
+                className="text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1"
+                style={{ backgroundColor: `${proximity.color}1a`, color: proximity.color }}
+                title={proximity.advice}
+              >
+                <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: proximity.color }} />
+                {proximity.label}
               </span>
             ) : (
               <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
@@ -232,7 +245,10 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
             </div>
           )}
 
-          {/* Strike count + energy */}
+          {/* Strike count + intensity.
+              The AS3935 intensity register has no physical unit, so it is shown
+              as a named band with a relative 0 to 100 figure rather than a bare
+              number that means nothing on its own. */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
             {lightningCount != null && (
               <div className="text-center">
@@ -240,13 +256,27 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
                 <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{lightningCount}</p>
               </div>
             )}
-            {lightningEnergy != null && (
-              <div className="text-center">
-                <p className="text-xs text-black">Energy</p>
-                <p className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>{safeFixed(lightningEnergy, 0)}</p>
+            {intensity.valid && (
+              <div className="text-center" title={intensity.description}>
+                <p className="text-xs text-black">Intensity</p>
+                <p className={`text-sm font-normal ${intensity.colorClass}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                  {intensity.label}
+                </p>
+                <p className="text-xs text-black">
+                  {safeFixed(intensity.relative, 1)} of 100
+                  {strength.adjusted != null && strength.distanceFactor != null
+                    ? ` (${safeFixed(strength.adjusted, 1)} adjusted)`
+                    : ''}
+                </p>
               </div>
             )}
           </div>
+          {intensity.valid && (
+            <p className="text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+              Relative scale, not joules. The sensor's intensity register has no physical unit, so it is only
+              meaningful when comparing strikes.
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut } from "lucide-react";
+import { ExternalLink, LogOut } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
@@ -29,8 +29,28 @@ interface AppSidebarProps {
   onBackToStations?: () => void;
 }
 
+interface NavItem {
+  title: string;
+  url: string;
+  /**
+   * Renders a plain anchor instead of a client-side route.
+   *
+   * The AS3935 Admin Panel is a separate FastAPI application served from its
+   * own subdomain, so it cannot be reached through the SPA router. It also
+   * sends `X-Frame-Options: DENY` and `frame-ancestors 'none'`, which rules
+   * out embedding it in an iframe - a new tab is the only option that works.
+   */
+  external?: boolean;
+}
+
+// Lightning Detection System admin panel (separate Python/FastAPI service).
+const LIGHTNING_PANEL_URL = "https://adminpanel.stratusweather.co.za";
+
 // Admin navigation items - full access
-const adminNavItems = [
+const adminNavItems: NavItem[] = [
+  // Pinned to the top: the AS3935 panel is the entry point operators reach for
+  // most often, and it is the one item that leaves the SPA entirely.
+  { title: "AS3935 Admin Panel", url: LIGHTNING_PANEL_URL, external: true },
   { title: "Active Stations", url: "/" },
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
@@ -43,7 +63,7 @@ const adminNavItems = [
 ];
 
 // User navigation items - limited access (no docs, no config)
-const userNavItems = [
+const userNavItems: NavItem[] = [
   { title: "Active Stations", url: "/" },
   { title: "Historical Data Export", url: "/history" },
   { title: "Account Settings", url: "/account" },
@@ -80,12 +100,34 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={item.url === '/' ? (location === '/' || location.startsWith('/dashboard')) : location === item.url}
+                    isActive={
+                      item.external
+                        ? false
+                        : item.url === '/'
+                          ? (location === '/' || location.startsWith('/dashboard'))
+                          : location === item.url
+                    }
                     data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
-                    <Link href={item.url}>
-                      <span>{item.title}</span>
-                    </Link>
+                    {item.external ? (
+                      // rel="noopener noreferrer" keeps the new tab from getting a
+                      // handle on this window and withholds the referrer from the
+                      // other origin.
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span>{item.title}</span>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />
+                        <span className="sr-only">(opens in a new tab)</span>
+                      </a>
+                    ) : (
+                      <Link href={item.url}>
+                        <span>{item.title}</span>
+                      </Link>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

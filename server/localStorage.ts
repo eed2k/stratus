@@ -32,7 +32,7 @@ import { applyRainfallOffset } from './config/stationRainfallOffsets';
 // Check if PostgreSQL mode is enabled
 const usePostgres = postgres.isPostgresEnabled();
 
-// Clamp relative humidity to 0–100% (capacitive sensors can exceed 100% in saturated air)
+// Clamp relative humidity to 0-100% (capacitive sensors can exceed 100% in saturated air)
 function clampHumidity(val: number | null | undefined): number | null {
   if (val == null) return null;
   return Math.min(100, Math.max(0, val));
@@ -122,6 +122,8 @@ export interface WeatherData {
   solarRadiation?: number | null;
   dewPoint?: number | null;
   batteryVoltage?: number | null;
+  /** Second battery bank, for installations running two banks. */
+  batteryVoltage2?: number | null;
   // Air quality
   pm10?: number | null;
   pm25?: number | null;
@@ -1989,6 +1991,12 @@ export class DatabaseStorage {
       solarMJTotal: data.solarMJTotal ?? data.SlrMJ_Tot ?? data.SlrMJ ?? data.Solar_MJ_Tot ?? null,
       dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? data.DewPointTemp_Avg ?? data.DewPointTemp ?? null,
       batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? data.Batt_volt_Min ?? data.BattV_Avg ?? data.Batt_V ?? data.LoggerBattery_Avg ?? data.LoggerBattery ?? null,
+      // Second battery bank. Installations that run two banks (such as the
+      // SWAS testbed, where each charge regulator has its own battery) report a
+      // separate channel; fall back to the second regulator's battery reading.
+      batteryVoltage2: data.batteryVoltage2 ?? data.BattV_2 ?? data.BattV2 ?? data.BattV_2_Avg ?? data.BattV2_Avg
+        ?? data.Batt2_V ?? data.Battery2_V ?? data.Battery_2_V ?? data.Batt_volt_2_Min
+        ?? data.LoggerBattery2_Avg ?? data.LoggerBattery2 ?? data.SolarCharger_BatteryVoltage_2_Avg ?? null,
       lithiumBattery: data.lithiumBattery ?? data.LoggerLithiumBatt_Avg ?? data.LoggerLithiumBatt ?? data.LithiumBatt_Avg ?? null,
       // Air quality
       pm10: data.pm10 ?? data.PM10_Avg ?? data.PM10 ?? null,
@@ -2107,6 +2115,12 @@ export class DatabaseStorage {
       solarMJTotal: data.solarMJTotal ?? data.SlrMJ_Tot ?? data.SlrMJ ?? data.Solar_MJ_Tot ?? null,
       dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? data.DewPointTemp_Avg ?? data.DewPointTemp ?? null,
       batteryVoltage: data.batteryVoltage ?? data.BattV ?? data.BattV_Min ?? data.Batt_volt_Min ?? data.BattV_Avg ?? data.Batt_V ?? data.LoggerBattery_Avg ?? data.LoggerBattery ?? null,
+      // Second battery bank. Installations that run two banks (such as the
+      // SWAS testbed, where each charge regulator has its own battery) report a
+      // separate channel; fall back to the second regulator's battery reading.
+      batteryVoltage2: data.batteryVoltage2 ?? data.BattV_2 ?? data.BattV2 ?? data.BattV_2_Avg ?? data.BattV2_Avg
+        ?? data.Batt2_V ?? data.Battery2_V ?? data.Battery_2_V ?? data.Batt_volt_2_Min
+        ?? data.LoggerBattery2_Avg ?? data.LoggerBattery2 ?? data.SolarCharger_BatteryVoltage_2_Avg ?? null,
       lithiumBattery: data.lithiumBattery ?? data.LoggerLithiumBatt_Avg ?? data.LoggerLithiumBatt ?? data.LithiumBatt_Avg ?? null,
       // Air quality
       pm10: data.pm10 ?? data.PM10_Avg ?? data.PM10 ?? null,

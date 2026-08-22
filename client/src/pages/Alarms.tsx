@@ -480,7 +480,7 @@ export default function Alarms() {
                 <div key={alert.stationId} className="flex items-center justify-between p-2 rounded bg-white/60 border border-amber-100">
                   <span className="text-sm font-medium text-amber-900">{alert.stationName}</span>
                   <span className="text-xs text-amber-600">
-                    Range: {alert.minV.toFixed(2)}V – {alert.maxV.toFixed(2)}V - Check solar panel or charge controller
+                    Range: {alert.minV.toFixed(2)}V to {alert.maxV.toFixed(2)}V. Check solar panel or charge controller
                   </span>
                 </div>
               ))}

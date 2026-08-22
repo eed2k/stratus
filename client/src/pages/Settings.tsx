@@ -29,6 +29,7 @@ import { Loader2, RefreshCw, Eye, EyeOff, ExternalLink, FileText, Clock, Chevron
 import { Badge } from "@/components/ui/badge";
 import { getAllUsers, updateUser } from "@/hooks/useAuth";
 import { verifyPassword } from "@/lib/passwordUtils";
+import { RikaStationPanel } from "@/components/settings/RikaStationPanel";
 
 // Dropbox config interface
 interface DropboxConfig {
@@ -89,9 +90,6 @@ export default function Settings() {
     // Delete account state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-
-  // RIKA live-status / reconnect state
-  const [rikaBusy, setRikaBusy] = useState<Record<number, 'test' | 'reconnect' | null>>({});
 
   // Fetch Dropbox configs from server
   const { data: dropboxConfigs, refetch: refetchDropboxConfigs } = useQuery<DropboxConfig[]>({
@@ -502,45 +500,6 @@ export default function Settings() {
       });
     } finally {
       setIsChangingPassword(false);
-    }
-  };
-
-    // Test a RIKA (or any protocol) station connection live on the server.
-  const handleRikaTest = async (stationId: number, stationName: string) => {
-    setRikaBusy(prev => ({ ...prev, [stationId]: 'test' }));
-    try {
-      const res = await authFetch(`/api/protocols/test/${stationId}`, { method: 'POST' });
-      const result = await res.json();
-      if (result.success) {
-        toast({ title: `${stationName}: connection OK`, description: result.message || 'Connected and received data.' });
-      } else {
-        toast({ title: `${stationName}: connection failed`, description: result.message || 'Could not connect.', variant: 'destructive' });
-      }
-      refetchProtocolStatuses();
-    } catch (error: any) {
-      toast({ title: 'Test failed', description: error.message || 'Request error', variant: 'destructive' });
-    } finally {
-      setRikaBusy(prev => ({ ...prev, [stationId]: null }));
-    }
-  };
-
-  // Force a reconnect (re-login + re-register) of a RIKA station on the live server.
-  const handleRikaReconnect = async (stationId: number, stationName: string) => {
-    setRikaBusy(prev => ({ ...prev, [stationId]: 'reconnect' }));
-    try {
-      const res = await authFetch(`/api/protocols/reconnect/${stationId}`, { method: 'POST' });
-      const result = await res.json().catch(() => ({}));
-      if (res.ok && (result.success !== false)) {
-        toast({ title: `${stationName}: reconnecting`, description: 'Session reset and re-registered. Status will update shortly.' });
-      } else {
-        toast({ title: `${stationName}: reconnect failed`, description: result.message || 'Could not reconnect.', variant: 'destructive' });
-      }
-      // Give the server a moment to re-establish before refreshing status.
-      setTimeout(() => refetchProtocolStatuses(), 3000);
-    } catch (error: any) {
-      toast({ title: 'Reconnect failed', description: error.message || 'Request error', variant: 'destructive' });
-    } finally {
-      setRikaBusy(prev => ({ ...prev, [stationId]: null }));
     }
   };
 
@@ -1042,7 +1001,7 @@ export default function Settings() {
           <CardHeader>
             <CardTitle className="text-lg">RIKA Cloud Integration</CardTitle>
             <CardDescription>
-              View RIKA weather station connections managed via RikaCloud API
+              Monitor, troubleshoot and reconnect RIKA weather stations managed via the RikaCloud API
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1068,39 +1027,19 @@ export default function Settings() {
               }
               return (
                 <div className="space-y-3">
-                  {rikaStations.map((station: any) => {
-                    const config = typeof station.connectionConfig === 'string' 
-                      ? JSON.parse(station.connectionConfig || '{}') 
-                      : (station.connectionConfig || {});
-                    return (
-                      <div key={station.id} className="border rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                            <span className="font-medium">{station.name}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs">RikaCloud v2</Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                          <div>
-                            <span className="font-medium">Account:</span>{' '}
-                            {config.rikaEmail || config.rikaAccount || '-'}
-                          </div>
-                          <div>
-                            <span className="font-medium">Poll Interval:</span>{' '}
-                            {config.pollInterval ? `${config.pollInterval}s` : '60s'}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-medium">API Endpoint:</span>{' '}
-                            {config.apiEndpoint || 'https://cloud.rikacloud.com (default)'}
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          RIKA credentials are configured per-station during setup. Edit the station to change credentials.
-                        </p>
-                      </div>
-                    );
-                  })}
+                  {rikaStations.map((station: any) => (
+                    <RikaStationPanel
+                      key={station.id}
+                      station={station}
+                      status={protocolStatuses?.[station.id]}
+                      onStatusChanged={() => refetchProtocolStatuses()}
+                    />
+                  ))}
+                  <p className="text-[11px] text-muted-foreground">
+                    Diagnose runs a live probe of the RikaCloud login, farm discovery, device read, sensor mapping
+                    and reading freshness without disturbing the poller. Credentials can be corrected here and the
+                    station reconnects immediately, so a lost login no longer needs a code change.
+                  </p>
                 </div>
               );
             })()}

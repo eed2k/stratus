@@ -9,6 +9,12 @@ interface BatteryVoltageCardProps {
   minVoltage?: number;         // Minimum acceptable voltage
   maxVoltage?: number;         // Maximum/charging voltage
   isCharging?: boolean;
+  /** Card heading. Set per bank when a site runs more than one battery. */
+  title?: string;
+  /** Hide the long battery chemistry note (useful when two cards are shown). */
+  showChemistryNote?: boolean;
+  /** Suffix for the test id so multiple cards stay individually addressable. */
+  testIdSuffix?: string;
 }
 
 function getBatteryStatus(voltage: number, min: number, max: number): { 
@@ -16,7 +22,7 @@ function getBatteryStatus(voltage: number, min: number, max: number): {
   color: string; 
   percentage: number;
 } {
-  // LiFePO4 12V (4S): 10.0V empty – 14.6V full charge, nominal 12.8V
+  // LiFePO4 12V (4S): 10.0V empty to 14.6V full charge, nominal 12.8V
   const percentage = Math.min(100, Math.max(0, ((voltage - min) / (max - min)) * 100));
   
   if (voltage < min) {
@@ -39,14 +45,17 @@ export function BatteryVoltageCard({
   minVoltage = 10.0,
   maxVoltage = 14.6,
   isCharging = false,
+  title = "Logger Battery Voltage",
+  showChemistryNote = true,
+  testIdSuffix = "",
 }: BatteryVoltageCardProps) {
   const status = getBatteryStatus(voltage, minVoltage, maxVoltage);
 
   return (
-    <Card className="border border-gray-300 bg-white" data-testid="card-battery-voltage">
+    <Card className="border border-gray-300 bg-white" data-testid={`card-battery-voltage${testIdSuffix}`}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-normal text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          Logger Battery Voltage
+          {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -103,10 +112,12 @@ export function BatteryVoltageCard({
           </div>
 
           {/* Battery technology note */}
+          {showChemistryNote && (
           <p className="text-xs text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            Lead-acid: 10.5V (empty) → 12.7V (full) → 14.4–14.8V (charging). Float voltage ~13.6V. Self-discharge ~3–5%/month.{' '}
-            LiFePO₄ (lithium): 10.0V (empty) → 13.2V (full) → 14.2–14.6V (charging). Flat discharge curve holds ~13.0–13.2V for ~80% of capacity. Minimal self-discharge (~2%/month). Lifespan and cycle count vary by capacity and manufacturer.
+            Lead-acid: 10.5V (empty) to 12.7V (full) to 14.4-14.8V (charging). Float voltage about 13.6V. Self-discharge about 3-5% per month.{' '}
+            LiFePO4 (lithium): 10.0V (empty) to 13.2V (full) to 14.2-14.6V (charging). The flat discharge curve holds about 13.0-13.2V for roughly 80% of capacity. Minimal self-discharge (about 2% per month). Lifespan and cycle count vary by capacity and manufacturer.
           </p>
+          )}
         </div>
       </CardContent>
     </Card>

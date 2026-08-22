@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { safeFixed } from "@/lib/utils";
+import { exportChartPng } from "@/lib/svgChartExport";
 import { WIND_DIRECTIONS } from "@/lib/windConstants";
 
 export interface WindPowerRoseData {
@@ -52,14 +53,18 @@ export function processWindPowerRoseData(
   }));
 }
 
-/* ── Power density colour scale (W/m²) ── */
+/* ── Power density colour scale (W/m²) ──
+ * House style excludes violet/purple and pale washed-out blues, so the ramp
+ * runs dark cyan → blue → green → amber → red → dark red. Every step is
+ * saturated enough to stay distinguishable when the chart is printed in a
+ * greyscale or low-ink PDF report. Keep it consistent with shared/chartColours.ts. */
 const POWER_CLASSES = [
-  { min: 0,   max: 50,   label: '0–50 W/m²',   color: '#93c5fd' },
-  { min: 50,  max: 150,  label: '50–150',        color: '#3b82f6' },
-  { min: 150, max: 300,  label: '150–300',       color: '#16a34a' },
-  { min: 300, max: 500,  label: '300–500',       color: '#f59e0b' },
-  { min: 500, max: 1000, label: '500–1 000',     color: '#ef4444' },
-  { min: 1000, max: Infinity, label: '>1 000',   color: '#7c3aed' },
+  { min: 0,   max: 50,   label: '0-50 W/m²',   color: '#0891b2' },
+  { min: 50,  max: 150,  label: '50-150',        color: '#2563eb' },
+  { min: 150, max: 300,  label: '150-300',       color: '#16a34a' },
+  { min: 300, max: 500,  label: '300-500',       color: '#f59e0b' },
+  { min: 500, max: 1000, label: '500-1 000',     color: '#ef4444' },
+  { min: 1000, max: Infinity, label: '>1 000',   color: '#991b1b' },
 ];
 
 function powerColor(meanPower: number): string {
@@ -105,66 +110,24 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
     return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${outerR} ${outerR} 0 0 1 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${innerR} ${innerR} 0 0 0 ${p1.x} ${p1.y} Z`;
   };
 
-  /* ── Export PNG ── */
+  /* ── Export PNG (plot + stats + legend) ── */
   const handleExportImage = useCallback(() => {
     const svgEl = cardRef.current?.querySelector('svg[data-windpowerrose]') as SVGSVGElement | null;
     if (!svgEl) return;
-    const clone = svgEl.cloneNode(true) as SVGSVGElement;
-    const origTexts = svgEl.querySelectorAll('text');
-    const cloneTexts = clone.querySelectorAll('text');
-    origTexts.forEach((orig, i) => {
-      const cs = window.getComputedStyle(orig);
-      cloneTexts[i].setAttribute('fill', cs.fill || cs.color || '#000');
-      cloneTexts[i].setAttribute('font-size', cs.fontSize);
-      cloneTexts[i].setAttribute('font-family', cs.fontFamily);
+
+    exportChartPng({
+      svg: svgEl,
+      title,
+      width: size,
+      height: size,
+      stats: [
+        `Dominant: ${stats.dominantDirection} (${stats.dominantPct}%)   |   Overall Avg: ${stats.overallMeanPower} W/m²   |   Readings: ${data.reduce((s, d) => s + d.count, 0)}`,
+      ],
+      legend: POWER_CLASSES.map(pc => ({ label: pc.label, color: pc.color, shape: 'rect' as const })),
+      captions: ['Petal length = energy contribution (%). Colour = mean wind power density (W/m²) per direction.'],
+      filename: title,
     });
-    const origCircles = svgEl.querySelectorAll('circle');
-    const cloneCircles = clone.querySelectorAll('circle');
-    origCircles.forEach((orig, i) => {
-      const cs = window.getComputedStyle(orig);
-      if (cloneCircles[i].getAttribute('stroke') === 'currentColor') cloneCircles[i].setAttribute('stroke', cs.color || '#666');
-      if (cloneCircles[i].getAttribute('fill') === 'currentColor') cloneCircles[i].setAttribute('fill', cs.color || '#ccc');
-    });
-    clone.querySelectorAll('[class]').forEach(el => el.removeAttribute('class'));
-    const titlePad = 36;
-    const exportH = size + titlePad;
-    clone.setAttribute('width', String(size));
-    clone.setAttribute('height', String(exportH));
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    const cg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    cg.setAttribute('transform', `translate(0, ${titlePad})`);
-    while (clone.firstChild) cg.appendChild(clone.firstChild);
-    clone.appendChild(cg);
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('width', String(size)); bg.setAttribute('height', String(exportH)); bg.setAttribute('fill', 'white');
-    clone.insertBefore(bg, clone.firstChild);
-    const tt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    tt.setAttribute('x', String(center)); tt.setAttribute('y', '24'); tt.setAttribute('text-anchor', 'middle');
-    tt.setAttribute('font-size', '14'); tt.setAttribute('font-family', 'Arial, sans-serif'); tt.setAttribute('fill', '#000');
-    tt.textContent = title;
-    clone.insertBefore(tt, clone.children[1]);
-    const svgData = new XMLSerializer().serializeToString(clone);
-    const url = URL.createObjectURL(new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' }));
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scale = 2;
-      canvas.width = size * scale; canvas.height = exportH * scale;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0, size, exportH);
-      URL.revokeObjectURL(url);
-      canvas.toBlob(blob => {
-        if (!blob) return;
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
-        a.click(); URL.revokeObjectURL(a.href);
-      }, 'image/png');
-    };
-    img.src = url;
-  }, [title, size, center]);
+  }, [title, size, stats, data]);
 
   return (
     <Card ref={cardRef} data-testid="card-wind-power-rose">

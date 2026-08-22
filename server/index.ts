@@ -5,6 +5,7 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -42,6 +43,21 @@ const httpServer = createServer(app);
 // Trust proxy when behind reverse proxy (nginx)
 // This is required for rate limiting to work correctly with X-Forwarded-For headers
 app.set('trust proxy', 1);
+
+/**
+ * Keep Stratus out of every search index, permanently.
+ *
+ * Registered before all routes so it covers EVERY response: the SPA, static
+ * assets, API JSON and public shared-dashboard links. robots.txt only asks
+ * well-behaved crawlers not to fetch, and the index.html meta tag only covers
+ * the HTML document; neither reliably de-indexes a URL a crawler already knows
+ * about (a pasted share link, a referrer log). This header does.
+ */
+const NO_INDEX = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
+app.use((_req, res, next) => {
+  res.setHeader("X-Robots-Tag", NO_INDEX);
+  next();
+});
 
 // Security headers with Helmet.js
 // Note: upgrade-insecure-requests disabled for HTTP-only deployments
@@ -83,6 +99,14 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
+      // Clickjacking protection, the modern equivalent of the
+      // X-Frame-Options: SAMEORIGIN header nginx already sets. The embed
+      // widget is a script include rather than an iframe, so this is safe.
+      frameAncestors: ["'self'"],
+      // Stop an injected <base> tag from re-pointing every relative URL, and
+      // stop forms being posted to an attacker-controlled endpoint.
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
       upgradeInsecureRequests: null, // Disable for HTTP-only servers
     },
   },
@@ -107,7 +131,35 @@ app.use(
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: '5mb' }));
+
+/**
+ * Baseline rate limit for the whole API surface.
+ *
+ * Individual endpoints keep their own tighter limits (login, registration,
+ * password reset, ingest, embed, share validation). This is the safety net that
+ * caps scraping and brute-force sweeps against everything else. The ceiling is
+ * deliberately generous because several users can share one public IP behind
+ * NAT and a dashboard load issues a burst of requests.
+ *
+ * Tune with API_RATE_LIMIT_MAX (requests) and API_RATE_LIMIT_WINDOW_MS.
+ */
+const apiRateLimitWindowMs = Number(process.env.API_RATE_LIMIT_WINDOW_MS) > 0
+  ? Number(process.env.API_RATE_LIMIT_WINDOW_MS)
+  : 60 * 1000;
+const apiRateLimitMax = Number(process.env.API_RATE_LIMIT_MAX) > 0
+  ? Number(process.env.API_RATE_LIMIT_MAX)
+  : 600;
+
+app.use('/api', rateLimit({
+  windowMs: apiRateLimitWindowMs,
+  max: apiRateLimitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Health checks come from uptime monitors and must never be throttled.
+  skip: (req) => req.path === '/health' || req.path === '/api/health',
+  message: { message: 'Too many requests. Please slow down and try again shortly.' },
+}));
 
 // Enable gzip/brotli compression for all responses
 // This dramatically reduces JSON payload sizes (e.g. 2MB → ~200KB for weather data)
@@ -238,20 +290,36 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const isProduction = (process.env.NODE_ENV || 'development') === 'production';
 
-    res.status(status).json({ message });
+    // Always log the full error server-side. Only surface the detail to the
+    // caller for deliberate 4xx responses: leaking internal messages (stack
+    // fragments, driver errors, file paths) from a 500 helps an attacker map
+    // the system.
     console.error('[ErrorHandler]', err);
+
+    const message = status < 500 || !isProduction
+      ? (err.message || "Internal Server Error")
+      : "Internal Server Error";
+
+    if (res.headersSent) return;
+    res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
-  } else {
+  // Only set up Vite in development, and only after every other route, so the
+  // catch-all does not shadow the API.
+  //
+  // The check is deliberately "is this explicitly development" rather than "is
+  // this not production". The Vite dev middleware serves the raw source tree
+  // (/src/*.tsx, and /@fs/ paths anywhere on disk), so a deploy that forgets to
+  // set NODE_ENV must fall back to serving the built bundle, never the source.
+  const isDevelopment = process.env.NODE_ENV === "development";
+  if (isDevelopment) {
+    log("Development mode: serving client through Vite with source files exposed");
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
+  } else {
+    serveStatic(app);
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT

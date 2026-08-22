@@ -78,11 +78,11 @@ export const WMO_SPEED_CLASSES: WindSpeedClass[] = [
  * Uses same thermal gradient color scheme. Values in m/s.
  */
 export const WMO_SIMPLIFIED_CLASSES: WindSpeedClass[] = [
-  { min: 0, max: 1.6, color: "#bae6fd", label: "Calm/Light (0–1.5 m/s)", beaufort: "0-1" },
-  { min: 1.6, max: 5.5, color: "#38bdf8", label: "Light/Gentle (1.6–5.4 m/s)", beaufort: "2-3" },
-  { min: 5.5, max: 10.8, color: "#22c55e", label: "Moderate/Fresh (5.5–10.7 m/s)", beaufort: "4-5" },
-  { min: 10.8, max: 17.2, color: "#eab308", label: "Strong/Near Gale (10.8–17.1 m/s)", beaufort: "6-7" },
-  { min: 17.2, max: 24.5, color: "#f97316", label: "Gale/Strong Gale (17.2–24.4 m/s)", beaufort: "8-9" },
+  { min: 0, max: 1.6, color: "#bae6fd", label: "Calm/Light (0-1.5 m/s)", beaufort: "0-1" },
+  { min: 1.6, max: 5.5, color: "#38bdf8", label: "Light/Gentle (1.6-5.4 m/s)", beaufort: "2-3" },
+  { min: 5.5, max: 10.8, color: "#22c55e", label: "Moderate/Fresh (5.5-10.7 m/s)", beaufort: "4-5" },
+  { min: 10.8, max: 17.2, color: "#eab308", label: "Strong/Near Gale (10.8-17.1 m/s)", beaufort: "6-7" },
+  { min: 17.2, max: 24.5, color: "#f97316", label: "Gale/Strong Gale (17.2-24.4 m/s)", beaufort: "8-9" },
   { min: 24.5, max: Infinity, color: "#dc2626", label: "Storm+ (>24.5 m/s)", beaufort: "10+" },
 ];
 
@@ -110,11 +110,11 @@ export const WMO_SPEED_CLASSES_KMH: WindSpeedClass[] = [
  * Simplified WMO classes in km/h for wind rose display (6 categories)
  */
 export const WMO_SIMPLIFIED_CLASSES_KMH: WindSpeedClass[] = [
-  { min: 0, max: 6, color: "#bae6fd", label: "Calm/Light (0–5 km/h)", beaufort: "0-1" },
-  { min: 6, max: 20, color: "#38bdf8", label: "Light/Gentle (6–19 km/h)", beaufort: "2-3" },
-  { min: 20, max: 39, color: "#22c55e", label: "Moderate/Fresh (20–38 km/h)", beaufort: "4-5" },
-  { min: 39, max: 62, color: "#eab308", label: "Strong/Near Gale (39–61 km/h)", beaufort: "6-7" },
-  { min: 62, max: 89, color: "#f97316", label: "Gale/Strong Gale (62–88 km/h)", beaufort: "8-9" },
+  { min: 0, max: 6, color: "#bae6fd", label: "Calm/Light (0-5 km/h)", beaufort: "0-1" },
+  { min: 6, max: 20, color: "#38bdf8", label: "Light/Gentle (6-19 km/h)", beaufort: "2-3" },
+  { min: 20, max: 39, color: "#22c55e", label: "Moderate/Fresh (20-38 km/h)", beaufort: "4-5" },
+  { min: 39, max: 62, color: "#eab308", label: "Strong/Near Gale (39-61 km/h)", beaufort: "6-7" },
+  { min: 62, max: 89, color: "#f97316", label: "Gale/Strong Gale (62-88 km/h)", beaufort: "8-9" },
   { min: 89, max: Infinity, color: "#dc2626", label: "Storm+ (>89 km/h)", beaufort: "10+" },
 ];
 

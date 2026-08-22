@@ -4,11 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Stratus Weather Server</title>
-    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Keep Stratus out of every search index. This meta tag covers crawlers
+         that fetch the rendered page; robots.txt blocks well-behaved crawlers
+         before they fetch; and the server sends an X-Robots-Tag header on every
+         response (see server/static.ts) so even direct asset and shared-link
+         hits are marked noindex. All three layers are deliberate. -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
     <meta name="theme-color" content="#1e3a5f" />
-    
-    <!-- Favicon -->
+
+    <!-- Stratus mark in the browser tab -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
   </head>
   <body>
     <div id="root"></div>

@@ -52,10 +52,42 @@ export function serveStatic(app: Express) {
   
   console.log(`Serving static files from: ${distPath}`);
 
+  /**
+   * Refuse anything that looks like a request for application source.
+   *
+   * Only the built bundle is ever served from disk, so these paths cannot
+   * resolve to real files. Without this guard the SPA fallback answers them
+   * with index.html, which makes probing look like it half worked; an explicit
+   * 404 is both honest and stops a Vite-style path (/@fs/, /src/) from ever
+   * being interpreted should the dev middleware be mounted by mistake.
+   */
+  // Path prefixes that only exist in the source tree or in Vite's dev server.
+  // Note the deliberate omission of "shared": public share links live at
+  // /shared/{token}, so blocking that prefix would take every shared dashboard
+  // offline.
+  const SOURCE_PREFIXES = /^\/(?:src|server|scripts|node_modules|@fs|@vite|@id)\//i;
+  // Extensions that are never part of a built client bundle.
+  const SOURCE_EXTENSIONS = /\.(?:ts|tsx|jsx|map|env|log|sql|py|sh)$/i;
+  // Hidden paths, except the ACME challenge directory a certificate issuer needs.
+  const HIDDEN_PATH = /^\/\.(?!well-known\/)/;
+
+  // Note: the X-Robots-Tag noindex header is set globally in server/index.ts so
+  // it also covers API responses and shared dashboard links.
+  app.use((req, res, next) => {
+    const p = req.path;
+    if (SOURCE_PREFIXES.test(p) || SOURCE_EXTENSIONS.test(p) || HIDDEN_PATH.test(p)) {
+      res.status(404).type("text/plain").send("Not found");
+      return;
+    }
+    next();
+  });
+
   // Cache hashed assets (JS/CSS with content hashes) for 1 year
   app.use("/assets", express.static(path.join(distPath, "assets"), {
     maxAge: "1y",
     immutable: true,
+    dotfiles: "deny",
+    index: false,
   }));
 
   // Serve other static files with no-cache. Disable index serving so
@@ -67,6 +99,7 @@ export function serveStatic(app: Express) {
     maxAge: 0,
     etag: false,
     index: false,
+    dotfiles: "deny",
   }));
 
   app.use("*", (_req, res) => {

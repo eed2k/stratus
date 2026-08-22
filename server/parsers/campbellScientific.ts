@@ -340,6 +340,9 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     soilTemperature: ["SoilTC", "Soil_Temp", "T_Soil", "SoilTemp_Avg", "SoilTC_Avg"],
     soilMoisture: ["VWC", "Soil_VWC", "VWC_Avg", "SoilMoist_Avg", "Soil_Moisture"],
     batteryVoltage: ["BattV", "Batt_V", "Battery", "BattV_Avg", "BattV_Min", "Batt_volt_Min", "LoggerBattery_Avg", "LoggerBattery", "Batt_Volt_Avg", "BAT_VOLTS_Avg"],
+    // Second battery bank, used by installations that run two banks (e.g. the
+    // SWAS testbed, where each charge regulator has its own battery).
+    batteryVoltage2: ["BattV_2", "BattV2", "BattV_2_Avg", "BattV2_Avg", "Batt2_V", "Battery2_V", "Battery_2_V", "Batt_volt_2_Min", "Batt_Volt_2_Avg", "LoggerBattery2_Avg", "LoggerBattery2", "SolarCharger_BatteryVoltage_2_Avg"],
     lithiumBattery: ["LoggerLithiumBatt_Avg", "LoggerLithiumBatt", "LithiumBatt_Avg", "LithiumBatt"],
     panelTemperature: ["PTemp", "PTemp_C", "Panel_Temp", "PTemp_Avg", "PTemp_C_Avg", "LoggerTemp_Avg", "LoggerTemp"],
     pm25: ["PM2_5_Avg", "PM2_5", "PM25", "PM25_Avg"],
@@ -473,7 +476,7 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
       }
     }
 
-    // Clamp relative humidity to 0–100% (capacitive sensors can read slightly above 100% in saturated air)
+    // Clamp relative humidity to 0-100% (capacitive sensors can read slightly above 100% in saturated air)
     if (result['humidity'] !== null && result['humidity'] !== undefined) {
       result['humidity'] = Math.min(100, Math.max(0, result['humidity']));
     }

@@ -11,6 +11,7 @@
  */
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
 import * as crypto from 'crypto';
 import * as pg from '../db-postgres';
 import {
@@ -142,7 +143,21 @@ router.get('/auth', (req, res) => {
   res.json({ configured, authed });
 });
 
-router.post('/auth', (req, res) => {
+/**
+ * Brute-force protection for the shared reports password. The endpoint is
+ * public and guards a single secret, so it needs a hard attempt ceiling.
+ * Successful logins are not counted against the limit.
+ */
+const reportsAuthRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many password attempts. Please try again later.' },
+});
+
+router.post('/auth', reportsAuthRateLimiter, (req, res) => {
   const expected = getReportsPassword();
   if (!expected) {
     res.status(503).json({ error: 'reports portal not configured' });
@@ -198,6 +213,7 @@ function serialize(s: ReportSchedule) {
     enabled: s.enabled,
     lastRunAt: s.lastRunAt ? s.lastRunAt.toISOString() : null,
     lastStatus: s.lastStatus,
+    nextRunAt: s.nextRunAt ? s.nextRunAt.toISOString() : null,
   };
 }
 
@@ -377,9 +393,11 @@ router.get('/pdf', async (req, res) => {
       .map((s) => s.trim()).filter((k) => k && validKeys.has(k));
 
     const title = String(req.query.title || 'Stratus Weather Report');
+    // charts=0 renders a summary-only PDF (no graph pages).
+    const includeCharts = String(req.query.charts ?? '1') !== '0';
 
     const buf = await buildSchedulePdfBuffer({
-      stationIds, startMs: fromMs, endMs: toMs, fields, title,
+      stationIds, startMs: fromMs, endMs: toMs, fields, title, includeCharts,
     });
     const filename = `stratus-report-${new Date(toMs).toISOString().slice(0, 10)}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');

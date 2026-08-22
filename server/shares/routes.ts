@@ -4,6 +4,7 @@
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import { createShare as sqliteCreateShare, getShareByToken as sqliteGetShareByToken, getSharesByStation as sqliteGetSharesByStation, updateShare as sqliteUpdateShare, deleteShare as sqliteDeleteShare, Share } from "../db";
 import * as postgres from "../db-postgres";
 import { isAuthenticated } from "../localAuth";
@@ -88,6 +89,48 @@ const SALT_ROUNDS = 10;
 // Validated share sessions: maps "shareToken:sessionId" to expiry timestamp
 // When a password-protected share is validated, a session is created
 const validatedSessions = new Map<string, number>();
+
+/**
+ * Sweep expired share sessions.
+ *
+ * Sessions were previously only removed when the same key was used again, so a
+ * long-running server accumulated one entry per validation forever. That is
+ * both a slow memory leak and something an attacker can drive on purpose.
+ */
+const SESSION_SWEEP_INTERVAL_MS = 15 * 60 * 1000;
+const sessionSweeper = setInterval(() => {
+  const now = Date.now();
+  for (const [key, expiry] of validatedSessions) {
+    if (expiry <= now) validatedSessions.delete(key);
+  }
+}, SESSION_SWEEP_INTERVAL_MS);
+// Do not hold the process open just for the sweeper.
+sessionSweeper.unref?.();
+
+/**
+ * Brute-force protection for password-protected share links.
+ *
+ * Share passwords are short and human-chosen, and the validate endpoint is
+ * public, so without a limit a share link password can be guessed offline-fast.
+ * Successful validations are not counted, so legitimate viewers are unaffected.
+ */
+const shareValidateRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { success: false, error: 'Too many password attempts. Please try again later.' },
+});
+
+/** Lighter limit for the public share metadata / data reads. */
+const sharePublicRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 240,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please slow down.' },
+});
 
 // Generate a session ID for validated share access
 const generateSessionId = (): string => {
@@ -221,7 +264,7 @@ router.get('/stations/:stationId/shares', isAuthenticated, async (req: Request, 
 
 // Resolve a friendly slug to its share token (public)
 // Must be defined BEFORE /shares/:shareToken to avoid conflict
-router.get('/shares/resolve/:slug', async (req: Request, res: Response) => {
+router.get('/shares/resolve/:slug', sharePublicRateLimiter, async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
     const share = await dbGetShareBySlug(slug);
@@ -255,7 +298,7 @@ router.get('/shares/resolve/:slug', async (req: Request, res: Response) => {
 });
 
 // Validate a share token and get access
-router.post('/shares/:shareToken/validate', async (req: Request, res: Response) => {
+router.post('/shares/:shareToken/validate', shareValidateRateLimiter, async (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
     const { password } = req.body;
@@ -315,7 +358,7 @@ router.post('/shares/:shareToken/validate', async (req: Request, res: Response) 
 });
 
 // Get share info (public endpoint, minimal info)
-router.get('/shares/:shareToken', async (req: Request, res: Response) => {
+router.get('/shares/:shareToken', sharePublicRateLimiter, async (req: Request, res: Response) => {
   try {
     const { shareToken } = req.params;
     const share = await dbGetShareByToken(shareToken);

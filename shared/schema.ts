@@ -284,6 +284,9 @@ export const weatherData = pgTable(
     visibilityVolt: real("visibility_volt"),
     cloudBase: real("cloud_base"),
     batteryVoltage: real("battery_voltage"),
+    // Second battery bank, for installations that run two banks (e.g. the
+    // SWAS testbed, where each charge regulator has its own battery).
+    batteryVoltage2: real("battery_voltage_2"),
     lithiumBattery: real("lithium_battery"),
     panelTemperature: real("panel_temperature"),
     // Air quality metrics

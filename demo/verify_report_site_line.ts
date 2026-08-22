@@ -5,7 +5,7 @@
  * cron task nor reaches sendEmail at module scope, and server/index.ts is never
  * imported, so running this cannot send a report.
  *
- *   npx tsx demo_data/verify_report_site_line.ts
+ *   npx tsx demo/verify_report_site_line.ts
  */
 import { formatSiteLine } from "../server/services/reportSchedulerService";
 

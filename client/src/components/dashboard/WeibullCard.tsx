@@ -91,7 +91,7 @@ export function WeibullCard({ windSpeeds }: WeibullCardProps) {
             </p>
             <div className="flex items-end gap-px h-20">
               {weibull.histogram.slice(0, 25).map((h, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full relative" title={`${h.bin}–${h.bin + 1} m/s: ${h.count} readings`}>
+                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full relative" title={`${h.bin} to ${h.bin + 1} m/s: ${h.count} readings`}>
                   {/* Actual bar */}
                   <div
                     className="w-full bg-emerald-500 rounded-t-sm absolute bottom-0"

@@ -103,5 +103,5 @@ python generate_potchefstroom_demo.py --days 14 --interval 10
 Then validate against the real parser:
 
 ```bash
-npx tsx demo_data/verify_demo.ts
+npx tsx demo/verify_demo.ts
 ```
