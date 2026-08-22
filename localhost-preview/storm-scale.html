@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storm activity - distance bands (v6)</title>
+<link rel="stylesheet" href="/LDS%20ADMIN/app/static/style.css">
+<style>
+/* ===================================================================
+   v6. Five distance bands, one thundercloud each. The block underneath
+   gives strike count plus peak / mean / min energy for that band.
+   No axes, no IC/CG split, no bearing implied. Range 1h to 24h.
+   =================================================================== */
+:root{
+  --navy:#0a2540; --navy-deep:#061a30; --navy-soft:#eef2f7; --white:#fff;
+  --line:#b9c2cf; --line-dark:#8c98a8; --muted-solid:#111418; --desktop:#e7ebf0;
+}
+body { padding: 18px; }
+.note {
+  border-left: 3px solid var(--navy); background: var(--navy-soft);
+  padding: 10px 14px; margin: 0 0 14px; font-size: 13px; line-height: 1.6;
+}
+
+/* ---- header + range selector -------------------------------------- */
+.storm-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.storm-range { display: flex; gap: 0; }
+.storm-range button {
+  font: 600 11px/1 Consolas, "Courier New", monospace;
+  padding: 6px 11px; background: var(--white); color: var(--navy);
+  border: 1px solid var(--line-dark); border-right: 0; cursor: pointer;
+  letter-spacing: .04em;
+}
+.storm-range button:last-child { border-right: 1px solid var(--line-dark); }
+.storm-range button:hover { background: var(--navy-soft); }
+.storm-range button[aria-pressed="true"] {
+  background: var(--navy); color: var(--white); border-color: var(--navy);
+}
+.storm-count { font: 11px/1.4 Consolas, "Courier New", monospace; color: #5b6673; }
+
+/* ---- band grid ---------------------------------------------------- */
+.storm-bands {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+  background: var(--white); border: 1px solid var(--line-dark); padding: 12px;
+}
+@media (max-width: 900px) {
+  .storm-bands { grid-template-columns: repeat(2, 1fr); }
+}
+.band { display: flex; flex-direction: column; }
+.band svg { display: block; width: 100%; height: auto; }
+
+/* Band header: the distance range this cell covers. */
+.band-range {
+  font: 700 11px/1 Consolas, "Courier New", monospace;
+  letter-spacing: .06em; text-align: center; color: var(--white);
+  background: var(--navy); padding: 5px 4px; border: 1px solid var(--navy);
+  border-bottom: 0;
+}
+.band.idle .band-range { background: #93a0b0; border-color: #93a0b0; }
+
+/* Data block under the cloud. */
+.band-data {
+  border: 1px solid var(--line); border-top: 3px solid var(--bandc, var(--navy));
+  background: #fafbfd; padding: 7px 8px 8px;
+  font-family: Consolas, "Courier New", monospace;
+}
+.band.idle .band-data { border-top-color: #93a0b0; }
+.band-count {
+  text-align: center; font-size: 19px; font-weight: 700;
+  color: var(--muted-solid); line-height: 1.1;
+}
+.band-count span { font-size: 9.5px; font-weight: 400; color: #5b6673; }
+.band-label {
+  text-align: center; font-size: 9px; color: var(--bandc, #5b6673);
+  font-weight: 700; letter-spacing: .05em; margin: 1px 0 5px;
+}
+.band.idle .band-label { color: #8c98a8; }
+.band-rows { border-top: 1px dotted var(--line); padding-top: 4px; }
+.band-row {
+  display: flex; justify-content: space-between; font-size: 10px;
+  line-height: 1.65; color: #5b6673;
+}
+.band-row b { color: var(--muted-solid); font-weight: 700; }
+.band-none {
+  text-align: center; font-size: 9.5px; color: #8c98a8; padding: 4px 0 2px;
+}
+
+/* ---- cloud parts -------------------------------------------------- */
+.cb-anvil { fill: #e4eaf1; stroke: var(--line); stroke-width: .7; }
+.cb-tower { fill: #dbe3ec; stroke: var(--line-dark); stroke-width: .8; }
+.cb-base  { fill: #b7c2d0; stroke: var(--line-dark); stroke-width: .8; }
+.band.idle .cb-anvil { fill: #f1f3f6; }
+.band.idle .cb-tower { fill: #eceff3; }
+.band.idle .cb-base  { fill: #d5dbe3; }
+
+/* Very short, sharp strike. The whole event is over inside 260 ms. */
+.band.flash .cb-tower { animation: lit 260ms steps(1,end) 1; }
+.band.flash .cb-base  { animation: litbase 260ms steps(1,end) 1; }
+@keyframes lit {
+  0%   { fill: #fff6cc; }
+  22%  { fill: #dbe3ec; }
+  38%  { fill: #fff6cc; }
+  54%  { fill: #dbe3ec; }
+  100% { fill: #dbe3ec; }
+}
+@keyframes litbase {
+  0%   { fill: #ffe9a3; }
+  22%  { fill: #b7c2d0; }
+  38%  { fill: #ffe9a3; }
+  54%  { fill: #b7c2d0; }
+  100% { fill: #b7c2d0; }
+}
+.bolt { fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.band.flash .bolt-glow { animation: bglow 260ms steps(1,end) 1; }
+.band.flash .bolt-main { animation: bmain 260ms steps(1,end) 1; }
+.band.flash .bolt-core { animation: bcore 260ms steps(1,end) 1; }
+.band.flash .halo      { animation: bhalo 260ms ease-out 1; }
+@keyframes bmain {
+  0% { opacity: 1; } 20% { opacity: 0; } 38% { opacity: .9; }
+  52% { opacity: 0; } 100% { opacity: 0; }
+}
+@keyframes bcore {
+  0% { opacity: 1; } 16% { opacity: 0; } 38% { opacity: .8; }
+  48% { opacity: 0; } 100% { opacity: 0; }
+}
+@keyframes bglow {
+  0% { opacity: .5; } 22% { opacity: 0; } 38% { opacity: .35; }
+  54% { opacity: 0; } 100% { opacity: 0; }
+}
+@keyframes bhalo {
+  0% { opacity: .45; } 30% { opacity: .12; } 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .band.flash .cb-tower, .band.flash .cb-base, .band.flash .bolt-glow,
+  .band.flash .bolt-main, .band.flash .bolt-core, .band.flash .halo
+    { animation: none; }
+  .band:not(.idle) .bolt-main { opacity: .55; }
+}
+</style>
+</head>
+<body>
+
+<h1 style="font-size:19px;margin:0 0 6px;">Storm activity &mdash; distance bands</h1>
+<p class="note">
+  Recorded strikes grouped into five distance bands, nearest on the left. Each
+  band shows how many strikes it recorded in the selected window, with the
+  <strong>peak</strong>, <strong>mean</strong> and <strong>lowest</strong> energy
+  for that band. A band flashes more often the more strikes it holds. Nothing
+  here implies direction, because the AS3935 does not measure bearing.
+</p>
+
+<div class="card" style="padding:12px;">
+  <div class="storm-head">
+    <h3 style="margin:0;">Storm activity</h3>
+    <div class="storm-range" id="range" role="group" aria-label="Time range">
+      <button type="button" data-h="1">1 H</button>
+      <button type="button" data-h="3">3 H</button>
+      <button type="button" data-h="6">6 H</button>
+      <button type="button" data-h="12">12 H</button>
+      <button type="button" data-h="24" aria-pressed="true">24 H</button>
+    </div>
+  </div>
+  <p class="storm-count" id="count">Loading&hellip;</p>
+  <div class="storm-bands" id="bands"></div>
+  <p class="muted" style="font-size:11px;padding:8px 2px 0;">
+    Distance accuracy &plusmn;4&nbsp;km (manufacturer rated), reported in 15
+    discrete steps, so a strike can fall in an adjacent band. Energy is a
+    relative sensor value for comparing strikes with each other, not joules.
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var E_MAX = 2097151;                       // AS3935 energy is 21-bit
+
+  /* Distance bands. min is inclusive, max inclusive. The AS3935 reports 15
+     discrete steps [1,5,6,8,10,12,14,17,20,24,27,31,34,37,40], so these
+     boundaries fall cleanly between steps and nothing is double counted. */
+  var BANDS = [
+    { key: "0-1",   label: "OVERHEAD",  range: "\u2264 1 KM",   min: 0,  max: 1  },
+    { key: "1-10",  label: "VERY CLOSE",range: "< 10 KM",       min: 2,  max: 9  },
+    { key: "10-20", label: "CLOSE",     range: "< 20 KM",       min: 10, max: 19 },
+    { key: "20-30", label: "DISTANT",   range: "< 30 KM",       min: 20, max: 29 },
+    { key: "30-40", label: "FAR",       range: "30-40 KM",      min: 30, max: 40 }
+  ];
+
+  // Placeholder colours for the preview only. The real port must read these
+  // from app/metrics.py::_ENERGY_BANDS so dashboard and PDF agree.
+  var EBANDS = [
+    { name: "Low",      upTo: 0.25, colour: "#2c7fb8" },
+    { name: "Moderate", upTo: 0.50, colour: "#d98f16" },
+    { name: "High",     upTo: 0.75, colour: "#d4571d" },
+    { name: "Extreme",  upTo: 1.01, colour: "#c0392b" }
+  ];
+  function eband(e) {
+    var f = Math.max(0, Math.min(1, e / E_MAX));
+    for (var i = 0; i < EBANDS.length; i++) if (f <= EBANDS[i].upTo) return EBANDS[i];
+    return EBANDS[3];
+  }
+  function fmtE(e) { return (e / 1e6).toFixed(2) + "M"; }
+
+  function el(n, a, p) {
+    var e = document.createElementNS(NS, n);
+    for (var k in a) if (a.hasOwnProperty(k)) e.setAttribute(k, a[k]);
+    if (p) p.appendChild(e);
+    return e;
+  }
+
+  /* Small cumulonimbus: spreading anvil, short tower, flat darker base. */
+  var VB_W = 130, VB_H = 108, CX = 65, CY = 36, BOLT_TOP = 52, BOLT_END = 96;
+
+  function cloud(svg, s) {
+    var g = el("g", {}, svg);
+    el("ellipse", { cx: CX, cy: CY - 15 * s, rx: 32 * s, ry: 5.6 * s,
+                    "class": "cb-anvil" }, g);
+    el("ellipse", { cx: CX - 13 * s, cy: CY - 12 * s, rx: 13 * s, ry: 4.6 * s,
+                    "class": "cb-anvil" }, g);
+    el("ellipse", { cx: CX + 14 * s, cy: CY - 12 * s, rx: 12 * s, ry: 4.2 * s,
+                    "class": "cb-anvil" }, g);
+    [[-7, -6, 9], [3, -8, 9.5], [10, -3, 7.5], [-13, -2, 7.5], [0, 0, 10.5]]
+      .forEach(function (p) {
+        el("ellipse", { cx: CX + p[0] * s, cy: CY + p[1] * s,
+                        rx: p[2] * s, ry: p[2] * s * .82,
+                        "class": "cb-tower" }, g);
+      });
+    el("ellipse", { cx: CX, cy: CY + 8 * s, rx: 20 * s, ry: 5 * s,
+                    "class": "cb-base" }, g);
+    return g;
+  }
+
+  /* A sharp, mostly-vertical channel: few segments, small lateral spread. */
+  function jag(x, y0, y1) {
+    var segs = 5, dy = (y1 - y0) / segs, pts = [[x, y0]];
+    for (var i = 1; i < segs; i++) {
+      var t = 1 - Math.abs(i / segs - .5) * 1.4;
+      pts.push([x + (Math.random() * 2 - 1) * 5.5 * t, y0 + dy * i]);
+    }
+    pts.push([x + (Math.random() * 2 - 1) * 2.5, y1]);
+    return pts.map(function (p) {
+      return p[0].toFixed(1) + "," + p[1].toFixed(1);
+    }).join(" ");
+  }
+
+  function buildBand(def, stats) {
+    var active = stats.count > 0;
+    var eb = active ? eband(stats.mean) : null;
+    var colour = active ? eb.colour : "#93a0b0";
+    var f = active ? Math.max(0, Math.min(1, stats.mean / E_MAX)) : 0;
+    var s = 0.74 + f * 0.40;                 // small clouds, mild size cue
+
+    var cell = document.createElement("div");
+    cell.className = "band" + (active ? "" : " idle");
+    cell.style.setProperty("--bandc", colour);
+
+    var hdr = document.createElement("div");
+    hdr.className = "band-range";
+    hdr.textContent = def.range;
+    cell.appendChild(hdr);
+
+    var svg = el("svg", { viewBox: "0 0 " + VB_W + " " + VB_H, role: "img",
+      "aria-label": def.range + ": " + stats.count + " strikes" +
+        (active ? ", mean energy " + stats.mean : "") });
+    cell.appendChild(svg);
+
+    var defs = el("defs", {}, svg);
+    var fid = "sf" + Math.random().toString(36).slice(2, 8);
+    var filt = el("filter", { id: fid, x: "-80%", y: "-80%",
+                              width: "260%", height: "260%" }, defs);
+    el("feGaussianBlur", { stdDeviation: 3.6 }, filt);
+
+    if (active) {
+      el("circle", { cx: CX, cy: CY + 6, r: 28, fill: colour,
+                     filter: "url(#" + fid + ")", "class": "halo",
+                     opacity: 0 }, svg);
+    }
+    cloud(svg, s);
+
+    var glow, main, core;
+    if (active) {
+      var path = jag(CX, BOLT_TOP, BOLT_END);
+      glow = el("polyline", { points: path, stroke: colour, "stroke-width": 5.5,
+        "class": "bolt bolt-glow", filter: "url(#" + fid + ")" }, svg);
+      main = el("polyline", { points: path, stroke: colour, "stroke-width": 2.2,
+        "class": "bolt bolt-main" }, svg);
+      core = el("polyline", { points: path, stroke: "#ffffff",
+        "stroke-width": .9, "class": "bolt bolt-core" }, svg);
+    }
+
+    var data = document.createElement("div");
+    data.className = "band-data";
+    var html =
+      '<div class="band-count">' + stats.count +
+        ' <span>' + (stats.count === 1 ? 'strike' : 'strikes') + '</span></div>' +
+      '<div class="band-label">' + def.label + '</div>';
+    if (active) {
+      html += '<div class="band-rows">' +
+        '<div class="band-row"><span>peak</span><b>' + fmtE(stats.max) + '</b></div>' +
+        '<div class="band-row"><span>mean</span><b>' + fmtE(stats.mean) + '</b></div>' +
+        '<div class="band-row"><span>low</span><b>'  + fmtE(stats.min) + '</b></div>' +
+        '<div class="band-row" style="border-top:1px dotted var(--line);margin-top:2px;padding-top:2px;">' +
+          '<span>band</span><b style="color:' + colour + '">' + eb.name + '</b></div>' +
+      '</div>';
+    } else {
+      html += '<div class="band-none">no strikes recorded</div>';
+    }
+    data.innerHTML = html;
+    cell.appendChild(data);
+
+    if (active) {
+      cell._strike = function () {
+        var p = jag(CX, BOLT_TOP, BOLT_END);
+        glow.setAttribute("points", p);
+        main.setAttribute("points", p);
+        core.setAttribute("points", p);
+        cell.classList.remove("flash");
+        void cell.offsetWidth;               // force restart
+        cell.classList.add("flash");
+      };
+      cell.addEventListener("click", cell._strike);
+      cell.style.cursor = "pointer";
+    }
+    return cell;
+  }
+
+  /* ---- data + range ------------------------------------------------ */
+  var ALL = [], NOW = Date.now(), hours = 24, timers = [];
+
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function summarise(list) {
+    return BANDS.map(function (d) {
+      var es = list.filter(function (s) {
+        return s.distance_km >= d.min && s.distance_km <= d.max;
+      }).map(function (s) { return s.energy; });
+      if (!es.length) return { count: 0 };
+      var sum = es.reduce(function (a, b) { return a + b; }, 0);
+      return { count: es.length, max: Math.max.apply(null, es),
+               min: Math.min.apply(null, es), mean: Math.round(sum / es.length) };
+    });
+  }
+
+  function render() {
+    clearTimers();
+    var cutoff = NOW - hours * 3600 * 1000;
+    var shown = ALL.filter(function (s) {
+      var ts = new Date(s.t).getTime();
+      return !isNaN(ts) && ts >= cutoff;
+    });
+    var stats = summarise(shown);
+
+    document.getElementById("count").textContent =
+      shown.length + (shown.length === 1 ? " strike" : " strikes") +
+      " in the last " + hours + " h  \u00b7  grouped by distance, nearest first" +
+      (shown.length ? "  \u00b7  click a cloud to replay its strike" : "");
+
+    var host = document.getElementById("bands");
+    host.textContent = "";
+    var cells = BANDS.map(function (d, i) {
+      var c = buildBand(d, stats[i]);
+      host.appendChild(c);
+      return { cell: c, count: stats[i].count };
+    });
+
+    // Flash cadence scales with strike count, so a busy band visibly pulses
+    // more often than a quiet one. Nearest band leads the opening pass.
+    cells.forEach(function (c, i) {
+      if (!c.cell._strike) return;
+      var gap = Math.max(1400, 7000 - c.count * 420);
+      timers.push(setTimeout(function () {
+        c.cell._strike();
+        (function loop() {
+          timers.push(setTimeout(function () {
+            c.cell._strike();
+            loop();
+          }, gap + Math.random() * gap * 0.7));
+        })();
+      }, 140 * i + Math.random() * 160));
+    });
+  }
+
+  document.getElementById("range").addEventListener("click", function (ev) {
+    var b = ev.target.closest("button[data-h]");
+    if (!b) return;
+    hours = parseInt(b.getAttribute("data-h"), 10);
+    Array.prototype.forEach.call(this.querySelectorAll("button"),
+      function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    render();
+  });
+
+  fetch("/localhost-preview/strikes.json")
+    .then(function (r) { return r.json(); })
+    .then(function (p) {
+      ALL = p.strikes || [];
+      // Anchor "now" to the payload so the range filter is deterministic in
+      // the preview. The live port uses the server clock.
+      var t = p.generated ? new Date(p.generated).getTime() : NaN;
+      if (isNaN(t) && ALL.length) t = new Date(ALL[0].t).getTime();
+      if (!isNaN(t)) NOW = t;
+      render();
+    })
+    .catch(function () {
+      document.getElementById("count").textContent = "Could not load strikes.json";
+    });
+})();
+</script>
+</body>
+</html>

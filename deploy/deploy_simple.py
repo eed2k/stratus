@@ -72,7 +72,7 @@ def upload_application(client):
             dirs[:] = [d for d in dirs if d not in [
                 'node_modules', 'dist', '.git', 'logs', '__pycache__', '.vscode',
                 'release', 'tmp_dist', 'win-unpacked', '.cache', '.parcel-cache',
-                'demo_data', 'coverage',
+                'demo', 'coverage',
             ]]
 
             for file in files:

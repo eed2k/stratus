@@ -1,9 +1,9 @@
 # =============================================================================
-# Docker Compose for Production — Vultr Managed PostgreSQL + Traefik SSL
+# Docker Compose for Production - Vultr Managed PostgreSQL + Traefik SSL
 # =============================================================================
 #
 # This configuration uses:
-#   - Vultr Managed PostgreSQL (external) — no local postgres container
+#   - Vultr Managed PostgreSQL (external) - no local postgres container
 #   - Traefik v2 for automatic Let's Encrypt SSL on stratusweather.co.za
 #
 # Required environment variables in .env:
@@ -48,7 +48,7 @@ services:
       - MAILERSEND_ALERTS_EMAIL=${MAILERSEND_ALERTS_EMAIL:-alerts@stratusweather.co.za}
       # Public URL for email links
       - APP_BASE_URL=${APP_BASE_URL:-https://stratusweather.co.za}
-      # Staleness Monitor (offline-station email alerts — disabled by default)
+      # Staleness Monitor (offline-station email alerts - disabled by default)
       - STALENESS_ALERTS_ENABLED=${STALENESS_ALERTS_ENABLED:-false}
       - STALENESS_CHECK_INTERVAL=${STALENESS_CHECK_INTERVAL:-900000}
       - STALENESS_THRESHOLD=${STALENESS_THRESHOLD:-7200000}

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storm animation preview - LDS panel</title>
+
+<!--
+  Loads the REAL deployed stylesheet and the REAL storm-view.js from the panel
+  source, not copies, so what renders here is what renders on the live panel.
+  Paths are absolute under the http.server document root (the repo root), with
+  the space in "LDS ADMIN" percent-encoded.
+-->
+<link rel="stylesheet" href="/LDS%20ADMIN/app/static/style.css">
+<style>
+  /* Preview chrome only. Nothing here affects the panel. */
+  body { padding: 18px; }
+  .preview-note {
+    border-left: 3px solid #0a2540; background: #f6f8fa;
+    padding: 10px 14px; margin: 0 0 18px; font-size: 13px; line-height: 1.6;
+  }
+  .preview-note code { background: #eef1f5; padding: 1px 4px; }
+  .preview-controls { margin: 0 0 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .preview-controls button { padding: 5px 12px; font-size: 12px; cursor: pointer; }
+  .sky-only {
+    position: relative; height: 190px; overflow: hidden;
+    border: 1px solid #c9d2dd; margin-bottom: 22px;
+  }
+  .sky-only .label {
+    position: relative; z-index: 1; padding: 10px 14px;
+    font-size: 12px; color: #5b6673;
+  }
+</style>
+</head>
+<body>
+
+<h1 style="font-size:19px;margin:0 0 6px;">Storm animation preview</h1>
+<p class="preview-note">
+  Two separate animations, both already live on the panel.<br>
+  <strong>1. Drifting thundercloud sky</strong> &mdash; pure CSS
+  (<code>@keyframes storm-drift</code> on <code>.storm-sky</code>). Always running,
+  deliberately low opacity so it never costs the plot contrast.<br>
+  <strong>2. Strike pulse</strong> &mdash; <code>@keyframes strike-pulse</code> on
+  <code>.strike-new</code>, applied by <code>storm-view.js</code> to strikes it has
+  not seen before. On the live panel it only fires when a genuinely new strike
+  arrives, which is why an idle dashboard shows no movement.<br>
+  Both are suppressed under <code>prefers-reduced-motion: reduce</code> &mdash;
+  turn that on in your OS and reload to check.
+</p>
+
+<h3 style="font-size:14px;margin:0 0 6px;">1. The cloud sky on its own, isolated</h3>
+<div class="sky-only">
+  <div class="storm-sky" aria-hidden="true"></div>
+  <div class="label">
+    This is just <code>.storm-sky</code> with nothing on top of it, so the drift
+    is easy to see. Give it 20&ndash;30 seconds: the movement is intentionally slow.
+  </div>
+</div>
+
+<h3 style="font-size:14px;margin:0 0 6px;">2. The real Storm activity card</h3>
+<div class="preview-controls">
+  <button type="button" id="pulse">Pulse a random strike</button>
+  <button type="button" id="pulseAll">Pulse all strikes</button>
+  <button type="button" id="toggleSky">Toggle the cloud sky</button>
+</div>
+
+<!-- Markup copied verbatim from app/templates/dashboard.html -->
+<div class="card storm-card">
+  <h3>Storm activity</h3>
+  <div class="storm-sky" aria-hidden="true"></div>
+  <div class="storm-body">
+    <div class="storm-view"
+         data-storm-view
+         data-endpoint="/localhost-preview/strikes.json"
+         data-window="1440">
+      <p class="muted chart-empty">Loading storm activity...</p>
+    </div>
+    <p class="storm-note">
+      Strikes from the last 24 hours, placed by distance from the detector.
+      The AS3935 reports distance up to 40 km but does not measure bearing, so
+      the direction a strike appears in carries no meaning. Colour shows the
+      relative intensity band.
+    </p>
+  </div>
+</div>
+
+<script src="/LDS%20ADMIN/app/static/js/storm-view.js" defer></script>
+<script>
+// Preview-only helpers. The live panel does not include this: there, the pulse
+// is driven by storm-view.js noticing a strike it has not seen before.
+document.addEventListener("DOMContentLoaded", function () {
+  function dots() {
+    return Array.prototype.slice.call(
+      document.querySelectorAll(".storm-view svg circle"))
+      .filter(function (c) { return c.getAttribute("r") !== "3"; });  // skip the centre
+  }
+  function pulse(el) {
+    el.classList.remove("strike-new");
+    void el.getBoundingClientRect();   // force a reflow so the animation restarts
+    el.classList.add("strike-new");
+  }
+  document.getElementById("pulse").addEventListener("click", function () {
+    var d = dots();
+    if (!d.length) return alert("No strike dots yet - give the fetch a moment.");
+    pulse(d[Math.floor(Math.random() * d.length)]);
+  });
+  document.getElementById("pulseAll").addEventListener("click", function () {
+    dots().forEach(function (c, i) { setTimeout(function () { pulse(c); }, i * 90); });
+  });
+  document.getElementById("toggleSky").addEventListener("click", function () {
+    document.querySelectorAll(".storm-sky").forEach(function (s) {
+      s.style.display = (s.style.display === "none") ? "" : "none";
+    });
+  });
+});
+</script>
+</body>
+</html>
