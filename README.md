@@ -104,6 +104,55 @@ Solar & Power Monitoring
 
 ---
 
+Lightning Detection System (LDS)
+
+A separate but linked subsystem: an AS3935 lightning sensor on a Raspberry Pi
+Zero W reporting into a multi-tenant FastAPI console (Lightning Alert Console
+v1.0), deployed alongside Stratus behind the same Traefik proxy.
+
+Detector (Raspberry Pi Zero W + AS3935):
+
+- SPI-attached AS3935 franklin lightning sensor with startup calibration self-check
+- Hourly heartbeat plus an immediate ping on every in-range strike, reporting CPU temperature and load
+- Low-power configuration: HDMI, Bluetooth and onboard LEDs disabled, CPU governor tuned
+- USB gadget ethernet on a fixed address, so a card with no working wifi is still recoverable over the single USB cable
+- Provisioned by cloud-init from the SD card boot partition (see `RPiZero SD Card/`)
+
+Admin console:
+
+- Multi-tenant: each client gets its own panel at `/<slug>/`, with a platform-level management console at the root for creating clients and assigning newly-reporting detectors
+- Recipients, groups and per-tenant alert configuration with an alert cooldown
+- SMS alerts via Clickatell, with a master on/off switch. The gateway is platform infrastructure and is not exposed in client panels
+- Monthly PDF reports (WeasyPrint) with vector charts: CPU trend, distance histogram, energy bands, uptime gauge and storm activity
+- Event history with per-event delivery detail
+
+Storm activity display:
+
+Recorded strikes are grouped into five proximity bands, nearest first, each drawn
+as a small cumulonimbus that flashes more often the busier the band. The block
+under each cloud gives the strike count with the peak, mean and lowest intensity
+recorded in that band.
+
+- Distance bands: `<= 1 km` (overhead), `< 10 km`, `< 20 km`, `< 30 km`, `30-40 km`
+- Selectable window from 1 h to 24 h
+- Energy bands (Low / Moderate / High / Extreme) are quarters of the sensor's 21-bit full scale
+
+Two measurement caveats are stated on the display itself rather than left to the
+reader to discover:
+
+- The AS3935 measures distance but **not bearing**. Nothing in the display is placed in a compass direction, because any angle would be invented. This is why the view is a proximity ordering and not a map.
+- Reported "energy" is a relative sensor value for comparing strikes with each other. It is not joules, and it is not calibrated to any physical unit.
+
+Distance is reported in 15 discrete steps at a manufacturer-rated accuracy of
++/- 4 km, so a strike can legitimately land in an adjacent band.
+
+The band aggregation lives in one place, `LDS ADMIN/app/metrics.py::distance_band_summary`.
+Both the live dashboard (`/data/strikes`) and the PDF renderer
+(`charts.py::storm_bands_svg`) consume it, so the panel and the report cannot
+disagree about how many strikes fell in each band.
+
+---
+
 Reports & Data Export
 
 - History & Analysis - View and analyze data across configurable time ranges
@@ -156,6 +205,14 @@ Security Features
 - HTTPS Enforcement - TLS for all traffic
 - Session Management - Secure sessions with automatic recovery
 - Audit Logging - Security-event logging
+- Content Security Policy - The LDS console runs under `script-src 'self'` with no exceptions: chart bundles are vendored rather than pulled from a CDN, and there are no inline scripts
+- Secret Scanning - `python deploy/scan_secrets.py` checks every file git could commit (tracked plus non-ignored untracked) for credentials, and exits non-zero on a finding. Run it before pushing
+
+Credentials are kept out of the repository by design. Anything holding a real
+secret is gitignored and shipped as a `.example` template instead: the detector's
+cloud-init files (wifi PSK, user password hash) and every `.env` variant. A
+credential committed once stays recoverable from git history even after the file
+is deleted, so the safer default is never to commit it.
 
 ---
 
@@ -248,10 +305,29 @@ server/             Express backend (TypeScript)
 shared/             Shared types and utilities
   utils/            Calculation functions (LFDI, solar, ETo, air density, AQI, WBGT, Weibull, AEP, ...)
 assets/             Application icons
-deploy/             Deployment scripts and Docker config
+deploy/             Deployment scripts, Docker config, secret scanner
 scripts/            Dropbox auth and documentation generation
 docs/               User documentation
 examples/           CRBasic example programs
+
+LDS ADMIN/          Lightning Alert Console (FastAPI, separate deployment)
+  app/
+    routes/         Web pages, JSON data endpoints, detector ingest API
+    templates/      Jinja2 templates (server-rendered, no SPA)
+    static/         style.css, app.js, js/cpu-chart.js, js/storm-view.js
+    metrics.py      Energy bands, distance bands, uptime, coordinate validation
+    charts.py       Vector SVG builders shared by the dashboard and the PDFs
+    reports.py      Monthly report assembly
+  tests/            pytest suite (runs on the workstation, not in the prod image)
+
+RPiZero SD Card/    Boot-partition contents for the detector
+  gwld1-deploy/     Detector service, installer and configuration
+  config.txt        SPI enabled, low-power options
+  *.example         cloud-init templates (real files hold credentials, gitignored)
+  FLASH_FROM_SCRATCH.md
+
+localhost-preview/  Standalone HTML previews for iterating on visualisations
+                    without deploying
 ```
 
 ---
@@ -263,6 +339,8 @@ Tech Stack
 - Database: PostgreSQL (Neon serverless supported), SQLite for local development
 - Email: MailerSend
 - Deployment: Docker, Traefik reverse proxy
+- Lightning console: Python 3, FastAPI, SQLAlchemy, Jinja2, WeasyPrint, pytest
+- Detector: Raspberry Pi Zero W, Raspberry Pi OS, spidev, systemd, cloud-init
 
 ---
 
