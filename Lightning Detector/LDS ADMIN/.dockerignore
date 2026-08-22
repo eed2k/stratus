@@ -1,0 +1,27 @@
+# Keep secrets and runtime state out of the Docker build context.
+# The Dockerfile only needs requirements.txt and app/, so nothing else has any
+# business being uploaded to the daemon.
+.env
+.env.*
+!.env.example
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Deployment tooling and docs (never used at build time)
+deploy/
+*.md
+ACCESS.txt
+DEPLOY_STATUS.txt
+TODO.md
+
+# VCS / caches
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/

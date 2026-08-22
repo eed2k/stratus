@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Test alert{% endblock %}
+{% block content %}
+<h1>Test alert</h1>
+<p class="muted">
+  Fire a test lightning alert through the live SMS path. The SMS text matches
+  production format. Only recipients whose group distance threshold covers the
+  test distance below will receive the alert.
+</p>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+<div class="card">
+  <h3>Send to all eligible recipients</h3>
+  <p class="muted">
+    Uses the real fan-out: every active recipient whose group distance
+    threshold covers the test distance below receives the SMS alert.
+  </p>
+  <form method="post" action="/test" class="grid"
+        data-confirm="Send a test alert to all eligible recipients?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="mode" value="recipients">
+    <label>Station ID<input name="station_id" value="GLENCORE WONDERKOP"></label>
+    <label>Distance (km)<input name="distance_km" type="number" step="0.1" min="0" max="99" value="10"></label>
+    <label>Energy<input name="energy" type="number" min="0" value="18450"></label>
+    <button class="primary" type="submit">Send To Recipients</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Send to a single number</h3>
+  <p class="muted">
+    One-off send to a specific destination without touching the recipient
+    list. Handy for verifying SMS delivery.
+  </p>
+  <form method="post" action="/test" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="mode" value="single">
+    <label>Station ID<input name="station_id" value="GLENCORE WONDERKOP"></label>
+    <label>Distance (km)<input name="distance_km" type="number" step="0.1" min="0" max="99" value="10"></label>
+    <label>Energy<input name="energy" type="number" min="0" value="18450"></label>
+    <label>Destination SMS number (E.164)<input name="number" placeholder="+27821234567"></label>
+    <button class="primary" type="submit">Send single SMS test</button>
+  </form>
+</div>
+
+{% if recipients %}
+<h2>Active recipients ({{ recipients|length }})</h2>
+<table>
+  <thead><tr><th>Name</th><th>Group</th><th>SMS number</th></tr></thead>
+  <tbody>
+    {% for r in recipients %}
+    <tr>
+      <td>{{ r.name }}</td>
+      <td>{{ r.group.name if r.group else '-' }}</td>
+      <td>{{ r.phone }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No active recipients yet. Add some on the Recipients page first.</p>
+{% endif %}
+{% endblock %}
+{# end test_alert #}

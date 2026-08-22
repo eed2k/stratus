@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1>Reports</h1>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+<p class="muted" style="text-align:left;padding:0 0 6px;">
+  Monthly PDF reports per station. The technical report covers system health and
+  calibration activity; the client summary presents uptime and lightning
+  activity. Reports are generated in South African Standard Time (SAST).
+</p>
+
+{% if not units %}
+<p class="muted">No detector units have reported in yet, so there is nothing to report on.</p>
+{% else %}
+
+{% if can_generate %}
+<div class="card">
+  <h3>Generate a report</h3>
+  <form method="post" action="{{ base }}/reports/generate" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Station
+      <select name="station_id" required>
+        {% for u in units %}<option value="{{ u.station_id }}">{{ u.station_id }}{% if u.site_label %} ({{ u.site_label }}){% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Month
+      <select name="month" required>
+        {% for m in months %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Type
+      <select name="report_type" required>
+        {% for rt in report_types %}<option value="{{ rt }}">{{ rt }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="primary" type="submit">Generate and download</button>
+  </form>
+</div>
+{% endif %}
+
+<h3>Download</h3>
+<table>
+  <thead><tr><th>Station</th><th>Month</th><th>Technical</th><th>Client summary</th></tr></thead>
+  <tbody>
+    {% for u in units %}
+      {% for m in months %}
+      <tr>
+        <td>{{ u.station_id }}{% if u.site_label %} <span class="muted">({{ u.site_label }})</span>{% endif %}</td>
+        <td>{{ m.label }}</td>
+        <td><a href="{{ base }}/reports/download?station={{ u.station_id }}&month={{ m.value }}&type=technical">Download</a></td>
+        <td><a href="{{ base }}/reports/download?station={{ u.station_id }}&month={{ m.value }}&type=client">Download</a></td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

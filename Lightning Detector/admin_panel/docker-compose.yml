@@ -1,0 +1,13 @@
+services:
+  panel:
+    build: .
+    image: lightning-alert-panel:latest
+    container_name: lightning-alert-panel
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Put a real reverse proxy (Caddy / Nginx Proxy Manager / Traefik) in front
+    # of this for HTTPS. Bind only to localhost so the proxy is the only entry.

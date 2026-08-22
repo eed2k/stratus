@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+{% set can_write = user.role in ['admin','operator'] %}
+<div class="card">
+  <h3>Alert delivery</h3>
+  {% if alerts_enabled %}
+  <p>SMS alerts are <strong class="state-on">ON</strong>. Recipients
+     are notified when a qualifying strike is detected.</p>
+  {% else %}
+  <p>SMS alerts are <strong class="state-off">OFF</strong>. Strikes are
+     still recorded, but no SMS is sent.</p>
+  {% endif %}
+  {% if can_write %}
+    {% if alerts_enabled %}
+    <form method="post" action="{{ base }}/alerts/toggle" class="inline"
+          data-confirm="Switch SMS alerts OFF? Recipients will NOT be notified of strikes.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="enabled" value="off">
+      <button class="danger" type="submit">Switch Alerts OFF</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ base }}/alerts/toggle" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="enabled" value="on">
+      <button class="primary" type="submit">Switch Alerts ON</button>
+    </form>
+    {% endif %}
+  {% endif %}
+
+  <p class="cooldown-line">
+    Alert cooldown:
+    {% if alert_cooldown_min and alert_cooldown_min > 0 %}
+      <strong>{{ alert_cooldown_min }} min.</strong> After an SMS is sent,
+      further strikes within alert range do not trigger an alert for this period.
+    {% else %}
+      <strong>off.</strong> Every qualifying strike sends an SMS.
+    {% endif %}
+  </p>
+  {% if can_write %}
+  <form method="post" action="{{ base }}/alerts/cooldown" class="inline cooldown-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="cooldown_min">Set cooldown (minutes, 0 = off):</label>
+    <input type="number" id="cooldown_min" name="cooldown_min" min="0" max="1440"
+           step="1" value="{{ alert_cooldown_min or 0 }}">
+    <button class="primary" type="submit">Save</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Detector unit</h3>
+  {% if units %}
+  <div class="unit-grid">
+    {% for u, active, age in units %}
+    <div class="unit-row">
+      <div class="unit-block {{ 'unit-active' if active else 'unit-inactive' }}">
+        <div class="unit-name">AS3935 UNIT</div>
+        <div class="unit-state">
+          {{ 'ACTIVE' if active else 'INACTIVE' }}
+          <span class="unit-dot"></span>
+        </div>
+        <div class="unit-meta">
+          <div>Station: {{ u.station_id }}</div>
+          <div>Last seen: {{ u.last_seen.strftime('%Y-%m-%d %H:%M:%S') }} SAST</div>
+          <div>
+            {% if age is not none %}
+              {% if age < 90 %}just now
+              {% elif age < 3600 %}{{ (age / 60) | round(0, 'floor') | int }} min ago
+              {% else %}{{ (age / 3600) | round(1) }} h ago{% endif %}
+              &middot; via {{ u.last_kind }}
+            {% endif %}
+          </div>
+          {% if u.cpu_temp_c %}<div>CPU: {{ u.cpu_temp_c | round(1) }} &deg;C</div>{% endif %}
+        </div>
+      </div>
+      {% if unit_charts and unit_charts.get(u.station_id) %}
+      <div class="unit-chart" title="CPU load vs temperature, last 24 h">
+        {{ unit_charts.get(u.station_id) | safe }}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No detector unit has reported in yet. The AS3935 unit
+     sends an hourly heartbeat and pings on every in-range strike.</p>
+  {% endif %}
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="num">{{ counts.recipients }}</div><div class="lbl">Active recipients</div></div>
+  <div class="kpi"><div class="num">{{ counts.groups }}</div><div class="lbl">Active groups</div></div>
+  <div class="kpi"><div class="num">{{ counts.events_24h }}</div><div class="lbl">Total events</div></div>
+</div>
+
+<h2>Recent alerts</h2>
+<table>
+  <thead><tr><th>Time (SAST)</th><th>Station</th><th>Distance (km)</th><th>Energy</th><th>Targeted</th><th>Sent</th><th>Failed</th><th></th></tr></thead>
+  <tbody>
+    {% for e in events %}
+    <tr>
+      <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ e.station_id }}</td>
+      <td>{{ e.distance_km }}</td>
+      <td>{{ e.energy }}</td>
+      <td>{{ e.recipients_targeted }}</td>
+      <td>{{ e.messages_sent }}</td>
+      <td>{{ e.messages_failed }}</td>
+      <td><a href="{{ base }}/events/{{ e.id }}">view</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">No alerts yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

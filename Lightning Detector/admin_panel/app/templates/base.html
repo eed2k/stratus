@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{% block title %}Lightning Alerts{% endblock %} - Stratus Weather</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body class="{{ 'is-app' if user else 'is-auth' }}">
+{% if user %}
+<div class="appwindow">
+  <div class="titlebar">
+    <span class="titlebar-name">STRATUS WEATHER &nbsp;::&nbsp; Lightning Alert Console</span>
+    <span class="titlebar-meta">v1.0 &nbsp;|&nbsp; <span id="sast-clock" class="sast-clock">--:--:--</span> SAST (UTC+2)</span>
+  </div>
+  <div class="menubar">
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/recipients">Recipients</a>
+      {% if user.role in ['admin','operator'] %}<a href="/groups">Groups</a>{% endif %}
+      <a href="/events">Events</a>
+      {% if user.role in ['admin','operator'] %}<a href="/test">Test Alert</a>{% endif %}
+      {% if user.role == 'admin' %}<a href="/users">Users</a>{% endif %}
+      {% if user.role == 'admin' %}<a href="/settings">Settings</a>{% endif %}
+    </nav>
+    <div class="menubar-user">
+      <span>{{ user.email }} [{{ user.role }}]</span>
+      <a href="/account/password" class="btn-link">Change Password</a>
+      <a href="/logout" class="btn-link">Log Out</a>
+    </div>
+  </div>
+  <main class="workarea">
+{% else %}
+<main class="login-wrap">
+{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+{% if user %}
+  <div class="statusbar">
+    <span>Operator: {{ user.email }}</span>
+    <span>Role: {{ user.role }}</span>
+    {% if user.role == 'admin' %}<span>SMS gateway: Clickatell</span>{% endif %}
+    <span class="statusbar-right">Stratus Weather Lightning Alert System</span>
+  </div>
+</div>
+{% endif %}
+</body>
+</html>

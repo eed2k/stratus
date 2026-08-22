@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Events{% endblock %}
+{% block content %}
+<h1>Events</h1>
+{% if user.role == 'admin' and events %}
+<div class="card" style="margin-bottom:14px;">
+  <form method="post" action="{{ base }}/events/delete-all" data-confirm="Permanently delete ALL events and their message logs? This cannot be undone.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="danger" type="submit">Delete all events</button>
+  </form>
+</div>
+{% endif %}
+<table>
+  <thead><tr><th>Time (SAST)</th><th>Station</th><th>Distance (km)</th><th>Energy</th><th>Targeted</th><th>Sent</th><th>Failed</th><th></th>{% if user.role == 'admin' %}<th></th>{% endif %}</tr></thead>
+  <tbody>
+    {% for e in events %}
+    <tr>
+      <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ e.station_id }}</td>
+      <td>{{ e.distance_km }}</td>
+      <td>{{ e.energy }}</td>
+      <td>{{ e.recipients_targeted }}</td>
+      <td>{{ e.messages_sent }}</td>
+      <td>{{ e.messages_failed }}</td>
+      <td><a href="{{ base }}/events/{{ e.id }}">view</a></td>
+      {% if user.role == 'admin' %}
+      <td>
+        <form method="post" action="{{ base }}/events/{{ e.id }}/delete" data-confirm="Delete event #{{ e.id }} and its message log?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="danger" type="submit">delete</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

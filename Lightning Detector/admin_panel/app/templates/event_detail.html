@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Event #{{ event.id }}{% endblock %}
+{% block content %}
+<a href="/events">&larr; back to events</a>
+<h1>Event #{{ event.id }}</h1>
+{% if user.role == 'admin' %}
+<form method="post" action="/events/{{ event.id }}/delete" data-confirm="Delete event #{{ event.id }} and its message log?" style="margin:0 0 14px;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button class="danger" type="submit">Delete this event</button>
+</form>
+{% endif %}
+<p>
+  <strong>Station:</strong> {{ event.station_id }} &middot;
+  <strong>Distance:</strong> {{ event.distance_km }} km &middot;
+  <strong>Energy:</strong> {{ event.energy }} &middot;
+  <strong>Time:</strong> {{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} SAST
+</p>
+<p>Targeted {{ event.recipients_targeted }} &middot; Sent {{ event.messages_sent }} &middot; Failed {{ event.messages_failed }}</p>
+
+<table>
+  <thead><tr><th>Channel</th><th>To</th><th>Status</th><th>Message ID</th><th>Error</th></tr></thead>
+  <tbody>
+    {% for m in msgs %}
+    <tr>
+      <td>{{ m.channel }}</td>
+      <td>{{ m.to_number }}</td>
+      <td>{{ m.status }}</td>
+      <td>{{ m.provider_message_id }}</td>
+      <td>{{ m.error }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

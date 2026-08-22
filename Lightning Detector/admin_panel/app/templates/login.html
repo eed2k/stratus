@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div class="card narrow">
+  <div class="login-brand">Stratus Weather</div>
+  <div class="login-sub">Lightning Alert Admin</div>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" class="login-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label><span>E-mail</span><input type="email" name="email" required autofocus></label>
+    <label><span>Password</span><input type="password" name="password" required></label>
+    <button class="primary" type="submit">Log In</button>
+  </form>
+</div>
+{% endblock %}

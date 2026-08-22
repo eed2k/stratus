@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<p class="muted" style="text-align:left;padding:0 0 10px;">
+  Admin-only. Secrets live in the server environment (<code>.env</code>) and are
+  never shown here. Only whether each is configured is displayed.
+</p>
+
+<div class="card">
+  <h3>Alert delivery</h3>
+  {% if alerts_enabled %}
+  <p>SMS alerts are <strong class="state-on">ON</strong>.</p>
+  <form method="post" action="/alerts/toggle" class="inline"
+        data-confirm="Switch SMS alerts OFF? Recipients will NOT be notified of strikes.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="enabled" value="off">
+    <button class="danger" type="submit">Switch Alerts OFF</button>
+  </form>
+  {% else %}
+  <p>SMS alerts are <strong class="state-off">OFF</strong>.</p>
+  <form method="post" action="/alerts/toggle" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="enabled" value="on">
+    <button class="primary" type="submit">Switch Alerts ON</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Messaging gateway (SMS only)</h3>
+  <table>
+    <thead><tr><th>Item</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Channel</td>
+        <td>SMS only</td>
+      </tr>
+      <tr>
+        <td>Clickatell API key</td>
+        <td>{% if gateway.clickatell_api_key %}<span class="state-on">configured</span>{% else %}<span class="state-off">not set</span>{% endif %}</td>
+      </tr>
+      <tr>
+        <td>Clickatell delivery-receipt token</td>
+        <td>{% if gateway.clickatell_dlr_token %}<span class="state-on">configured</span>{% else %}<span class="muted">not set (optional)</span>{% endif %}</td>
+      </tr>
+      <tr>
+        <td>Pi webhook token</td>
+        <td>{% if gateway.webhook_token %}<span class="state-on">configured</span>{% else %}<span class="state-off">not set</span>{% endif %}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="muted" style="text-align:left;padding:10px 0 0;">
+    To change the Clickatell API key, update <code>CLICKATELL_API_KEY</code> in
+    the server <code>.env</code> and restart the panel.
+  </p>
+</div>
+{% endblock %}
+{# end settings #}

@@ -1,0 +1,42 @@
+CAMPBELL PIN MIRROR NOTES (LIGHTNING DETECTOR)
+
+Purpose
+- The Pi mirrors AS3935 interrupt activity to a Campbell pulse input so the datalogger can count events independently of serial parsing.
+
+Why We Did This
+- Hardware access constraint: The Pi 2 Click Shield occupies/obstructs practical access to the Pi main UART header pins, so Campbell serial output was moved to a dedicated GPIO TX line (GPIO26 via bit-bang UART).
+- Reliability: Pulse counting gives a simple hardware-level event counter, even if a serial record is delayed, malformed, or missed.
+- Cross-checking: We can compare pulse totals to parsed UART lightning records to quickly detect integration or parsing issues.
+- Faster troubleshooting: Pulse count confirms sensor activity path (AS3935 -> Pi IRQ -> Campbell input) without depending on message content.
+- Operational resilience: During noisy field conditions, one telemetry path can validate the other.
+
+Pi Signal Mapping
+- GPIO25 = AS3935 IRQ input (from Thunder Click INT)
+- GPIO19 = Pulse mirror output (to Campbell pulse terminal)
+- GPIO26 = Campbell UART TX output (to Campbell serial RX terminal)
+- Pi GND  = Signal ground (must be common with Campbell G)
+
+Campbell Wiring
+- For CR300:
+  - GPIO26 -> C2 (serial RX)
+  - GPIO19 -> P_SW (pulse count)
+  - Pi GND -> G
+- For CR1000XE:
+  - GPIO26 -> C2 (serial RX)
+  - GPIO19 -> P1 (pulse count)
+  - Pi GND -> G
+
+Mirror Behavior
+- On detected AS3935 interrupt, software drives GPIO19 HIGH.
+- After interrupt processing completes, software drives GPIO19 LOW.
+- Campbell logger counts these pulses with PulseCount(), while UART records provide distance/energy data.
+
+Serial Format
+- UART line sent from Pi at 9600 baud:
+  L,<distance_km>,<energy>\r\n
+
+Quick Verification
+1) Pulse path: Campbell PulseCountTotal should increase when IRQ activity occurs.
+2) Serial path: Campbell lightning record count should increase from UART lines.
+3) Parse quality: ParseErrorCount should stay at 0.
+4) Grounding: If either path is unstable, re-check common ground first.

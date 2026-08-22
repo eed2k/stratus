@@ -1,0 +1,63 @@
+========================================================================
+ GWLD1-PANEL VPS - DEPLOYMENT STATUS
+========================================================================
+
+VPS
+---
+  Name:     gwld1-panel
+  IP:       139.84.238.225
+  Location: Johannesburg
+
+DNS (already correct)
+---------------------
+  gwld1-admin.dynv6.net  ->  139.84.238.225
+
+LIVE NOW (partially)
+--------------------
+  https://gwld1-admin.dynv6.net/login   (HTTPS works, Caddy + old panel build)
+
+  What works today:
+    - HTTPS and dynv6 hostname
+    - Admin login (admin@stratusweather.co.za)
+    - Health API: /api/v1/health
+
+  What is NOT updated yet:
+    - Old UI (no new research-software layout, no CSRF, no Settings/Test Alert)
+    - Webhook token on the server does NOT match the Pi config yet
+    - CLICKATELL_API_KEY configured locally and tested OK; must be on VPS .env
+      after deploy (included in .env.vps ready to push)
+
+BLOCKER
+-------
+  SSH login as root with the Vultr password failed (authentication rejected).
+  The deploy package is ready; you need working SSH access once.
+
+  In Vultr: open gwld1-panel -> Settings -> Reset Root Password
+  (or add your SSH public key under SSH Keys and attach it to the server).
+
+DEPLOY UPDATED PANEL (one command, from this folder)
+----------------------------------------------------
+  PowerShell:
+
+    cd "C:\Users\eed2k\Downloads\Lightning Detector\admin_panel"
+    .\deploy\push_from_windows.ps1 -Password 'YOUR_NEW_ROOT_PASSWORD'
+
+  This uploads the latest code, applies .env.vps (secrets + webhook token
+  matching the Pi), rebuilds Docker, and restarts Caddy.
+
+AFTER DEPLOY
+------------
+  1. Browse https://gwld1-admin.dynv6.net (new UI, CSRF, Settings, Test Alert)
+  2. Log in as admin; add CLICKATELL_API_KEY on the server:
+       nano /opt/lightning-panel/.env
+       docker compose -f /opt/lightning-panel/docker-compose.yml restart panel
+  3. On the Pi: copy lightning_config.json and restart:
+       sudo systemctl restart lightning-detector.service
+  4. Send a test alert from the panel Test Alert page
+
+SECURITY
+--------
+  You shared the root password in chat. Reset it in Vultr immediately after
+  deploy. Do not commit .env or passwords to git.
+
+========================================================================

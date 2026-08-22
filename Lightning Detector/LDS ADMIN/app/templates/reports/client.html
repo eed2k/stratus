@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<title>Monthly Summary - {{ meta.site }} - {{ period.label }}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { font-family: Arial, "Liberation Sans", sans-serif; color: #111111;
+         font-size: 11pt; line-height: 1.45; }
+  .cover { background: #1b3a5b; color: #ffffff; padding: 10mm 8mm; }
+  .cover .brand { font-size: 12pt; letter-spacing: 0.5pt; opacity: 0.9; }
+  .cover h1 { font-size: 22pt; margin: 3mm 0 1mm; color: #ffffff; }
+  .cover .site { font-size: 14pt; }
+  .cover .period { font-size: 11pt; opacity: 0.9; margin-top: 2mm; }
+  h2 { color: #1b3a5b; font-size: 13pt; margin: 6mm 0 2mm;
+       border-bottom: 1.5pt solid #1b3a5b; padding-bottom: 1mm; }
+  table.data { width: 100%; border-collapse: collapse; margin: 2mm 0; }
+  table.data th, table.data td { border: 0.75pt solid #d9dee5; padding: 1.5mm 2mm;
+       text-align: left; font-size: 10pt; }
+  table.data th { background: #eef1f5; color: #1b3a5b; }
+  .chart { margin: 3mm 0; }
+  .legend { margin: 2mm 0; }
+  .legend .row { margin: 1mm 0; font-size: 10pt; }
+  .swatch { display: inline-block; width: 10pt; height: 10pt; margin-right: 3pt;
+            vertical-align: middle; }
+  .muted { color: #6b7280; font-size: 9pt; }
+  .note { color: #6b7280; font-size: 9pt; margin-top: 6mm;
+          border-top: 0.75pt solid #d9dee5; padding-top: 2mm; }
+  .nodata { color: #6b7280; font-style: italic; padding: 8mm 0; }
+</style>
+</head>
+<body>
+  <div class="cover">
+    <div class="brand">STRATUS WEATHER</div>
+    <h1>Monthly Lightning Report</h1>
+    <div class="site">{{ meta.site }}</div>
+    <div class="period">{{ period.label }} &#183; {{ tenant.name }}</div>
+    <div class="period">Coordinates: {{ meta.coords_text }}</div>
+  </div>
+
+  {% if not has_data %}
+  <p class="nodata">No lightning or system data was recorded for {{ period.label }}.</p>
+  {% else %}
+
+  <h2>System overview</h2>
+  <table class="data">
+    <tr><th>Detector</th><td>AS3935 lightning sensor</td>
+        <th>Detection range</th><td>Up to 40 km</td></tr>
+    <tr><th>Alerts</th><td>SMS</td>
+        <th>Power</th><td>Solar with battery backup</td></tr>
+    <tr><th>Availability</th><td>{{ '%.1f'|format(uptime_pct) }}%</td>
+        <th>Station</th><td>{{ meta.station_id }}</td></tr>
+  </table>
+  <div class="chart">{{ charts.uptime|safe }}</div>
+
+  <h2>Lightning activity</h2>
+  <table class="data">
+    <tr><th>Total in-range strikes</th><th>Closest approach (km)</th></tr>
+    <tr><td>{{ strikes.total }}</td>
+        <td>{{ '%.0f'|format(strikes.closest) if strikes.closest is not none else '-' }}</td></tr>
+  </table>
+  <div class="chart">{{ charts.storm|safe }}</div>
+  <div class="chart">{{ charts.distance|safe }}</div>
+  <div class="chart">{{ charts.energy|safe }}</div>
+
+  <h2>Energy legend</h2>
+  <div class="legend">
+    {% for row in energy_legend %}
+    <div class="row">
+      <span class="swatch" style="background:{{ row.colour }};"></span>
+      <strong>{{ row.name }}</strong>: {{ '{:,}'.format(row.lower) }} to {{ '{:,}'.format(row.upper) }}
+    </div>
+    {% endfor %}
+  </div>
+  <p class="muted">Energy is a relative, dimensionless scale (0 to 2,097,151).
+    It is not an absolute measurement in Joules or Watts and is only comparable
+    within this installation. Values above about 1,000,000 indicate a
+    high-intensity strike.</p>
+
+  {% endif %}
+
+  <p class="note">
+    Figures reflect in-range lightning received by the panel over {{ period.label }}
+    (SAST). Strike distance is estimated; bearing is not measured by the sensor.
+  </p>
+</body>
+</html>

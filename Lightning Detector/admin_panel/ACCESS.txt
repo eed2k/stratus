@@ -1,0 +1,38 @@
+========================================================================
+ STRATUS WEATHER - LIGHTNING ALERT ADMIN PANEL - ACCESS DETAILS
+========================================================================
+
+PANEL URL (HTTPS)
+-----------------
+  https://gwld1-admin.dynv6.net
+
+  Login page:    https://gwld1-admin.dynv6.net/login
+  (Webhook from Pi:  https://gwld1-admin.dynv6.net/api/v1/lightning)
+  (Clickatell DLR:   https://gwld1-admin.dynv6.net/api/clickatell/dlr)
+
+
+LOGINS
+------
+  1) ADMIN  (full access: recipients, groups, events, test alerts,
+             users, settings / gateway status)
+       Email:     admin@stratusweather.co.za
+       Password:  AdM1n@ld-2k%rfFVFd5
+
+  2) OPERATOR  (site user: view alerts, add/manage recipients,
+                set alert distance threshold, switch alerts on/off.
+                NO access to users, settings or API/gateway secrets)
+       Email:     gw1@stratusweather.co.za
+       Password:  ChangeMe!Gw1-2026
+
+
+NOTES
+-----
+  - Alerts are SMS only.
+  - Change both passwords after first login: top-right "Change password".
+  - The OPERATOR password above is a placeholder - change it immediately.
+  - Logins are seeded from the server .env on first boot; if the database
+    already has these accounts they are NOT overwritten.
+  - Confirm the hostname matches your actual dynv6 record if it differs
+    from gwld1-admin.dynv6.net.
+
+========================================================================

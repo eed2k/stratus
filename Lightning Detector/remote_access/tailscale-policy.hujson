@@ -1,0 +1,172 @@
+// ===========================================================================
+// Tailnet policy file for the Stratus / LDS tailnet.
+//
+// Purpose: give main admins SSH access to the remote AS3935 lightning detector
+// Pi, and nobody else. Paste this into the Tailscale admin console under
+// Access controls, then Save.
+//
+// Format is HuJSON (JSON with comments and trailing commas), which is what the
+// admin console expects. Comments below are part of the file and are fine to
+// leave in place.
+//
+// Design notes
+//   * Tailscale denies by default. Every grant below is additive, so anything
+//     not written here is refused.
+//   * Access is granted to a GROUP, not to a person, so adding or removing an
+//     admin later is a one-line edit in one place.
+//   * The detector is a TAGGED device (tag:detector). Tagging matters for two
+//     reasons: the device belongs to the tag rather than to whoever enrolled
+//     it, and tagged devices do not have node-key expiry, so an unattended
+//     unit at a remote site will not silently drop off the tailnet after
+//     180 days.
+//   * Tailscale SSH needs TWO things to work: a network grant opening tcp:22,
+//     and a matching rule in the "ssh" section. Both are present below.
+//     Removing either one closes access.
+// ===========================================================================
+{
+  // -------------------------------------------------------------------------
+  // Who counts as a main admin.
+  //
+  // IMPORTANT: Tailscale is not an identity provider and cannot sign a bare
+  // email address in. The address below only works as an identity if it is
+  // backed by a real SSO provider that owns it (Google Workspace, Microsoft
+  // Entra ID / M365, or a custom OIDC provider). See REMOTE_ACCESS.md for the
+  // options if that mailbox is not on one of those.
+  //
+  // To add a second admin later, add their login to this list and Save. No
+  // change is needed on the Pi.
+  // -------------------------------------------------------------------------
+  "groups": {
+    "group:lds-admin": [
+      "admin@stratusweather.co.za",
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // Which tags exist, and who is allowed to apply them.
+  //
+  // Only main admins may mint a device that claims to be a detector. This is
+  // what stops an unrelated machine from tagging itself tag:detector and
+  // inheriting the detector's access.
+  // -------------------------------------------------------------------------
+  "tagOwners": {
+    "tag:detector": ["group:lds-admin"],
+
+    // Reserved for the Vultr VPS if it is ever added to the tailnet. Declaring
+    // the tag now is harmless; nothing is granted to or from it below.
+    "tag:infra": ["group:lds-admin"],
+  },
+
+  // -------------------------------------------------------------------------
+  // Network-level access. "grants" is Tailscale's current syntax and is
+  // recommended over the older "acls" block for new policies.
+  //
+  // Deliberately narrow: tcp:22 only. The detector runs no HTTP service, so
+  // there is nothing else on it worth reaching, and a port list of exactly one
+  // entry means a future service cannot be exposed by accident.
+  // -------------------------------------------------------------------------
+  "grants": [
+    {
+      "src": ["group:lds-admin"],
+      "dst": ["tag:detector"],
+      "ip":  ["tcp:22"],
+    },
+  ],
+
+  // -------------------------------------------------------------------------
+  // Tailscale SSH. This is what removes the need to distribute SSH private
+  // keys to admins: Tailscale issues short-lived certificates based on the
+  // identity that signed in, and every session is attributable in the audit
+  // log.
+  //
+  // action "check" forces the admin to re-confirm their identity in a browser
+  // every 12 hours. Change to "accept" if you want no re-auth prompt at all,
+  // at the cost of that periodic proof of presence.
+  //
+  // users: the detector service runs as gwld1, and gwld1 has sudo, so that
+  // account is enough for journalctl, systemctl and calibration work. root is
+  // deliberately NOT listed, which mirrors the "PermitRootLogin no" decision
+  // already made in detector/pi_harden_power_rugged.sh. Add "root" here only
+  // if you decide you want a break-glass path.
+  // -------------------------------------------------------------------------
+  "ssh": [
+    {
+      "action":      "check",
+      "checkPeriod": "12h",
+      "src":         ["group:lds-admin"],
+      "dst":         ["tag:detector"],
+      "users":       ["gwld1"],
+    },
+  ],
+
+  // -------------------------------------------------------------------------
+  // OPTIONAL, INTENTIONALLY LEFT OFF: private access to the Vultr VPS.
+  //
+  // Adding the VPS to the tailnet would let admins reach the panel and SSH
+  // over a private address instead of the public internet. It is a real
+  // improvement, but do not enable it and then close public SSH in the same
+  // sitting: if Tailscale is down or misconfigured on that host you would have
+  // no way back in. Bring it up, confirm it works for several days, and only
+  // then consider tightening the public firewall.
+  //
+  // "grants": [
+  //   {
+  //     "src": ["group:lds-admin"],
+  //     "dst": ["tag:infra"],
+  //     "ip":  ["tcp:22", "tcp:80", "tcp:443"],
+  //   },
+  // ],
+  // "ssh": [
+  //   {
+  //     "action":      "check",
+  //     "checkPeriod": "12h",
+  //     "src":         ["group:lds-admin"],
+  //     "dst":         ["tag:infra"],
+  //     "users":       ["root"],
+  //   },
+  // ],
+  // -------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------
+  // OPTIONAL: policy tests.
+  //
+  // These are left commented out on purpose. Tests fail if they reference a
+  // user who is not yet a member of the tailnet, which would make the very
+  // first Save of this policy fail before the admin has been invited.
+  //
+  // Once admin@stratusweather.co.za has accepted the invite and the Pi is
+  // online and tagged, uncomment these. They then act as a tripwire: any
+  // future edit that accidentally widens access, or that removes the
+  // detector rule, will be rejected at Save time instead of failing quietly.
+  //
+  // "tests": [
+  //   {
+  //     "src":    "admin@stratusweather.co.za",
+  //     "accept": ["tag:detector:22"],
+  //     "deny":   ["tag:detector:80", "tag:detector:443"],
+  //   },
+  // ],
+  // "sshTests": [
+  //   {
+  //     "src":    "admin@stratusweather.co.za",
+  //     "dst":    ["tag:detector"],
+  //     "accept": ["gwld1"],
+  //     "deny":   ["root"],
+  //   },
+  // ],
+  // -------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------
+  // FALLBACK: if this console rejects the "grants" block for any reason, the
+  // equivalent in the older "acls" syntax is below. Use one or the other, not
+  // both. The "ssh" section above is unchanged either way.
+  //
+  // "acls": [
+  //   {
+  //     "action": "accept",
+  //     "src":    ["group:lds-admin"],
+  //     "dst":    ["tag:detector:22"],
+  //   },
+  // ],
+  // -------------------------------------------------------------------------
+}

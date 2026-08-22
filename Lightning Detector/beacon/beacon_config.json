@@ -1,0 +1,19 @@
+{
+    "state_url": "https://adminpanel.stratusweather.co.za/gwld1/api/v1/beacon/state",
+    "auth_token": "633d91da79432b7f1d7f3293f7a3c74466979a40fd8680bb6b44dd826ccc520c",
+    "poll_interval_s": 4,
+    "fail_timeout_s": 30,
+    "http_timeout_s": 8,
+    "loop_period_s": 0.1,
+
+    "relay_active_high": true,
+    "gpio_online": 26,
+    "gpio_amber": 20,
+    "gpio_buzzer": 21,
+
+    "lightning_fresh_window_s": 120,
+    "lightning_cooldown_s": 3600,
+    "amber_seconds": 25,
+    "amber_flash_hz": 1,
+    "buzzer_seconds": 5
+}

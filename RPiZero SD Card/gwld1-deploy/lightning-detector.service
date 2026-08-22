@@ -1,0 +1,24 @@
+[Unit]
+Description=Lightning Detection System (AS3935)
+Documentation=https://www.sciosense.com/as3935-franklin-lightning-sensor-ic/
+After=multi-user.target pigpiod.service
+Wants=network-online.target pigpiod.service
+# Never give up restarting (e.g. sensor not ready after a multi-day outage).
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+User=gwld1
+Group=gwld1
+WorkingDirectory=/home/gwld1
+ExecStart=/usr/bin/python3 /home/gwld1/lightning_detector.py
+Restart=always
+RestartSec=10
+WatchdogSec=120
+StandardOutput=journal
+StandardError=journal
+# Allow GPIO and SPI access
+SupplementaryGroups=spi gpio
+
+[Install]
+WantedBy=multi-user.target

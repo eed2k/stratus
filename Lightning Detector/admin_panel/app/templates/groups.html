@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Groups{% endblock %}
+{% block content %}
+<h1>Groups</h1>
+
+{% set can_write = user.role in ['admin','operator'] %}
+
+{% if can_write %}
+<div class="card">
+  <h3>Add group</h3>
+  <form method="post" action="/groups/create" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Name<input name="name" required></label>
+    <label>Description<input name="description"></label>
+    <label>Alert distance threshold (km)<input name="distance_threshold_km" type="number" min="1" max="40" value="15"></label>
+    <button class="primary" type="submit">Add</button>
+  </form>
+</div>
+{% endif %}
+
+<p class="muted" style="text-align:left;padding:0 0 6px;">
+  Alert distance threshold (km): SMS is sent only when the strike distance is
+  at or within this value. Example: threshold 15 km and a 10 km strike triggers
+  the alert; a 20 km strike does not.
+</p>
+<table>
+  <thead><tr><th>Name</th><th>Description</th><th>Alert threshold (km)</th><th>Recipients</th><th>Active</th>{% if can_write %}<th></th>{% endif %}</tr></thead>
+  <tbody>
+    {% for g in rows %}
+    <tr>
+      <td>{{ g.name }}</td>
+      <td>{{ g.description }}</td>
+      <td>
+        {% if can_write %}
+        <form method="post" action="/groups/{{ g.id }}/update" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input name="distance_threshold_km" type="number" min="1" max="40"
+                 value="{{ g.distance_threshold_km }}" style="width:70px;">
+          <button type="submit">Save</button>
+        </form>
+        {% else %}{{ g.distance_threshold_km }}{% endif %}
+      </td>
+      <td>{{ g.recipients|length }}</td>
+      <td>{{ 'yes' if g.is_active else 'no' }}</td>
+      {% if can_write %}
+      <td>
+        <form method="post" action="/groups/{{ g.id }}/toggle" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit">Toggle</button>
+        </form>
+        <form method="post" action="/groups/{{ g.id }}/delete" class="inline"
+              data-confirm="Delete this group? It must have no recipients.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="danger" type="submit">Delete</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+    {% if not rows %}
+    <tr><td colspan="{% if can_write %}6{% else %}5{% endif %}" class="center">No groups available</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}

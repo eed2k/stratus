@@ -1,0 +1,9 @@
+data/
+.env
+*.pyc
+__pycache__/
+.venv/
+deploy/.deploy_secret
+deploy/keys/gwld1_deploy
+deploy/_upload.zip
+deploy/backups/
