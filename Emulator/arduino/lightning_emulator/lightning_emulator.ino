@@ -51,8 +51,13 @@
 // Configuration
 // ---------------------------------------------------------------------------
 
-// MCP4725-class DAC on the Click. 0x60 is the default; the board may offer 0x61.
-static const uint8_t DAC_ADDR = 0x60;
+// MCP4725 on the Click. 0x60 is the default, but the board may be strapped to
+// 0x61, so both are probed at boot and whichever answers is used. Probing only
+// one address turned a correct-but-differently-strapped board into a confusing
+// "NOT RESPONDING".
+static const uint8_t DAC_ADDR_PRIMARY = 0x60;
+static const uint8_t DAC_ADDR_ALT = 0x61;
+static uint8_t dacAddr = DAC_ADDR_PRIMARY;   // resolved in setup()
 
 // Fast-mode write, normal operation. The upper nibble carries the mode bits.
 static const uint8_t DAC_FAST_NORMAL = 0x00;
@@ -97,17 +102,25 @@ static bool dacWrite(uint8_t mode, uint16_t value) {
   if (value > 0x0FFF) {
     value = 0x0FFF;                       // 12-bit device; clamp, do not wrap
   }
-  Wire.beginTransmission(DAC_ADDR);
+  Wire.beginTransmission(dacAddr);
   Wire.write((uint8_t)(mode | ((value >> 8) & 0x0F)));
   Wire.write((uint8_t)(value & 0xFF));
   return Wire.endTransmission() == 0;
 }
 
-/* Is the DAC actually there? Called at boot so a wiring fault is reported once,
-   clearly, instead of being mistaken later for an unresponsive sensor. */
-static bool dacPresent() {
-  Wire.beginTransmission(DAC_ADDR);
+/* Does a device answer at this address? */
+static bool dacPresentAt(uint8_t addr) {
+  Wire.beginTransmission(addr);
   return Wire.endTransmission() == 0;
+}
+
+/* Find the DAC, trying the default address then the alternate. Returns false if
+   neither answers, which is a wiring, power or level-shift fault rather than
+   anything to do with the sensor. */
+static bool dacFind() {
+  if (dacPresentAt(DAC_ADDR_PRIMARY)) { dacAddr = DAC_ADDR_PRIMARY; return true; }
+  if (dacPresentAt(DAC_ADDR_ALT))     { dacAddr = DAC_ADDR_ALT;     return true; }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,35 +269,49 @@ static void stormSequence() {
 struct Button {
   uint8_t pin;
   uint8_t stable;                          // last debounced level
+  bool timing;                             // is a level change being timed?
   unsigned long changedAt;                 // when the raw level last moved
+  bool everFired;                          // has it fired at least once?
   unsigned long firedAt;                   // when it last triggered
 };
 
 static Button buttons[4] = {
-  { PIN_BTN_CLOSE, HIGH, 0, 0 },
-  { PIN_BTN_MID,   HIGH, 0, 0 },
-  { PIN_BTN_FAR,   HIGH, 0, 0 },
-  { PIN_BTN_STORM, HIGH, 0, 0 },
+  { PIN_BTN_CLOSE, HIGH, false, 0, false, 0 },
+  { PIN_BTN_MID,   HIGH, false, 0, false, 0 },
+  { PIN_BTN_FAR,   HIGH, false, 0, false, 0 },
+  { PIN_BTN_STORM, HIGH, false, 0, false, 0 },
 };
 
-/* True once per press, on the falling edge, after debouncing and lockout. */
+/* True once per press, on the falling edge, after debouncing and lockout.
+ *
+ * `timing` is an explicit flag rather than treating changedAt == 0 as "idle".
+ * millis() is legitimately 0 at boot and returns to 0 every ~49.7 days, so the
+ * old sentinel could collide with a real timestamp and stall the debounce.
+ *
+ * `everFired` exists because firedAt starts at 0: without it, a press inside the
+ * first RETRIGGER_LOCKOUT_MS after reset was silently swallowed, since
+ * now - 0 < lockout looks like a re-trigger of a press that never happened.
+ */
 static bool pressed(Button &b) {
   unsigned long now = millis();
   uint8_t raw = digitalRead(b.pin);
 
   if (raw != b.stable) {
-    if (b.changedAt == 0) {
+    if (!b.timing) {
+      b.timing = true;
       b.changedAt = now;
     } else if (now - b.changedAt >= DEBOUNCE_MS) {
       b.stable = raw;
-      b.changedAt = 0;
-      if (raw == LOW && (now - b.firedAt) >= RETRIGGER_LOCKOUT_MS) {
+      b.timing = false;
+      if (raw == LOW &&
+          (!b.everFired || (now - b.firedAt) >= RETRIGGER_LOCKOUT_MS)) {
+        b.everFired = true;
         b.firedAt = now;
         return true;
       }
     }
   } else {
-    b.changedAt = 0;
+    b.timing = false;
   }
   return false;
 }
@@ -309,24 +336,29 @@ void setup() {
   // Left at the vendor's standard speed on purpose. See the header comment:
   // bus time, not the 22 us delay, is what sets the waveform timing.
   Wire.setClock(100000);
+  // Without a timeout, AVR's Wire blocks forever if SDA is held low - which is
+  // exactly what a half-powered or mis-levelled Click does. The sketch would
+  // then appear dead with no output at all. 3 ms is far longer than any legal
+  // transfer here, and `true` resets the peripheral so the bus can recover.
+  Wire.setWireTimeout(3000, true);
 
   delay(50);
 
   Serial.println();
   Serial.println(F("=== AS3935 lightning emulator ==="));
   Serial.println(F("Arduino Nano + Thunder EMU Click"));
-  Serial.print(F("DAC at 0x"));
-  Serial.print(DAC_ADDR, HEX);
-  if (dacPresent()) {
-    Serial.println(F(": present"));
+  if (dacFind()) {
+    Serial.print(F("DAC found at 0x"));
+    Serial.print(dacAddr, HEX);
+    Serial.println();
     // Park the output so the coil is not driven while idle.
     dacWrite(DAC_FAST_PDOWN_1K, 0x0000);
   } else {
-    Serial.println(F(": NOT RESPONDING"));
-    Serial.println(F("  Check: SDA on A4, SCL on A5, VCC and GND, and whether"));
-    Serial.println(F("  the board is strapped to 0x61 instead of 0x60."));
+    Serial.println(F("DAC NOT RESPONDING at 0x60 or 0x61."));
+    Serial.println(F("  Check: SDA on A4, SCL on A5, a common GND, and power."));
     Serial.println(F("  Also confirm the board's voltage jumper: a 3.3 V-only"));
-    Serial.println(F("  Click needs 3V3 power and level-shifted I2C."));
+    Serial.println(F("  Click needs 3V3 power and level-shifted I2C, and 5 V"));
+    Serial.println(F("  on its SDA/SCL can damage the DAC."));
   }
 
   Serial.println();
@@ -346,13 +378,22 @@ void loop() {
 
   // Serial shortcuts, handy when the rig is on a desk next to the laptop.
   // The buttons remain the primary interface.
-  while (Serial.available() > 0) {
+  //
+  // One character is handled per loop() pass, not a whole buffer. Draining the
+  // buffer in a while loop meant pasting "sss" queued three storm sequences of
+  // ~24 s each, and typing into a serial monitor that appends a newline fired
+  // the sequence and then processed the newline behind it.
+  if (Serial.available() > 0) {
     int c = Serial.read();
     switch (c) {
       case 'c': case 'C': fire(MODE_CLOSE, "serial"); break;
       case 'm': case 'M': fire(MODE_MID, "serial"); break;
       case 'f': case 'F': fire(MODE_FAR, "serial"); break;
-      case 's': case 'S': stormSequence(); break;
+      case 's': case 'S':
+        stormSequence();
+        // Anything typed while the sequence ran is stale by now.
+        while (Serial.available() > 0) Serial.read();
+        break;
       default: break;                      // ignore newlines and stray bytes
     }
   }

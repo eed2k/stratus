@@ -54,7 +54,89 @@ change what the AS3935 sees. If strikes stop being recognised after you touch
 
 ---
 
+## Two hosts, same rig
+
+| | Arduino Nano | Raspberry Pi Zero 2 W |
+|---|---|---|
+| Code | `arduino/lightning_emulator/` | `rpi/lightning_emulator.py` |
+| Logic level | 5 V — **needs checking**, see below | 3.3 V, matches the Click directly |
+| Level shifter | maybe | never |
+| Timing | exact | needs the batching trick below |
+| Control | 4 buttons + serial | 4 buttons + keyboard + `--fire` for scripts |
+
+**The Pi is the easier host electrically.** Its GPIO is 3.3 V, which is what
+MIKROE Click boards are built for, so you power the Click from `3V3` and wire I2C
+straight through. No shifter, and none of the 5 V risk the Nano carries.
+
+**The Nano is the easier host for timing.** On it, "write a sample, wait 22 µs"
+is exact. Linux is not real-time, which the Pi version has to work around.
+
+### Why the Pi version is not a line-for-line port
+
+The reference profile is 20 samples with a ~22 µs gap. At 100 kHz a 2-byte write
+occupies about 280 µs of bus time, so a sample is roughly 300 µs and a burst
+about 6 ms.
+
+A Python loop would add per-call syscall overhead of the same order as the gap
+itself, and worse, the scheduler can preempt between samples and insert a gap
+measured in *milliseconds*. A burst stretched like that stops looking like
+lightning to the AS3935's rejection algorithm, and it fails intermittently —
+the worst kind of fault to chase.
+
+So the Pi hands each whole burst to the kernel in **one `i2c_rdwr` ioctl**: 20
+messages issued back-to-back by the I2C driver with no return to userspace
+between them. Python overhead and preemption both disappear. The cost is losing
+the 22 µs gap, about 7% of the sample period, which is far less error than a
+single scheduler hiccup would cause.
+
+`--pace loop` reproduces the Arduino timing literally, for comparison. If the
+sensor recognises one mode and not the other, that is worth knowing, and finding
+that out is what this rig is for.
+
+It also takes `SCHED_FIFO` for the few milliseconds of a burst when run with
+`sudo`, and warns and carries on when it can't.
+
+### Can it share the detector's Pi?
+
+Yes. The detector uses SPI (`/dev/spidev0.0`) and the emulator uses I2C, so there
+is no pin conflict and both services can run on one board. Separate boards are
+tidier for bench work, but one is enough if that is what you have.
+
+---
+
 ## Wiring
+
+### Raspberry Pi Zero 2 W (BCM numbering, physical pin in brackets)
+
+| Pi | Click | Purpose |
+|---|---|---|
+| GPIO2 [3] | SDA | I2C data |
+| GPIO3 [5] | SCL | I2C clock |
+| 3V3 [1] | 3.3V | power, no shifter needed |
+| GND [6] | GND | common ground |
+| GPIO17 [11] | RST | Click's thunder LED (optional) |
+| GPIO5 [29] | — | button to GND: CLOSE |
+| GPIO6 [31] | — | button to GND: MID |
+| GPIO13 [33] | — | button to GND: FAR |
+| GPIO19 [35] | — | button to GND: STORM |
+
+Setup:
+
+```bash
+sudo raspi-config nonint do_i2c 0
+sudo apt install -y python3-smbus2 python3-gpiozero python3-lgpio
+sudo usermod -aG i2c,gpio "$USER"      # log out and back in
+
+python3 rpi/lightning_emulator.py                 # interactive
+sudo python3 rpi/lightning_emulator.py            # + SCHED_FIFO, tighter timing
+python3 rpi/lightning_emulator.py --fire close    # one shot, for scripts
+python3 rpi/lightning_emulator.py --pace loop     # Arduino-identical timing
+```
+
+If the DAC isn't found, `i2cdetect -y 1` should show a device at `0x60` (or
+`0x61`).
+
+### Arduino Nano
 
 The Nano's I2C pins are fixed: `A4 = SDA`, `A5 = SCL`.
 
@@ -99,9 +181,10 @@ Driving 5 V into a 3.3 V-only I2C input can damage the DAC. If in doubt, the
 
 ### Coil spacing
 
-The vendor calibrated the DAC profile for **up to about 15 cm between the
-inductors**. Beyond that the field is too weak and the AS3935 will simply not
-register anything. If nothing is detected, close the gap before changing code.
+The vendor states an effective range of **5 to 15 cm** between the emulator coil
+and the sensor antenna. Note the lower bound as well as the upper: the profile is
+calibrated for that window. Outside it the AS3935 registers nothing, so if a
+press does nothing, adjust the gap before changing code.
 
 ---
 
@@ -158,6 +241,12 @@ alerts off, so you lose nothing by testing that way.
 ## Files
 
 ```
-arduino/lightning_emulator/lightning_emulator.ino    firmware
+arduino/lightning_emulator/lightning_emulator.ino    Nano firmware
+rpi/lightning_emulator.py                            Pi Zero 2 W equivalent
 README.md                                            this file
 ```
+
+Both reproduce the vendor driver's `thunderemu_generate_thunder()`: the same
+20-sample profile, the same `3 - mode` burst count, the same 10 ms tail and
+power-down. The Pi version's two-byte fast-mode encoding was checked against the
+vendor formula across every mode and every profile value, including clamping.
