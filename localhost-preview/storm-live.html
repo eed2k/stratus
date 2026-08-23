@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storm activity - simulated feed</title>
+
+<!--
+  This preview loads the PRODUCTION stylesheet and the PRODUCTION renderer
+  straight out of the panel:
+
+      LDS ADMIN/app/static/style.css
+      LDS ADMIN/app/static/js/storm-view.js
+
+  Neither is copied or reimplemented here. The only thing this page adds is a
+  stub for GET /data/strikes that serves a simulated storm instead of the live
+  database, so what you see is exactly what the deployed panel draws, with data
+  in it. The live panel currently has zero strikes on record, so its five bands
+  are all correctly idle and there is nothing to look at.
+
+  The band arithmetic in the stub mirrors app/metrics.py::distance_band_summary,
+  and the colours are the real values from app/metrics.py::_ENERGY_BANDS.
+-->
+<link rel="stylesheet" href="/LDS%20ADMIN/app/static/style.css">
+<style>
+  body { padding: 18px; background: var(--desktop, #e7ebf0); }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .note {
+    border-left: 3px solid var(--navy); background: var(--navy-soft);
+    padding: 10px 14px; margin: 0 0 14px; font-size: 13px; line-height: 1.6;
+  }
+  .note code { background: #e2e8f0; padding: 1px 4px; }
+  .sim {
+    background: var(--white); border: 1px solid var(--line-dark);
+    padding: 10px 12px; margin: 0 0 14px;
+  }
+  .sim h4 {
+    margin: 0 0 8px; font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: #5b6673;
+    font-family: Consolas, "Courier New", monospace;
+  }
+  .sim-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .sim button {
+    font: 600 11px/1 Consolas, "Courier New", monospace;
+    padding: 7px 12px; cursor: pointer;
+    background: var(--white); color: var(--navy);
+    border: 1px solid var(--line-dark);
+  }
+  .sim button:hover { background: var(--navy-soft); }
+  .sim button.on { background: var(--navy); color: var(--white);
+                   border-color: var(--navy); }
+  .sim-stat {
+    margin-left: auto; font: 11px/1.5 Consolas, "Courier New", monospace;
+    color: #5b6673;
+  }
+  .log {
+    margin: 10px 0 0; max-height: 116px; overflow: auto;
+    font: 10.5px/1.7 Consolas, "Courier New", monospace; color: #5b6673;
+    border-top: 1px dotted var(--line); padding-top: 6px;
+  }
+  .log b { color: var(--muted-solid); }
+</style>
+</head>
+<body class="is-app">
+<div class="wrap">
+
+<h1 style="font-size:19px;margin:0 0 6px;">Storm activity &mdash; simulated feed</h1>
+<p class="note">
+  Running the panel's own <code>style.css</code> and <code>storm-view.js</code>
+  against a simulated <code>/data/strikes</code>. Nothing on this page
+  reimplements the display, so the clouds, bands, colours, flashing and range
+  selector are the deployed code. The live panel has no strikes on record yet,
+  which is why its bands are all idle there and populated here.
+</p>
+
+<div class="sim">
+  <h4>Simulator</h4>
+  <div class="sim-row">
+    <button type="button" id="live" class="on">Live: ON</button>
+    <button type="button" id="storm">Approaching storm</button>
+    <button type="button" id="near">Strike &lt; 10 km</button>
+    <button type="button" id="overhead">Strike overhead</button>
+    <button type="button" id="far">Strike 30-40 km</button>
+    <button type="button" id="quiet">Clear all</button>
+    <button type="button" id="refresh">Refresh now</button>
+    <span class="sim-stat" id="stat">&mdash;</span>
+  </div>
+  <div class="log" id="log"></div>
+</div>
+
+<!-- The production renderer mounts here, exactly as dashboard.html does. -->
+<div class="card storm-card">
+  <h3>Storm activity</h3>
+  <div class="storm-sky" aria-hidden="true"></div>
+  <div class="storm-body">
+    <div class="storm-view"
+         data-storm-view
+         data-endpoint="/data/strikes"
+         data-window="1440">
+      <p class="muted chart-empty">Loading storm activity...</p>
+    </div>
+    <p class="storm-note">
+      Recorded strikes grouped into five distance bands, nearest first, over the
+      selected window. Each band gives its strike count with the peak, mean and
+      lowest intensity recorded in that band, and flashes more often the busier
+      it is. The AS3935 reports distance up to 40&nbsp;km in 15 discrete steps
+      (&plusmn;4&nbsp;km) but does not measure bearing, so no direction is shown
+      anywhere. Intensity is a relative sensor value for comparing strikes with
+      each other, not joules.
+    </p>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ===================================================================
+   Simulated /data/strikes.
+
+   Mirrors app/metrics.py::distance_band_summary and the real
+   _ENERGY_BANDS palette. Must be defined before storm-view.js runs its
+   first fetch, which it does on DOMContentLoaded.
+   =================================================================== */
+(function () {
+  "use strict";
+
+  var E_MAX = 2097151;               // 2**21 - 1, AS3935 full scale
+  var Q = (E_MAX + 1) / 4;           // quarter of full scale, 524288
+
+  // Exactly app/metrics.py::_ENERGY_BANDS. Not invented for this page.
+  var ENERGY_BANDS = [
+    { name: "Low",      lower: 0,     colour: "#8aa0b8" },
+    { name: "Moderate", lower: Q,     colour: "#1b3a5b" },
+    { name: "High",     lower: Q * 2, colour: "#e08a1e" },
+    { name: "Extreme",  lower: Q * 3, colour: "#c0392b" }
+  ];
+
+  function energyBand(e) {
+    var v = Math.max(0, Math.min(E_MAX, Math.round(e)));
+    var out = ENERGY_BANDS[0];
+    for (var i = 0; i < ENERGY_BANDS.length; i++) {
+      if (v >= ENERGY_BANDS[i].lower) out = ENERGY_BANDS[i];
+    }
+    return out;
+  }
+
+  // Exactly app/metrics.py::DISTANCE_BANDS. lower inclusive, upper exclusive,
+  // last band open-ended, so the five together cover [0, inf) and every strike
+  // lands in exactly one.
+  var DISTANCE_BANDS = [
+    { key: "0-1",   label: "OVERHEAD",   range: "\u2264 1 km",  lo: 0,      hi: 1.0001 },
+    { key: "1-10",  label: "VERY CLOSE", range: "< 10 km",      lo: 1.0001, hi: 10 },
+    { key: "10-20", label: "CLOSE",      range: "< 20 km",      lo: 10,     hi: 20 },
+    { key: "20-30", label: "DISTANT",    range: "< 30 km",      lo: 20,     hi: 30 },
+    { key: "30-40", label: "FAR",        range: "30-40 km",     lo: 30,     hi: null }
+  ];
+
+  // The sensor's 15 discrete distance steps. A simulated strike must land on
+  // one of these, or the preview would imply a resolution the AS3935 lacks.
+  var STEPS = [1, 5, 6, 8, 10, 12, 14, 17, 20, 24, 27, 31, 34, 37, 40];
+
+  var strikes = [];                  // {t: ms epoch, distance_km, energy}
+  var log = document.getElementById("log");
+  var stat = document.getElementById("stat");
+
+  function say(msg) {
+    var line = document.createElement("div");
+    var now = new Date();
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    line.innerHTML = "<b>" + p(now.getHours()) + ":" + p(now.getMinutes()) +
+                     ":" + p(now.getSeconds()) + "</b>  " + msg;
+    log.insertBefore(line, log.firstChild);
+    while (log.childNodes.length > 60) log.removeChild(log.lastChild);
+  }
+
+  function stepFor(km) {
+    var best = STEPS[0], bd = Infinity;
+    STEPS.forEach(function (s) {
+      var d = Math.abs(s - km);
+      if (d < bd) { bd = d; best = s; }
+    });
+    return best;
+  }
+
+  /* Energy loosely falls with distance, with real scatter. The AS3935's energy
+     is a relative figure and a distant strike can still read strong, so this is
+     a trend with noise rather than a formula. */
+  function energyFor(km) {
+    var near = 1 - Math.min(1, km / 40);
+    var base = 0.18 + near * 0.78;
+    var e = (base + (Math.random() - 0.5) * 0.3) * E_MAX;
+    return Math.max(1, Math.min(E_MAX, Math.round(e)));
+  }
+
+  function add(km, whenMs) {
+    var step = stepFor(km);
+    strikes.push({
+      t: whenMs === undefined ? Date.now() : whenMs,
+      distance_km: step,
+      energy: energyFor(step)
+    });
+    return step;
+  }
+
+  /* ---- band aggregation, mirroring distance_band_summary ---- */
+  function summarise(list) {
+    var buckets = DISTANCE_BANDS.map(function () { return []; });
+    var unplaced = 0;
+
+    list.forEach(function (s) {
+      var d = Number(s.distance_km);
+      if (!isFinite(d) || d < 0) { unplaced++; return; }
+      var placed = false;
+      for (var i = 0; i < DISTANCE_BANDS.length; i++) {
+        var b = DISTANCE_BANDS[i];
+        if (d >= b.lo && (b.hi === null || d < b.hi)) {
+          buckets[i].push(Math.max(0, Math.min(E_MAX, s.energy)));
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) unplaced++;
+    });
+
+    var total = buckets.reduce(function (n, b) { return n + b.length; }, 0);
+
+    var bands = DISTANCE_BANDS.map(function (def, i) {
+      var es = buckets[i];
+      if (!es.length) {
+        return { key: def.key, label: def.label, range: def.range, count: 0,
+                 peak: null, mean: null, low: null, band: null, colour: null,
+                 share: 0 };
+      }
+      var sum = es.reduce(function (a, b) { return a + b; }, 0);
+      var mean = Math.round(sum / es.length);
+      var eb = energyBand(mean);
+      return {
+        key: def.key, label: def.label, range: def.range,
+        count: es.length,
+        peak: Math.max.apply(null, es),
+        mean: mean,
+        low: Math.min.apply(null, es),
+        band: eb.name, colour: eb.colour,
+        share: total ? es.length / total : 0
+      };
+    });
+
+    return { bands: bands, total: total, unplaced: unplaced };
+  }
+
+  function payloadFor(windowMin) {
+    var cutoff = Date.now() - windowMin * 60000;
+    var inWindow = strikes.filter(function (s) { return s.t >= cutoff; });
+    var summary = summarise(inWindow);
+    return {
+      radius_km: 40,
+      rings: [10, 20, 30, 40],
+      bearing_measured: false,
+      window_min: windowMin,
+      bands: summary.bands,
+      total: summary.total,
+      unplaced: summary.unplaced,
+      // Newest first, as the real endpoint returns. Used by the fallback table.
+      strikes: inWindow.slice().sort(function (a, b) { return b.t - a.t; })
+        .map(function (s) {
+          var eb = energyBand(s.energy);
+          return {
+            t: new Date(s.t).toISOString(),
+            distance_km: s.distance_km,
+            energy: s.energy,
+            band: eb.name,
+            colour: eb.colour
+          };
+        })
+    };
+  }
+
+  /* ---- intercept the endpoint the production renderer calls ---- */
+  var realFetch = window.fetch ? window.fetch.bind(window) : null;
+  window.fetch = function (url, opts) {
+    var href = String(url);
+    if (href.indexOf("/data/strikes") !== -1) {
+      var m = /[?&]window=(\d+)/.exec(href);
+      var win = m ? parseInt(m[1], 10) : 1440;
+      var body = payloadFor(win);
+      updateStat(body);
+      return Promise.resolve({
+        ok: true, status: 200,
+        json: function () { return Promise.resolve(body); }
+      });
+    }
+    return realFetch ? realFetch(url, opts)
+                     : Promise.reject(new Error("fetch unavailable"));
+  };
+
+  function updateStat(body) {
+    var parts = body.bands.map(function (b) {
+      return b.range.replace(" km", "") + ":" + b.count;
+    });
+    stat.textContent = body.total + " in " + (body.window_min / 60) + " h   " +
+                       parts.join("  ");
+  }
+
+  /* ---- force the renderer to re-poll ----
+     storm-view.js polls every 30 s and does not expose a reload hook, which is
+     correct for production. Clicking to a different range and back triggers two
+     real loads and lands on the original window, so the preview can refresh on
+     demand without modifying the deployed file. */
+  function forceRefresh() {
+    var bar = document.querySelector(".storm-range");
+    if (!bar) return;
+    var buttons = bar.querySelectorAll("button[data-window]");
+    if (buttons.length < 2) return;
+    var active = bar.querySelector('button[aria-pressed="true"]') || buttons[0];
+    var other = buttons[0] === active ? buttons[1] : buttons[0];
+    other.click();
+    active.click();
+  }
+
+  /* ---- seed a plausible 24 hours ----
+     An overnight storm that passed through, then a quiet spell, then a cell
+     building again in the last hour. That shape is what makes the range
+     selector worth pressing: 1 H and 24 H show genuinely different pictures. */
+  function seed() {
+    strikes = [];
+    var now = Date.now(), H = 3600000;
+
+    // Overnight cell, roughly 19 to 14 hours ago, approaching then receding.
+    [40, 37, 34, 31, 27, 24, 20, 17, 14, 12, 10, 12, 17, 24, 31, 37]
+      .forEach(function (km, i) {
+        add(km, now - (19 * H) + i * (18 * 60000) + Math.random() * 400000);
+      });
+
+    // A few isolated distant strikes through the middle of the day.
+    for (var i = 0; i < 5; i++) {
+      add(31 + Math.random() * 9, now - (11 * H) + i * (70 * 60000));
+    }
+
+    // A cell building over the last 50 minutes, closing in.
+    [24, 20, 17, 14, 12, 10, 8, 6, 5]
+      .forEach(function (km, i) {
+        add(km, now - (50 * 60000) + i * (5.5 * 60000));
+      });
+
+    say("seeded " + strikes.length + " strikes across 24 h " +
+        "(overnight cell, quiet spell, cell building in the last hour)");
+  }
+
+  /* ---- controls ---- */
+  var liveOn = true, liveTimer = null;
+
+  function scheduleLive() {
+    if (liveTimer) window.clearTimeout(liveTimer);
+    if (!liveOn) return;
+    // Irregular arrivals: real storms do not tick.
+    liveTimer = window.setTimeout(function () {
+      var km = STEPS[Math.floor(Math.random() * STEPS.length)];
+      var step = add(km);
+      say("live strike at <b>" + step + " km</b>");
+      forceRefresh();
+      scheduleLive();
+    }, 6000 + Math.random() * 9000);
+  }
+
+  document.getElementById("live").addEventListener("click", function () {
+    liveOn = !liveOn;
+    this.textContent = "Live: " + (liveOn ? "ON" : "OFF");
+    this.classList.toggle("on", liveOn);
+    say("live simulation " + (liveOn ? "resumed" : "paused"));
+    scheduleLive();
+  });
+
+  function inject(km, label) {
+    var step = add(km);
+    say(label + " -> <b>" + step + " km</b>");
+    forceRefresh();
+  }
+
+  document.getElementById("near").addEventListener("click", function () {
+    inject([5, 6, 8][Math.floor(Math.random() * 3)], "injected near strike");
+  });
+  document.getElementById("overhead").addEventListener("click", function () {
+    inject(1, "injected overhead strike");
+  });
+  document.getElementById("far").addEventListener("click", function () {
+    inject([31, 34, 37, 40][Math.floor(Math.random() * 4)], "injected far strike");
+  });
+
+  document.getElementById("storm").addEventListener("click", function () {
+    var script = [40, 34, 27, 20, 17, 14, 12, 10, 8, 6, 5, 1, 5, 10, 20, 31];
+    say("approaching storm: " + script.length + " strikes over ~24 s");
+    script.forEach(function (km, i) {
+      window.setTimeout(function () {
+        add(km);
+        if (i === script.length - 1) {
+          say("storm sequence complete, now receding");
+        }
+        forceRefresh();
+      }, i * 1500);
+    });
+  });
+
+  document.getElementById("quiet").addEventListener("click", function () {
+    strikes = [];
+    say("cleared: every band should now read idle, as the live panel does");
+    forceRefresh();
+  });
+
+  document.getElementById("refresh").addEventListener("click", function () {
+    forceRefresh();
+    say("forced a re-poll");
+  });
+
+  seed();
+  scheduleLive();
+})();
+</script>
+
+<!-- Production renderer, loaded last and unmodified. -->
+<script src="/LDS%20ADMIN/app/static/js/storm-view.js"></script>
+</body>
+</html>

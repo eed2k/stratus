@@ -1,0 +1,42 @@
+[Unit]
+Description=Stratus lightning beacon (relay-driven indicator lamps)
+Documentation=https://github.com/eed2k/stratus
+# Wants rather than Requires: the beacon is useful before the network is up,
+# because its fail state is exactly what it should show while offline.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/stratus-beacon/beacon.py
+EnvironmentFile=/etc/stratus-beacon.env
+WorkingDirectory=/opt/stratus-beacon
+
+# Unbuffered, so journalctl shows the log as it happens rather than in blocks.
+Environment=PYTHONUNBUFFERED=1
+
+Restart=always
+RestartSec=10
+# A crash must not leave a stale lamp asserting a status nothing maintains. The
+# process parks its outputs on SIGTERM; this gives it time to finish.
+TimeoutStopSec=15
+KillSignal=SIGTERM
+
+# GPIO access. On Pi OS the gpio group owns the character devices; adding the
+# supplementary group avoids running the whole service as root.
+User=root
+SupplementaryGroups=gpio
+
+# Modest hardening. The service needs GPIO and outbound HTTPS, nothing else.
+NoNewPrivileges=true
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+# ProtectSystem=strict is deliberately NOT used: the gpiozero backends need
+# /dev/gpiochip* and /sys access, and locking those away breaks the lamps.
+ProtectSystem=false
+
+[Install]
+WantedBy=multi-user.target

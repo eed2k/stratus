@@ -1,0 +1,4 @@
+# The live config holds the panel API token. Only the .example form is tracked.
+beacon.env
+*.env
+!*.env.example
