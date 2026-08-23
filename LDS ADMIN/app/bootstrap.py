@@ -29,7 +29,8 @@ _ADDED_COLUMNS = {
     "unit_status": {"tenant_id": "INTEGER",
                     "site_label": "VARCHAR(120)",
                     "latitude": "FLOAT",
-                    "longitude": "FLOAT"},
+                    "longitude": "FLOAT",
+                    "altitude_m": "FLOAT"},
     "heartbeat_samples": {"tenant_id": "INTEGER"},
 }
 

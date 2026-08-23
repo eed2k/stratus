@@ -129,6 +129,10 @@ class UnitStatus(Base):
     site_label = Column(String(120), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    # Metres above mean sea level. Added so the site line on an LDS report can
+    # carry the same three figures as a Stratus report, which already prints
+    # latitude, longitude and altitude for every weather station.
+    altitude_m = Column(Float, nullable=True)
 
 
 class HeartbeatSample(Base):

@@ -7,9 +7,12 @@
 {% if success %}<div class="success">{{ success }}</div>{% endif %}
 
 <p class="muted" style="text-align:left;padding:0 0 6px;">
-  Monthly PDF reports per station. The technical report covers system health and
-  calibration activity; the client summary presents uptime and lightning
-  activity. Reports are generated in South African Standard Time (SAST).
+  Monthly PDF reports per station, generated in South African Standard Time
+  (SAST). The <strong>technical</strong> report covers system health and
+  availability; the <strong>client summary</strong> presents uptime and lightning
+  activity; the <strong>calibration certificate</strong> is the full record of
+  the detector's oscillator recalibrations and antenna resonance checks for the
+  month.
 </p>
 
 {% if not units %}
@@ -33,7 +36,9 @@
     </label>
     <label>Type
       <select name="report_type" required>
-        {% for rt in report_types %}<option value="{{ rt }}">{{ rt }}</option>{% endfor %}
+        {# Labelled, not the raw slug: a client should not be offered a report
+           called "client". #}
+        {% for rt in report_types %}<option value="{{ rt }}">{{ report_labels.get(rt, rt) }}</option>{% endfor %}
       </select>
     </label>
     <button class="primary" type="submit">Generate and download</button>
@@ -42,16 +47,26 @@
 {% endif %}
 
 <h3>Download</h3>
+{# Columns are generated from report_types rather than hardcoded. The previous
+   version listed Technical and Client explicitly, so adding a report type left
+   it downloadable by URL but invisible on this page. #}
 <table>
-  <thead><tr><th>Station</th><th>Month</th><th>Technical</th><th>Client summary</th></tr></thead>
+  <thead>
+    <tr>
+      <th scope="col">Station</th>
+      <th scope="col">Month</th>
+      {% for rt in report_types %}<th scope="col">{{ report_labels.get(rt, rt) }}</th>{% endfor %}
+    </tr>
+  </thead>
   <tbody>
     {% for u in units %}
       {% for m in months %}
       <tr>
         <td>{{ u.station_id }}{% if u.site_label %} <span class="muted">({{ u.site_label }})</span>{% endif %}</td>
         <td>{{ m.label }}</td>
-        <td><a href="{{ base }}/reports/download?station={{ u.station_id }}&month={{ m.value }}&type=technical">Download</a></td>
-        <td><a href="{{ base }}/reports/download?station={{ u.station_id }}&month={{ m.value }}&type=client">Download</a></td>
+        {% for rt in report_types %}
+        <td><a href="{{ base }}/reports/download?station={{ u.station_id }}&month={{ m.value }}&type={{ rt }}">Download</a></td>
+        {% endfor %}
       </tr>
       {% endfor %}
     {% endfor %}

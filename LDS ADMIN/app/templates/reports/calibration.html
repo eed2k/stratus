@@ -1,0 +1,241 @@
+{% extends "reports/_base.html" %}
+{% import "reports/_parts.html" as parts %}
+{% block doc_title %}Calibration Report{% endblock %}
+
+{% block content %}
+{#
+  Calibration report.
+
+  The AS3935 self-calibrates: it recalibrates its RC oscillators when enclosure
+  temperature drifts, and checks antenna resonance daily. The detector posts
+  each occurrence, so this report shows what the sensor actually did rather than
+  an assumed maintenance schedule. That distinction is the point of the
+  document: it is an evidence record, not a certificate of conformity issued by
+  a laboratory, and it says so at the foot.
+#}
+<header class="banner">
+  <h1>Lightning Detection System</h1>
+  <p class="sub">Detector Calibration Report</p>
+</header>
+
+{{ parts.meta_block(meta, period, generated_at) }}
+
+{% if calibration.total == 0 %}
+<p class="nodata">No calibration activity was reported for {{ period.label }}.</p>
+<p class="muted">
+  This means the detector logged no oscillator recalibration and no antenna
+  resonance check in this period. For a unit that was online throughout, expect
+  roughly one antenna check per day. An empty period therefore usually means the
+  detector was offline or newly commissioned rather than that calibration was
+  skipped. Cross-check the availability figure in the technical report.
+</p>
+
+{% else %}
+
+<section class="keep">
+  <h2>Summary</h2>
+  {{ parts.summary_table(
+       "Calibration events recorded in " ~ period.label,
+       [("Total events", calibration.total),
+        ("Oscillator recalibrations", calibration.rc_recal_count),
+        ("Antenna checks", calibration.antenna_checks|length),
+        ("In tolerance", calibration.antenna_pass),
+        ("Out of tolerance", calibration.antenna_fail)]) }}
+  <p class="muted">
+    {% if calibration.antenna_fail == 0 and calibration.antenna_checks %}
+      Every antenna resonance check in this period fell within the permitted
+      deviation. No tuning fault was detected.
+    {% elif calibration.antenna_fail %}
+      {{ calibration.antenna_fail }} antenna
+      check{{ '' if calibration.antenna_fail == 1 else 's' }} fell outside the
+      permitted deviation and
+      {{ 'is' if calibration.antenna_fail == 1 else 'are' }} listed below.
+      Persistent out-of-tolerance readings indicate the antenna needs
+      re-tuning or the enclosure has taken on moisture.
+    {% else %}
+      No antenna resonance check was reported in this period.
+    {% endif %}
+  </p>
+</section>
+
+<section>
+  <h2>Antenna resonance</h2>
+  <p>
+    The sensor's receiving antenna is a tuned LC circuit. Its resonant frequency
+    must sit at {{ '{:,}'.format(calibration.target_hz) }} Hz within
+    {{ calibration.tolerance_pct }} percent, a permitted deviation of
+    {{ '{:,}'.format(calibration.tolerance_hz) }} Hz, or the sensor's distance
+    estimate degrades. The detector measures the frequency and adjusts an
+    internal tuning capacitor to correct it.
+  </p>
+
+  {% if calibration.antenna_checks %}
+  {{ parts.summary_table(
+       "Measured resonant frequency across " ~ calibration.antenna_checks|length ~
+       " check" ~ ('' if calibration.antenna_checks|length == 1 else 's'),
+       [("Specification (Hz)", '{:,}'.format(calibration.target_hz)),
+        ("Permitted deviation (Hz)", '±' ~ '{:,}'.format(calibration.tolerance_hz)),
+        ("Lowest measured (Hz)", '{:,}'.format(calibration.freq_min) if calibration.freq_min is not none else '-'),
+        ("Highest measured (Hz)", '{:,}'.format(calibration.freq_max) if calibration.freq_max is not none else '-'),
+        ("Mean measured (Hz)", '{:,.0f}'.format(calibration.freq_avg) if calibration.freq_avg is not none else '-'),
+        ("Tuning adjustments", calibration.tune_changes)]) }}
+
+  <h3>Check log</h3>
+  <table class="log">
+    <caption>
+      Every antenna resonance check reported in {{ period.label }}, in
+      chronological order. Deviation is the measured frequency less the
+      {{ '{:,}'.format(calibration.target_hz) }} Hz specification.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Date and time (SAST)</th>
+        <th scope="col" class="num">Measured (Hz)</th>
+        <th scope="col" class="num">Deviation (Hz)</th>
+        <th scope="col">Verdict</th>
+        <th scope="col">Tuning capacitor</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in calibration.antenna_checks %}
+      <tr>
+        <td>{{ c.ts.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td class="num">{{ '{:,}'.format(c.freq_hz) if c.freq_hz is not none else '-' }}</td>
+        <td class="num">
+          {%- if c.freq_hz is not none -%}
+            {{ '{:+,}'.format(c.freq_hz - calibration.target_hz) }}
+          {%- else -%}-{%- endif -%}
+        </td>
+        <td>
+          {%- if c.in_tolerance is none -%}
+            <span class="muted">not reported</span>
+          {%- elif c.in_tolerance -%}
+            <span class="pass">in tolerance</span>
+          {%- else -%}
+            <span class="fail">out of tolerance</span>
+          {%- endif -%}
+        </td>
+        <td>
+          {%- if c.tune_cap_before is none and c.tune_cap_after is none -%}
+            -
+          {%- elif c.tune_cap_before == c.tune_cap_after -%}
+            {{ c.tune_cap_before }} (unchanged)
+          {%- else -%}
+            {{ c.tune_cap_before if c.tune_cap_before is not none else '-' }}
+            to {{ c.tune_cap_after if c.tune_cap_after is not none else '-' }}
+          {%- endif -%}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No antenna resonance check was reported in this period.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Oscillator recalibration</h2>
+  <p>
+    The sensor's internal RC oscillators drift with temperature. The detector
+    recalibrates them when the enclosure temperature moves past its threshold,
+    and on a routine interval regardless. A high proportion of
+    temperature-triggered recalibrations points to a thermally exposed
+    installation rather than to a fault.
+  </p>
+
+  {% if calibration.rc_recals %}
+  <table class="data">
+    <caption>Recalibrations by trigger in {{ period.label }}</caption>
+    <thead>
+      <tr><th scope="col">Trigger</th><th scope="col" class="num">Count</th></tr>
+    </thead>
+    <tbody>
+      {% for reason, count in calibration.rc_reasons %}
+      <tr>
+        <td>
+          {%- if reason == 'temp_delta' -%}Enclosure temperature drift
+          {%- elif reason == 'interval' -%}Routine interval
+          {%- else -%}{{ reason }}{%- endif -%}
+        </td>
+        <td class="num">{{ count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Recalibration log</h3>
+  <table class="log">
+    <caption>
+      Every oscillator recalibration reported in {{ period.label }}, with the
+      CPU temperature recorded at the time.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Date and time (SAST)</th>
+        <th scope="col">Trigger</th>
+        <th scope="col" class="num">CPU temperature (deg C)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in calibration.rc_recals %}
+      <tr>
+        <td>{{ c.ts.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>
+          {%- if c.reason == 'temp_delta' -%}Enclosure temperature drift
+          {%- elif c.reason == 'interval' -%}Routine interval
+          {%- elif c.reason -%}{{ c.reason }}
+          {%- else -%}<span class="muted">not reported</span>{%- endif -%}
+        </td>
+        <td class="num">
+          {{- '%.1f'|format(c.cpu_temp_c) if c.cpu_temp_c is not none else '-' -}}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No oscillator recalibration was reported in this period.</p>
+  {% endif %}
+</section>
+
+<section class="keep">
+  <h2>Operating temperature</h2>
+  <p>
+    Calibration is temperature driven, so the enclosure's thermal record is part
+    of the evidence. Recorded range for {{ period.label }}:
+    {{ '%.1f'|format(cpu.min) if cpu.min is not none else '-' }} to
+    {{ '%.1f'|format(cpu.max) if cpu.max is not none else '-' }} deg C.
+  </p>
+  {{ parts.summary_table(
+       "CPU temperature over " ~ period.label,
+       [("Samples", cpu.count),
+        ("Minimum (deg C)", '%.1f'|format(cpu.min) if cpu.min is not none else '-'),
+        ("Maximum (deg C)", '%.1f'|format(cpu.max) if cpu.max is not none else '-'),
+        ("Average (deg C)", '%.1f'|format(cpu.avg) if cpu.avg is not none else '-'),
+        ("Readings at or above " ~ cpu.warn|int ~ " deg C", cpu.warn_count),
+        ("Readings at or above " ~ cpu.crit|int ~ " deg C", cpu.crit_count)]) }}
+  {{ parts.figure(
+       charts.cpu,
+       "CPU temperature across " ~ period.label ~ ". Recorded range " ~
+       ('%.1f'|format(cpu.min) if cpu.min is not none else '-') ~ " to " ~
+       ('%.1f'|format(cpu.max) if cpu.max is not none else '-') ~
+       " deg C, with " ~ cpu.warn_count ~ " reading" ~
+       ('' if cpu.warn_count == 1 else 's') ~ " at or above the " ~
+       cpu.warn|int ~ " deg C warning threshold and " ~ cpu.crit_count ~
+       " at or above " ~ cpu.crit|int ~ " deg C.") }}
+</section>
+
+{% endif %}
+
+<p class="note">
+  This is a record of calibration activity reported by the detector, compiled
+  from data received by the panel. It is evidence of self-calibration having
+  taken place, not a certificate of conformity issued by an accredited
+  laboratory, and it does not establish traceability to a national standard. The
+  frequency figures are the sensor's own measurements of its antenna, reported by
+  the sensor itself, so they are not independent of the equipment under test.
+  Absence of an event means nothing was reported, which is not the same as
+  nothing having happened.
+</p>
+{% endblock %}

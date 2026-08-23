@@ -661,13 +661,15 @@ code {
   color: #8c98a8;
 }
 
-/* ---- cumulonimbus parts ---- */
-.cb-anvil { fill: #e4eaf1; stroke: var(--line); stroke-width: 0.7; }
-.cb-tower { fill: #dbe3ec; stroke: var(--line-dark); stroke-width: 0.8; }
-.cb-base  { fill: #b7c2d0; stroke: var(--line-dark); stroke-width: 0.8; }
-.storm-band.is-idle .cb-anvil { fill: #f1f3f6; }
-.storm-band.is-idle .cb-tower { fill: #eceff3; }
-.storm-band.is-idle .cb-base  { fill: #d5dbe3; }
+/* ---- cumulonimbus ----
+   Two paths, not a stack of ellipses. The body carries the only outline, so
+   there are no circular ring edges showing through the top or around the base.
+   The base has no stroke at all: it is a shading band inside the body, and an
+   outline on it would put a hard line back across the cloud. */
+.cb-body { fill: #dde5ee; stroke: var(--line-dark); stroke-width: 1; }
+.cb-base { fill: #b7c2d0; stroke: none; }
+.storm-band.is-idle .cb-body { fill: #eceff3; }
+.storm-band.is-idle .cb-base { fill: #d5dbe3; }
 
 .storm-bolt { fill: none; stroke-linecap: round; stroke-linejoin: round;
               opacity: 0; }
@@ -676,7 +678,7 @@ code {
 /* A recorded strike: very short and sharp, the whole event over inside
    260 ms, with a double flicker so it reads as a real return stroke rather
    than a fade. */
-.storm-band.is-flashing .cb-tower { animation: storm-lit 260ms steps(1, end) 1; }
+.storm-band.is-flashing .cb-body { animation: storm-lit 260ms steps(1, end) 1; }
 .storm-band.is-flashing .cb-base { animation: storm-lit-base 260ms steps(1, end) 1; }
 .storm-band.is-flashing .storm-bolt-glow { animation: storm-glow 260ms steps(1, end) 1; }
 .storm-band.is-flashing .storm-bolt-main { animation: storm-main 260ms steps(1, end) 1; }
@@ -685,10 +687,10 @@ code {
 
 @keyframes storm-lit {
   0%   { fill: #fff6cc; }
-  22%  { fill: #dbe3ec; }
+  22%  { fill: #dde5ee; }
   38%  { fill: #fff6cc; }
-  54%  { fill: #dbe3ec; }
-  100% { fill: #dbe3ec; }
+  54%  { fill: #dde5ee; }
+  100% { fill: #dde5ee; }
 }
 @keyframes storm-lit-base {
   0%   { fill: #ffe9a3; }
@@ -737,7 +739,7 @@ code {
    channel is left faintly visible so an active band still reads as active. */
 @media (prefers-reduced-motion: reduce) {
   .storm-sky { animation: none; }
-  .storm-band.is-flashing .cb-tower,
+  .storm-band.is-flashing .cb-body,
   .storm-band.is-flashing .cb-base,
   .storm-band.is-flashing .storm-bolt-glow,
   .storm-band.is-flashing .storm-bolt-main,
@@ -748,64 +750,12 @@ code {
 
 
 /* --------------------------- Page loader ---------------------------- */
-/* The overlay markup and its critical styles are inlined in base.html so it
-   covers the page from the very first paint, before this stylesheet has even
-   been fetched. Everything below is presentation only: if this file is slow,
-   the inline rules still hide the unstyled page.
-
-   The overlay is layered ON TOP of the content and never sets display:none on
-   it, and the inline CSS auto-dismisses it on a timer. So a JavaScript failure
-   can never leave the page permanently hidden. */
-
-.page-loader-bolt {
-  width: 34px;
-  height: 46px;
-  fill: var(--white);
-  animation: loader-bolt 1.15s ease-in-out infinite;
-}
-.page-loader-name {
-  margin-top: 14px;
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--white);
-}
-.page-loader-sub {
-  margin-top: 5px;
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: #8aa0b8;
-}
-.page-loader-track {
-  margin-top: 16px;
-  width: 132px;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.18);
-  overflow: hidden;
-}
-.page-loader-track i {
-  display: block;
-  width: 40%;
-  height: 100%;
-  background: var(--white);
-  animation: loader-sweep 1.05s ease-in-out infinite;
-}
-
-@keyframes loader-bolt {
-  0%, 100% { opacity: 0.35; transform: scale(0.94); }
-  12%      { opacity: 1;    transform: scale(1.04); }
-  30%      { opacity: 0.5;  transform: scale(0.98); }
-  46%      { opacity: 1;    transform: scale(1.02); }
-}
-@keyframes loader-sweep {
-  0%   { transform: translateX(-110%); }
-  100% { transform: translateX(260%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .page-loader-bolt { animation: none; opacity: 1; }
-  .page-loader-track i { animation: none; width: 100%; }
-}
+/* Deliberately NOT styled here.
+   The overlay's markup, colours, sizes and animations all live in the inline
+   <style> block in base.html. That is not duplication for its own sake: this
+   stylesheet is fetched as a separate request, and the overlay exists precisely
+   to cover the window before it arrives. Any loader rule placed here would be
+   applied too late to matter, and the element would render unstyled in exactly
+   the moment the overlay is supposed to be hiding.
+   Keeping the rules in one place also avoids two sources of truth for the same
+   component. */

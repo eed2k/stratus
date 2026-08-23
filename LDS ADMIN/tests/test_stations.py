@@ -94,3 +94,75 @@ def test_viewer_cannot_access_stations(client, db_session):
     login(client, "/acme", "v@acme.test")
     r = client.get("/acme/stations", follow_redirects=False)
     assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Altitude
+# ---------------------------------------------------------------------------
+
+def test_altitude_saves_and_clears(client, db_session):
+    from app.models import UnitStatus
+    _setup(db_session)
+    login(client, "/acme", "a@acme.test")
+    csrf = get_csrf(client, "/acme/stations")
+
+    r = _post_update(client, "/acme", "ACME1", csrf,
+                     latitude="-25.75", longitude="27.25", altitude_m="1209")
+    assert r.status_code == 200
+    db_session.expire_all()
+    assert db_session.get(UnitStatus, "ACME1").altitude_m == 1209
+
+    # Blank clears it without disturbing the coordinates.
+    csrf = get_csrf(client, "/acme/stations")
+    _post_update(client, "/acme", "ACME1", csrf,
+                 latitude="-25.75", longitude="27.25", altitude_m="")
+    db_session.expire_all()
+    u = db_session.get(UnitStatus, "ACME1")
+    assert u.altitude_m is None
+    assert u.latitude == -25.75 and u.longitude == 27.25
+
+
+def test_altitude_is_independent_of_coordinates(client, db_session):
+    from app.models import UnitStatus
+    """A surveyed elevation can exist without coordinates, and clearing the
+    coordinates must not silently discard it."""
+    _setup(db_session)
+    login(client, "/acme", "a@acme.test")
+    csrf = get_csrf(client, "/acme/stations")
+
+    _post_update(client, "/acme", "ACME1", csrf, altitude_m="1500")
+    db_session.expire_all()
+    u = db_session.get(UnitStatus, "ACME1")
+    assert u.altitude_m == 1500
+    assert u.latitude is None and u.longitude is None
+
+
+def test_altitude_rejects_nonsense(client, db_session):
+    from app.models import UnitStatus
+    _setup(db_session)
+    login(client, "/acme", "a@acme.test")
+
+    for bad in ("abc", "99999", "-2000", "nan", "inf"):
+        csrf = get_csrf(client, "/acme/stations")
+        r = _post_update(client, "/acme", "ACME1", csrf, altitude_m=bad)
+        assert r.status_code == 200
+        assert "ltitude" in r.text, f"{bad!r} was accepted silently"
+        db_session.expire_all()
+        assert db_session.get(UnitStatus, "ACME1").altitude_m is None, bad
+
+
+def test_altitude_accepts_sea_level_and_below(client, db_session):
+    from app.models import UnitStatus
+    """Zero is a real elevation, and a few sites genuinely sit below sea level."""
+    _setup(db_session)
+    login(client, "/acme", "a@acme.test")
+
+    csrf = get_csrf(client, "/acme/stations")
+    _post_update(client, "/acme", "ACME1", csrf, altitude_m="0")
+    db_session.expire_all()
+    assert db_session.get(UnitStatus, "ACME1").altitude_m == 0
+
+    csrf = get_csrf(client, "/acme/stations")
+    _post_update(client, "/acme", "ACME1", csrf, altitude_m="-300")
+    db_session.expire_all()
+    assert db_session.get(UnitStatus, "ACME1").altitude_m == -300

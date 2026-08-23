@@ -7,17 +7,19 @@
 {% if success %}<div class="success">{{ success }}</div>{% endif %}
 
 <p class="muted" style="text-align:left;padding:0 0 6px;">
-  Set a site label and coordinates for each detector. These appear on the
-  monthly reports and the dashboard. Coordinates are optional: leave both
-  latitude and longitude blank to clear them. Latitude runs from -90 to 90 and
-  longitude from -180 to 180 (decimal degrees).
+  Set a site label, coordinates and altitude for each detector. These appear on
+  the monthly reports and the dashboard, worded the same way as on a Stratus
+  weather report for the same site. All three are optional: leave both latitude
+  and longitude blank to clear them, and blank the altitude to clear it.
+  Latitude runs from -90 to 90 and longitude from -180 to 180 (decimal degrees).
+  Altitude is metres above mean sea level.
 </p>
 
 <table>
   <thead>
     <tr>
       <th>Station</th><th>Site label</th><th>Latitude</th><th>Longitude</th>
-      <th>Last seen</th><th></th>
+      <th>Altitude (m)</th><th>Last seen</th><th></th>
     </tr>
   </thead>
   <tbody>
@@ -31,13 +33,15 @@
                    placeholder="not set" style="width:100px;"></td>
         <td><input name="longitude" value="{{ u.longitude if u.longitude is not none else '' }}"
                    placeholder="not set" style="width:100px;"></td>
+        <td><input name="altitude_m" value="{{ u.altitude_m if u.altitude_m is not none else '' }}"
+                   placeholder="not set" style="width:90px;"></td>
         <td>{{ u.last_seen.strftime('%Y-%m-%d %H:%M') if u.last_seen else '-' }}</td>
         <td><button class="primary" type="submit">Save</button></td>
       </form>
     </tr>
     {% endfor %}
     {% if not units %}
-    <tr><td colspan="6" class="center">No detector units have reported in yet.</td></tr>
+    <tr><td colspan="7" class="center">No detector units have reported in yet.</td></tr>
     {% endif %}
   </tbody>
 </table>

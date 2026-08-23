@@ -10,7 +10,7 @@ from sqlalchemy import func
 from ..db import get_db
 from ..config import settings
 from ..models import (User, Recipient, Group, AlertEvent, MessageLog,
-                      HeartbeatSample, UnitStatus, Tenant)
+                      HeartbeatSample, UnitStatus, Tenant, CalibrationEvent)
 from ..metrics import (energy_band, distance_band_summary, valid_coords,
                       CPU_WARN_C, CPU_CRIT_C)
 from .. import reports as reports_mod
@@ -313,7 +313,8 @@ def stations_list(request: Request, user: User = Depends(require_writer),
 @router.post("/stations/{station_id}/update")
 def station_update(request: Request, station_id: str,
                    site_label: str = Form(""), latitude: str = Form(""),
-                   longitude: str = Form(""), _: None = Depends(verify_csrf),
+                   longitude: str = Form(""), altitude_m: str = Form(""),
+                   _: None = Depends(verify_csrf),
                    user: User = Depends(require_writer),
                    tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
     unit = scoped_get(db, UnitStatus, station_id, tid)
@@ -340,6 +341,28 @@ def station_update(request: Request, station_id: str,
         unit.latitude = float(lat_s)
         unit.longitude = float(lon_s)
 
+    # Altitude is independent of the coordinate pair: a site can have a surveyed
+    # elevation without coordinates, and clearing one must not clear the other.
+    alt_s = (altitude_m or "").strip()
+    if not alt_s:
+        unit.altitude_m = None
+    else:
+        try:
+            alt = float(alt_s)
+        except ValueError:
+            return _reload(error=(f"Invalid altitude for {station_id}. "
+                                  "Enter metres above mean sea level, or leave "
+                                  "it blank."))
+        # Reject NaN, infinities and physically impossible elevations. The bounds
+        # span the Dead Sea shore to well above Everest, which is generous for a
+        # lightning detector but catches a transposed coordinate typed into the
+        # wrong box.
+        if alt != alt or alt in (float("inf"), float("-inf")) \
+                or not -500.0 <= alt <= 9000.0:
+            return _reload(error=(f"Altitude for {station_id} must be between "
+                                  "-500 and 9000 metres."))
+        unit.altitude_m = alt
+
     unit.site_label = (site_label or "").strip() or None
     db.commit()
     return _reload(success=f"Saved metadata for {station_id}.")
@@ -351,10 +374,18 @@ _SAFE_PATH = re.compile(r"[^A-Za-z0-9_.-]")
 
 
 def _report_path(tenant_slug, station_id, year, month, rtype):
-    """Filesystem cache path for a report, built only from validated inputs."""
+    """Filesystem cache path for a report, built only from validated inputs.
+
+    The filename carries reports.FORMAT_VERSION, a hash of the report templates
+    and renderers. Without it the cache key said nothing about layout, so a
+    template change left every already-generated PDF serving the old design
+    forever. Including it means a deploy that changes the look of a report
+    invalidates its cached copies automatically.
+    """
     slug = _SAFE_PATH.sub("_", tenant_slug or "tenant")
     station = _SAFE_PATH.sub("_", station_id or "station")
-    fname = f"{year:04d}-{month:02d}-{rtype}.pdf"
+    ver = _SAFE_PATH.sub("_", reports_mod.FORMAT_VERSION)
+    fname = f"{year:04d}-{month:02d}-{rtype}-{ver}.pdf"
     return _REPORTS_ROOT / slug / station / fname
 
 
@@ -366,6 +397,12 @@ def _available_months(db, tid):
         if ts:
             ym.add((ts.year, ts.month))
     for (ts,) in scope(db.query(AlertEvent.timestamp), AlertEvent, tid).all():
+        if ts:
+            ym.add((ts.year, ts.month))
+    # Calibration months count too. Without this a month whose only activity was
+    # calibration was not offered, which would have made the calibration report
+    # unreachable for exactly the periods it is about.
+    for (ts,) in scope(db.query(CalibrationEvent.ts), CalibrationEvent, tid).all():
         if ts:
             ym.add((ts.year, ts.month))
     now = now_sast()
@@ -385,6 +422,7 @@ def reports_list(request: Request, user: User = Depends(current_user),
     return render(request, "reports.html", user=user, units=units,
                   months=_available_months(db, tid),
                   report_types=reports_mod.REPORT_TYPES,
+                  report_labels=reports_mod.REPORT_LABELS,
                   can_generate=user.role in ("admin", "operator"),
                   error=None, success=None)
 

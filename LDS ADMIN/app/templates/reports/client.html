@@ -1,87 +1,102 @@
-<!doctype html>
-<html lang="en-ZA">
-<head>
-<meta charset="utf-8">
-<title>Monthly Summary - {{ meta.site }} - {{ period.label }}</title>
-<style>
-  @page { size: A4; margin: 18mm 16mm; }
-  body { font-family: Arial, "Liberation Sans", sans-serif; color: #111111;
-         font-size: 11pt; line-height: 1.45; }
-  .cover { background: #1b3a5b; color: #ffffff; padding: 10mm 8mm; }
-  .cover .brand { font-size: 12pt; letter-spacing: 0.5pt; opacity: 0.9; }
-  .cover h1 { font-size: 22pt; margin: 3mm 0 1mm; color: #ffffff; }
-  .cover .site { font-size: 14pt; }
-  .cover .period { font-size: 11pt; opacity: 0.9; margin-top: 2mm; }
-  h2 { color: #1b3a5b; font-size: 13pt; margin: 6mm 0 2mm;
-       border-bottom: 1.5pt solid #1b3a5b; padding-bottom: 1mm; }
-  table.data { width: 100%; border-collapse: collapse; margin: 2mm 0; }
-  table.data th, table.data td { border: 0.75pt solid #d9dee5; padding: 1.5mm 2mm;
-       text-align: left; font-size: 10pt; }
-  table.data th { background: #eef1f5; color: #1b3a5b; }
-  .chart { margin: 3mm 0; }
-  .legend { margin: 2mm 0; }
-  .legend .row { margin: 1mm 0; font-size: 10pt; }
-  .swatch { display: inline-block; width: 10pt; height: 10pt; margin-right: 3pt;
-            vertical-align: middle; }
-  .muted { color: #6b7280; font-size: 9pt; }
-  .note { color: #6b7280; font-size: 9pt; margin-top: 6mm;
-          border-top: 0.75pt solid #d9dee5; padding-top: 2mm; }
-  .nodata { color: #6b7280; font-style: italic; padding: 8mm 0; }
-</style>
-</head>
-<body>
-  <div class="cover">
-    <div class="brand">STRATUS WEATHER</div>
-    <h1>Monthly Lightning Report</h1>
-    <div class="site">{{ meta.site }}</div>
-    <div class="period">{{ period.label }} &#183; {{ tenant.name }}</div>
-    <div class="period">Coordinates: {{ meta.coords_text }}</div>
-  </div>
+{% extends "reports/_base.html" %}
+{% import "reports/_parts.html" as parts %}
+{% block doc_title %}Monthly Lightning Report{% endblock %}
 
-  {% if not has_data %}
-  <p class="nodata">No lightning or system data was recorded for {{ period.label }}.</p>
-  {% else %}
+{% block content %}
+<header class="cover">
+  <p class="brand">STRATUS WEATHER</p>
+  <h1>Monthly Lightning Report</h1>
+  <p class="site">{{ meta.site }}</p>
+  <p class="period">{{ period.label }} &#183; {{ tenant.name }}</p>
+  {% if meta.site_line %}<p class="period">{{ meta.site_line }}</p>{% endif %}
+</header>
 
+{% if not has_data %}
+<p class="nodata">No lightning or system data was recorded for {{ period.label }}.</p>
+{% else %}
+
+<section class="keep">
   <h2>System overview</h2>
-  <table class="data">
-    <tr><th>Detector</th><td>AS3935 lightning sensor</td>
-        <th>Detection range</th><td>Up to 40 km</td></tr>
-    <tr><th>Alerts</th><td>SMS</td>
-        <th>Power</th><td>Solar with battery backup</td></tr>
-    <tr><th>Availability</th><td>{{ '%.1f'|format(uptime_pct) }}%</td>
-        <th>Station</th><td>{{ meta.station_id }}</td></tr>
-  </table>
-  <div class="chart">{{ charts.uptime|safe }}</div>
+  {#
+    A description list, not a table. This is six key/value pairs, not tabular
+    data, and marking it up as a table made assistive technology announce it as
+    a grid with meaningless row and column relationships.
+  #}
+  <dl class="meta">
+    <div><dt>Detector</dt><dd>AS3935 lightning sensor</dd></div>
+    <div><dt>Detection range</dt><dd>Up to 40 km</dd></div>
+    <div><dt>Alerts</dt><dd>SMS</dd></div>
+    <div><dt>Power</dt><dd>Solar with battery backup</dd></div>
+    <div><dt>Availability</dt><dd>{{ '%.1f'|format(uptime_pct) }}%</dd></div>
+    <div><dt>Station</dt><dd>{{ meta.station_id }}</dd></div>
+  </dl>
+  {{ parts.figure(
+       charts.uptime,
+       "Availability for " ~ period.label ~ " was " ~
+       ('%.1f'|format(uptime_pct)) ~ " percent of the hours expected in the " ~
+       "period.") }}
+</section>
 
+<section>
   <h2>Lightning activity</h2>
-  <table class="data">
-    <tr><th>Total in-range strikes</th><th>Closest approach (km)</th></tr>
-    <tr><td>{{ strikes.total }}</td>
-        <td>{{ '%.0f'|format(strikes.closest) if strikes.closest is not none else '-' }}</td></tr>
-  </table>
-  <div class="chart">{{ charts.storm|safe }}</div>
-  <div class="chart">{{ charts.distance|safe }}</div>
-  <div class="chart">{{ charts.energy|safe }}</div>
+  {{ parts.summary_table(
+       "Lightning summary for " ~ period.label,
+       [("Total in-range strikes", strikes.total),
+        ("Closest approach (km)",
+         '%.0f'|format(strikes.closest) if strikes.closest is not none else '-')]) }}
+  {{ parts.figure(
+       charts.storm,
+       "Strikes grouped into proximity bands, nearest first. " ~ strikes.total ~
+       " strike" ~ ('' if strikes.total == 1 else 's') ~ " in total" ~
+       (", closest approach " ~ '%.0f'|format(strikes.closest) ~ " km"
+        if strikes.closest is not none else "") ~
+       ". No direction is shown, because the sensor does not measure bearing.") }}
+  {{ parts.figure(
+       charts.distance,
+       "How far away the recorded strikes were during " ~ period.label ~ ".") }}
+  {{ parts.figure(
+       charts.energy,
+       "How many strikes fell into each relative intensity band during " ~
+       period.label ~ ".") }}
+</section>
 
-  <h2>Energy legend</h2>
-  <div class="legend">
-    {% for row in energy_legend %}
-    <div class="row">
-      <span class="swatch" style="background:{{ row.colour }};"></span>
-      <strong>{{ row.name }}</strong>: {{ '{:,}'.format(row.lower) }} to {{ '{:,}'.format(row.upper) }}
-    </div>
-    {% endfor %}
-  </div>
+<section class="keep">
+  <h2>Intensity bands</h2>
+  <table class="data">
+    <caption>
+      What each intensity band means. The colour column matches the shading used
+      in the charts above.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Band</th>
+        <th scope="col" class="num">From</th>
+        <th scope="col" class="num">To</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in energy_legend %}
+      <tr>
+        <td>
+          <span class="swatch" style="background:{{ row.colour }};"
+                aria-hidden="true"></span>{{ row.name }}
+        </td>
+        <td class="num">{{ '{:,}'.format(row.lower) }}</td>
+        <td class="num">{{ '{:,}'.format(row.upper) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
   <p class="muted">Energy is a relative, dimensionless scale (0 to 2,097,151).
     It is not an absolute measurement in Joules or Watts and is only comparable
     within this installation. Values above about 1,000,000 indicate a
     high-intensity strike.</p>
+</section>
 
-  {% endif %}
+{% endif %}
 
-  <p class="note">
-    Figures reflect in-range lightning received by the panel over {{ period.label }}
-    (SAST). Strike distance is estimated; bearing is not measured by the sensor.
-  </p>
-</body>
-</html>
+<p class="note">
+  Figures reflect in-range lightning received by the panel over {{ period.label }}
+  (SAST). Strike distance is estimated; bearing is not measured by the sensor.
+</p>
+{% endblock %}

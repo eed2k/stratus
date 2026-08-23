@@ -1,0 +1,136 @@
+{#
+  Shared layout for every PDF report.
+
+  Three problems this exists to solve:
+
+  1. The CSS was duplicated verbatim in technical.html and client.html, so the
+     two reports drifted. There is now one stylesheet, here.
+  2. There were no page-break rules at all, so tables and charts split across
+     A4 boundaries and headings were stranded at the foot of a page.
+  3. Three different font stacks were in play (report body, charts.py::_FONT,
+     and the legacy inline chart font). They are one stack now, declared in
+     FONT_STACK below and mirrored in charts.py.
+
+  Structure is semantic rather than table-driven: <header>, <section>, <dl> for
+  key/value pairs, and real <thead>/<tbody> with scope attributes. Every chart
+  is wrapped in a <figure> whose <figcaption> states the same finding in words,
+  so the report carries its meaning as text and not only as a picture.
+
+  Blocks: doc_title, doc_sub, content.
+#}<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<title>{% block doc_title %}Report{% endblock %} - {{ meta.site }} - {{ period.label }}</title>
+<style>
+  /* ---- page geometry -------------------------------------------------
+     The bottom margin is deeper than the top to make room for the running
+     footer, which lives in the page's bottom margin box. */
+  @page {
+    size: A4;
+    margin: 16mm 15mm 20mm;
+    @bottom-left {
+      {# Pre-sanitised in reports.py::css_safe_text. This is a CSS string inside
+         a <style> element, so neither HTML escaping nor raw interpolation is
+         safe here: see the note on that function. #}
+      content: "{{ footer_text }}";
+      font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+      font-size: 8pt; color: #6b7280;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+      font-size: 8pt; color: #6b7280;
+    }
+  }
+
+  /* ---- one font stack, one type scale -------------------------------
+     Arial resolves to metric-compatible Liberation Sans in the container
+     (fonts-liberation is installed in the Dockerfile), so the same stack is
+     safe on the server and on a workstation. */
+  body {
+    font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+    color: #111111; font-size: 10.5pt; line-height: 1.45; margin: 0;
+  }
+  h1, h2, h3 { font-family: inherit; color: #1b3a5b; }
+  h1 { font-size: 18pt; margin: 0 0 2mm; }
+  h2 { font-size: 12.5pt; margin: 7mm 0 2mm;
+       border-bottom: 1.25pt solid #1b3a5b; padding-bottom: 1mm; }
+  h3 { font-size: 11pt; margin: 4mm 0 1.5mm; }
+  p { margin: 0 0 2.5mm; }
+
+  /* ---- page-break control -------------------------------------------
+     A heading must never be the last thing on a page, a chart must never be
+     cut in half, and a table row must never straddle a boundary. */
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+  h1, h2, h3 { break-inside: avoid; page-break-inside: avoid; }
+  p, dl, ul, ol { orphans: 3; widows: 3; }
+  figure { break-inside: avoid; page-break-inside: avoid; margin: 3mm 0; }
+  .keep { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Summary tables are short, so they are kept whole. */
+  table.data { break-inside: avoid; page-break-inside: avoid; }
+  /* A log can legitimately outgrow one page. Let it flow, but repeat the
+     header row on each page and never split an individual row, so no reader
+     ever meets a headerless or half-height row. */
+  table.log { break-inside: auto; page-break-inside: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr, th, td { break-inside: avoid; page-break-inside: avoid; }
+
+  /* ---- banner --------------------------------------------------------- */
+  .banner { background: #1b3a5b; color: #ffffff; padding: 6mm; }
+  .banner h1 { color: #ffffff; }
+  .banner .sub { font-size: 10pt; }
+  .cover { background: #1b3a5b; color: #ffffff; padding: 10mm 8mm; }
+  .cover .brand { font-size: 11pt; letter-spacing: 0.5pt; }
+  .cover h1 { font-size: 22pt; margin: 3mm 0 1mm; color: #ffffff; }
+  .cover .site { font-size: 14pt; }
+  .cover .period { font-size: 10.5pt; margin-top: 2mm; }
+
+  /* ---- key/value metadata --------------------------------------------
+     A description list, not a layout table: the pairing is the meaning, and
+     assistive technology reads it as pairs rather than as tabular data. */
+  dl.meta { margin: 3mm 0; padding: 0; }
+  dl.meta div { display: block; padding: 1.2mm 0;
+                border-bottom: 0.5pt solid #eef1f5; }
+  dl.meta dt { display: inline-block; width: 34%; color: #6b7280;
+               font-size: 9.5pt; margin: 0; }
+  dl.meta dd { display: inline; margin: 0; font-size: 9.5pt; }
+
+  /* ---- data tables ---------------------------------------------------- */
+  table.data, table.log {
+    width: 100%; border-collapse: collapse; margin: 2mm 0 3mm;
+  }
+  table.data caption, table.log caption {
+    caption-side: top; text-align: left; font-size: 9pt; color: #6b7280;
+    padding: 0 0 1mm;
+  }
+  table.data th, table.data td, table.log th, table.log td {
+    border: 0.6pt solid #d9dee5; padding: 1.4mm 2mm; text-align: left;
+    font-size: 9.5pt; vertical-align: top;
+  }
+  table.data th, table.log th {
+    background: #eef1f5; color: #1b3a5b; font-weight: bold;
+  }
+  td.num, th.num { text-align: right; }
+
+  /* ---- figures -------------------------------------------------------- */
+  figure { padding: 0; }
+  figure svg { display: block; width: 100%; height: auto; }
+  figcaption { font-size: 8.5pt; color: #6b7280; margin-top: 1.5mm; }
+
+  /* ---- utility -------------------------------------------------------- */
+  .muted { color: #6b7280; font-size: 9pt; }
+  .note { color: #6b7280; font-size: 8.5pt; margin-top: 6mm;
+          border-top: 0.6pt solid #d9dee5; padding-top: 2mm; }
+  .nodata { color: #6b7280; font-style: italic; padding: 8mm 0; }
+  .swatch { display: inline-block; width: 9pt; height: 9pt; margin-right: 3pt;
+            vertical-align: middle; border: 0.5pt solid #d9dee5; }
+  .pass { color: #1b7f3b; } .fail { color: #b00020; }
+</style>
+</head>
+<body>
+{% block content %}{% endblock %}
+</body>
+</html>

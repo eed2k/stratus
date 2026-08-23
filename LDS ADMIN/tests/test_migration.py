@@ -43,7 +43,7 @@ def test_add_missing_columns_is_idempotent(tmp_path, monkeypatch):
     # First run adds them.
     bootstrap.add_missing_columns()
     cols_after = {c["name"] for c in inspect(eng).get_columns("unit_status")}
-    assert {"site_label", "latitude", "longitude"} <= cols_after
+    assert {"site_label", "latitude", "longitude", "altitude_m"} <= cols_after
 
     # Existing row survived untouched.
     with eng.begin() as conn:

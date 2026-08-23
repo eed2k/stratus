@@ -8,12 +8,20 @@
  * active/inactive (and whether they are sending data), server metrics,
  * database metrics and backup metrics. It contains NO meteorological data.
  *
- * Schedule: Every day at 08:00 Africa/Johannesburg.
+ * Schedule: Monday to Friday at 08:00 Africa/Johannesburg. Weekends are skipped
+ * on purpose - an unread operations report still costs a send and trains the
+ * reader to ignore the series.
  *
  * Configuration:
  *   DIGEST_ENABLED=true    (default false)
  *   DIGEST_RECIPIENT=esterhuizen2k@proton.me  (override if needed)
- *   DIGEST_CRON=0 8 * * *                     (override schedule if needed)
+ *   DIGEST_CRON=0 8 * * 1-5                   (override schedule if needed)
+ *
+ * The weekday rule is enforced twice: in the default cron expression, and again
+ * in the scheduled callback. The second check matters because DIGEST_CRON is
+ * operator-supplied - setting it back to "0 8 * * *" would otherwise quietly
+ * reinstate weekend mail. Manual sends via runDigestNow() are NOT gated, since
+ * asking for a report on a Saturday is an explicit act.
  */
 
 import * as cron from 'node-cron';
@@ -22,7 +30,26 @@ import * as fs from 'fs';
 import { isEmailConfigured, sendEmail } from './emailService';
 
 const DIGEST_RECIPIENT = process.env.DIGEST_RECIPIENT || 'esterhuizen2k@proton.me';
-const DIGEST_CRON = process.env.DIGEST_CRON || '0 8 * * *'; // Daily 08:00
+// Mon-Fri at 08:00. node-cron day-of-week is 0=Sunday..6=Saturday.
+const DIGEST_CRON = process.env.DIGEST_CRON || '0 8 * * 1-5';
+const DIGEST_TZ = process.env.DIGEST_TZ || 'Africa/Johannesburg';
+
+/**
+ * True on Monday to Friday in DIGEST_TZ.
+ *
+ * Reads the zone-local day rather than the host's. The server runs in UTC, so at
+ * 01:00 SAST on a Monday it is still Sunday in UTC and asking the host would
+ * give the wrong answer.
+ *
+ * Intl is used rather than an offset constant so this stays correct if DIGEST_TZ
+ * is pointed at a zone that observes DST.
+ */
+function isDigestWeekday(at: Date = new Date()): boolean {
+  const day = new Intl.DateTimeFormat('en-US', {
+    timeZone: DIGEST_TZ, weekday: 'short',
+  }).format(at);
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(day);
+}
 const STALENESS_THRESHOLD_MS = parseInt(process.env.STALENESS_THRESHOLD || '7200000', 10);
 
 // Directories the backup scripts write to. First existing one wins.
@@ -411,7 +438,7 @@ function formatDigest(
   lines.push('================================================================');
   lines.push('Stratus Weather Server - Automated System Report (no weather data)');
   lines.push(`Recipient: ${DIGEST_RECIPIENT}`);
-  lines.push(`Schedule:  ${DIGEST_CRON} (cron, Africa/Johannesburg)`);
+  lines.push(`Schedule:  ${DIGEST_CRON} (cron, ${DIGEST_TZ}) - weekdays only, no Sat/Sun`);
   lines.push(`To disable: set DIGEST_ENABLED=false and restart the server.`);
 
   return { subject, text: lines.join('\n') };
@@ -480,10 +507,17 @@ export async function initWeeklyDigest(): Promise<void> {
   await ensureDbWired();
 
   scheduledTask = cron.schedule(DIGEST_CRON, () => {
+    // Second line of defence on the weekday rule: DIGEST_CRON is
+    // operator-supplied, so a value of "0 8 * * *" would otherwise quietly
+    // reinstate Saturday and Sunday mail.
+    if (!isDigestWeekday()) {
+      console.log(`[StratusReport] Weekend in ${DIGEST_TZ}, skipping the scheduled report.`);
+      return;
+    }
     runDigestNow().catch(err => console.error('[StratusReport] Scheduled run failed:', err));
-  }, { timezone: process.env.DIGEST_TZ || 'Africa/Johannesburg' });
+  }, { timezone: DIGEST_TZ });
 
-  console.log(`[StratusReport] Started. Recipient=${DIGEST_RECIPIENT}, cron='${DIGEST_CRON}', tz='${process.env.DIGEST_TZ || 'Africa/Johannesburg'}'`);
+  console.log(`[StratusReport] Started. Recipient=${DIGEST_RECIPIENT}, cron='${DIGEST_CRON}', tz='${DIGEST_TZ}', weekdays only (Mon-Fri)`);
 }
 
 export function stopWeeklyDigest(): void {

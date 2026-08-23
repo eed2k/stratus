@@ -22,6 +22,13 @@
       clears itself, so a script error can never leave the panel blank.
 #}
 <style>
+/* Every rule the overlay needs lives here, with literal colours and sizes.
+   Nothing about it may depend on /static/style.css, because the whole point of
+   the overlay is to cover the window BEFORE that stylesheet arrives. An earlier
+   version kept the bolt's fill and size in style.css, so for one frame the SVG
+   fell back to a default black fill at its intrinsic size: a big black bolt,
+   exactly the sort of flash this is meant to prevent. var(--white) was no help
+   either, since :root is declared in that same late-arriving file. */
 #page-loader{position:fixed;inset:0;z-index:9999;display:flex;
   flex-direction:column;align-items:center;justify-content:center;
   background:#061a30;opacity:1;
@@ -29,8 +36,30 @@
 #page-loader.is-done{animation:none;opacity:0;pointer-events:none;
   transition:opacity .28s ease}
 @keyframes pl-auto{0%,70%{opacity:1}100%{opacity:0;visibility:hidden}}
+#page-loader .page-loader-bolt{display:block;width:34px;height:46px;
+  fill:#ffffff;animation:loader-bolt 1.15s ease-in-out infinite}
+#page-loader .page-loader-name{margin-top:14px;
+  font-family:Consolas,"Courier New",monospace;font-size:12px;font-weight:700;
+  letter-spacing:.22em;text-transform:uppercase;color:#ffffff}
+#page-loader .page-loader-sub{margin-top:5px;
+  font-family:Consolas,"Courier New",monospace;font-size:10px;
+  letter-spacing:.12em;color:#8aa0b8}
+#page-loader .page-loader-track{margin-top:16px;width:132px;height:2px;
+  background:rgba(255,255,255,.18);overflow:hidden}
+#page-loader .page-loader-track i{display:block;width:40%;height:100%;
+  background:#ffffff;animation:loader-sweep 1.05s ease-in-out infinite}
+@keyframes loader-bolt{
+  0%,100%{opacity:.35;transform:scale(.94)}
+  12%{opacity:1;transform:scale(1.04)}
+  30%{opacity:.5;transform:scale(.98)}
+  46%{opacity:1;transform:scale(1.02)}}
+@keyframes loader-sweep{
+  0%{transform:translateX(-110%)}
+  100%{transform:translateX(260%)}}
 @media (prefers-reduced-motion:reduce){
   #page-loader{animation-duration:1.2s}
+  #page-loader .page-loader-bolt{animation:none;opacity:1}
+  #page-loader .page-loader-track i{animation:none;width:100%}
 }
 </style>
 <link rel="stylesheet" href="/static/style.css">
@@ -40,7 +69,12 @@
 {# Purely visual: the content underneath is never hidden, so this is kept out
    of the accessibility tree rather than announced as a live region. #}
 <div id="page-loader" aria-hidden="true">
-  <svg class="page-loader-bolt" viewBox="0 0 24 32" focusable="false">
+  {# width/height/fill are also set as SVG presentation attributes, not only in
+     CSS. Attributes take effect while the element is being parsed, so the bolt
+     is never briefly a full-size black shape even in the instant before any
+     stylesheet at all has been applied. #}
+  <svg class="page-loader-bolt" viewBox="0 0 24 32" width="34" height="46"
+       fill="#ffffff" focusable="false" aria-hidden="true">
     <path d="M13.8 0 3 18.4h6.4L7.9 32 21 12.6h-6.7L15.9 0z"/>
   </svg>
   <div class="page-loader-name">Stratus Weather</div>

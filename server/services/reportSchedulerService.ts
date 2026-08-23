@@ -10,9 +10,14 @@
  * MailerSend (from MAILERSEND_FROM_EMAIL, default noreply@stratusweather.co.za).
  *
  * Frequencies:
- *   daily        - every day at HH:00 SAST
- *   weekly       - every WEEKDAY at HH:00 SAST  (weekday: 0=Sun..6=Sat)
+ *   daily        - Monday to Friday at HH:00 SAST (NOT weekends)
+ *   weekly       - on one chosen day at HH:00 SAST  (weekday: 0=Sun..6=Sat)
  *   monthly      - on day-of-month at HH:00 SAST
+ *
+ * "daily" deliberately means the working week, not all seven days. An automated
+ * summary nobody reads on a Sunday still costs a send and teaches the reader to
+ * ignore the series. Pick `weekly` with weekday 0 or 6 if a weekend report is
+ * genuinely wanted.
  *
  * Reporting period:
  *   daily        - last 24 hours
@@ -103,7 +108,7 @@ function rowToSchedule(row: any): ReportSchedule {
  * for a DST zone the computed next-run can be off by an hour across the
  * transition (display only - node-cron still fires on the correct wall time).
  */
-function tzOffsetMs(at: Date): number {
+function tzOffsetMsImpl(at: Date): number {
   const dtf = new Intl.DateTimeFormat('en-US', {
     timeZone: REPORTS_TZ, hour12: false,
     year: 'numeric', month: '2-digit', day: '2-digit',
@@ -118,6 +123,32 @@ function tzOffsetMs(at: Date): number {
     Number(p.hour) % 24, Number(p.minute), Number(p.second),
   );
   return asUTC - (at.getTime() - at.getMilliseconds());
+}
+
+const tzOffsetMs = tzOffsetMsImpl;
+
+/**
+ * Day of week in REPORTS_TZ: 0 = Sunday .. 6 = Saturday.
+ *
+ * Reads the zone-local day rather than the server's, which matters because the
+ * server runs in UTC: at 01:00 SAST on a Monday it is still Sunday in UTC, so
+ * asking the host for the weekday would have got the wrong answer for any
+ * schedule set before 02:00.
+ */
+export function tzWeekday(at: Date = new Date()): number {
+  return new Date(at.getTime() + tzOffsetMs(at)).getUTCDay();
+}
+
+/**
+ * True on Monday to Friday in REPORTS_TZ.
+ *
+ * Daily report schedules are weekday-only: nobody is reading an automated
+ * weather summary over the weekend, and a report nobody opens still costs a
+ * MailerSend send and trains the reader to ignore the whole series.
+ */
+export function isReportWeekday(at: Date = new Date()): boolean {
+  const d = tzWeekday(at);
+  return d >= 1 && d <= 5;
 }
 
 /** Next fire time for a schedule, expressed as a real (UTC) instant. */
@@ -135,8 +166,16 @@ export function computeNextRun(
   const at = (yy: number, mm: number, dd: number) => new Date(Date.UTC(yy, mm, dd, hour, 0, 0) - offset);
 
   if (s.frequency === 'daily') {
-    const today = at(y, mo, day);
-    return today > from ? today : at(y, mo, day + 1);
+    // Weekday-only, so walk forward until Mon-Fri. Without this the UI would
+    // advertise a Saturday run that the cron expression never fires, which is
+    // worse than no next-run at all: it looks like a delivery failure.
+    // 8 iterations is enough to clear any weekend from any starting day.
+    for (let i = 0; i <= 8; i++) {
+      const candidate = at(y, mo, day + i);
+      if (candidate <= from) continue;
+      if (isReportWeekday(candidate)) return candidate;
+    }
+    return null;
   }
   if (s.frequency === 'weekly') {
     const target = s.weekday == null ? 1 : Math.max(0, Math.min(6, s.weekday));
@@ -154,7 +193,9 @@ export function computeNextRun(
 
 function cronExprFor(s: ReportSchedule): string | null {
   const h = Math.max(0, Math.min(23, s.hour));
-  if (s.frequency === 'daily') return `0 ${h} * * *`;
+  // Mon-Fri. node-cron day-of-week is 0=Sunday..6=Saturday, so 1-5 is the
+  // working week and both 0 and 7 mean Sunday.
+  if (s.frequency === 'daily') return `0 ${h} * * 1-5`;
   if (s.frequency === 'weekly') {
     const wd = s.weekday == null ? 1 : Math.max(0, Math.min(6, s.weekday));
     return `0 ${h} * * ${wd}`;
@@ -657,7 +698,7 @@ function periodLabelFromFreq(freq: ReportFrequency): string {
 
 function frequencyLabelFromFreq(freq: ReportFrequency, hour: number, weekday: number | null, dom: number | null): string {
   const hh = String(hour).padStart(2, '0');
-  if (freq === 'daily') return `Daily at ${hh}:00 SAST`;
+  if (freq === 'daily') return `Weekdays (Mon-Fri) at ${hh}:00 SAST`;
   if (freq === 'weekly') {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return `Weekly on ${days[weekday ?? 1]} at ${hh}:00 SAST`;
@@ -941,6 +982,15 @@ function registerTask(s: ReportSchedule): void {
       const fresh = await getSchedule(s.id);
       if (!fresh) { console.warn(`[Reports] Schedule #${s.id} vanished, unregistering.`); unregisterTask(s.id); return; }
       if (!fresh.enabled) { console.log(`[Reports] Schedule #${s.id} is disabled, skipping.`); return; }
+      // Belt and braces on the weekday rule. The cron expression already
+      // excludes Saturday and Sunday, so this should never fire, but a task
+      // registered before a deploy keeps its old expression until the process
+      // restarts. Checking at send time means the rule cannot be defeated by a
+      // stale task, and it states the intent where the send actually happens.
+      if (fresh.frequency === 'daily' && !isReportWeekday()) {
+        console.log(`[Reports] Schedule #${s.id} is daily and today is a weekend in ${REPORTS_TZ}, skipping.`);
+        return;
+      }
       await runSchedule(fresh);
     })().catch(err => console.error(`[Reports] Scheduled run #${s.id} failed:`, err));
   }, { timezone: REPORTS_TZ });

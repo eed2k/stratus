@@ -64,7 +64,7 @@ def cpu_chart_svg(samples, hours=24):
             f'<rect x="0" y="0" width="{W}" height="{H}" fill="#fafafa" '
             f'stroke="#e0e0e0"/>'
             f'<text x="{W//2}" y="{H//2}" text-anchor="middle" '
-            f'font-family="Arial" font-size="11" fill="#888">'
+            f'font-family="{_ARIAL}" font-size="11" fill="#888">'
             f'Collecting data - chart fills over the next 24 h</text></svg>'
         )
 
@@ -111,12 +111,12 @@ def cpu_chart_svg(samples, hours=24):
         )
         parts.append(
             f'<text x="{x0-6}" y="{gy+4:.1f}" text-anchor="end" '
-            f'font-family="Arial" font-size="11" fill="#c0392b">{tval:.0f}</text>'
+            f'font-family="{_ARIAL}" font-size="11" fill="#c0392b">{tval:.0f}</text>'
         )
         lval = l_lo + frac * (l_hi - l_lo)
         parts.append(
             f'<text x="{x0+plot_w+6}" y="{gy+4:.1f}" text-anchor="start" '
-            f'font-family="Arial" font-size="11" fill="#2c7fb8">{lval:.0f}</text>'
+            f'font-family="{_ARIAL}" font-size="11" fill="#2c7fb8">{lval:.0f}</text>'
         )
 
     # Faint vertical gridlines every 4 hours, so a reading can be placed in time.
@@ -132,7 +132,7 @@ def cpu_chart_svg(samples, hours=24):
         lbl = "now" if hrs_ago < 0.5 else f"-{hrs_ago:.0f}h"
         parts.append(
             f'<text x="{gx:.1f}" y="{H-10}" text-anchor="middle" '
-            f'font-family="Arial" font-size="10" fill="#8a929b">{lbl}</text>'
+            f'font-family="{_ARIAL}" font-size="10" fill="#8a929b">{lbl}</text>'
         )
 
     # Data lines: temperature (red), load (blue)
@@ -143,12 +143,12 @@ def cpu_chart_svg(samples, hours=24):
     # Legend: text only, no marker glyphs. The label is drawn in the same colour
     # as its line, which identifies the series without a square in front of it.
     parts.append(
-        f'<text x="{x0}" y="{pad_t-6}" font-family="Arial" font-size="11" '
+        f'<text x="{x0}" y="{pad_t-6}" font-family="{_ARIAL}" font-size="11" '
         f'fill="#c0392b">Temp &deg;C</text>'
     )
     legend2 = "Load %" if load_pts else "Load % (awaiting unit update)"
     parts.append(
-        f'<text x="{x0+110}" y="{pad_t-6}" font-family="Arial" font-size="11" '
+        f'<text x="{x0+110}" y="{pad_t-6}" font-family="{_ARIAL}" font-size="11" '
         f'fill="#2c7fb8">{legend2}</text>'
     )
 
@@ -166,7 +166,16 @@ def cpu_chart_svg(samples, hours=24):
 from .metrics import (energy_band, energy_bands_legend, ENERGY_MAX,
                       CPU_WARN_C, CPU_CRIT_C)
 
-_ARIAL = "Arial, Helvetica, sans-serif"
+# One font stack for the whole PDF. The same family list as the `body` rule in
+# templates/reports/_base.html: chart labels sitting in a different font from the
+# surrounding prose was the visible inconsistency in the reports. Arial resolves
+# to metric-compatible Liberation Sans in the container, which is why
+# fonts-liberation is installed in the Dockerfile.
+#
+# Single quotes around the family name are load-bearing. This string is
+# interpolated into font-family="..." on SVG <text>, so a double-quoted family
+# would close the attribute early and make the whole chart unparseable XML.
+_ARIAL = "Arial, 'Liberation Sans', Helvetica, sans-serif"
 _INK = "#111111"
 _MUTED = "#6b7280"
 _NAVY = "#1b3a5b"
@@ -400,31 +409,34 @@ def uptime_gauge_svg(pct):
     return "".join(parts)
 
 
-def _cumulonimbus(cx, cy, s, active=True):
-    """One small cumulonimbus: spreading anvil, short tower, flat darker base.
+# Cumulonimbus silhouette, shared verbatim with drawCloud() in
+# static/js/storm-view.js so the report and the dashboard draw the same cloud.
+# Keep the two in step.
+#
+# One continuous outline rather than a stack of ellipses: stacked ellipses each
+# carry their own stroke, so their edges showed through as circular rings across
+# the top and a hard ring around the base, and the overlapping arcs read as
+# lumpy. Wider at the shoulders (+/-27) than at the base (+/-24), which is the
+# anvil spread that makes it read as a thunderstorm. The flat base is what a
+# real cumulonimbus base looks like.
+_CB_BODY = ("M-24 11C-33 11-35 1-27-3C-30-12-20-17-12-14"
+            "C-8-22 6-24 12-17C22-20 30-12 26-4C34-1 32 11 24 11Z")
+_CB_BASE = "M-24 4C-12 7 12 7 24 4L24 11L-24 11Z"
 
-    Static counterpart of drawCloud() in static/js/storm-view.js, using the same
-    geometry table so the report and the dashboard draw the same cloud.
-    """
-    if active:
-        anvil, tower, base = "#e4eaf1", "#dbe3ec", "#b7c2d0"
-    else:
-        anvil, tower, base = "#f1f3f6", "#eceff3", "#d5dbe3"
-    out = []
-    for dx, dy, rx, ry in ((0, -15, 32, 5.6), (-13, -12, 13, 4.6),
-                           (14, -12, 12, 4.2)):
-        out.append(f'<ellipse cx="{cx + dx * s:.1f}" cy="{cy + dy * s:.1f}" '
-                   f'rx="{rx * s:.1f}" ry="{ry * s:.1f}" fill="{anvil}" '
-                   f'stroke="#b9c2cf" stroke-width="0.7"/>')
-    for dx, dy, r in ((-7, -6, 9), (3, -8, 9.5), (10, -3, 7.5),
-                      (-13, -2, 7.5), (0, 0, 10.5)):
-        out.append(f'<ellipse cx="{cx + dx * s:.1f}" cy="{cy + dy * s:.1f}" '
-                   f'rx="{r * s:.1f}" ry="{r * s * 0.82:.1f}" fill="{tower}" '
-                   f'stroke="#8c98a8" stroke-width="0.8"/>')
-    out.append(f'<ellipse cx="{cx:.1f}" cy="{cy + 8 * s:.1f}" '
-               f'rx="{20 * s:.1f}" ry="{5 * s:.1f}" fill="{base}" '
-               f'stroke="#8c98a8" stroke-width="0.8"/>')
-    return "".join(out)
+
+def _cumulonimbus(cx, cy, s, active=True):
+    """One small cumulonimbus, positioned by transform so the path data above
+    can be shared with the browser renderer without recomputing coordinates."""
+    body, base = ("#dde5ee", "#b7c2d0") if active else ("#eceff3", "#d5dbe3")
+    return (
+        f'<g transform="translate({cx:.1f},{cy:.1f}) scale({s:.3f})">'
+        f'<path d="{_CB_BODY}" fill="{body}" stroke="#8c98a8" '
+        f'stroke-width="1"/>'
+        # No stroke on the base: it is a shading band inside the body, and an
+        # outline would put a hard line back across the cloud.
+        f'<path d="{_CB_BASE}" fill="{base}"/>'
+        f'</g>'
+    )
 
 
 def _bolt_points(cx, y_top, y_end, seed):

@@ -73,28 +73,33 @@
      Cloud drawing
      ------------------------------------------------------------------- */
 
-  /** Small cumulonimbus: spreading anvil, short tower, flat darker base.
-      The anvil is what makes it read as a thunderstorm rather than fair
-      weather cloud, so it stays even at this size. */
+  /* Cumulonimbus silhouette.
+
+     Drawn as ONE continuous outline rather than a pile of ellipses. Stacked
+     ellipses each carry their own stroke, so their edges showed through as
+     circular rings across the top and a hard ring around the base, and the
+     overlapping arcs read as lumpy. A single closed path has one outline and
+     no internal edges at all.
+
+     Geometry is in units around the cloud's own origin and positioned with a
+     transform, so these two path strings are shared verbatim with the
+     server-side renderer in charts.py::_cumulonimbus. Keep them in step.
+
+     Wider at the shoulders (+/-27) than at the base (+/-24): that spread is the
+     anvil, which is what makes it read as a thunderstorm rather than fair
+     weather cloud. Two broad top curves instead of five bumps keeps it smooth.
+     The flat base is deliberate, being what a real cumulonimbus base looks
+     like. */
+  var CB_BODY = "M-24 11C-33 11-35 1-27-3C-30-12-20-17-12-14" +
+                "C-8-22 6-24 12-17C22-20 30-12 26-4C34-1 32 11 24 11Z";
+  var CB_BASE = "M-24 4C-12 7 12 7 24 4L24 11L-24 11Z";
+
   function drawCloud(svg, s) {
-    var g = el("g", {});
-    [[0, -15, 32, 5.6], [-13, -12, 13, 4.6], [14, -12, 12, 4.2]]
-      .forEach(function (p) {
-        g.appendChild(el("ellipse", {
-          cx: CX + p[0] * s, cy: CY + p[1] * s,
-          rx: p[2] * s, ry: p[3] * s, "class": "cb-anvil"
-        }));
-      });
-    [[-7, -6, 9], [3, -8, 9.5], [10, -3, 7.5], [-13, -2, 7.5], [0, 0, 10.5]]
-      .forEach(function (p) {
-        g.appendChild(el("ellipse", {
-          cx: CX + p[0] * s, cy: CY + p[1] * s,
-          rx: p[2] * s, ry: p[2] * s * 0.82, "class": "cb-tower"
-        }));
-      });
-    g.appendChild(el("ellipse", {
-      cx: CX, cy: CY + 8 * s, rx: 20 * s, ry: 5 * s, "class": "cb-base"
-    }));
+    var g = el("g", {
+      transform: "translate(" + CX + "," + CY + ") scale(" + s.toFixed(3) + ")"
+    });
+    g.appendChild(el("path", { d: CB_BODY, "class": "cb-body" }));
+    g.appendChild(el("path", { d: CB_BASE, "class": "cb-base" }));
     svg.appendChild(g);
     return g;
   }

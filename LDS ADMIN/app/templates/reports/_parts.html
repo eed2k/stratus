@@ -1,0 +1,55 @@
+{#
+  Shared macros. These exist to keep the report templates thin: the markup for
+  a metadata block, a figure and a summary table was repeated in every report
+  and every repetition was a chance for the three of them to disagree.
+#}
+
+{# Station and period metadata as a description list. #}
+{% macro meta_block(meta, period, generated_at) %}
+<dl class="meta">
+  <div><dt>Site</dt><dd>{{ meta.site }}</dd></div>
+  <div><dt>Station</dt><dd>{{ meta.station_id }}</dd></div>
+  {#
+    Position is worded exactly as Stratus words it, via
+    reports.py::format_site_line. The row is omitted entirely when nothing is on
+    record: Stratus omits its site line too, and a "not set" placeholder in a
+    formal report reads like a failed measurement rather than an empty field.
+  #}
+  {% if meta.site_line %}
+  <div><dt>Position</dt><dd>{{ meta.site_line }}</dd></div>
+  {% endif %}
+  <div><dt>Reporting period</dt><dd>{{ period.label }} (SAST)</dd></div>
+  <div><dt>Generated</dt><dd>{{ generated_at.strftime('%Y-%m-%d %H:%M') }} SAST</dd></div>
+</dl>
+{% endmacro %}
+
+{#
+  A chart with its text equivalent.
+
+  The caption is not decoration. Each chart is an SVG, and a reader using a
+  screen reader, or looking at a printed page in monochrome, needs the finding
+  in words. The SVG already carries role="img" and an aria-label from
+  charts.py::_svg_head; this adds the readable summary alongside it.
+#}
+{% macro figure(svg, caption) %}
+<figure>
+  {{ svg|safe }}
+  {% if caption %}<figcaption>{{ caption }}</figcaption>{% endif %}
+</figure>
+{% endmacro %}
+
+{#
+  A single-row summary table: headers across the top, one row of values.
+  `pairs` is a list of (heading, value) tuples.
+#}
+{% macro summary_table(caption, pairs) %}
+<table class="data">
+  {% if caption %}<caption>{{ caption }}</caption>{% endif %}
+  <thead>
+    <tr>{% for k, _v in pairs %}<th scope="col">{{ k }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    <tr>{% for _k, v in pairs %}<td class="num">{{ v }}</td>{% endfor %}</tr>
+  </tbody>
+</table>
+{% endmacro %}

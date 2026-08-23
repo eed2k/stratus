@@ -280,8 +280,11 @@ function ScheduleForm({
             <Select value={form.frequency} onValueChange={(v) => set("frequency", v as Frequency)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
+                {/* "Daily" is Mon-Fri, not all seven days. Labelled so the form
+                    does not promise a Saturday send that never happens. Choose
+                    Weekly with Saturday or Sunday for a weekend report. */}
+                <SelectItem value="daily">Daily (Mon-Fri)</SelectItem>
+                <SelectItem value="weekly">Weekly (one day)</SelectItem>
                 <SelectItem value="monthly">Monthly</SelectItem>
               </SelectContent>
             </Select>
@@ -372,7 +375,7 @@ function ScheduleRow({
     .join(", ");
 
   function freqLabel() {
-    if (s.frequency === "daily") return `Daily at ${String(s.hour).padStart(2, "0")}:00`;
+    if (s.frequency === "daily") return `Mon-Fri at ${String(s.hour).padStart(2, "0")}:00`;
     if (s.frequency === "weekly") return `${WEEKDAYS[s.weekday ?? 1]} at ${String(s.hour).padStart(2, "0")}:00`;
     return `Day ${s.dayOfMonth ?? 1} of month at ${String(s.hour).padStart(2, "0")}:00`;
   }

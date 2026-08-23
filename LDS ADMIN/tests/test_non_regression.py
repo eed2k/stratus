@@ -154,6 +154,40 @@ def test_dashboard_has_a_loader_and_a_unit_range_selector(client, db_session):
     assert 'data-range="30d"' in r.text
 
 
+def test_loader_is_self_contained(client, db_session):
+    """The overlay must not depend on /static/style.css for anything visual.
+
+    Regression: the bolt's fill and size lived in style.css, so for one frame
+    before that file arrived the SVG rendered with a default black fill at its
+    intrinsic size - a big black lightning bolt, which is exactly the kind of
+    flash the loader exists to prevent. `fill: var(--white)` could not have
+    worked either, because :root is declared in that same late-arriving file.
+    """
+    import re
+    _seed(db_session)
+    login(client, "/acme", "admin@acme.test")
+    html = client.get("/acme/").text
+
+    inline = re.search(r"<style>(.*?)</style>", html, re.S)
+    assert inline, "the loader's critical CSS must be inline in the head"
+    css = inline.group(1)
+
+    # Colours and sizes must be literals: a custom property would resolve to
+    # nothing until the external stylesheet lands.
+    body = re.sub(r"/\*.*?\*/", "", css, flags=re.S)   # drop comments
+    assert "var(" not in body, "inline loader CSS must not rely on custom properties"
+
+    for rule in ("page-loader-bolt", "page-loader-name", "page-loader-track"):
+        assert rule in css, f"{rule} must be styled inline, not in style.css"
+    assert "fill:#ffffff" in css
+
+    # Belt and braces: presentation attributes apply while the element is being
+    # parsed, before any CSS at all is in play.
+    assert re.search(r'class="page-loader-bolt"[^>]*fill="#ffffff"', html), \
+        "the bolt needs an explicit fill attribute, not only a CSS rule"
+    assert re.search(r'class="page-loader-bolt"[^>]*width="34"', html)
+
+
 # ---------------------------------------------------------------------------
 # 2. No external asset references (CSP would block them in the browser)
 # ---------------------------------------------------------------------------
