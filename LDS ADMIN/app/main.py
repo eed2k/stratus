@@ -1,18 +1,21 @@
 import logging
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import settings
 from .db import Base, engine, SessionLocal
-from .models import User, Group, Setting
+from .models import User, Setting
 from .auth import hash_password
 from .runtime import ALERTS_ENABLED_KEY
-from .tenancy import TenantPrefixMiddleware
+from .tenancy import TenantPrefixMiddleware, base_path
 from .bootstrap import (add_missing_columns, ensure_platform_tenant,
-                        backfill_tenants)
+                        backfill_tenants, drop_stale_unique_constraints,
+                        ensure_tenant_defaults, ensure_client_usernames)
 from .routes.web import router as web_router
 from .routes.api import router as api_router, dlr_router
 
@@ -37,7 +40,7 @@ app.add_middleware(SessionMiddleware,
                    max_age=settings.SESSION_MAX_AGE)
 
 
-# Defence-in-depth response headers applied to every response.
+# Defense-in-depth response headers applied to every response.
 _CSP = ("default-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
         "script-src 'self'; "
@@ -65,6 +68,54 @@ async def security_headers(request, call_next):
         resp.headers["Strict-Transport-Security"] = \
             "max-age=63072000; includeSubDomains; preload"
     return resp
+
+
+# --------------------------------------------------------------------------
+# Last-resort error page
+# --------------------------------------------------------------------------
+# Routes handle their own expected failures and re-render the form with a
+# message. This exists for the unexpected: without it Starlette returns a bare
+# "Internal Server Error" body, which is what an operator saw when
+# /tenants/create hit a stale database constraint. The traceback is logged, never
+# shown, because it names files, drivers and column values.
+_ERROR_PAGE = """<!DOCTYPE html>
+<html lang="en-ZA"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Something went wrong</title>
+<style>
+ body{margin:0;min-height:100vh;display:flex;align-items:center;
+   justify-content:center;background:#f4f6f9;
+   font:14px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+   color:#0a2540}
+ .box{max-width:520px;background:#fff;border:1px solid #b9c2cf;
+   border-top:3px solid #c0392b;padding:26px 28px;margin:20px}
+ h1{margin:0 0 10px;font-size:17px;letter-spacing:.02em;text-transform:uppercase}
+ p{margin:0 0 12px;color:#3d4d5c}
+ code{background:#f4f6f9;padding:1px 5px;font-size:12px}
+ a{color:#0a2540;font-weight:600}
+</style></head><body>
+<div class="box" role="alert">
+  <h1>Something went wrong</h1>
+  <p>The action could not be completed and nothing was saved. The error has been
+     recorded for us to look at.</p>
+  <p>Reference <code>__REF__</code></p>
+  <p><a href="__HOME__">Back to the panel</a></p>
+</div></body></html>"""
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request, exc):
+    # A short reference so a report can be matched to the logged traceback.
+    ref = uuid.uuid4().hex[:8]
+    logging.getLogger("unhandled").exception(
+        "ref=%s unhandled error on %s %s", ref, request.method, request.url.path)
+    # Keep the operator inside whichever panel they were in.
+    try:
+        home = base_path(request) or "/"
+    except Exception:
+        home = "/"
+    body = _ERROR_PAGE.replace("__REF__", ref).replace("__HOME__", home)
+    return HTMLResponse(body, status_code=500)
 
 
 BASE = Path(__file__).resolve().parent
@@ -111,6 +162,10 @@ def bootstrap():
     # Bring an already-populated database up to the current schema, then make
     # sure nothing is left without an owning tenant.
     add_missing_columns()
+    # Must run before anything seeds a group: a database built by an older
+    # models.py enforces UNIQUE(groups.name) globally, which makes the second
+    # tenant's "default" group fail and took /tenants/create down with a 500.
+    drop_stale_unique_constraints()
     db = SessionLocal()
     try:
         platform = ensure_platform_tenant(db)
@@ -122,11 +177,13 @@ def bootstrap():
         _ensure_user(db, settings.INITIAL_OPERATOR_EMAIL,
                      settings.INITIAL_OPERATOR_PASSWORD, "operator",
                      platform.id, False)
-        if not db.query(Group).filter(Group.tenant_id == platform.id).first():
-            db.add(Group(tenant_id=platform.id, name="default",
-                         description="Default recipient group",
-                         distance_threshold_km=15, is_active=True))
-            db.commit()
+        # Every tenant needs a default group, including the platform one. This
+        # also repairs any client panel whose creation failed part-way and left
+        # it with no group to attach recipients to.
+        ensure_tenant_defaults(db)
+        # Let existing clients use the /client sign-in without being issued new
+        # credentials: their panel address becomes their sign-in name.
+        ensure_client_usernames(db)
         # Global alert on/off switch defaults to ON.
         if not db.get(Setting, ALERTS_ENABLED_KEY):
             db.add(Setting(key=ALERTS_ENABLED_KEY, value="1"))

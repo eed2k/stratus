@@ -162,7 +162,7 @@ export function computeNextRun(
   const y = local.getUTCFullYear();
   const mo = local.getUTCMonth();
   const day = local.getUTCDate();
-  // Date.UTC normalises day/month overflow, so day+1 / month+1 are safe.
+  // Date.UTC normalizes day/month overflow, so day+1 / month+1 are safe.
   const at = (yy: number, mm: number, dd: number) => new Date(Date.UTC(yy, mm, dd, hour, 0, 0) - offset);
 
   if (s.frequency === 'daily') {
@@ -508,7 +508,7 @@ interface RenderRow {
   /**
    * What the count represents. Most rows aggregate raw logger readings, but a
    * daily quantity like ETo aggregates one value per calendar day, so its
-   * count is a number of days - not readings. Labelling that "31 readings"
+   * count is a number of days - not readings. Labeling that "31 readings"
    * next to "718 readings" looks like missing data, so ETo says "days".
    */
   countNoun?: string;
@@ -520,7 +520,7 @@ interface RenderRow {
  *
  * Written in decimal degrees with an explicit hemisphere letter rather than a
  * signed number, because a signed latitude on a printed report is easy to
- * misread. Altitude is metres above mean sea level.
+ * misread. Altitude is meters above mean sea level.
  *
  * ASCII only. In the PDF this string passes through pdfSafe() and PDFKit's
  * built-in Helvetica is WinAnsi-encoded, so the degree sign is deliberately
@@ -977,7 +977,7 @@ function registerTask(s: ReportSchedule): void {
   }
   const task = cron.schedule(expr, () => {
     // Re-read the row at fire time so recipients / fields / stations edited
-    // since registration are always honoured.
+    // since registration are always honored.
     (async () => {
       const fresh = await getSchedule(s.id);
       if (!fresh) { console.warn(`[Reports] Schedule #${s.id} vanished, unregistering.`); unregisterTask(s.id); return; }
@@ -1091,13 +1091,13 @@ export async function initReportScheduler(): Promise<void> {
   try {
     const all = await loadAll();
     for (const s of all) registerTask(s);
-    console.log(`[Reports] Scheduler initialised: ${tasks.size} active task(s) of ${all.length} schedule(s)`);
+    console.log(`[Reports] Scheduler initialized: ${tasks.size} active task(s) of ${all.length} schedule(s)`);
     // Runs after registration so create/update can (un)register cleanly.
     await ensureDefaultDailyReport();
     if (!isEmailConfigured()) {
       console.warn('[Reports] MailerSend is not configured - scheduled reports will fail until MAILERSEND_API_KEY is set.');
     }
   } catch (err: any) {
-    console.error('[Reports] Failed to initialise scheduler:', err.message);
+    console.error('[Reports] Failed to initialize scheduler:', err.message);
   }
 }

@@ -1,48 +1,42 @@
 /*
- * Lightning emulator: Arduino Nano + MikroElektronika Thunder EMU Click.
+ * AS3935 lightning emulator - Arduino Nano + MikroElektronika Thunder EMU Click.
  *
- * Fires synthetic lightning at the AS3935 detector so the whole chain can be
- * exercised on the bench: sensor interrupt, distance and energy, heartbeat,
- * alert evaluation, the admin panel's storm display, and the beacon lamps.
+ * PROCESS
+ *   1. Host writes a 20-sample decaying profile to the Click's MCP4725 DAC.
+ *   2. DAC output drives an inductor, emitting an RF burst.
+ *   3. Burst repeats (3 - mode) times: CLOSE 3, MID 2, FAR 1.
+ *   4. 10 ms tail, then DAC parked powered-down at 0.
+ *   5. AS3935 receives the burst and derives its own distance and energy.
  *
- * WHY THE CLICK'S OWN BUTTONS ARE NOT USED
- * ----------------------------------------
- * The EMU Click cannot generate a strike by itself. Its CLOSE, MID and FAR pins
- * (mikroBUS AN, PWM, INT) are INPUTS to the host: three buttons the host is
- * expected to poll. The waveform is produced entirely by the host writing a
- * timed profile to the board's I2C DAC, which drives an inductor.
+ * TIMING
+ *   I2C 100 kHz. One 2-byte write = ~280 us bus time.
+ *   Inter-sample delay 22 us. Sample period ~300 us. Burst ~6 ms.
  *
- * So triggering from Nano-side buttons needs no hardware modification and no
- * signal interception. AN, PWM and INT are simply left unwired, and the buttons
- * below are read instead. Nothing on the Click can fire without us.
- *
- * WAVEFORM FIDELITY
- * -----------------
- * The profile, the 22 us inter-sample delay, the burst count and the power-down
- * tail all reproduce the vendor driver's thunderemu_generate_thunder(). The I2C
- * bus is left at 100 kHz on purpose: a 2-byte fast write takes about 280 us at
- * that speed, which is far longer than the 22 us delay, so bus time is what
- * actually sets the envelope timing. Raising the clock to 400 kHz would compress
- * the waveform roughly threefold and change what the sensor sees.
+ * DAC PROTOCOL
+ *   MCP4725 at 0x60, or 0x61 when strapped.
+ *   Fast-mode write, 2 bytes:
+ *     byte0 = mode | ((value >> 8) & 0x0F)
+ *     byte1 = value & 0xFF
+ *   mode 0x00 = normal, 0x10 = powered down through 1k.
  *
  * WIRING
- * ------
- *   A4  -> SDA   (I2C data, fixed on the Nano)
- *   A5  -> SCL   (I2C clock, fixed on the Nano)
- *   D6  -> RST   (the Click's thunder LED, driven by the host)
- *   D2  -> push button to GND: CLOSE
- *   D3  -> push button to GND: MID
- *   D4  -> push button to GND: FAR
- *   D5  -> push button to GND: STORM sequence
- *   D13 -> on-board LED, activity
- *   AN / PWM / INT: intentionally NOT connected.
+ *   A4  -> SDA
+ *   A5  -> SCL
+ *   D6  -> RST                  Click thunder LED
+ *   D2  -> button to GND        CLOSE
+ *   D3  -> button to GND        MID
+ *   D4  -> button to GND        FAR
+ *   D5  -> button to GND        STORM sequence
+ *   D13 -> on-board LED         activity
+ *   AN, PWM, INT: not connected. These are the Click's own buttons, wired as
+ *   host inputs. The Click cannot emit a burst on its own.
  *
- * Check the Click's voltage jumper before powering it. MIKROE boards are built
- * around 3.3 V logic and not all are 5 V tolerant; the Nano is a 5 V part. If
- * the board is 3.3 V only, power it from 3V3 and level-shift SDA and SCL.
+ * LEVELS
+ *   Nano is 5 V. Click is 3.3 V unless its voltage jumper selects 5 V.
+ *   3.3 V board: power from 3V3, level-shift SDA and SCL.
  *
- * Keep the coils within about 15 cm: the vendor's profile is calibrated for that
- * range and the sensor will not register anything much beyond it.
+ * RANGE
+ *   Emulator coil to sensor antenna: 5 to 15 cm.
  */
 
 #include <Wire.h>
@@ -51,21 +45,16 @@
 // Configuration
 // ---------------------------------------------------------------------------
 
-// MCP4725 on the Click. 0x60 is the default, but the board may be strapped to
-// 0x61, so both are probed at boot and whichever answers is used. Probing only
-// one address turned a correct-but-differently-strapped board into a confusing
-// "NOT RESPONDING".
+// MCP4725 address candidates, probed in order at boot.
 static const uint8_t DAC_ADDR_PRIMARY = 0x60;
 static const uint8_t DAC_ADDR_ALT = 0x61;
 static uint8_t dacAddr = DAC_ADDR_PRIMARY;   // resolved in setup()
 
-// Fast-mode write, normal operation. The upper nibble carries the mode bits.
+// DAC fast-mode command bits.
 static const uint8_t DAC_FAST_NORMAL = 0x00;
-// Fast-mode write, powered down through a 1 k resistor. Used to park the output
-// after a burst so the coil is not left driven.
 static const uint8_t DAC_FAST_PDOWN_1K = 0x10;
 
-// Emulation modes. The burst count is 3 - mode, so CLOSE is the strongest.
+// Emulation modes. Burst count is 3 - mode.
 static const uint8_t MODE_CLOSE = 0;
 static const uint8_t MODE_MID = 1;
 static const uint8_t MODE_FAR = 2;
@@ -75,17 +64,17 @@ static const uint8_t PIN_BTN_CLOSE = 2;
 static const uint8_t PIN_BTN_MID = 3;
 static const uint8_t PIN_BTN_FAR = 4;
 static const uint8_t PIN_BTN_STORM = 5;
-static const uint8_t PIN_EMU_LED = 6;    // mikroBUS RST: the Click's own LED
-static const uint8_t PIN_STATUS = 13;    // Nano on-board LED
+static const uint8_t PIN_EMU_LED = 6;    // mikroBUS RST
+static const uint8_t PIN_STATUS = 13;    // on-board LED
 
-// Button handling. 40 ms settles a typical tactile switch; the lockout stops a
-// single press from queueing several strikes, which would confuse the panel's
-// event history far more than it would test it.
+// Debounce window, and minimum interval between two accepted presses.
 static const unsigned long DEBOUNCE_MS = 40;
 static const unsigned long RETRIGGER_LOCKOUT_MS = 400;
 
-// Vendor DAC profile: a decaying envelope, 20 samples of 12-bit data.
-// Calibrated by the vendor for up to ~15 cm between inductors.
+// I2C timeout. Bounds a transfer if SDA is held low.
+static const uint32_t I2C_TIMEOUT_US = 3000;
+
+// Vendor DAC profile: 20 samples, 12-bit, decaying.
 static const uint16_t THUNDER_PROFILE[20] = {
   1030, 730, 520, 370, 270, 200, 150, 110, 90, 70,
   60, 50, 45, 43, 40, 37, 35, 33, 32, 31
@@ -95,12 +84,10 @@ static const uint16_t THUNDER_PROFILE[20] = {
 // DAC
 // ---------------------------------------------------------------------------
 
-/* One fast-mode write to the DAC. Returns true if the device acknowledged.
-   A silent failure here looks exactly like "the sensor ignored my strike", so
-   the result is checked and surfaced rather than discarded. */
+/* One fast-mode write. Returns true on ACK. Value clamped to 12 bits. */
 static bool dacWrite(uint8_t mode, uint16_t value) {
   if (value > 0x0FFF) {
-    value = 0x0FFF;                       // 12-bit device; clamp, do not wrap
+    value = 0x0FFF;
   }
   Wire.beginTransmission(dacAddr);
   Wire.write((uint8_t)(mode | ((value >> 8) & 0x0F)));
@@ -108,15 +95,13 @@ static bool dacWrite(uint8_t mode, uint16_t value) {
   return Wire.endTransmission() == 0;
 }
 
-/* Does a device answer at this address? */
+/* Zero-length write: does a device ACK this address? */
 static bool dacPresentAt(uint8_t addr) {
   Wire.beginTransmission(addr);
   return Wire.endTransmission() == 0;
 }
 
-/* Find the DAC, trying the default address then the alternate. Returns false if
-   neither answers, which is a wiring, power or level-shift fault rather than
-   anything to do with the sensor. */
+/* Probe 0x60 then 0x61. Sets dacAddr. False if neither answers. */
 static bool dacFind() {
   if (dacPresentAt(DAC_ADDR_PRIMARY)) { dacAddr = DAC_ADDR_PRIMARY; return true; }
   if (dacPresentAt(DAC_ADDR_ALT))     { dacAddr = DAC_ADDR_ALT;     return true; }
@@ -127,10 +112,9 @@ static bool dacFind() {
 // Emulation
 // ---------------------------------------------------------------------------
 
-/* Emit one emulated strike.
-   Mirrors the vendor's generate_thunder(): 3 - mode bursts of the 20-sample
-   profile with a 22 us gap between samples, a 10 ms tail, then park the DAC
-   powered down at minimum. */
+/* Emit one strike.
+   (3 - mode) bursts of the 20-sample profile, 22 us between samples,
+   10 ms tail, then park the DAC powered down at 0. */
 static bool generateThunder(uint8_t mode) {
   if (mode > MODE_FAR) {
     return false;
@@ -138,7 +122,7 @@ static bool generateThunder(uint8_t mode) {
   bool ok = true;
   uint8_t bursts = 3 - mode;
 
-  digitalWrite(PIN_EMU_LED, HIGH);        // the Click's thunder LED
+  digitalWrite(PIN_EMU_LED, HIGH);
   digitalWrite(PIN_STATUS, HIGH);
 
   while (bursts--) {
@@ -165,6 +149,7 @@ static const char *modeName(uint8_t mode) {
   }
 }
 
+/* Emit one strike and log it. No ACK means nothing was emitted. */
 static void fire(uint8_t mode, const char *why) {
   bool ok = generateThunder(mode);
   Serial.print(F("[emu] "));
@@ -176,15 +161,12 @@ static void fire(uint8_t mode, const char *why) {
   Serial.print(F(" burst"));
   Serial.print((3 - mode) == 1 ? F(")") : F("s)"));
   if (!ok) {
-    // Worth stating plainly: no ACK means nothing was emitted at all, which is
-    // a wiring or address fault, not a rejected waveform.
-    Serial.print(F("  ** DAC DID NOT ACK - nothing was emitted **"));
+    Serial.print(F("  ** DAC DID NOT ACK - nothing emitted **"));
   }
   Serial.println();
 }
 
-/* Wait for the STORM button to be released, so the press that started the
-   sequence is not immediately mistaken for a request to stop it. */
+/* Block until STORM has been released for DEBOUNCE_MS. */
 static void waitForStormRelease() {
   unsigned long stableSince = 0;
   while (true) {
@@ -195,14 +177,13 @@ static void waitForStormRelease() {
         return;
       }
     } else {
-      stableSince = 0;                     // still held, or bouncing
+      stableSince = 0;
     }
     delay(5);
   }
 }
 
-/* Wait `ms`, returning early and true if the STORM button is pressed again.
-   Used for the gaps between steps so a second press aborts the sequence. */
+/* Wait `ms`. Returns true early if STORM is pressed again. */
 static bool waitOrAbort(unsigned long ms) {
   unsigned long start = millis();
   unsigned long downSince = 0;
@@ -222,16 +203,9 @@ static bool waitOrAbort(unsigned long ms) {
   return false;
 }
 
-/* A scripted approaching-then-receding storm.
- *
- * Useful because it walks the sensor through several distance bands in one
- * press, which is what actually exercises the panel's proximity grouping and
- * the beacon's re-arming. The gaps are seconds, not milliseconds: the AS3935
- * needs time between events, and the panel's alert cooldown is meant to be
- * observed rather than bypassed.
- *
- * Press STORM again at any point to stop early.
- */
+/* Scripted storm: 9 strikes, far to close then receding, 3 s apart.
+   Waits for release first so the starting press is not read as an abort.
+   A second STORM press stops it. */
 static void stormSequence() {
   static const uint8_t script[] = {
     MODE_FAR, MODE_FAR, MODE_MID, MODE_MID, MODE_CLOSE,
@@ -240,10 +214,8 @@ static void stormSequence() {
   const uint8_t steps = sizeof(script) / sizeof(script[0]);
 
   Serial.println(F("[emu] storm sequence: approaching, then receding"));
-  Serial.println(F("[emu] press STORM again to stop early"));
+  Serial.println(F("[emu] press STORM again to stop"));
 
-  // The button that got us here is almost certainly still down. Without this
-  // the first gap would see it held and abort after a single step.
   waitForStormRelease();
 
   for (uint8_t i = 0; i < steps; i++) {
@@ -269,10 +241,10 @@ static void stormSequence() {
 struct Button {
   uint8_t pin;
   uint8_t stable;                          // last debounced level
-  bool timing;                             // is a level change being timed?
-  unsigned long changedAt;                 // when the raw level last moved
-  bool everFired;                          // has it fired at least once?
-  unsigned long firedAt;                   // when it last triggered
+  bool timing;                             // a level change is being timed
+  unsigned long changedAt;                 // when the raw level moved
+  bool everFired;                          // has fired at least once
+  unsigned long firedAt;                   // when it last fired
 };
 
 static Button buttons[4] = {
@@ -282,16 +254,9 @@ static Button buttons[4] = {
   { PIN_BTN_STORM, HIGH, false, 0, false, 0 },
 };
 
-/* True once per press, on the falling edge, after debouncing and lockout.
- *
- * `timing` is an explicit flag rather than treating changedAt == 0 as "idle".
- * millis() is legitimately 0 at boot and returns to 0 every ~49.7 days, so the
- * old sentinel could collide with a real timestamp and stall the debounce.
- *
- * `everFired` exists because firedAt starts at 0: without it, a press inside the
- * first RETRIGGER_LOCKOUT_MS after reset was silently swallowed, since
- * now - 0 < lockout looks like a re-trigger of a press that never happened.
- */
+/* True once per press: falling edge, debounced, past the lockout.
+   `timing` marks an in-progress debounce; `everFired` exempts the first
+   press from the lockout comparison. */
 static bool pressed(Button &b) {
   unsigned long now = millis();
   uint8_t raw = digitalRead(b.pin);
@@ -333,14 +298,8 @@ void setup() {
   digitalWrite(PIN_STATUS, LOW);
 
   Wire.begin();
-  // Left at the vendor's standard speed on purpose. See the header comment:
-  // bus time, not the 22 us delay, is what sets the waveform timing.
   Wire.setClock(100000);
-  // Without a timeout, AVR's Wire blocks forever if SDA is held low - which is
-  // exactly what a half-powered or mis-levelled Click does. The sketch would
-  // then appear dead with no output at all. 3 ms is far longer than any legal
-  // transfer here, and `true` resets the peripheral so the bus can recover.
-  Wire.setWireTimeout(3000, true);
+  Wire.setWireTimeout(I2C_TIMEOUT_US, true);   // true: reset the peripheral
 
   delay(50);
 
@@ -351,22 +310,19 @@ void setup() {
     Serial.print(F("DAC found at 0x"));
     Serial.print(dacAddr, HEX);
     Serial.println();
-    // Park the output so the coil is not driven while idle.
-    dacWrite(DAC_FAST_PDOWN_1K, 0x0000);
+    dacWrite(DAC_FAST_PDOWN_1K, 0x0000);       // park while idle
   } else {
     Serial.println(F("DAC NOT RESPONDING at 0x60 or 0x61."));
-    Serial.println(F("  Check: SDA on A4, SCL on A5, a common GND, and power."));
-    Serial.println(F("  Also confirm the board's voltage jumper: a 3.3 V-only"));
-    Serial.println(F("  Click needs 3V3 power and level-shifted I2C, and 5 V"));
-    Serial.println(F("  on its SDA/SCL can damage the DAC."));
+    Serial.println(F("  SDA on A4, SCL on A5, common GND, power present."));
+    Serial.println(F("  A 3.3 V-only Click needs 3V3 and level-shifted I2C."));
   }
 
   Serial.println();
-  Serial.println(F("Buttons (to GND):"));
-  Serial.println(F("  D2 CLOSE   D3 MID   D4 FAR   D5 STORM sequence"));
-  Serial.println(F("Serial also accepts: c, m, f, s"));
-  Serial.println(F("Keep the coils within ~15 cm of the detector antenna."));
-  Serial.println(F("Confirm SMS alerts are OFF on the panel before testing."));
+  Serial.println(F("Buttons to GND:"));
+  Serial.println(F("  D2 CLOSE   D3 MID   D4 FAR   D5 STORM"));
+  Serial.println(F("Serial: c m f s"));
+  Serial.println(F("Coil to sensor antenna: 5 to 15 cm."));
+  Serial.println(F("SMS alerts must be OFF on the panel before testing."));
   Serial.println();
 }
 
@@ -376,13 +332,7 @@ void loop() {
   if (pressed(buttons[2])) fire(MODE_FAR, "button FAR");
   if (pressed(buttons[3])) stormSequence();
 
-  // Serial shortcuts, handy when the rig is on a desk next to the laptop.
-  // The buttons remain the primary interface.
-  //
-  // One character is handled per loop() pass, not a whole buffer. Draining the
-  // buffer in a while loop meant pasting "sss" queued three storm sequences of
-  // ~24 s each, and typing into a serial monitor that appends a newline fired
-  // the sequence and then processed the newline behind it.
+  // One character per pass, so a pasted string cannot queue several sequences.
   if (Serial.available() > 0) {
     int c = Serial.read();
     switch (c) {
@@ -391,10 +341,9 @@ void loop() {
       case 'f': case 'F': fire(MODE_FAR, "serial"); break;
       case 's': case 'S':
         stormSequence();
-        // Anything typed while the sequence ran is stale by now.
-        while (Serial.available() > 0) Serial.read();
+        while (Serial.available() > 0) Serial.read();   // discard stale input
         break;
-      default: break;                      // ignore newlines and stray bytes
+      default: break;
     }
   }
 }

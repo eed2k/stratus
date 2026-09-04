@@ -1,6 +1,6 @@
 ﻿// Stratus Weather Server
 // Created by Lukas Esterhuizen
-// v3.2 - grey blocks, formula resize
+// v3.2 - gray blocks, formula resize
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { safeFixed } from "@/lib/utils";
@@ -60,10 +60,10 @@ export function AirDensityCard({
 
           {/* Formula */}
           <p className="text-sm text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            ρ = P / (R<sub>d</sub> · T) · (1 − 0.378 · e/P)
+            ρ = P / (R<sub>d</sub> · T) · (1 - 0.378 · e/P)
           </p>
           <p className="text-xs text-black italic mt-0.5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            R<sub>d</sub> = 287.05 J/(kg·K), e = vapour pressure
+            R<sub>d</sub> = 287.05 J/(kg·K), e = vapor pressure
           </p>
 
           {/* Contributing factors */}

@@ -229,7 +229,7 @@ export const DataBlockChart = memo(function DataBlockChart({
       dataKey: "timestamp",
       // A rotated label is anchored at its END, so it extends up and to the left
       // from the tick. dy must push it DOWN, away from the axis; a negative dy
-      // lifted it back over the plot and left its visual centre to the left of
+      // lifted it back over the plot and left its visual center to the left of
       // the category it belongs to. That offset is what made the columns look
       // out of step with the axis labels.
       tick: { fontSize: 9, angle: xAngle, textAnchor: xAnchor, dy: data.length > 10 ? 8 : 0 },
@@ -341,7 +341,7 @@ export const DataBlockChart = memo(function DataBlockChart({
            * barCategoryGap reserves a margin at each end of the category band so
            * the first and last columns sit inside the plot area instead of
            * straddling the y-axis. maxBarSize stops a short series (a handful of
-           * days) from producing slab-wide columns whose centres drift away from
+           * days) from producing slab-wide columns whose centers drift away from
            * their tick. Both were previously unset, leaving Recharts' defaults to
            * size the columns purely from the container width.
            *

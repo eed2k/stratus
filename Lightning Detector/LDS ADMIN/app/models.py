@@ -37,7 +37,7 @@ class User(Base):
     created_at = Column(DateTime, default=now_sast)
     # Which client panel this login belongs to.
     tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True)
-    # Platform admins (Stratus staff) may enter any tenant's panel and manage
+    # Platform admins (Stratus Admin) may enter any tenant's panel and manage
     # the tenant list. Client admins are confined to their own tenant.
     is_platform_admin = Column(Boolean, default=False)
 

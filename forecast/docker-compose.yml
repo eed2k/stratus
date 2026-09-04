@@ -1,0 +1,66 @@
+# Its own compose project, joining the existing Traefik network as external.
+# Nothing in the panel, Stratus, the demo or the information center is touched.
+services:
+  forecast:
+    build: .
+    image: stratus-forecast:latest
+    container_name: stratus-forecast
+    restart: unless-stopped
+    environment:
+      # Required. The app refuses every request without it rather than serving
+      # an unauthenticated upload endpoint on a public hostname.
+      FORECAST_PASSWORD: ${FORECAST_PASSWORD:?set FORECAST_PASSWORD}
+      # Optional: keeps sessions alive across a restart.
+      FORECAST_SECRET: ${FORECAST_SECRET:-}
+      # Model background, off unless a station opts in.
+      XWEATHER_CLIENT_ID: ${XWEATHER_CLIENT_ID:-}
+      XWEATHER_CLIENT_SECRET: ${XWEATHER_CLIENT_SECRET:-}
+      XWEATHER_ENABLED: ${XWEATHER_ENABLED:-false}
+      # Continuous feed. Read-only Dropbox access: the app only ever fetches a
+      # token, lists a folder and downloads a file.
+      DROPBOX_APP_KEY: ${DROPBOX_APP_KEY:-}
+      DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET:-}
+      DROPBOX_REFRESH_TOKEN: ${DROPBOX_REFRESH_TOKEN:-}
+      DROPBOX_POLLING: ${DROPBOX_POLLING:-true}
+      DROPBOX_TICK_SECONDS: ${DROPBOX_TICK_SECONDS:-60}
+    volumes:
+      # Station records and forecasts survive a rebuild.
+      - forecast-data:/app/data
+    networks:
+      - stratus-network
+    # Uploads are parsed in memory, so give it room, but cap it: this host has
+    # 951 MB total and the panel must not be starved.
+    mem_limit: 320m
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=stratus_stratus-network"
+      - "traefik.http.routers.forecast.rule=Host(`forecast.stratusweather.co.za`)"
+      - "traefik.http.routers.forecast.entrypoints=websecure"
+      - "traefik.http.routers.forecast.tls.certresolver=letsencrypt"
+      - "traefik.http.services.forecast.loadbalancer.server.port=8000"
+      # An upload endpoint on a public host gets a rate limit.
+      - "traefik.http.middlewares.forecast-ratelimit.ratelimit.average=30"
+      - "traefik.http.middlewares.forecast-ratelimit.ratelimit.burst=60"
+      - "traefik.http.routers.forecast.middlewares=forecast-ratelimit"
+    # The timeouts are generous on purpose. /healthz opens a SQLite database
+    # that is now well over 100 MB, on a host whose disk is above 80 percent and
+    # which swaps under load. Measured answers ranged from 0.2 to 7.7 seconds for
+    # the same query, so a 4 second budget marked a working service unhealthy and
+    # Traefik then answered its own 404 for the subdomain. The service was fine;
+    # the probe was too strict.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=12).status == 200 else 1)"]
+      interval: 30s
+      timeout: 15s
+      start_period: 45s
+      retries: 5
+
+volumes:
+  forecast-data:
+
+networks:
+  stratus-network:
+    external: true
+    name: stratus_stratus-network

@@ -11,7 +11,7 @@
    any direction. Bands read nearest-to-farthest left to right, which is a
    proximity ordering, not a map.
 
-   Cell colours come from the payload (the panel's own energy-band palette in
+   Cell colors come from the payload (the panel's own energy-band palette in
    metrics.py::_ENERGY_BANDS). They are deliberately not duplicated here.
 
    No inline script and no external origin: runs under
@@ -23,7 +23,7 @@
 
   var POLL_MS = 30000;          // refresh cadence
   var SVG_NS = "http://www.w3.org/2000/svg";
-  var IDLE_COLOUR = "#93a0b0";
+  var IDLE_COLOR = "#93a0b0";
 
   // Selectable windows, in minutes. The endpoint caps at 7 days.
   var RANGES = [
@@ -35,7 +35,24 @@
   ];
 
   // Cloud geometry, in the cell's own viewBox units.
-  var VB_W = 130, VB_H = 108, CX = 65, CY = 36, BOLT_TOP = 52, BOLT_END = 96;
+  //
+  // Tightened around the artwork so the cell is shorter and narrower, and the
+  // stylesheet caps the rendered width so a cloud no longer stretches to fill
+  // its whole grid column. Shared with charts.py::storm_bands_svg; keep in step.
+  var VB_W = 104, VB_H = 78, CX = 52, CY = 29, BOLT_TOP = 43, BOLT_END = 72;
+
+  // Lightning is blue-white in every band. The band color still drives the
+  // header and the data block, where it carries information; painting the
+  // channel with it made a distant strike look orange rather than like
+  // lightning.
+  var BOLT_MAIN = "#eaf4ff";
+  var BOLT_GLOW = "#8fc4ff";
+  var BOLT_CORE = "#ffffff";
+  var BOLT_HALO = "#a8d2ff";
+
+  // How long a flash stays on screen, matching the storm-* keyframe durations in
+  // style.css. Scheduling must not fire faster than this.
+  var FLASH_HOLD_MS = 2260;
 
   var reduceMotion = window.matchMedia
     ? window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -92,30 +109,61 @@
      like. */
   var CB_BODY = "M-24 11C-33 11-35 1-27-3C-30-12-20-17-12-14" +
                 "C-8-22 6-24 12-17C22-20 30-12 26-4C34-1 32 11 24 11Z";
-  var CB_BASE = "M-24 4C-12 7 12 7 24 4L24 11L-24 11Z";
 
   function drawCloud(svg, s) {
     var g = el("g", {
       transform: "translate(" + CX + "," + CY + ") scale(" + s.toFixed(3) + ")"
     });
     g.appendChild(el("path", { d: CB_BODY, "class": "cb-body" }));
-    g.appendChild(el("path", { d: CB_BASE, "class": "cb-base" }));
     svg.appendChild(g);
     return g;
   }
 
-  /** A sharp, mostly-vertical channel: few segments, small lateral spread,
-      so it reads as a crisp strike rather than a wandering squiggle. */
-  function boltPath() {
-    var segs = 5, dy = (BOLT_END - BOLT_TOP) / segs, pts = [[CX, BOLT_TOP]];
-    for (var i = 1; i < segs; i++) {
-      var taper = 1 - Math.abs(i / segs - 0.5) * 1.4;
-      pts.push([CX + (Math.random() * 2 - 1) * 5.5 * taper, BOLT_TOP + dy * i]);
+  /** Bolt geometry: one zigzag, tapering to a point at the bottom.
+   *
+   * Returns { outline, center }.
+   *
+   * The channel is a FILLED outline, not a stroked line. A stroke has a uniform
+   * width and cannot converge, so a stroked polyline always ends in a blunt or
+   * rounded cap. Building the shape from a center-line whose width falls to zero
+   * at the last vertex is what produces a sharp tip.
+   *
+   * The center-line has three points: the cloud base, one kink, and the tip.
+   * One kink is one direction reversal, which reads as a single zigzag. Kink
+   * offset is jittered a little so no two flashes are identical.
+   *
+   * Shared shape with charts.py::_bolt_geometry; keep the two in step.
+   */
+  function boltGeometry() {
+    var H = BOLT_END - BOLT_TOP;
+    var flip = Math.random() < 0.5 ? 1 : -1;      // which way it zigs first
+    var k1 = flip * (6.5 + Math.random() * 2.0);
+    var y1 = H * (0.44 + Math.random() * 0.08);
+
+    var pts = [[0, 0], [k1, y1], [0, H]];
+    // Width per vertex, 60% heavier than the 3.4 this used to be, so the
+    // channel still reads at the smaller cell size. Zero at the tip: that is
+    // the sharp point.
+    var w = [5.4, 3.7, 0];
+
+    var left = [], right = [];
+    for (var i = 0; i < pts.length; i++) {
+      left.push([CX + pts[i][0] - w[i] / 2, BOLT_TOP + pts[i][1]]);
+      right.push([CX + pts[i][0] + w[i] / 2, BOLT_TOP + pts[i][1]]);
     }
-    pts.push([CX + (Math.random() * 2 - 1) * 2.5, BOLT_END]);
-    return pts.map(function (p) {
-      return p[0].toFixed(1) + "," + p[1].toFixed(1);
+
+    var d = "M" + left.map(function (p) {
+      return p[0].toFixed(1) + " " + p[1].toFixed(1);
+    }).join("L");
+    d += "L" + right.reverse().map(function (p) {
+      return p[0].toFixed(1) + " " + p[1].toFixed(1);
+    }).join("L") + "Z";
+
+    var center = pts.map(function (p) {
+      return (CX + p[0]).toFixed(1) + "," + (BOLT_TOP + p[1]).toFixed(1);
     }).join(" ");
+
+    return { outline: d, center: center };
   }
 
   /* -------------------------------------------------------------------
@@ -124,7 +172,7 @@
 
   function buildCell(band, maxPeak) {
     var active = (band.count || 0) > 0;
-    var colour = active && band.colour ? band.colour : IDLE_COLOUR;
+    var color = active && band.color ? band.color : IDLE_COLOR;
 
     // Size cue: scale on the band's mean against the busiest peak on screen,
     // so the cells stay comparable with each other rather than against an
@@ -133,16 +181,20 @@
     if (active && maxPeak > 0 && band.mean !== null) {
       frac = Math.max(0, Math.min(1, band.mean / maxPeak));
     }
-    var scale = 0.74 + frac * 0.40;
+    var scale = 0.62 + frac * 0.30;
 
     var cell = div("storm-band" + (active ? "" : " is-idle"));
-    cell.style.setProperty("--band-colour", colour);
+    cell.style.setProperty("--band-color", color);
 
     cell.appendChild(div("storm-band-range", band.range || ""));
 
+    // No height attribute: "auto" is not a valid SVG length and the browser
+    // rejects it with "Expected length". The stylesheet sets height:auto in CSS,
+    // where it is legal, so the layout was right but the console carried an
+    // error on every cell.
     var svg = el("svg", {
       viewBox: "0 0 " + VB_W + " " + VB_H,
-      width: "100%", height: "auto", role: "img",
+      width: "100%", role: "img",
       "aria-label": (band.range || "band") + ": " + (band.count || 0) +
         " strikes" + (active ? ", mean intensity " + band.mean : "")
     });
@@ -155,13 +207,16 @@
     var defs = el("defs", {});
     var filt = el("filter", { id: fid, x: "-80%", y: "-80%",
                               width: "260%", height: "260%" });
-    filt.appendChild(el("feGaussianBlur", { stdDeviation: 3.6 }));
+    // Blur radius is in user units, so it scales with the viewBox. At the old
+    // 3.6 on this smaller box the bloom smeared into a tube past the tip and
+    // blunted it. 130 -> 104 wide is a factor of 0.8.
+    filt.appendChild(el("feGaussianBlur", { stdDeviation: 2.6 }));
     defs.appendChild(filt);
     svg.appendChild(defs);
 
     if (active) {
       svg.appendChild(el("circle", {
-        cx: CX, cy: CY + 6, r: 28, fill: colour,
+        cx: CX, cy: CY + 5, r: 22, fill: BOLT_HALO,
         filter: "url(#" + fid + ")", "class": "storm-halo", opacity: 0
       }));
     }
@@ -170,14 +225,16 @@
 
     var glow = null, main = null, core = null;
     if (active) {
-      var path = boltPath();
-      glow = el("polyline", { points: path, stroke: colour, "stroke-width": 5.5,
-        fill: "none", "class": "storm-bolt storm-bolt-glow",
+      var geo = boltGeometry();
+      // Filled outline, so the channel can taper to a point. The core stays a
+      // thin stroke down the center-line and reads as the hot inner channel.
+      glow = el("path", { d: geo.outline, fill: BOLT_GLOW,
+        "class": "storm-bolt storm-bolt-glow",
         filter: "url(#" + fid + ")" });
-      main = el("polyline", { points: path, stroke: colour, "stroke-width": 2.2,
-        fill: "none", "class": "storm-bolt storm-bolt-main" });
-      core = el("polyline", { points: path, stroke: "#ffffff",
-        "stroke-width": 0.9, fill: "none",
+      main = el("path", { d: geo.outline, fill: BOLT_MAIN,
+        "class": "storm-bolt storm-bolt-main" });
+      core = el("polyline", { points: geo.center, stroke: BOLT_CORE,
+        "stroke-width": 1.3, fill: "none",
         "class": "storm-bolt storm-bolt-core" });
       svg.appendChild(glow);
       svg.appendChild(main);
@@ -214,7 +271,7 @@
       bk.textContent = "band";
       var bv = document.createElement("b");
       bv.textContent = band.band || "-";
-      bv.style.color = colour;
+      bv.style.color = color;
       brow.appendChild(bk);
       brow.appendChild(bv);
       rows.appendChild(brow);
@@ -228,10 +285,10 @@
     if (active && !reduceMotion.matches) {
       cell.classList.add("is-clickable");
       cell._strike = function () {
-        var p = boltPath();
-        glow.setAttribute("points", p);
-        main.setAttribute("points", p);
-        core.setAttribute("points", p);
+        var g = boltGeometry();
+        glow.setAttribute("d", g.outline);
+        main.setAttribute("d", g.outline);
+        core.setAttribute("points", g.center);
         cell.classList.remove("is-flashing");
         void cell.offsetWidth;              // force the animation to restart
         cell.classList.add("is-flashing");
@@ -292,12 +349,17 @@
     }
 
     /** Keep each cell flashing on its own irregular schedule, more often the
-        busier the band, so activity level reads at a glance. */
+        busier the band, so activity level reads at a glance.
+
+        The gap can never fall below the flash animation itself. The channel now
+        holds lit for 2260 ms, so a shorter gap would cut a flash short and
+        restart it, leaving the cloud permanently lit and strobing. */
     function scheduleFlashes(cells) {
       clearFlashTimers();
       cells.forEach(function (entry, i) {
         if (!entry.cell._strike) return;
-        var gap = Math.max(1400, 7000 - (entry.share * 5 * 900));
+        var gap = Math.max(FLASH_HOLD_MS + 700,
+                           7000 - (entry.share * 5 * 900));
         flashTimers.push(window.setTimeout(function () {
           entry.cell._strike();
           (function loop() {

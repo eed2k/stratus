@@ -19,7 +19,7 @@ except ImportError:
 
 
 # ===========================================================================
-#  AS3935 REGISTER MAP (subset — see lightning_detector.py for full map)
+#  AS3935 REGISTER MAP (subset - see lightning_detector.py for full map)
 # ===========================================================================
 
 REG_AFE_GAIN       = 0x00

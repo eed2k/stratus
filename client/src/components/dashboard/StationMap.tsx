@@ -257,7 +257,7 @@ export function StationMap({
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Default to Southern Africa (centre) if no coordinates provided
+  // Default to Southern Africa (center) if no coordinates provided
   const lat = latitude ?? -25.0; // Southern Africa
   const lng = longitude ?? 22.0;
   const hasCoordinates = latitude !== undefined && longitude !== undefined;
@@ -275,7 +275,7 @@ export function StationMap({
 
     setIsSearching(true);
     try {
-      // Search with Southern Africa bias (SA + Namibia + neighbours)
+      // Search with Southern Africa bias (SA + Namibia + neighbors)
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?` +
         `q=${encodeURIComponent(query)}` +
@@ -359,7 +359,7 @@ export function StationMap({
     setRetryCount(prev => prev + 1);
   }, []);
 
-  // Main map Initialisation effect
+  // Main map Initialization effect
   useEffect(() => {
     let isMounted = true;
     let initTimeout: NodeJS.Timeout | null = null;

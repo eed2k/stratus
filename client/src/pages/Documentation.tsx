@@ -29,7 +29,7 @@ export default function Documentation() {
                 </a>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Licence</span>
+                <span className="text-muted-foreground">License</span>
                 <span className="font-medium">Proprietary (EULA)</span>
               </div>
               <div className="flex justify-between">

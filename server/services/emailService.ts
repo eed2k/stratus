@@ -25,7 +25,7 @@ const fromName = process.env.MAILERSEND_FROM_NAME || 'Stratus Weather';
 const alertsEmail = process.env.MAILERSEND_ALERTS_EMAIL || 'alerts@stratusweather.co.za';
 
 /**
- * Normalise and de-duplicate a recipient list.
+ * Normalize and de-duplicate a recipient list.
  * MailerSend rejects the entire request (422 #MS42201) if the same address
  * appears more than once, so we trim, drop blanks, and dedupe case-insensitively.
  */

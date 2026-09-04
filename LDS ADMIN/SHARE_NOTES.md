@@ -63,7 +63,7 @@ your own `.env`.**
 | `data/panel.db` | Live SQLite database with real tenants, recipients and phone numbers |
 | `ACCESS.txt` passwords | Plaintext admin/operator passwords, replaced with placeholders |
 | `DEPLOY_STATUS.txt` | Stale internal deploy notes |
-| `__pycache__/` | Build artefacts |
+| `__pycache__/` | Build artifacts |
 
 `.env.example` is included and lists every variable you need to set.
 
@@ -74,12 +74,12 @@ your own `.env`.**
 them, the panel seeds accounts with passwords that are visible in this
 source. Always set both explicitly in `.env` before the first boot, or
 change the passwords in-app immediately after. This is pre-existing
-behaviour, unchanged in this copy.
+behavior, unchanged in this copy.
 
 Note that `deploy/` scripts and `README.md` still carry the existing VPS IP
 and dynv6 hostname as defaults, since the tooling is built around them.
 Override them for a different target, or scrub them if this copy is going
-outside your organisation.
+outside your organization.
 
 ## Running it locally
 

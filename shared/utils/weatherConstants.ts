@@ -3,7 +3,7 @@
 
 /**
  * Standard meteorological and physical constants used across the application.
- * Centralised here to avoid magic numbers in calculations.
+ * Centralized here to avoid magic numbers in calculations.
  */
 
 /** Standard sea-level atmospheric pressure in hPa (ISA). Used as fallback when no sensor reading available. */

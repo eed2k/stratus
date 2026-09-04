@@ -82,7 +82,7 @@ export function calculateSolarPosition(
     // Calculate earth's orbit eccentricity
     const eccentEarth = 0.016708634 - jc * (0.000042037 + 0.0000001267 * jc);
     
-    // Calculate sun's equation of centre
+    // Calculate sun's equation of center
     const sunEqCtr = Math.sin(sunAnomMean * Math.PI / 180) * (1.914602 - jc * (0.004817 + 0.000014 * jc)) +
                      Math.sin(2 * sunAnomMean * Math.PI / 180) * (0.019993 - 0.000101 * jc) +
                      Math.sin(3 * sunAnomMean * Math.PI / 180) * 0.000289;
@@ -540,7 +540,7 @@ export interface FireDangerResult {
     warningMessage: string | null;
 }
 
-// LFDI colour-coded rating thresholds
+// LFDI color-coded rating thresholds
 export const FIRE_DANGER_RATINGS: FireDangerRating[] = [
     {
         level: 'safe',
@@ -1010,8 +1010,8 @@ export interface DensityAltitudeResult {
  * Calculate density altitude using ISA formula.
  * stationPressure: station-level pressure in hPa
  * temperature: air temperature in Â°C
- * dewPoint: dew point in Â°C (for vapour pressure correction)
- * stationElevation: station elevation in metres above MSL
+ * dewPoint: dew point in Â°C (for vapor pressure correction)
+ * stationElevation: station elevation in meters above MSL
  */
 export function calculateDensityAltitude(
     stationPressure: number,
@@ -1027,7 +1027,7 @@ export function calculateDensityAltitude(
     const isaTemp = 15 - (pressureAltitudeFt * 0.001981);
     const isaDeviation = temperature - isaTemp;
 
-    // Virtual temperature correction for humidity (vapour pressure effect)
+    // Virtual temperature correction for humidity (vapor pressure effect)
     // e = 6.11 Ã- 10^(7.5 Ã- Td / (237.7 + Td))  [hPa]
     const e = 6.11 * Math.pow(10, (7.5 * dewPoint) / (237.7 + dewPoint));
     const Tv = (temperature + 273.15) / (1 - 0.378 * (e / stationPressure)) - 273.15;
@@ -1070,8 +1070,8 @@ export interface METARResult {
 
 /**
  * Classify flight category based on visibility and cloud base.
- * visibility: in metres
- * cloudBase: in metres AGL
+ * visibility: in meters
+ * cloudBase: in meters AGL
  */
 export function classifyFlightCategory(
     visibility?: number | null,
@@ -1096,8 +1096,8 @@ export function formatMETAR(
     windDirection?: number | null,
     windSpeed?: number | null,   // m/s
     windGust?: number | null,    // m/s
-    visibility?: number | null,  // metres
-    cloudBase?: number | null,   // metres AGL
+    visibility?: number | null,  // meters
+    cloudBase?: number | null,   // meters AGL
     cloudCover?: number | null,  // oktas (0-8)
     temperature?: number | null, // Â°C
     dewPoint?: number | null,    // Â°C
@@ -1116,7 +1116,7 @@ export function formatMETAR(
         parts.push(wind + 'KT');
     }
 
-    // Visibility: in metres (METAR uses metres in ICAO format)
+    // Visibility: in meters (METAR uses meters in ICAO format)
     if (visibility != null) {
         if (visibility >= 9999) parts.push('9999');
         else parts.push(String(Math.round(visibility / 100) * 100));
@@ -1283,8 +1283,8 @@ export interface BeaufortResult {
     force: number;                // 0-12
     description: string;
     seaState: string;
-    probableWaveHeight: number;   // metres
-    maxWaveHeight: number;        // metres
+    probableWaveHeight: number;   // meters
+    maxWaveHeight: number;        // meters
     landEffect: string;
     color: string;
     smallCraftAdvisory: boolean;

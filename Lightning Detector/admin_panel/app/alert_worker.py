@@ -31,7 +31,7 @@ def _dispatch(event_id: int, payload: Dict[str, Any]):
         if not event:
             return
 
-        # Eligible recipients: active, in an active group, group threshold honoured.
+        # Eligible recipients: active, in an active group, group threshold honored.
         # SMS-only deployment: a recipient must have a phone number.
         targets = (
             db.query(Recipient)

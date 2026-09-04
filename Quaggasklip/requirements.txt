@@ -1,0 +1,14 @@
+# Quaggasklip (Metron) detector dependencies.
+#
+# Prefer the Raspberry Pi OS packages, which are built for the running kernel:
+#   sudo apt install python3-spidev python3-rpi.gpio python3-serial python3-pigpio
+#
+# pyserial is new relative to the GWLD1 unit: it drives the hardware UART that
+# the Terminal 2 Click brings out to screw terminals. GWLD1 bit-banged a GPIO
+# with pigpio because it had no UART breakout.
+#
+# pigpio is only needed if campbell_transport is set to "bitbang".
+spidev>=3.5
+RPi.GPIO>=0.7.0
+pyserial>=3.5
+pigpio>=1.78

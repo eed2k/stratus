@@ -9,9 +9,24 @@ PANEL URL (HTTPS)
 -----------------
   https://<your-panel-host>
 
-  Login page:        https://<your-panel-host>/login
-  Webhook from Pi:   https://<your-panel-host>/api/v1/lightning
-  Clickatell DLR:    https://<your-panel-host>/api/clickatell/dlr
+  Staff sign-in:     https://<your-panel-host>/login
+  Client sign-in:    https://<your-panel-host>/client
+  Webhook from Pi:   https://<your-panel-host>/<client>/api/v1/lightning
+  Delivery receipts: https://<your-panel-host>/api/sms/dlr
+
+
+TWO FRONT DOORS
+---------------
+  /login   Stratus Admin. Signs in with an e-mail address and lands on the
+           client list, from where any client panel can be opened or managed.
+
+  /client  A client site. Signs in with its own short sign-in name, e.g.
+           GWLD1, and lands directly in its own panel. Nothing else is
+           reachable from there.
+
+  A client's sign-in name is set by Stratus on the client list:
+  Manage -> Client sign-in name. Existing panels were given their panel
+  address as their sign-in name automatically.
 
 
 LOGINS
@@ -35,6 +50,11 @@ LOGINS
 NOTES
 -----
   - Alerts are SMS only.
+  - Alert stages: each client panel can define escalating distance bands
+    (for example 30 km advisory, 20 km warning, 10 km stop work) under
+    "Alert Stages". A strike raises only the nearest band that covers it,
+    so one flash never sends the same person several messages. A panel
+    with no stages keeps using each group's own distance threshold.
   - Change both passwords after first login: top-right "Change password".
   - Seeding is idempotent: if the database already has an account with the
     same email it is NOT overwritten, so editing the seed password later

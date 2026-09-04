@@ -5,8 +5,10 @@
 <p class="muted" style="text-align:left;padding:0 0 10px;">
   Each client gets their own lightning panel at
   <code>adminpanel.stratusweather.co.za/&lt;address&gt;</code>. The client's own
-  admin signs in there and manages only their recipients, groups and alerts.
-  You (Stratus) can open any client panel from the list below.
+  admin signs in at <code>adminpanel.stratusweather.co.za/client</code> using
+  their site sign-in name, and manages only their own recipients, groups, alert
+  stages and history. <strong>Open panel</strong> takes you into a client's panel;
+  <strong>Manage</strong> renames it, sets its sign-in name, or deletes it.
 </p>
 
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
@@ -48,6 +50,7 @@
       <td>
         <a class="btn-link" href="{{ row.url }}">Open panel</a>
         {% if row.t.slug != platform_slug %}
+        <a class="btn-link" href="/tenants/{{ row.t.id }}/edit">Manage</a>
         <form method="post" action="/tenants/{{ row.t.id }}/toggle" class="inline"
               data-confirm="Change this client panel's status?">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

@@ -2,6 +2,7 @@
 // Created by Lukas Esterhuizen
 
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { STALE_CHUNK_RE, reloadOnceForStaleChunk } from '@/lib/chunkReload';
 
 interface Props {
   children: ReactNode;
@@ -26,6 +27,13 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // A failed lazy import after a deploy can surface here as a render error
+    // rather than as a preload event. Reload once to fetch the fresh bundle;
+    // the guard in reloadOnceForStaleChunk stops this becoming a reload loop
+    // when the chunk is genuinely broken.
+    if (STALE_CHUNK_RE.test(error.message) && reloadOnceForStaleChunk('ErrorBoundary')) {
+      return;
+    }
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
   }

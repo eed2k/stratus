@@ -129,10 +129,10 @@ export class DataCollectionService extends EventEmitter {
       // Store configuration
       this.activeStations.set(stationId, config);
 
-      // Initialise data buffer
+      // Initialize data buffer
       this.dataBuffers.set(stationId, []);
 
-      // Initialise status
+      // Initialize status
       this.stationStatuses.set(stationId, { stationId, isConnected: false });
 
       // Setup flush timer
@@ -393,7 +393,7 @@ export class DataCollectionService extends EventEmitter {
   }
 
   /**
-   * Initialise service with stations from database
+   * Initialize service with stations from database
    */
   async initialize(): Promise<void> {
     try {

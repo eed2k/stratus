@@ -280,7 +280,7 @@ function ScheduleForm({
             <Select value={form.frequency} onValueChange={(v) => set("frequency", v as Frequency)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {/* "Daily" is Mon-Fri, not all seven days. Labelled so the form
+                {/* "Daily" is Mon-Fri, not all seven days. Labeled so the form
                     does not promise a Saturday send that never happens. Choose
                     Weekly with Saturday or Sunday for a weekend report. */}
                 <SelectItem value="daily">Daily (Mon-Fri)</SelectItem>

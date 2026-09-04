@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# GWLD1 Pi Zero W - low power optimisation
+# GWLD1 Pi Zero W - low power optimization
 #
 #   sudo bash pi_lowpower.sh
 #
@@ -43,7 +43,7 @@ WIFI_POWERSAVE="${WIFI_POWERSAVE:-keep}"
 PIN_GOVERNOR="${PIN_GOVERNOR:-1}"
 
 # Drop arm_freq from 800 to 700 MHz. Small extra saving. Off by default because
-# it is a bigger behavioural change than the rest.
+# it is a bigger behavioral change than the rest.
 DEEP_UNDERCLOCK="${DEEP_UNDERCLOCK:-0}"
 
 # avahi-daemon provides the .local name you use for SSH. Disabling it saves a

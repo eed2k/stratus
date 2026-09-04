@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Something went wrong{% endblock %}
+
+{% block content %}
+<h1>Something went wrong</h1>
+<section class="panel">
+  <p class="alert">The page could not be built. Nothing you uploaded has been
+  lost.</p>
+  <p>Reference <code>{{ reference }}</code>. Quoting it will find the matching
+  line in the container log.</p>
+  <p><a href="/">Back to stations</a></p>
+</section>
+{% endblock %}

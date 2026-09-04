@@ -317,7 +317,7 @@ export function SolarPositionCard({
                   </linearGradient>
                 </defs>
 
-                {/* Shift all paths down by 25 to centre in the taller viewBox */}
+                {/* Shift all paths down by 25 to center in the taller viewBox */}
                 <g transform="translate(0, 25)">
                   <path ref={pathRef} d={SUN_ARC.PATH} fill="none" stroke="var(--sun-card-lines)" strokeWidth="2" shapeRendering="geometricPrecision" />
                   <path d="M5,146 C29,153 73,128 101,108 L 5 108" fill={`url(#${dawnGradId})`} opacity={arc?.dawnProgressPercent ? 1 : 0} stroke={`url(#${dawnGradId})`} shapeRendering="geometricPrecision" />

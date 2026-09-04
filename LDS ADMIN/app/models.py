@@ -31,13 +31,23 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    # Short sign-in name for the client login at /client, e.g. "GWLD1". Clients
+    # know their unit by that name and should not have to remember an e-mail
+    # address to reach their own panel.
+    #
+    # Deliberately NOT unique=True, and deliberately nullable. add_missing_columns
+    # can only ALTER TABLE ADD COLUMN a nullable column, so declaring a
+    # constraint here would build one schema on a fresh database and a different
+    # one on an upgraded database. Uniqueness is enforced case-insensitively in
+    # the routes instead, the same way group names already are.
+    username = Column(String(64), nullable=True, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, default="operator")  # admin | operator | viewer
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=now_sast)
     # Which client panel this login belongs to.
     tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True)
-    # Platform admins (Stratus staff) may enter any tenant's panel and manage
+    # Platform admins (Stratus Admin) may enter any tenant's panel and manage
     # the tenant list. Client admins are confined to their own tenant.
     is_platform_admin = Column(Boolean, default=False)
 
@@ -53,6 +63,53 @@ class Group(Base):
     distance_threshold_km = Column(Integer, default=15)
     is_active = Column(Boolean, default=True)
     recipients = relationship("Recipient", back_populates="group")
+
+
+class AlertStage(Base):
+    """One escalation step in a client's alert plan, e.g. "20 km - Warning".
+
+    WHY THIS EXISTS ALONGSIDE Group.distance_threshold_km
+
+    A group's threshold answers "does this person get told at all". It cannot
+    express escalation: one site wants a quiet heads-up at 30 km, a real warning
+    at 20 km, and stop-work at 10 km, with different people on each step. That
+    needs a list of bands, not one number per group.
+
+    HOW A STRIKE PICKS A STAGE
+
+    Stages are bands, not filters. For a strike at distance d the stage chosen is
+    the one with the SMALLEST distance_km that still covers d - the most specific
+    band, which is also the most severe. A strike at 8 km fires the 10 km stage
+    and not the 20 or 30 km stages, so nobody receives three messages for one
+    flash.
+
+    BACKWARD COMPATIBILITY
+
+    A tenant with no stages defined keeps the old behavior exactly: recipients
+    are selected by their group's own threshold. Stages are opt-in, so adding
+    this table changes nothing for an existing client until someone defines one.
+    """
+    __tablename__ = "alert_stages"
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True)
+    # Shown to recipients, so it should read as a severity: "Watch", "Warning",
+    # "Stop work". Kept short because it goes into an SMS.
+    name = Column(String(40), nullable=False)
+    # Upper edge of the band, in km. A strike at or inside this distance is
+    # covered by the stage.
+    distance_km = Column(Integer, nullable=False, default=20)
+    # Which recipients this stage notifies. NULL means every active group in the
+    # tenant, which is the sensible default for a site that wants everyone told
+    # at every step and only varies the wording.
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    group = relationship("Group")
+    is_active = Column(Boolean, default=True)
+    # Per-stage repeat suppression, in minutes. NULL falls back to the tenant
+    # setting. A near stage usually wants a shorter cooldown than a far one:
+    # being reminded every 5 minutes that lightning is 8 km away is useful,
+    # whereas the same cadence for 35 km is noise.
+    cooldown_min = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=now_sast)
 
 
 class Recipient(Base):
@@ -129,7 +186,7 @@ class UnitStatus(Base):
     site_label = Column(String(120), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
-    # Metres above mean sea level. Added so the site line on an LDS report can
+    # Meters above mean sea level. Added so the site line on an LDS report can
     # carry the same three figures as a Stratus report, which already prints
     # latitude, longitude and altitude for every weather station.
     altitude_m = Column(Float, nullable=True)

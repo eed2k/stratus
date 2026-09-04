@@ -114,7 +114,7 @@ def generate_quiet_periods(base_time: datetime, days: int) -> List[Tuple[datetim
         # 5% chance of isolated strike per hour
         if random.random() < 0.05:
             cumulative_strikes += 1
-            # Distant isolated strikes (out towards AS3935 max range)
+            # Distant isolated strikes (out toward AS3935 max range)
             distance = random.choice([27, 31, 34, 37, 40])
             # Low energy for distant strikes (5%-25% of 21-bit range)
             energy = random.randint(int(0.05 * AS3935_ENERGY_MAX), int(0.25 * AS3935_ENERGY_MAX))

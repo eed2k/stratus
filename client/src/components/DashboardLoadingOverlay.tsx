@@ -93,7 +93,7 @@ export function DashboardLoadingOverlay({
       aria-label={`Loading dashboard, ${pct} percent`}
       data-testid="dashboard-loading-overlay"
     >
-      {/* Circular progress ring with the percentage in the centre */}
+      {/* Circular progress ring with the percentage in the center */}
       <div className="relative h-28 w-28">
         <svg className="h-28 w-28 -rotate-90" viewBox="0 0 112 112">
           <circle cx="56" cy="56" r={R} fill="none" stroke="#e5e7eb" strokeWidth="6" />

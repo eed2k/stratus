@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+{% block title %}{{ station.name }}{% endblock %}
+{% block crumbs %}<span>/</span><span>{{ station.name }}</span>{% endblock %}
+
+{% block content %}
+<h1>{{ station.name }} <span class="muted">{{ station.slug }}</span></h1>
+
+<section class="panel">
+  <h2>Record</h2>
+  <dl class="facts">
+    <dt>Readings stored</dt><dd>{{ '{:,}'.format(readings) }}</dd>
+    <dt>Covers</dt>
+    <dd>{% if first %}{{ first }} to {{ last }} ({{ days }} days){% else %}
+        nothing yet{% endif %}</dd>
+    <dt>Forecastable variables</dt>
+    <dd>{% if engine_variables %}
+        {% for v in engine_variables %}{{ label_for(v) }}{% if not loop.last %},
+        {% endif %}{% endfor %}
+        {% else %}none{% endif %}</dd>
+  </dl>
+
+  {% if days < 3 %}
+  <p class="alert">This record covers {{ days }} days. A 1 day forecast needs
+  about 2 days of history to fit a daily cycle, and the analog ensemble needs
+  about 10 days before it contributes anything. Upload a longer export for the
+  forecast to be worth much.</p>
+  {% elif days < 10 %}
+  <p class="notice">With {{ days }} days of history the forecast is the daily
+  cycle plus a decaying anomaly. The analog ensemble needs about 10 days, so
+  there is no confidence band yet.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Produce a forecast</h2>
+  <p class="hint">Launched from the most recent hour in the record, not from the
+  wall clock, so uploading an older export forecasts from the end of that
+  export.</p>
+  <form method="post" action="/station/{{ station.id }}/run" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <label for="days">Horizon</label>
+    <select id="days" name="days">
+      <option value="0">1, 3 and 5 day</option>
+      {% for d in horizons %}<option value="{{ d }}">{{ d }} day</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="primary">Run forecast</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Score against the record you already hold</h2>
+  <p class="hint">Re-issues forecasts from base hours in the past, each using
+  only the data that existed before its own base hour, then scores them against
+  what actually happened. This is what fills the verification page immediately
+  instead of waiting days for new observations.</p>
+  <form method="post" action="/station/{{ station.id }}/backfill" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <label for="bf_days">Horizon</label>
+    <select id="bf_days" name="days">
+      {% for d in horizons %}<option value="{{ d }}">{{ d }} day</option>
+      {% endfor %}
+    </select>
+    <label for="step_hours">One forecast every</label>
+    <select id="step_hours" name="step_hours">
+      <option value="6">6 hours</option>
+      <option value="12">12 hours</option>
+      <option value="24" selected>24 hours</option>
+    </select>
+    <button type="submit">Backfill and score</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Position</h2>
+  <p class="hint">Needed only if you want a model background. The logger file
+  does not carry coordinates.</p>
+  <form method="post" action="/station/{{ station.id }}/settings" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <div class="field narrow">
+      <label for="latitude">Latitude</label>
+      <input type="text" id="latitude" name="latitude" inputmode="decimal"
+             value="{{ station.latitude if station.latitude is not none }}"
+             placeholder="-26.7145">
+    </div>
+    <div class="field narrow">
+      <label for="longitude">Longitude</label>
+      <input type="text" id="longitude" name="longitude" inputmode="decimal"
+             value="{{ station.longitude if station.longitude is not none }}"
+             placeholder="27.0977">
+    </div>
+    <div class="field narrow">
+      <label for="elevation_m">Elevation (m)</label>
+      <input type="text" id="elevation_m" name="elevation_m" inputmode="decimal"
+             value="{{ station.elevation_m if station.elevation_m is not none }}"
+             placeholder="1350">
+    </div>
+    <div class="field narrow">
+      <label for="utc_offset_hours">Logger UTC offset</label>
+      <input type="text" id="utc_offset_hours" name="utc_offset_hours"
+             inputmode="decimal" value="{{ station.utc_offset_hours }}">
+    </div>
+    <button type="submit">Save</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Model background</h2>
+  <p class="hint">Off by default. The forecast is built from this station's own
+  history; a model background adds knowledge of weather the site has not seen
+  before, and the station record then corrects it for the site. Choose the
+  variables deliberately: a background helps temperature and pressure most, and
+  can make wind worse at a sheltered site.</p>
+
+  <table class="grid tight">
+    <thead><tr><th>Provider</th><th>Resolution</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for p in providers %}
+      <tr>
+        <td>{{ p.label }}</td>
+        <td>{% if p.resolution_km %}{{ p.resolution_km }} km{% else %}
+            <span class="muted">not published</span>{% endif %}</td>
+        <td>{% if p.available %}<span class="ok">ready</span>{% else %}
+            <span class="muted">unavailable</span>
+            {% if p.last_error %}<br><span class="hint">{{ p.last_error }}</span>
+            {% endif %}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" action="/station/{{ station.id }}/nwp">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <label class="check">
+      <input type="checkbox" name="nwp_enabled" value="on"
+             {% if station.nwp_enabled %}checked{% endif %}>
+      Use a model background for this station
+    </label>
+
+    <fieldset>
+      <legend>Providers, in order of preference</legend>
+      {% for p in providers %}
+      <label class="check">
+        <input type="checkbox" name="providers" value="{{ p.name }}"
+               {% if p.name in station.nwp_providers %}checked{% endif %}>
+        {{ p.label }}
+      </label>
+      {% endfor %}
+      <span class="hint">Leave all unticked to use whichever available provider
+      has the finest grid.</span>
+    </fieldset>
+
+    <fieldset>
+      <legend>Variables the background may inform</legend>
+      {% for v in all_engine_variables %}
+      <label class="check">
+        <input type="checkbox" name="variables" value="{{ v }}"
+               {% if v in station.nwp_variables %}checked{% endif %}>
+        {{ label_for(v) }}
+      </label>
+      {% endfor %}
+    </fieldset>
+
+    {% if not station.has_position %}
+    <p class="alert">Set the coordinates above first. A background cannot be
+    fetched without them.</p>
+    {% endif %}
+    <button type="submit" class="primary">Save background settings</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Continuous feed from Dropbox</h2>
+  <p class="hint">Watches a folder and ingests a logger export whenever it
+  changes, so a station that keeps appending to the same <code>.dat</code> feeds
+  the forecast without anyone uploading by hand. Read-only: this never writes to
+  or deletes anything in your Dropbox.</p>
+
+  {% if not dropbox_status.configured %}
+  <p class="alert">Dropbox is not configured on the server.
+  <code>DROPBOX_APP_KEY</code>, <code>DROPBOX_APP_SECRET</code> and
+  <code>DROPBOX_REFRESH_TOKEN</code> all have to be set. Currently set:
+  key {{ 'yes' if dropbox_status.app_key_set else 'no' }},
+  secret {{ 'yes' if dropbox_status.app_secret_set else 'no' }},
+  refresh token {{ 'yes' if dropbox_status.refresh_token_set else 'no' }}.</p>
+  {% elif not dropbox_polling %}
+  <p class="alert">Dropbox credentials are present but background polling is
+  switched off on this server (<code>DROPBOX_POLLING</code>). You can still
+  check the folder manually below.</p>
+  {% endif %}
+
+  {% if dropbox %}
+  <dl class="facts">
+    <dt>Last checked</dt>
+    <dd>{{ dropbox.last_polled_at or 'never' }}</dd>
+    <dt>Result</dt>
+    <dd>{{ dropbox.last_status or 'nothing yet' }}</dd>
+    {% if dropbox.last_error %}
+    <dt>Last problem</dt><dd class="bad">{{ dropbox.last_error }}</dd>
+    {% endif %}
+  </dl>
+  {% endif %}
+
+  <form method="post" action="/station/{{ station.id }}/dropbox">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <label class="check">
+      <input type="checkbox" name="dropbox_enabled" value="on"
+             {% if dropbox and dropbox.enabled %}checked{% endif %}>
+      Keep this station fed from Dropbox
+    </label>
+    <div class="row">
+      <div class="field">
+        <label for="folder_path">Folder</label>
+        <input type="text" id="folder_path" name="folder_path"
+               value="{{ dropbox.folder_path if dropbox else '' }}"
+               placeholder="/StratusData/Potch">
+        <span class="hint">Leave blank for the app folder root.</span>
+      </div>
+      <div class="field narrow">
+        <label for="file_pattern">File name pattern</label>
+        <input type="text" id="file_pattern" name="file_pattern"
+               value="{{ dropbox.file_pattern if dropbox else '*.dat' }}"
+               placeholder="*.dat">
+      </div>
+      <div class="field narrow">
+        <label for="interval_minutes">Check every</label>
+        <select id="interval_minutes" name="interval_minutes">
+          {% set current = (dropbox.interval_secs // 60) if dropbox else 15 %}
+          {% for m in [5, 10, 15, 30, 60, 180, 720] %}
+          <option value="{{ m }}" {% if current == m %}selected{% endif %}>
+            {{ m }} minutes</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <label class="check">
+      <input type="checkbox" name="auto_forecast" value="on"
+             {% if not dropbox or dropbox.auto_forecast %}checked{% endif %}>
+      Refresh the 1, 3 and 5 day forecasts whenever new data arrives
+    </label>
+    <button type="submit" class="primary">Save feed settings</button>
+  </form>
+
+  <form method="post" action="/station/{{ station.id }}/dropbox/poll"
+        class="row" style="margin-top:12px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <button type="submit">Check the folder now</button>
+    <label class="check">
+      <input type="checkbox" name="force" value="on">
+      Re-read files even if unchanged
+    </label>
+  </form>
+
+  {% if dropbox_files %}
+  <h2 style="margin-top:16px;">Files taken from Dropbox</h2>
+  <table class="grid tight">
+    <thead><tr><th>Path</th><th class="num">Size</th>
+      <th class="num">Rows kept</th><th>Last read</th></tr></thead>
+    <tbody>
+    {% for f in dropbox_files %}
+      <tr>
+        <td><code>{{ f.path_lower }}</code></td>
+        <td class="num">{{ '{:,}'.format(f.size_bytes) }}</td>
+        <td class="num">{{ '{:,}'.format(f.rows_kept) }}</td>
+        <td>{{ f.ingested_at }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="hint">A file is only downloaded again when Dropbox reports a new
+  revision, so an unchanged export costs one listing call and nothing else.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Uploads</h2>
+  {% if uploads %}
+  <table class="grid tight">
+    <thead><tr><th>File</th><th>Uploaded</th><th class="num">Rows kept</th>
+      <th class="num">Skipped</th><th>Covers</th></tr></thead>
+    <tbody>
+    {% for u in uploads %}
+      <tr>
+        <td>{{ u.filename }}</td>
+        <td>{{ u.uploaded_at }}</td>
+        <td class="num">{{ '{:,}'.format(u.rows_kept) }}</td>
+        <td class="num">{{ u.rows_skipped }}</td>
+        <td>{{ u.first_ts or '-' }} to {{ u.last_ts or '-' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No uploads recorded.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Recent forecast runs</h2>
+  {% if runs %}
+  <table class="grid tight">
+    <thead><tr><th>Base hour</th><th class="num">Horizon</th>
+      <th>Background</th><th>Issued</th><th>Method</th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+      <tr>
+        <td>{{ r.base_time }}</td>
+        <td class="num">{{ (r.horizon_hours / 24)|round(0, 'floor')|int }} day</td>
+        <td>{{ r.provider or 'station history only' }}</td>
+        <td>{{ r.issued_at }}</td>
+        <td>{% if r.method_version %}<code>{{ r.method_version }}</code>
+            {% else %}<span class="muted">not recorded</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="hint">The method column is a hash of the forecast's tuning
+  constants. When it changes, the scores either side of the change are not
+  measuring the same method.</p>
+  {% else %}
+  <p class="muted">No forecasts produced yet.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Sector products</h2>
+  <p class="hint">Switch on only what applies to this site. A livestock farm has
+  no use for photovoltaic tracking, and a solar plant has none for chill
+  portions. With nothing enabled this station keeps the forecast and
+  verification views exactly as they are.</p>
+
+  {% if enabled_sectors %}
+  <p>Open:
+    {% for s in enabled_sectors %}
+    <a href="/station/{{ station.id }}/sector/{{ s }}?days=1">{{ sector_labels[s] }}</a>{% if not loop.last %} &nbsp;|&nbsp; {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+
+  <form method="post" action="/station/{{ station.id }}/sectors">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <fieldset>
+      <legend>Sectors</legend>
+      <label class="check">
+        <input type="checkbox" name="solar_on" value="on"
+               {% if sector_config.get('solar') %}checked{% endif %}> Solar
+      </label>
+      <label class="check">
+        <input type="checkbox" name="wind_on" value="on"
+               {% if sector_config.get('wind') %}checked{% endif %}> Wind
+      </label>
+      <label class="check">
+        <input type="checkbox" name="agriculture_on" value="on"
+               {% if sector_config.get('agriculture') %}checked{% endif %}>
+        Agriculture
+      </label>
+      <label class="check">
+        <input type="checkbox" name="agrivoltaics_on" value="on"
+               {% if sector_config.get('agrivoltaics') %}checked{% endif %}>
+        Agrivoltaics
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Array, for solar and agrivoltaics</legend>
+      <div class="row">
+        <div class="field narrow">
+          <label for="tilt_deg">Tilt, degrees</label>
+          <input type="text" id="tilt_deg" name="tilt_deg"
+                 value="{{ sector_config.get('tilt_deg') or '' }}">
+        </div>
+        <div class="field narrow">
+          <label for="surface_azimuth_deg">Facing, degrees from north</label>
+          <input type="text" id="surface_azimuth_deg"
+                 name="surface_azimuth_deg"
+                 value="{{ sector_config.get('surface_azimuth_deg') or '' }}">
+        </div>
+        <div class="field narrow">
+          <label for="rated_w">Rating, W</label>
+          <input type="text" id="rated_w" name="rated_w"
+                 value="{{ sector_config.get('rated_w') or '' }}">
+        </div>
+        <div class="field narrow">
+          <label for="tracking">Tracking</label>
+          <select id="tracking" name="tracking">
+            <option value="fixed"
+              {% if sector_config.get('tracking') != 'single_axis' %}selected{% endif %}>
+              fixed</option>
+            <option value="single_axis"
+              {% if sector_config.get('tracking') == 'single_axis' %}selected{% endif %}>
+              single axis</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint">Leave the tilt and facing blank to use the year-round
+      optimum for this latitude. In the southern hemisphere that faces north, 0
+      degrees.</p>
+      <div class="row">
+        <div class="field narrow">
+          <label for="row_pitch_m">Row pitch, m</label>
+          <input type="text" id="row_pitch_m" name="row_pitch_m"
+                 value="{{ sector_config.get('row_pitch_m') or '' }}">
+        </div>
+        <div class="field narrow">
+          <label for="collector_width_m">Collector width, m</label>
+          <input type="text" id="collector_width_m" name="collector_width_m"
+                 value="{{ sector_config.get('collector_width_m') or '' }}">
+        </div>
+        <div class="field narrow">
+          <label for="albedo_surface">Ground under the array</label>
+          <select id="albedo_surface" name="albedo_surface">
+            {% for s in albedo_surfaces %}
+            <option value="{{ s }}"
+              {% if sector_config.get('albedo_surface') == s %}selected{% endif %}>
+              {{ s|replace('_', ' ') }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <p class="hint">Row pitch and collector width give the ground cover ratio,
+      which decides how much light reaches the crop.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Wind</legend>
+      <div class="row">
+        <div class="field narrow">
+          <label for="hub_height_m">Hub height, m</label>
+          <input type="text" id="hub_height_m" name="hub_height_m"
+                 value="{{ sector_config.get('hub_height_m') or '' }}">
+        </div>
+        <div class="field narrow">
+          <label for="measurement_height_m">Anemometer height, m</label>
+          <input type="text" id="measurement_height_m"
+                 name="measurement_height_m"
+                 value="{{ sector_config.get('measurement_height_m') or '' }}">
+        </div>
+      </div>
+      <p class="hint">This station measures wind at one height, so the shear
+      exponent used to reach hub height is an assumption and is labeled as one
+      on the wind page.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Agriculture</legend>
+      <div class="row">
+        <div class="field narrow">
+          <label for="crop">Crop</label>
+          <input type="text" id="crop" name="crop"
+                 value="{{ sector_config.get('crop') or '' }}">
+        </div>
+        <div class="field narrow">
+          <label for="livestock">Livestock</label>
+          <input type="text" id="livestock" name="livestock"
+                 value="{{ sector_config.get('livestock') or '' }}">
+        </div>
+      </div>
+      <p class="hint">Crop names the FAO-56 coefficient set (for example maize,
+      wheat, grape, potato, lucerne). Livestock selects the heat-load
+      thresholds (dairy_cattle, beef_cattle, sheep, poultry, pig).</p>
+    </fieldset>
+
+    <button type="submit" class="primary">Save sector settings</button>
+  </form>
+</section>
+
+<section class="panel danger">
+  <h2>Delete this station</h2>
+  <p>Removes every reading, forecast and score for
+  <strong>{{ station.slug }}</strong>. This cannot be undone from here.</p>
+  <form method="post" action="/station/{{ station.id }}/delete" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <div class="field narrow">
+      <label for="confirm_slug">Type <code>{{ station.slug }}</code> to confirm</label>
+      <input type="text" id="confirm_slug" name="confirm_slug" required
+             autocomplete="off">
+    </div>
+    <button type="submit" class="destructive">Delete station</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,47 @@
+[Unit]
+Description=Quaggasklip (Metron) AS3935 Lightning Detector
+Documentation=file:/home/quaggasklip/README.md
+After=network-online.target
+Wants=network-online.target
+# pigpiod is only needed when campbell_transport is "bitbang". Wants, not
+# Requires, so a unit using the hardware UART starts even without the daemon.
+Wants=pigpiod.service
+After=pigpiod.service
+# No start-limit window: a detector that keeps failing must keep retrying. A
+# site left unmonitored because systemd gave up is worse than a restart loop
+# that is visible in the journal.
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+User=quaggasklip
+Group=quaggasklip
+# spi for the sensor, gpio for the interrupt, dialout for /dev/serial0.
+SupplementaryGroups=spi gpio dialout
+WorkingDirectory=/home/quaggasklip
+ExecStart=/usr/bin/python3 -u /home/quaggasklip/quaggasklip_detector.py
+Restart=always
+RestartSec=10
+# The loop pings the watchdog every pass; 120 s is far longer than any single
+# pass can legitimately take, including the daily antenna check.
+WatchdogSec=120
+TimeoutStopSec=30
+# Unbuffered stdout above, so journalctl shows lines as they happen rather than
+# in 4 KB gulps.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=quaggasklip
+
+# Hardening. The program needs its own home directory, /dev/spidev*, /dev/gpio*
+# and /dev/serial0, and nothing else.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=no
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=no
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

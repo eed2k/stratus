@@ -1,0 +1,42 @@
+Item,Category,References,Qty,Value,Footprint,Manufacturer,MPN,LCSC,Populate,Assembly,Notes
+1,PCB,PCB1,1,"Storm Tracker Rev A, 4-layer, nominal 1.0 mm",36.5x69.0mm,Solderable,STORM-TRACKER-REV-A,,Required external,PCB fabrication,"Use reviewed Rev A Gerbers; finish still requires confirmation"
+2,Buzzer,BZ1,1,CMT-8530S,Library:CUI_CMT-8530S-SMT,"Same Sky (formerly CUI Devices)",CMT-8530S-SMT-TR,,Yes,Bottom SMT,Passive magnetic transducer
+3,Capacitor,"C1,C8,C10,C11,C15,C16,C23,C32",8,100nF,0402,"Samsung Electro-Mechanics",CL05B104KO5NNNC,,Yes,Bottom SMT,General decoupling
+4,Capacitor,"C5,C6,C9,C18",4,1uF,0402,Murata Electronics,GRM155R61E105KA12D,,Yes,Bottom SMT,
+5,Capacitor,C7,1,22uF,0603,"Samsung Electro-Mechanics",CL10A226MO7JZNC,,Yes,Bottom SMT,
+6,Capacitor,"C12,C30,C31",3,"4.7uF 25V",0603,TDK,C1608X5R1E475K080AC,,Yes,Bottom SMT,"Keep 25 V rating for e-paper rails"
+7,Capacitor,C13,1,10uF,0402,YAGEO,CC0402MRX5R6BB106,,Yes,Bottom SMT,
+8,Capacitor,"C14,C21,C22,C24,C25,C26,C27,C28,C29",9,"1uF 25V",0603,TDK,CGA3E1X7R1E105K080AC,,Yes,Bottom SMT,"Keep 25 V rating for e-paper rails"
+9,Capacitor,"C17,C33,C34",3,10uF,0603,Kyocera AVX,06033D106KAT2A,,Yes,Bottom SMT,
+10,Capacitor,C19,1,"680pF C0G",0402,Murata Electronics,GCM1555C1H681FA16D,,Yes,Bottom SMT,"Antenna tuning; do not substitute dielectric casually"
+11,Capacitor,C20,1,"270pF C0G",0402,Murata Electronics,GRT1555C1H271FA02D,,Yes,Bottom SMT,"Antenna tuning; do not substitute dielectric casually"
+12,LED,D1,1,Red,0402,"QT Brightek (QTB)",QBLP595-R-2897,,Yes,Bottom SMT,
+13,Diode,"D2,D3,D4,D5",4,MBR0530,SOD-123,"SMC Diode Solutions",MBR0530,C82046,Yes,Bottom SMT,
+14,ESD diode,"D6,D7,D8",3,ESD5Z3V3,SOD-523,"Diotec Semiconductor",ESD5Z3V3,,Yes,Bottom SMT,
+15,Connector,J1,1,"USB-C USB 2.0 receptacle",GCT_USB4105_TopMnt,GCT,USB4105-GF-A,,Yes,Bottom SMT,
+16,Connector,J2,1,"2-pin JST-PH battery",JST_PH_S2B-PH-SM4-TB,JST,S2B-PH-SM4-TB,,Yes,Bottom SMT,"Verify battery polarity before connection"
+17,Connector,J3,1,"24-pin 0.5 mm top-contact FPC",Library:Amphenol_F32Q_ReversePinout,"Amphenol ICC (FCI)",F32Q-1A7H1-11024,,Yes,Bottom SMT,"Local footprint reverses pad numbering for folded display FPC"
+18,Inductor,L1,1,"47uH 0.5A",L_APV_ANR4030,Taiyo Yuden,NR4018T470M,C223059,Yes,Bottom SMT,E-paper boost
+19,Antenna,L2,1,MA5532-AE,Coilcraft_MA5532-AE,Coilcraft,MA5532-AED,,Yes,Bottom SMT,"500 kHz loop; keep layout void and tuning network"
+20,MOSFET,Q1,1,Si1308EDL,SOT-323,"Vishay Siliconix",SI1308EDL-T1-BE3,,Yes,Bottom SMT,
+21,MOSFET,Q2,1,AO3400A,SOT-23,"Alpha & Omega Semiconductor",AO3400A,,Yes,Bottom SMT,
+22,Resistor,"R1,R2",2,5.1k,0402,YAGEO,RC0402FR-075K1L,,Yes,Bottom SMT,
+23,Resistor,"R3,R4",2,4.7k,0402,YAGEO,RC0402FR-074K7L,,Yes,Bottom SMT,
+24,Resistor,R5,1,680R,0402,YAGEO,RC0402FR-07680RL,,Yes,Bottom SMT,
+25,Resistor,"R6,R7,R8,R9,R11,R12,R13,R14,R21",9,10k,0402,YAGEO,RC0402FR-0710KL,,Yes,Bottom SMT,
+26,Resistor,R15,1,2.2R,0402,YAGEO,RC0402FR-072R2L,,Yes,Bottom SMT,
+27,Resistor,"R16,R18,R19",3,1M,0402,YAGEO,RC0402FR-071ML,,Yes,Bottom SMT,
+28,Resistor,R17,1,"10k 1%",0402,YAGEO,RC0402FR-0710KL,,Yes,Bottom SMT,
+29,Resistor,R20,1,100R,0402,YAGEO,RC0402FR-07100RL,,Yes,Bottom SMT,
+30,Button,"SW2,SW3,SW4",3,"Front user button",SKQG_WithStem,Alps Alpine,SKQGABE010,,Yes,Front hand solder,"Historical factory BOM omitted SW2/SW3; complete build needs all three"
+31,Button,SW5,1,"Side power button",Panasonic_EVQPUD,Panasonic,EVQPUD02K,C388885,Yes,Bottom SMT,Controls charger MR/Ship Mode behavior
+32,Lightning sensor,U1,1,AS3935,QFN-16 4x4mm,ScioSense,AS3935-BQFT,,Yes,Bottom SMT,Requires exposed-pad assembly and antenna calibration
+33,USB ESD,U2,1,USBLC6-2P6,SOT-666,STMicroelectronics,USBLC6-2P6,C15999,Yes,Bottom SMT,
+34,LDO,U3,1,TLV75533PDBV,SOT-23-5,Texas Instruments,TLV75533PDBVR,C404027,Yes,Bottom SMT,Quiet always-on 3.3 V rail
+35,MCU module,U4,1,ESP32-C6-MINI-1U,Library:ESP32-C6-MINI-1U,Espressif Systems,ESP32-C6-MINI-1U-H4,,Yes,Bottom SMT,External-antenna module variant used in source
+36,Charger,U5,1,BQ25186DLHR,WSON-10,Texas Instruments,BQ25186DLHR,,Yes,Bottom SMT,Requires exposed-pad assembly and firmware configuration
+37,Temp/humidity,U6,1,SHT40-AD1B-R2,DFN-4 1.5x1.5mm,Sensirion,SHT40-AD1B-R2,C2909890,Yes,Bottom SMT,
+38,Display,DISP1,1,"1.54in 200x200 e-paper",24-pin FPC,Good Display,GDEY0154D67,,Required external,Hand assembly,"Insert only with all power removed; verify controller/panel revision"
+39,Battery,BAT1,1,"Protected 1S LiPo, about 500mAh",JST-PH 2-pin,User selected,"Example: Adafruit 1578",,Required external,Hand assembly,"Verify dimensions, protection, charge-current compatibility, and polarity"
+40,DNP option,SW1,0,Reset button,EVQP7A,Panasonic,"Footprint only",,No (DNP),Do not populate,Reset option present in layout
+41,DNP option,JP1,0,Boot jumper,0402,Generic,"0R if intentionally fitted",,No (DNP),Do not populate,Boot option present in layout

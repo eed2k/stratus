@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Client Sign In{% endblock %}
+{% block content %}
+<div class="card narrow">
+  <div class="login-brand">Stratus Weather</div>
+  <div class="login-sub">Lightning Alert - Client Sign In</div>
+  {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/client" class="login-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {#
+      A text field, not type="email": the sign-in name is the site's own name,
+      e.g. GWLD1. autocapitalize is off because the value is matched
+      case-insensitively and an autocapitalized entry looks like an error to the
+      person typing it.
+    #}
+    <label><span>Site sign-in name</span>
+      <input type="text" name="username" required autofocus
+             autocomplete="username" autocapitalize="off" spellcheck="false"
+             placeholder="e.g. GWLD1">
+    </label>
+    <label><span>Password</span>
+      <input type="password" name="password" required
+             autocomplete="current-password">
+    </label>
+    <button class="primary" type="submit">Sign In</button>
+  </form>
+  <p class="muted" style="text-align:left;padding:10px 0 0;">
+    Use the sign-in name for your site. If you do not have one, your Stratus
+    contact can set it for you. Stratus Admin sign in
+    <a href="/login">here</a>.
+  </p>
+</div>
+{% endblock %}

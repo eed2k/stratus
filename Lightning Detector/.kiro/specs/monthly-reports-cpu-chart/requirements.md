@@ -3,7 +3,7 @@
 ## Introduction
 
 This feature adds client-facing operational reporting, station metadata
-management, improved live telemetry visualisation, and a storm-activity display
+management, improved live telemetry visualization, and a storm-activity display
 to the Lightning Detection System admin panel, and closes a gap in the
 detector's heartbeat telemetry.
 
@@ -35,15 +35,15 @@ the panel receives hourly heartbeats carrying CPU temperature. However:
 The goal is to deliver two downloadable PDF reports (a technical system/health
 report and a polished client summary report), a station metadata section in the
 panel, an interactive and explainable CPU chart built with Recharts, and a
-storm-activity visualisation with an energy legend, inspired by Astrogenic
+storm-activity visualization with an energy legend, inspired by Astrogenic
 NexStorm/StormVue. All new capabilities respect tenant isolation. A final
-documentation pass reconciles the PPTX/datasheet claims against actual behaviour,
+documentation pass reconciles the PPTX/datasheet claims against actual behavior,
 including confirming SMS-only alerting.
 
 ## Hardware and Design Constraints
 
 - The AS3935 sensor reports estimated **distance only**; it does **not** provide
-  bearing/azimuth. Any storm visualisation uses distance range-rings and strike
+  bearing/azimuth. Any storm visualization uses distance range-rings and strike
   pulses, not a directional radar plot.
 - The AS3935 **energy** value is a 21-bit **relative, dimensionless** number in the
   range 0 to 2,097,151. It is not calibrated to Joules, Watts, or Amperes, cannot
@@ -73,7 +73,7 @@ including confirming SMS-only alerting.
 - Report language SHALL be South African English spelling.
 - Report text SHALL NOT contain em dashes; use hyphens or restructured sentences.
 - Charts, graphs, and illustrations SHALL be high-resolution vector artwork.
-- Reports SHALL follow the visual theme of the admin panel and Stratus (colours,
+- Reports SHALL follow the visual theme of the admin panel and Stratus (colors,
   logo, typography) while keeping any HTML used in generation minimal.
 - Layout SHALL be professional with consistent, generous spacing and alignment.
 - Every report SHALL display the site name and geographic coordinates of the station.
@@ -83,7 +83,7 @@ including confirming SMS-only alerting.
 ## Glossary
 
 - **SAST**: South African Standard Time (UTC+2), used throughout the system.
-- **Platform admin**: A Stratus staff login (`is_platform_admin`) that can enter any
+- **Platform admin**: A Stratus Admin login (`is_platform_admin`) that can enter any
   tenant panel and manage the tenant list.
 - **Client user**: A login confined to one tenant, with role admin, operator, or viewer.
 - **Tenant**: A client with its own panel at `/<slug>`, isolated by `tenant_id`.
@@ -175,7 +175,7 @@ and coordinates, so that reports and displays identify the site accurately.
 
 #### Acceptance Criteria
 
-1. WHEN an authorised user opens the station metadata section THEN the system SHALL
+1. WHEN an authorized user opens the station metadata section THEN the system SHALL
    allow entry and editing of a site label, latitude, and longitude for each station
    within the current tenant.
 2. WHEN coordinates are entered THEN the system SHALL validate latitude is between -90
@@ -242,7 +242,7 @@ reports, so that reports are complete.
 3. WHERE retention is increased THEN the system SHALL bound table growth so the database
    does not grow without limit.
 
-### Requirement 8: Storm-activity visualisation with energy legend (Astrogenic-inspired)
+### Requirement 8: Storm-activity visualization with energy legend (Astrogenic-inspired)
 
 **User Story:** As an operator, I want an engaging storm-activity display on the
 dashboard, so that recent lightning activity and its intensity are easy to grasp.
@@ -254,7 +254,7 @@ dashboard, so that recent lightning activity and its intensity are easy to grasp
    station.
 2. WHEN a new in-range strike is recorded THEN the display SHALL animate a strike pulse
    at the appropriate distance ring.
-3. WHEN a strike is displayed THEN its pulse SHALL be colour-coded by energy band
+3. WHEN a strike is displayed THEN its pulse SHALL be color-coded by energy band
    derived from the 21-bit relative energy scale.
 4. WHEN the display is shown THEN it SHALL include an energy legend that names the
    energy bands and states that energy is a relative, dimensionless scale (not Joules
@@ -264,20 +264,20 @@ dashboard, so that recent lightning activity and its intensity are easy to grasp
    with good spacing, and SHALL not obscure data.
 6. WHEN strikes are displayed THEN they SHALL be positioned by distance only, with a
    clear note that bearing/direction is not measured by the sensor.
-7. WHEN the visualisation is served THEN it SHALL comply with the panel's
+7. WHEN the visualization is served THEN it SHALL comply with the panel's
    Content-Security-Policy (self-hosted assets only).
-8. WHERE the visualisation cannot load or a user prefers reduced motion THEN the
+8. WHERE the visualization cannot load or a user prefers reduced motion THEN the
    dashboard SHALL degrade gracefully to a static distance view.
 
 ### Requirement 9: PPTX/datasheet reconciliation
 
 **User Story:** As a sales/engineering owner, I want the presentation and datasheet
-claims to match actual system behaviour, so that we do not misrepresent the product.
+claims to match actual system behavior, so that we do not misrepresent the product.
 
 #### Acceptance Criteria
 
 1. WHEN the reporting and chart features are complete THEN the PPTX/datasheet content
-   SHALL be reviewed against the detector code and admin-panel behaviour.
+   SHALL be reviewed against the detector code and admin-panel behavior.
 2. WHEN a discrepancy is found THEN it SHALL be documented with the correct value from
    the code (for example detection thresholds, calibration cadence, CPU WARN/CRIT
    temperatures, and alert channels actually implemented).
@@ -294,7 +294,7 @@ alerting or tenant isolation, so that lightning detection remains dependable and
 #### Acceptance Criteria
 
 1. WHEN report generation runs THEN it SHALL NOT block or delay lightning alert dispatch.
-2. WHEN the new endpoints, chart, and visualisation are added THEN existing platform and
+2. WHEN the new endpoints, chart, and visualization are added THEN existing platform and
    client panel pages (dashboard, events, recipients, groups, settings, tenants) SHALL
    continue to function unchanged.
 3. WHEN report generation encounters an error THEN it SHALL fail gracefully and log the

@@ -24,12 +24,6 @@ import { BarometricPressureCard } from "@/components/dashboard/BarometricPressur
 import { calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarvestCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
-import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
-
-import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
-
-import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
-
 import { processWindPowerRoseData } from "@/components/charts/WindPowerRose";
 // RainfallYearlyCard removed - yearly data now shown as subMetric in Rainfall MetricCard
 import { NoDataWrapper, hasValidData } from "@/components/dashboard/NoDataWrapper";
@@ -49,7 +43,7 @@ const SolarPositionCard = lazy(() => import("@/components/dashboard/SolarPositio
 // Merge any partial/legacy saved config over defaults so required array/object
 // fields (enabledParameters, sectionVisibility) are never undefined, which would
 // otherwise crash the dashboard and config panel. Also clamps chartTimeRange.
-function normaliseDashboardConfig(c: Partial<DashboardConfig> | null | undefined): DashboardConfig {
+function normalizeDashboardConfig(c: Partial<DashboardConfig> | null | undefined): DashboardConfig {
   const merged: DashboardConfig = {
     ...DEFAULT_DASHBOARD_CONFIG,
     ...(c ?? {}),
@@ -110,7 +104,7 @@ import {
 } from "@shared/utils/calc";
 import { interpretLightningIntensity } from "@shared/utils/lightning";
 import { rainfallTotalFromRecords, type RainfallType } from "@shared/utils/rainfall";
-import { CHART_COLOURS } from "@shared/chartColours";
+import { CHART_COLORS } from "@shared/chartColors";
 import {
   DEFAULT_DASHBOARD_CONFIG,
   DASHBOARD_CATEGORIES,
@@ -252,7 +246,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       const date = new Date(dateKey + 'T12:00:00');
       const label = date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
 
-      // Rainfall: per-day total. Behaviour depends on logger type:
+      // Rainfall: per-day total. Behavior depends on logger type:
       //  - incremental/tip_count: server-side rainfall is already a per-period
       //    increment, so the daily total is the SUM of the bucket.
       //  - cumulative_*/auto: rainfall is a running counter; daily total is
@@ -689,7 +683,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     if (stationId) {
       const stationSaved = localStorage.getItem(`dashboardConfig_${stationId}`);
       if (stationSaved) {
-        return normaliseDashboardConfig(JSON.parse(stationSaved));
+        return normalizeDashboardConfig(JSON.parse(stationSaved));
       }
     }
     return DEFAULT_DASHBOARD_CONFIG;
@@ -739,7 +733,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     if (!activeStationId) return;
     const stationSaved = localStorage.getItem(`dashboardConfig_${activeStationId}`);
     if (stationSaved) {
-      setDashboardConfig(normaliseDashboardConfig(JSON.parse(stationSaved)));
+      setDashboardConfig(normalizeDashboardConfig(JSON.parse(stationSaved)));
     } else {
       // No config saved for this station. use clean defaults (not another station's config)
       setDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
@@ -763,7 +757,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   // saved layout survives a fresh login or cleared local storage.
   useEffect(() => {
     if (!activeStationId || !serverDashboardConfig) return;
-    const parsed = normaliseDashboardConfig(serverDashboardConfig);
+    const parsed = normalizeDashboardConfig(serverDashboardConfig);
     setDashboardConfig(parsed);
     localStorage.setItem(`dashboardConfig_${activeStationId}`, JSON.stringify(parsed));
   }, [serverDashboardConfig, activeStationId]);
@@ -958,7 +952,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Per-station rainfall config - drives whether the chart/daily aggregations
   // SUM increments vs delta cumulative counters. Falls back to 'auto' when no
-  // config exists (preserves legacy heuristic display behaviour).
+  // config exists (preserves legacy heuristic display behavior).
   const { data: rainfallConfig } = useQuery<{ type: 'incremental' | 'cumulative_yearly' | 'cumulative_lifetime' | 'tip_count' | 'auto'; offset: number; tipFactor: number; configured: boolean }>({
     queryKey: ['rainfall-config', activeStationId],
     queryFn: async () => {
@@ -1027,7 +1021,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     // allowZero: rainfall can be 0 and still mean the sensor exists
     const hasData = (field: keyof WeatherData, allowZero = false) => {
       // If this field is a toggleable parameter and was disabled in config, hide it.
-      // Parameters added to the catalogue after a config was saved stay visible
+      // Parameters added to the catalog after a config was saved stay visible
       // (see LATE_ADDED_PARAMETERS) so new sensors are not silently hidden.
       if (toggleableFields.has(field) && !isParameterEnabled(field, ep)) {
         return false;
@@ -1163,7 +1157,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const windScatterData = useMemo(() => processWindScatterData(sortedHistoricalData), [sortedHistoricalData]);
 
   // Process wind data for different time periods (60min, 24h, 48h, 7d, 31d)
-  // Optimisation: only compute counts upfront; rose/scatter are lazy-computed on first access
+  // Optimization: only compute counts upfront; rose/scatter are lazy-computed on first access
   // For historical-only stations (data not from today), uses referenceNow from data's latest timestamp
   const windDataByPeriod = useMemo(() => {
     const now = referenceNow;
@@ -2202,7 +2196,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Barometric Pressure History"
               data={chartData}
               series={[
-                { dataKey: "pressure", name: "Station Pressure", color: CHART_COLOURS.pressure, unit: "hPa" },
+                { dataKey: "pressure", name: "Station Pressure", color: CHART_COLORS.pressure, unit: "hPa" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2243,7 +2237,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Battery Voltage History"
               data={batteryChartData}
               series={[
-                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.batteryVoltage, unit: "V" },
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLORS.batteryVoltage, unit: "V" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2258,7 +2252,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Battery Voltage vs Solar Irradiance"
               data={chartData}
               series={[
-                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.batteryVoltage, unit: "V", yAxisId: "left" },
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLORS.batteryVoltage, unit: "V", yAxisId: "left" },
                 { dataKey: "solar", name: "Solar Irradiance", color: "#f59e0b", unit: "W/m²", yAxisId: "right", strokeDasharray: "4 3" },
               ]}
               chartType="line"
@@ -2379,7 +2373,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               data={chartData}
               series={[
                 ...(availableFields.mpptLoadVoltage ? [{ dataKey: "mpptLoadVoltage", name: "Load Voltage", color: "#ef4444", unit: "V" }] : []),
-                ...(availableFields.mpptBatteryVoltage ? [{ dataKey: "mpptBatteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.mpptBatteryVoltage, unit: "V" }] : []),
+                ...(availableFields.mpptBatteryVoltage ? [{ dataKey: "mpptBatteryVoltage", name: "Battery Voltage", color: CHART_COLORS.mpptBatteryVoltage, unit: "V" }] : []),
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2413,8 +2407,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Battery Voltage: Charger 1 vs 2"
               data={chartData}
               series={[
-                { dataKey: "mpptBatteryVoltage", name: "Charger 1", color: CHART_COLOURS.mpptBatteryVoltage, unit: "V" },
-                { dataKey: "mppt2BatteryVoltage", name: "Charger 2", color: CHART_COLOURS.mppt2BatteryVoltage, unit: "V" },
+                { dataKey: "mpptBatteryVoltage", name: "Charger 1", color: CHART_COLORS.mpptBatteryVoltage, unit: "V" },
+                { dataKey: "mppt2BatteryVoltage", name: "Charger 2", color: CHART_COLORS.mppt2BatteryVoltage, unit: "V" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2525,7 +2519,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               data={chargerEnergyData}
               series={[
                 ...(availableFields.mpptSolarPower ? [{ dataKey: "chargerEnergy1", name: availableFields.mppt2SolarPower ? "Charger 1" : "Harvested", color: "#f59e0b", unit: "Wh" }] : []),
-                ...(availableFields.mppt2SolarPower ? [{ dataKey: "chargerEnergy2", name: "Charger 2", color: CHART_COLOURS.chargerEnergy2, unit: "Wh" }] : []),
+                ...(availableFields.mppt2SolarPower ? [{ dataKey: "chargerEnergy2", name: "Charger 2", color: CHART_COLORS.chargerEnergy2, unit: "Wh" }] : []),
                 // With two regulators the system total is the figure that matters
                 // when judging whether the installation is meeting its load.
                 ...(availableFields.mpptSolarPower && availableFields.mppt2SolarPower
@@ -2895,7 +2889,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Reference ETo"
               data={chartData}
               series={[
-                { dataKey: "eto", name: "Reference ETo", color: CHART_COLOURS.eto, unit: "mm/day" },
+                { dataKey: "eto", name: "Reference ETo", color: CHART_COLORS.eto, unit: "mm/day" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -2918,7 +2912,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               yAxisLabel="Minutes"
               showAverage={true}
               showMinMax={true}
-              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
+              footer="(ETo - rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
             />
             )}
             {/* Dew Point Temperature */}
@@ -2995,7 +2989,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               title="Wind Chill"
               data={chartData}
               series={[
-                { dataKey: "windChill", name: "Wind Chill", color: CHART_COLOURS.windChill, unit: "°C" },
+                { dataKey: "windChill", name: "Wind Chill", color: CHART_COLORS.windChill, unit: "°C" },
               ]}
               chartType="line"
               xAxisLabel="Time"
@@ -3481,17 +3475,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               />
             </Suspense>
             )}
-            {(() => {
-              const recentSpeeds = sortedHistoricalData.slice(-10).map(d => d.windSpeed ?? 0);
-              const mean = recentSpeeds.length > 0 ? recentSpeeds.reduce((a, b) => a + b, 0) / recentSpeeds.length : 0;
-              const stdDev = recentSpeeds.length > 1 ? Math.sqrt(recentSpeeds.reduce((s, v) => s + (v - mean) ** 2, 0) / (recentSpeeds.length - 1)) : 0;
-              return mean > 0.5 ? (
-                <TurbulenceCard
-                  windStdDev={stdDev}
-                  meanWindSpeed={mean}
-                />
-              ) : null;
-            })()}
+            {/* Turbulence Intensity card removed at the operator's request. */}
             {sortedHistoricalData.length >= 10 && (
               <WindPowerRose
                 data={windPowerRoseData}
@@ -3546,33 +3530,8 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
         </section>
         )}
 
-        {/* Atmospheric Stability / Aviation / Road Weather - 2x2 grid */}
-        {!isMpptOnlyStation && (
-          ((dashboardConfig.sectionVisibility?.atmosphericStability !== false && availableFields.windSpeed && availableFields.solarRadiation) ||
-           (dashboardConfig.sectionVisibility?.aviation !== false && availableFields.pressure && availableFields.temperature))
-        ) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Atmospheric Stability &amp; Aviation</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {dashboardConfig.sectionVisibility?.atmosphericStability !== false && (availableFields.windSpeed && availableFields.solarRadiation) && (
-            <AtmosphericStabilityCard
-              windSpeed={currentData.windSpeed!}
-              solarRadiation={currentData.solarRadiation!}
-              cloudCover={currentData.cloudCover}
-              deltaTemperature={currentData.deltaTemperature}
-            />
-            )}
-            {dashboardConfig.sectionVisibility?.aviation !== false && (availableFields.pressure && availableFields.temperature) && (
-            <DensityAltitudeCard
-              stationPressure={currentData.pressure!}
-              temperature={currentData.temperature!}
-              dewPoint={effectiveDewPoint != null ? effectiveDewPoint : undefined}
-              stationElevation={selectedStation?.altitude ?? undefined}
-            />
-            )}
-          </div>
-        </section>
-        )}
+        {/* Atmospheric Stability & Aviation (Pasquill-Gifford and Density
+            Altitude) section removed at the operator's request. */}
 
         {/* Rainfall Section */}
         {!isMpptOnlyStation && dashboardConfig.sectionVisibility?.rainfall !== false && availableFields.rainfall && activeStationId && (
@@ -3624,7 +3583,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                   })}
                 </div>
                 <p className="text-xs text-black italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
+                  Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronization interruptions.
                 </p>
               </CardContent>
             </Card>
@@ -3644,7 +3603,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
               chartType="bar"
               series={[
                 { dataKey: "rain", name: "Rainfall (mm)", color: "#3b82f6", unit: "mm", yAxisId: "left" },
-                { dataKey: "eto", name: "ETo (mm/day)", color: CHART_COLOURS.eto, unit: "mm/day", yAxisId: "right" },
+                { dataKey: "eto", name: "ETo (mm/day)", color: CHART_COLORS.eto, unit: "mm/day", yAxisId: "right" },
               ]}
               yAxisLabel="Rainfall (mm)"
               rightYAxisLabel="ETo (mm/day)"
@@ -3743,7 +3702,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                 title="Barometric Pressure"
                 data={historicalChartData}
                 series={[
-                  { dataKey: "pressure", name: "Pressure (hPa)", color: CHART_COLOURS.pressure },
+                  { dataKey: "pressure", name: "Pressure (hPa)", color: CHART_COLORS.pressure },
                 ]}
               />
             </TabsContent>

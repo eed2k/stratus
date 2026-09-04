@@ -1,0 +1,107 @@
+/* Information Center additions. The console's style.css supplies the window
+   chrome, cards and typography. */
+
+.info-intro {
+  border-left: 3px solid var(--navy);
+  background: var(--navy-soft);
+  padding: 10px 14px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.info-section { margin: 0 0 18px; }
+.info-section > h3 {
+  margin: 0 0 2px;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.info-section > p.info-sub {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  color: var(--muted-solid);
+}
+
+/* One row per document. A list, not a table: each entry is a document with a
+   description, not a row of comparable fields. */
+.doc-list { list-style: none; margin: 0; padding: 0; }
+.doc {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--navy);
+  background: var(--white);
+  padding: 9px 12px;
+  margin: 0 0 6px;
+}
+.doc-main { flex: 1 1 340px; min-width: 260px; }
+.doc-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted-solid);
+  line-height: 1.35;
+}
+.doc-title a {
+  display: inline-block;
+  border: 1px solid var(--line-dark, #8c98a8);
+  border-radius: 4px;
+  padding: 3px 9px;
+  background: var(--white, #ffffff);
+  color: var(--navy);
+  text-decoration: none;
+}
+.doc-title a:hover {
+  background: var(--navy);
+  color: var(--white, #ffffff);
+  border-color: var(--navy);
+  text-decoration: none;
+}
+.doc-desc {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted-solid);
+}
+.doc-meta {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10.5px;
+  color: #5b6673;
+  white-space: nowrap;
+}
+.doc-actions { display: flex; gap: 6px; white-space: nowrap; }
+.doc-actions a {
+  font: 600 10.5px/1 Consolas, "Courier New", monospace;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border: 1px solid var(--line-dark);
+  color: var(--navy);
+  background: var(--white);
+  text-decoration: none;
+}
+.doc-actions a:hover { background: var(--navy-soft); }
+.doc-actions a.primary-link {
+  background: var(--navy); color: var(--white); border-color: var(--navy);
+}
+
+/* Third-party material carries its own attribution note. */
+.info-attrib {
+  border-left: 3px solid var(--line-dark);
+  background: #fafbfd;
+  padding: 8px 12px;
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--muted-solid);
+}
+
+.info-foot {
+  margin: 18px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted-solid);
+}

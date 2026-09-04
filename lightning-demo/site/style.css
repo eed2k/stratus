@@ -1,0 +1,794 @@
+/* =====================================================================
+   Stratus Weather - Lightning Alert Console
+   Old-school research / instrument-software styling.
+   Palette: navy + white + black (neutral grays for frames only).
+   ===================================================================== */
+
+:root {
+  --navy:        #0a2540;
+  --navy-deep:   #061a30;
+  --navy-soft:   #eef2f7;
+  --black:       #111418;
+  --white:       #ffffff;
+  --line:        #b9c2cf;
+  --line-dark:   #8c98a8;
+  --muted-solid: #111418;
+  --desktop:     #e7ebf0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--desktop);
+  color: var(--black);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* -------------------- Application window frame ---------------------
+   Fills the viewport at every size.
+
+   The frame used to be capped at 1080px and centered, which left most of a
+   modern monitor as empty desktop while the content area stayed cramped. It is
+   now a full-height flex column: title bar and menu bar keep their natural
+   height, the work area takes the remaining space and scrolls on its own, and
+   the status bar stays pinned to the bottom of the screen. */
+.appwindow {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;      /* accounts for mobile browser chrome */
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  border: 0;
+  box-shadow: none;
+}
+
+.titlebar {
+  background: var(--navy);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  font-size: 12px;
+  letter-spacing: .04em;
+}
+.titlebar-name { font-weight: 700; text-transform: uppercase; }
+.titlebar-meta { color: var(--white); font-weight: 400; }
+.sast-clock { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.menubar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--white);
+  border-bottom: 1px solid var(--line-dark);
+  padding: 0 6px;
+}
+.menubar nav a {
+  display: inline-block;
+  color: var(--black);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 11px;
+  border-right: 1px solid var(--line);
+}
+.menubar nav a:hover { background: var(--navy); color: var(--white); }
+.menubar-user { font-size: 11px; color: var(--muted-solid); padding-right: 6px; }
+/* Which client panel you are currently inside (shown to Stratus Admin). */
+.menubar-tenant {
+  font-weight: 700; color: var(--navy); text-transform: uppercase;
+  letter-spacing: .04em; margin-right: 12px;
+  border-right: 1px solid var(--line); padding-right: 12px;
+}
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92em; }
+.menubar-user span { margin-right: 10px; }
+.menubar-user a { color: var(--black); text-decoration: none; margin-left: 8px; font-weight: 600; }
+.menubar-user a:hover { text-decoration: underline; }
+
+/* Takes all remaining height and owns its own scrollbar, so the status bar
+   never drifts off the bottom of tall pages. min-height:0 is required or a flex
+   child refuses to shrink below its content and the page scrolls instead. */
+.workarea {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 18px 20px;
+  background: var(--white);
+}
+
+/* Wide tables scroll sideways within their own box instead of forcing the whole
+   page wider than the screen. */
+.workarea table { display: block; overflow-x: auto; max-width: 100%; }
+@media (min-width: 769px) {
+  /* Back to a real table on anything tablet-sized and up, where it fits. */
+  .workarea table { display: table; overflow-x: visible; }
+}
+
+.statusbar {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  background: var(--desktop);
+  border-top: 1px solid var(--line-dark);
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--muted-solid);
+}
+.statusbar span { border-right: 1px solid var(--line); padding-right: 14px; }
+.statusbar span:last-child { border-right: none; }
+.statusbar .statusbar-right { margin-left: auto; border: none; padding: 0; }
+
+/* ----------------------------- Headings ---------------------------- */
+h1 { margin: 0 0 16px; font-size: 18px; font-weight: 700; color: var(--black);
+     text-transform: uppercase; letter-spacing: .03em;
+     border-bottom: 2px solid var(--navy); padding-bottom: 6px; }
+h2 { font-size: 14px; font-weight: 700; color: var(--black); margin: 22px 0 10px;
+     text-transform: uppercase; letter-spacing: .03em; }
+a { color: var(--black); }
+
+/* ------------------------ Group boxes (cards) ---------------------- */
+.card {
+  background: var(--white);
+  border: 1px solid var(--line-dark);
+  border-radius: 0;
+  padding: 0 16px 16px;
+  margin-bottom: 20px;
+}
+.card h3 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--white);
+  background: var(--navy);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin: 0 -16px 14px;
+  padding: 6px 16px;
+}
+
+/* ------------------------------ KPIs ------------------------------- */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.kpi {
+  background: var(--white);
+  border: 1px solid var(--line-dark);
+  padding: 12px 14px;
+}
+.kpi .num {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--black);
+  font-variant-numeric: tabular-nums;
+}
+.kpi .lbl {
+  color: var(--muted-solid);
+  font-size: 11px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* ----------------------------- Tables ------------------------------ */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--white);
+  border: 1px solid var(--line-dark);
+}
+th, td {
+  text-align: left;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+th {
+  background: var(--navy);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+tbody tr:nth-child(even) { background: #f5f7fa; }
+tbody tr:hover { background: var(--navy-soft); }
+tr.dim { color: var(--muted-solid); }
+.center { text-align: center; }
+.muted { color: var(--muted-solid); }
+td.muted, .muted.center { text-align: center; padding: 18px; }
+
+/* ----------------------------- Forms ------------------------------- */
+form.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--black);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+form input, form select {
+  margin-top: 5px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-dark);
+  border-radius: 0;
+  font-size: 13px;
+  color: var(--black);
+  background: var(--white);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+}
+form input:focus, form select:focus {
+  outline: 1px solid var(--navy);
+  outline-offset: 0;
+}
+
+/* Login form */
+form.login-form { display: flex; flex-direction: column; }
+form.login-form label { margin: 0 0 16px 0; }
+form.login-form label span { margin-bottom: 5px; display: block; }
+form.login-form input { margin-top: 0; }
+form.login-form button { align-self: flex-start; }
+
+/* ----------------------------- Buttons ----------------------------- */
+button {
+  padding: 6px 14px;
+  border-radius: 0;
+  border: 1px solid var(--navy);
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+button:hover { background: var(--navy-soft); }
+form button.primary { margin-top: 12px; }
+button.primary { background: var(--navy); color: var(--white); border-color: var(--navy); }
+button.primary:hover { background: var(--navy-deep); }
+button.danger { background: var(--black); color: var(--white); border-color: var(--black); }
+button.danger:hover { background: #000; }
+form.inline { display: inline; }
+.btn-link { background: none; border: none; cursor: pointer; padding: 0; color: var(--black); }
+
+/* --------------------------- Messages ------------------------------ */
+.error, .success, .info {
+  padding: 8px 12px;
+  border: 1px solid var(--line-dark);
+  margin-bottom: 12px;
+  background: var(--navy-soft);
+  color: var(--black);
+  font-size: 12px;
+}
+.error   { border-left: 4px solid var(--black); }
+.success { border-left: 4px solid var(--navy); }
+.info    { border-left: 4px solid var(--navy); }
+
+.state-on  { color: var(--black); font-weight: 700; }
+.state-off { color: var(--black); font-weight: 700; }
+
+/* ----------------------- Detector unit block ---------------------- */
+/* One unit per row, each row full width.
+   This was previously `display:flex; flex-wrap:wrap`, which made every
+   .unit-row a flex ITEM that sized to its own content. The chart inside could
+   therefore never grow into the page, no matter what width it asked for.
+   Stacking in a column gives each row the full container width. */
+.unit-grid { display: flex; flex-direction: column; gap: 12px; }
+.unit-block {
+  border: 1px solid var(--line-dark);
+  background: var(--navy-soft);
+  padding: 10px 14px;
+  min-width: 240px;
+}
+.unit-name { font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  color: var(--muted-solid); }
+.unit-state { font-size: 14px; font-weight: 700; margin: 2px 0 6px;
+  display: flex; align-items: center; gap: 8px; }
+.unit-dot { width: 11px; height: 11px; border-radius: 50%;
+  display: inline-block; background: var(--line-dark); }
+.unit-active   .unit-dot { background: #1b7f3b; }
+.unit-inactive .unit-dot { background: #b00020; }
+.unit-meta { font-size: 12px; color: var(--muted-solid); line-height: 1.5; }
+/* Each unit renders as a row: fixed-width info block, then the chart taking
+   whatever width is left.
+   The info block used to be declared twice, once with min-width and again with
+   a hard width, which is why the blocks did not line up. It is declared once
+   now, below, and the duplicate above has been folded into it.
+   The chart was pinned at 480px, so on a wide screen it sat in the middle of
+   the card with the rest of the row empty. flex:1 lets it fill the page. */
+.unit-row { display: flex; gap: 12px; align-items: stretch;
+  flex-wrap: wrap; margin-bottom: 12px; }
+/* Column layout so the range selector can be pushed to the foot of the block,
+   level with the bottom of the chart beside it. */
+.unit-block { flex: 0 0 240px; width: 240px;
+  display: flex; flex-direction: column; }
+.unit-chart {
+  flex: 1 1 520px;
+  min-width: 320px;
+  /* Uniform height for every row. Without this, a unit that has never reported
+     shows a short text placeholder while its neighbors show a full chart, and
+     the rows end up different heights.
+     Raised from 220px: once the chart spans the full page width, a short box
+     reads as a thin strip. */
+  min-height: 300px;
+  border: 1px solid var(--line-dark);
+  background: var(--navy-soft);
+  padding: 8px 10px;
+  display: flex;
+  /* stretch, not center: the chart host asks for height:100%, which only
+     resolves if this axis stretches it. With `center` the host collapsed to its
+     own fixed height and left dead space above and below. */
+  align-items: stretch;
+  justify-content: center;
+}
+.unit-chart svg { display: block; width: 100%; height: auto;
+  border-radius: 3px; }
+/* The "collecting data" placeholder, centered so it occupies the same box as a
+   rendered chart rather than collapsing the row. */
+.unit-chart .chart-empty { margin: 0; text-align: center; }
+.cooldown-line { margin: 10px 0 4px; }
+.cooldown-form { display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; margin-top: 4px; }
+.cooldown-form input[type="number"] { width: 90px; }
+
+code {
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--navy-soft);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+/* ------------------------------ Login ------------------------------ */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.card.narrow {
+  max-width: 340px;
+  width: 100%;
+  margin: 0;
+  border: 2px solid var(--navy);
+  padding: 22px 24px 24px;
+  background: var(--white);
+  box-shadow: 2px 2px 0 0 var(--line-dark);
+}
+.card.narrow .login-brand {
+  font-size: 18px; font-weight: 700; color: var(--black);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.card.narrow .login-sub {
+  font-size: 11px; color: var(--muted-solid); margin: 2px 0 20px;
+  text-transform: uppercase; letter-spacing: .08em;
+  border-bottom: 1px solid var(--line); padding-bottom: 12px;
+}
+
+/* =====================================================================
+   Mobile responsiveness (small screens only).
+   All rules below are gated behind max-width media queries, so the
+   desktop / large-screen layout defined above is completely unchanged.
+   ===================================================================== */
+@media (max-width: 768px) {
+  body { font-size: 14px; }                /* a touch larger for phone readability */
+
+  /* Full-bleed app frame on small screens (drop the desktop side framing) */
+  .appwindow {
+    max-width: 100%;
+    margin: 0;
+    border-width: 0 0 2px 0;
+    box-shadow: none;
+  }
+
+  .titlebar { flex-wrap: wrap; gap: 2px 8px; font-size: 11px; }
+
+  /* Menu bar: stack the nav and the user controls; wrap links as tap targets */
+  .menubar { flex-direction: column; align-items: stretch; padding: 0; }
+  .menubar nav { display: flex; flex-wrap: wrap; width: 100%; }
+  .menubar nav a {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 12px 10px;                    /* larger touch target */
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .menubar-user {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 6px 12px; padding: 8px 12px;
+    border-top: 1px solid var(--line-dark);
+  }
+  .menubar-user span { margin-right: 0; }
+  .menubar-user a { margin-left: 0; }
+
+  .workarea { padding: 14px 12px; }
+
+  /* Detector unit: stack the info block above the chart, each full width */
+  .unit-row { flex-direction: column; align-items: stretch; }
+  .unit-block { width: auto; }
+  .unit-chart { width: 100%; }
+
+  /* Dense, wrapping tables instead of page overflow */
+  th, td { padding: 5px 7px; }
+  table { font-size: 12px; }
+  th { font-size: 10px; }
+
+  /* Status bar wraps and drops the dividers */
+  .statusbar { flex-wrap: wrap; gap: 4px 12px; font-size: 11px; }
+  .statusbar span { border-right: none; padding-right: 0; }
+  .statusbar .statusbar-right { margin-left: 0; }
+}
+
+@media (max-width: 480px) {
+  h1 { font-size: 16px; }
+  h2 { font-size: 13px; }
+  .titlebar-meta { width: 100%; }
+  .kpi .num { font-size: 24px; }
+  .workarea { padding: 12px 10px; }
+}
+
+/* =====================================================================
+   Interactive charts (CPU trend, storm activity)
+   ===================================================================== */
+
+/* Host for the Recharts CPU chart. Hidden until the chart has actually
+   rendered, so the server-side inline SVG stays visible if anything fails. */
+/* Fills the panel rather than sitting at a fixed 220px inside it, so the plot
+   occupies essentially the whole block height instead of a strip in the middle.
+   min-height keeps it usable if the row is ever squeezed. */
+.cpu-chart {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+}
+.cpu-chart[hidden] { display: none; }
+
+/* Range selector, injected by cpu-chart.js. Built in script rather than in
+   the template so a browser that never runs the file is not left with
+   controls that do nothing. */
+.chart-range {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.chart-range button {
+  padding: 2px 9px;
+  font-size: 11px;
+  line-height: 1.6;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.chart-range button[aria-pressed="true"] {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+.chart-range[hidden] { display: none; }
+
+/* The same selector when it sits inside a unit information block: pushed to the
+   bottom of the block so it lines up with the foot of the chart beside it. */
+.unit-range {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px dotted var(--line);
+  /* auto top margin drops it to the foot of the flex column */
+  margin-top: auto;
+}
+.unit-range button { flex: 1 1 0; text-align: center; }
+
+.chart-empty {
+  margin: 0;
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 12px;
+}
+
+/* ------------------------- Storm activity -------------------------- */
+
+.storm-card { position: relative; overflow: hidden; }
+
+/* Subtle cloud backdrop. Sits behind the data at low opacity and is purely
+   decorative: aria-hidden in the markup, and it never darkens enough to cost
+   the plot any contrast. */
+.storm-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    radial-gradient(38% 26% at 22% 24%, #ffffff 0%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(30% 22% at 68% 18%, #ffffff 0%, rgba(255, 255, 255, 0) 72%),
+    radial-gradient(44% 30% at 82% 62%, #f4f7fb 0%, rgba(244, 247, 251, 0) 74%),
+    linear-gradient(170deg, #eef2f7 0%, #ffffff 62%);
+  background-size: 180% 180%, 160% 160%, 200% 200%, 100% 100%;
+  animation: storm-drift 90s linear infinite;
+}
+
+@keyframes storm-drift {
+  0%   { background-position:   0% 50%,  100% 40%,   0% 60%, 0% 0%; }
+  50%  { background-position: 100% 55%,    0% 45%, 100% 55%, 0% 0%; }
+  100% { background-position:   0% 50%,  100% 40%,   0% 60%, 0% 0%; }
+}
+
+/* Keep the data above the backdrop. */
+.storm-body { position: relative; z-index: 1; }
+
+.storm-view { width: 100%; }
+
+/* Summary line plus the 1H..24H range selector. */
+.storm-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.storm-summary {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted-solid);
+}
+.storm-range { display: flex; }
+.storm-range button {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  padding: 6px 11px;
+  background: var(--white);
+  color: var(--navy);
+  border: 1px solid var(--line-dark);
+  border-right: 0;
+  cursor: pointer;
+  text-transform: none;
+}
+.storm-range button:last-child { border-right: 1px solid var(--line-dark); }
+.storm-range button:hover { background: var(--navy-soft); }
+.storm-range button[aria-pressed="true"] {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+
+/* Five bands across, nearest first. Collapses to two columns on narrow
+   screens rather than squeezing five unreadable cells. */
+.storm-bands {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--line-dark);
+  padding: 12px;
+}
+@media (max-width: 900px) {
+  .storm-bands { grid-template-columns: repeat(2, 1fr); }
+}
+
+.storm-band { display: flex; flex-direction: column; }
+.storm-band.is-clickable { cursor: pointer; }
+/* The svg carries width="100%", so without a cap it stretches to the full grid
+   column. The cap is what actually reduces the drawn size; the viewBox aspect
+   (104 x 78) then fixes the height. */
+.storm-band svg {
+  display: block;
+  width: 100%;
+  max-width: 104px;
+  height: auto;
+  margin: 0 auto;
+}
+.storm-bands { align-items: start; }
+
+.storm-band-range {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--white);
+  background: var(--navy);
+  border: 1px solid var(--navy);
+  border-bottom: 0;
+  padding: 5px 4px;
+}
+.storm-band.is-idle .storm-band-range {
+  background: #93a0b0;
+  border-color: #93a0b0;
+}
+
+.storm-band-data {
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--band-color, var(--navy));
+  background: #fafbfd;
+  padding: 7px 8px 8px;
+  font-family: Consolas, "Courier New", monospace;
+}
+.storm-band-count {
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--muted-solid);
+}
+.storm-band-count span {
+  font-size: 9.5px;
+  font-weight: 400;
+  color: #5b6673;
+}
+.storm-band-label {
+  margin: 1px 0 5px;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--band-color, #5b6673);
+}
+.storm-band.is-idle .storm-band-label { color: #8c98a8; }
+.storm-band-rows { border-top: 1px dotted var(--line); padding-top: 4px; }
+.storm-band-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  line-height: 1.65;
+  color: #5b6673;
+}
+.storm-band-row b { color: var(--muted-solid); font-weight: 700; }
+.storm-band-row-sep {
+  border-top: 1px dotted var(--line);
+  margin-top: 2px;
+  padding-top: 2px;
+}
+.storm-band-none {
+  padding: 4px 0 2px;
+  text-align: center;
+  font-size: 9.5px;
+  color: #8c98a8;
+}
+
+/* ---- cumulonimbus ----
+   One path, one outline. No stacked ellipses, so no circular ring edges show
+   through, and no separate base shading band. */
+.cb-body { fill: #dde5ee; stroke: var(--line-dark); stroke-width: 1; }
+.storm-band.is-idle .cb-body { fill: #eceff3; }
+
+/* The channel is a filled outline that narrows to zero at the tip, which is what
+   gives it a sharp point. A stroke has uniform width and cannot converge.
+   Only the hot core is stroked, down the center-line.
+
+   Colors are blue-white in every band. The band color still drives the header
+   and the data block, where it carries information; painting the channel with it
+   made a distant strike look orange rather than like lightning. storm-view.js
+   sets the same values as presentation attributes, so the artwork survives
+   either file being served from cache while the other is fresh. */
+.storm-bolt { opacity: 0; }
+.storm-bolt-glow, .storm-bolt-main { stroke: none; }
+.storm-bolt-main { fill: #eaf4ff; }
+.storm-bolt-glow { fill: #8fc4ff; }
+.storm-bolt-core {
+  fill: none;
+  stroke: #ffffff;
+  /* butt, not round: a round cap would put a blob back on the tip. */
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+  stroke-miterlimit: 6;
+}
+.storm-halo { opacity: 0; fill: #a8d2ff; }
+
+/* A recorded strike.
+   The opening flicker is the same double return stroke as before, over the first
+   ~260 ms. After it the channel then HOLDS lit for a further 2 s before going
+   out, so a flash is on screen long enough to look at instead of being a blink
+   you catch out of the corner of your eye. Total 2260 ms.
+   The percentages below are that 260 ms flicker expressed against the longer
+   duration: 260/2260 is about 11.5%.
+   steps(1, end) is kept so each stage switches cleanly rather than cross-fading,
+   which is what makes it read as lightning and not a pulse. */
+.storm-band.is-flashing .cb-body { animation: storm-lit 2260ms steps(1, end) 1; }
+.storm-band.is-flashing .storm-bolt-glow { animation: storm-glow 2260ms steps(1, end) 1; }
+.storm-band.is-flashing .storm-bolt-main { animation: storm-main 2260ms steps(1, end) 1; }
+.storm-band.is-flashing .storm-bolt-core { animation: storm-core 2260ms steps(1, end) 1; }
+.storm-band.is-flashing .storm-halo { animation: storm-halo 2260ms ease-out 1; }
+
+/* Blue-white, not the warm yellow used before, so the cloud and the channel are
+   the same color temperature. */
+@keyframes storm-lit {
+  0%   { fill: #e9f3ff; }
+  2.5% { fill: #dde5ee; }
+  4.5% { fill: #e9f3ff; }
+  6%   { fill: #dde5ee; }
+  8%   { fill: #e9f3ff; }   /* re-strike, then hold */
+  94%  { fill: #e9f3ff; }
+  100% { fill: #dde5ee; }
+}
+@keyframes storm-main {
+  0%   { opacity: 1; }
+  2.5% { opacity: 0; }
+  4.5% { opacity: 0.9; }
+  6%   { opacity: 0; }
+  8%   { opacity: 1; }      /* holds visible for the next ~2 s */
+  94%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes storm-core {
+  0%   { opacity: 1; }
+  2%   { opacity: 0; }
+  4.5% { opacity: 0.8; }
+  5.5% { opacity: 0; }
+  8%   { opacity: 1; }
+  94%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes storm-glow {
+  0%   { opacity: 0.5; }
+  2.5% { opacity: 0; }
+  4.5% { opacity: 0.35; }
+  6%   { opacity: 0; }
+  8%   { opacity: 0.45; }
+  94%  { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+@keyframes storm-halo {
+  0%   { opacity: 0.45; }
+  8%   { opacity: 0.3; }
+  94%  { opacity: 0.22; }
+  100% { opacity: 0; }
+}
+
+.storm-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--muted-solid);
+}
+
+/* Table shown instead of the cells if they cannot be drawn. */
+.storm-fallback { margin-top: 8px; }
+
+/* Respect the reader's motion preference: no drifting sky, no flashes. The
+   channel is left faintly visible so an active band still reads as active. */
+@media (prefers-reduced-motion: reduce) {
+  .storm-sky { animation: none; }
+  .storm-band.is-flashing .cb-body,
+  .storm-band.is-flashing .storm-bolt-glow,
+  .storm-band.is-flashing .storm-bolt-main,
+  .storm-band.is-flashing .storm-bolt-core,
+  .storm-band.is-flashing .storm-halo { animation: none; }
+  .storm-band:not(.is-idle) .storm-bolt-main { opacity: 0.55; }
+}
+
+
+/* --------------------------- Page loader ---------------------------- */
+/* Deliberately NOT styled here.
+   The overlay's markup, colors, sizes and animations all live in the inline
+   <style> block in base.html. That is not duplication for its own sake: this
+   stylesheet is fetched as a separate request, and the overlay exists precisely
+   to cover the window before it arrives. Any loader rule placed here would be
+   applied too late to matter, and the element would render unstyled in exactly
+   the moment the overlay is supposed to be hiding.
+   Keeping the rules in one place also avoids two sources of truth for the same
+   component. */

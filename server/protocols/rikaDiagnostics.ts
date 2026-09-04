@@ -24,7 +24,7 @@ const RIKA_API_PREFIX = "/api/v2";
 const DEFAULT_BASE_URL = "https://cloud.rikacloud.com";
 
 /**
- * RikaCloud device type codes to normalised weather fields.
+ * RikaCloud device type codes to normalized weather fields.
  * Mirrors the typeMap in HTTPAdapter.parseRikaCloudResponse.
  */
 const TYPE_MAP: Record<number, string> = {

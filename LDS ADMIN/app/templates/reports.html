@@ -36,7 +36,7 @@
     </label>
     <label>Type
       <select name="report_type" required>
-        {# Labelled, not the raw slug: a client should not be offered a report
+        {# Labeled, not the raw slug: a client should not be offered a report
            called "client". #}
         {% for rt in report_types %}<option value="{{ rt }}">{{ report_labels.get(rt, rt) }}</option>{% endfor %}
       </select>

@@ -1,0 +1,78 @@
+{
+  "_comment_1": "Quaggasklip (Metron) detector overrides. Any key here replaces",
+  "_comment_2": "the default in quaggasklip_detector.py Config. Unknown keys and",
+  "_comment_3": "out-of-range values are logged and ignored, never fatal.",
+
+  "_comment_station": "Must match the station the admin assigned to the Quaggasklip tenant.",
+  "station_id": "QUAGGASKLIP",
+  "site_name": "Quaggasklip (Metron)",
+  "log_dir": "/home/quaggasklip/lightning_data",
+
+  "_comment_spi": "Thunder Click in mikroBUS socket 2 -> CE1 -> spi device 1.",
+  "spi_bus": 0,
+  "spi_device": 1,
+
+  "_comment_irq": "Socket 2 INT: 12 on the Pi 3 shield, 19 on the Pi 2 shield. CONFIRM with find_irq_pin.py before deploying.",
+  "irq_pin": 12,
+
+  "_comment_pulse": "Optional strike pulse for a Campbell pulse-count channel. GPIO18 is socket 1 PWM, already on the Terminal 2 Click terminal block.",
+  "pulse_mirror_enabled": false,
+  "pulse_mirror_pin": 18,
+  "pulse_mirror_ms": 25,
+
+  "_comment_campbell": "Terminal 2 Click in socket 1 = the Pi hardware UART. Use transport 'bitbang' with campbell_tx_pin only if the boot config cannot be changed.",
+  "campbell_enabled": true,
+  "campbell_transport": "serial",
+  "campbell_port": "/dev/serial0",
+  "campbell_baud": 9600,
+  "campbell_write_timeout": 0.5,
+  "campbell_heartbeat_interval": 600,
+  "campbell_read_enabled": true,
+  "campbell_tx_pin": 26,
+
+  "_comment_sensor": "Lower thresholds than GWLD1: this is not a smelter site. Raise if the log fills with NOISE or DISTURBER events.",
+  "noise_floor": 4,
+  "watchdog_thresh": 4,
+  "spike_reject": 4,
+  "min_strikes": 5,
+  "tune_cap": 0,
+  "mask_disturber": true,
+
+  "_comment_panel": "Set alert_webhook_token to the value held by the panel. Do NOT reuse another site's token.",
+  "alert_webhook_enabled": false,
+  "alert_webhook_url": "https://adminpanel.stratusweather.co.za/quaggasklip/api/v1/lightning",
+  "alert_webhook_token": "",
+  "alert_webhook_timeout": 5,
+  "alert_distance_km": 40,
+  "alert_min_distance_km": 0,
+  "heartbeat_webhook_interval": 3600,
+  "calibration_report_enabled": true,
+
+  "_comment_stratus": "Optional Stratus Weather ingest. Leave disabled until an endpoint exists.",
+  "stratus_enabled": false,
+  "stratus_endpoint": "",
+  "stratus_api_key": "",
+  "stratus_timeout": 10,
+
+  "interference_guard_enabled": true,
+  "interference_strike_limit": 12,
+  "interference_window_s": 10,
+  "interference_cooldown_s": 180,
+
+  "validation_buffer_enabled": true,
+  "validation_buffer_secs": 30,
+  "validation_emi_min_count": 5,
+  "validation_emi_distance_km": 1,
+  "storm_context_window_s": 900,
+
+  "recalibrate_temp_delta_c": 10,
+  "recalibrate_interval_s": 21600,
+  "antenna_check_enabled": true,
+  "antenna_check_hour": 6,
+  "cpu_temp_warn_c": 70,
+  "cpu_temp_crit_c": 78,
+
+  "heartbeat_interval": 600,
+  "register_check_interval": 86400,
+  "log_retention_days": 90
+}

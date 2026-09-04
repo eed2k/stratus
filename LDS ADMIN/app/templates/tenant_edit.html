@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ t.name }} - Settings{% endblock %}
+{% block content %}
+<h1>{{ t.name }}</h1>
+
+<p class="muted" style="text-align:left;padding:0 0 10px;">
+  <a class="btn-link" href="/tenants">&larr; Back to clients</a>
+  &nbsp;&middot;&nbsp;
+  <a class="btn-link" href="/{{ t.slug }}/">Open this panel</a>
+</p>
+
+{% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+{% if success %}<div class="success" role="status">{{ success }}</div>{% endif %}
+
+<div class="card">
+  <h3>Panel settings</h3>
+  <form method="post" action="/tenants/{{ t.id }}/update" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Client name<input name="name" value="{{ t.name }}" required></label>
+    <label>Site name in alerts
+      <input name="site_name" value="{{ t.site_name or '' }}">
+    </label>
+    <label>Client sign-in name
+      <input name="client_username" value="{{ admins[0].username or '' if admins|length == 1 else '' }}"
+             placeholder="e.g. {{ t.slug|upper }}" autocapitalize="off"
+             spellcheck="false"
+             {% if admins|length != 1 %}disabled{% endif %}>
+    </label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+
+  <p class="muted" style="text-align:left;padding:10px 0 0;">
+    <strong>Panel address</strong> is <code>/{{ t.slug }}</code> and cannot be
+    changed. It is part of the detector's configured webhook URL
+    (<code>/{{ t.slug }}/api/v1/lightning</code>) and of anything the client has
+    bookmarked, so changing it here would stop a live detector reporting with
+    nothing to indicate why.
+  </p>
+  <p class="muted" style="text-align:left;padding:6px 0 0;">
+    <strong>Client sign-in name</strong> is what this site enters at
+    <code>/client</code>, instead of an e-mail address.
+    {% if admins|length == 0 %}
+      This panel has no admin login, so there is no account to attach a name to.
+    {% elif admins|length > 1 %}
+      This panel has {{ admins|length }} admin logins, so the name has to be set
+      against one of them on the panel's own Users page.
+    {% else %}
+      It belongs to <code>{{ admins[0].email }}</code>.
+    {% endif %}
+  </p>
+</div>
+
+<div class="card">
+  <h3>Contents</h3>
+  <table>
+    <thead><tr><th>Item</th><th class="num">Count</th></tr></thead>
+    <tbody>
+      <tr><td>Logins</td><td class="num">{{ contents.users }}</td></tr>
+      <tr><td>Recipient groups</td><td class="num">{{ contents.groups }}</td></tr>
+      <tr><td>Alert stages</td><td class="num">{{ contents.stages }}</td></tr>
+      <tr><td>Recipients</td><td class="num">{{ contents.recipients }}</td></tr>
+      <tr><td>Recorded strikes</td><td class="num">{{ contents.events }}</td></tr>
+      <tr><td>Detectors</td><td class="num">{{ contents.units }}</td></tr>
+      <tr><td>Heartbeat samples</td><td class="num">{{ contents.heartbeats }}</td></tr>
+      <tr><td>Calibration records</td><td class="num">{{ contents.calibrations }}</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card danger-zone">
+  <h3>Delete this panel</h3>
+  <p class="muted" style="text-align:left;padding:0 0 10px;">
+    This removes the panel and everything listed above: its logins, groups,
+    stages, recipients, strike history, heartbeat and calibration records.
+    <strong>It cannot be undone.</strong>
+  </p>
+  <p class="muted" style="text-align:left;padding:0 0 10px;">
+    {% if contents.units %}
+      The {{ contents.units }} detector{{ '' if contents.units == 1 else 's' }}
+      registered here will not be deleted. Physical units are still transmitting,
+      so they are returned to <em>Unassigned Units</em> on the platform panel
+      where they can be reassigned to another client.
+    {% else %}
+      No detectors are registered to this panel.
+    {% endif %}
+  </p>
+  <form method="post" action="/tenants/{{ t.id }}/delete" class="grid"
+        data-confirm="Delete {{ t.name }} and all of its data? This cannot be undone.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Type the panel address <code>{{ t.slug }}</code> to confirm
+      <input name="confirm_slug" placeholder="{{ t.slug }}" autocapitalize="off"
+             spellcheck="false" autocomplete="off" required>
+    </label>
+    <button class="danger" type="submit">Delete this panel permanently</button>
+  </form>
+</div>
+{% endblock %}

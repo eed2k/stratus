@@ -1,0 +1,77 @@
+/* Demo-only additions. The console's own style.css supplies everything else:
+   the window chrome, cards, KPIs, storm bands, cloud fills and the flash
+   keyframes. Only the timelapse controls and the track chart are new. */
+
+.demo-banner {
+  border-left: 3px solid var(--navy);
+  background: var(--navy-soft);
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ---- timelapse controls ---- */
+.demo-controls { padding: 12px; }
+.demo-controls-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.demo-controls button {
+  font: 600 11px/1 Consolas, "Courier New", monospace;
+  padding: 7px 12px; cursor: pointer; text-transform: none;
+}
+.demo-speed { display: flex; }
+.demo-speed button {
+  background: var(--white); color: var(--navy);
+  border: 1px solid var(--line-dark); border-right: 0;
+}
+.demo-speed button:last-child { border-right: 1px solid var(--line-dark); }
+.demo-speed button:hover { background: var(--navy-soft); }
+.demo-speed button[aria-pressed="true"] {
+  background: var(--navy); color: var(--white); border-color: var(--navy);
+}
+.demo-elapsed {
+  margin-left: auto;
+  font: 11px/1.5 Consolas, "Courier New", monospace;
+  color: var(--muted-solid);
+}
+.demo-track {
+  margin-top: 10px; height: 4px; background: #dbe3ec; overflow: hidden;
+}
+.demo-track i {
+  display: block; height: 100%; width: 0; background: var(--navy);
+}
+
+.demo-kpis { margin-bottom: 14px; }
+
+/* ---- track chart ---- */
+.demo-trackchart { width: 100%; }
+.demo-trackchart svg { display: block; width: 100%; height: auto; }
+.demo-cap { font-size: 11px; padding: 6px 2px 0; text-align: left; }
+
+/* ---- event table ---- */
+.demo-events { width: 100%; }
+.demo-events td.num, .demo-events th.num { text-align: right; }
+.demo-events tbody tr.is-new { animation: demo-rowin 900ms ease-out 1; }
+@keyframes demo-rowin {
+  0%   { background: #fff6cc; }
+  100% { background: transparent; }
+}
+
+/* Navigation in the demo is inert: it must look like the console without
+   implying the other pages are reachable. */
+.menubar nav a[aria-disabled="true"] { opacity: .45; cursor: default; }
+.menubar nav a.is-current { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-events tbody tr.is-new { animation: none; }
+}
+
+/* ---- storm cells ----
+   Nothing here. The smaller cloud, the blue-white channel and the 2260 ms flash
+   all live in the console's own style.css, which site/style.css is copied from
+   at deploy time, so the demo inherits them and the two cannot drift.
+
+   Overrides were kept here for a while, which was the wrong call: it left the
+   same colors and sizes declared in two files, and site/style.css is
+   regenerated on every deploy so the copies could silently disagree. */

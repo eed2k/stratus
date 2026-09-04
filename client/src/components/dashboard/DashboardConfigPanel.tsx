@@ -147,8 +147,8 @@ interface DashboardConfigPanelProps {
 }
 
 export function DashboardConfigPanel({ config, onConfigChange, availableFields }: DashboardConfigPanelProps) {
-  // Normalise any partial/legacy config so array fields are always defined.
-  const normalise = (c: DashboardConfig): DashboardConfig => ({
+  // Normalize any partial/legacy config so array fields are always defined.
+  const normalize = (c: DashboardConfig): DashboardConfig => ({
     ...DEFAULT_DASHBOARD_CONFIG,
     ...c,
     enabledParameters: Array.isArray(c?.enabledParameters)
@@ -159,11 +159,11 @@ export function DashboardConfigPanel({ config, onConfigChange, availableFields }
       ...(c?.sectionVisibility ?? {}),
     },
   });
-  const [localConfig, setLocalConfig] = useState<DashboardConfig>(() => normalise(config));
+  const [localConfig, setLocalConfig] = useState<DashboardConfig>(() => normalize(config));
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    setLocalConfig(normalise(config));
+    setLocalConfig(normalize(config));
   }, [config]);
 
   // Windows this station offers. Unrestricted stations get the full set, so this

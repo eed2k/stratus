@@ -104,7 +104,7 @@ def require_writer(user: User = Depends(current_user)) -> User:
 
 
 def require_platform_admin(user: User = Depends(current_user)) -> User:
-    """Stratus staff only: manage the list of client panels."""
+    """Stratus Admin only: manage the list of client panels."""
     if not user.is_platform_admin:
         raise HTTPException(status_code=404, detail="Not found")
     return user

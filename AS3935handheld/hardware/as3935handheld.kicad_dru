@@ -1,0 +1,5 @@
+(version 1)
+(rule "GND zone clearance to USB on top layer"
+	(layer "F.Cu")
+	(constraint clearance (min 0.15mm))
+	(condition "A.NetClass == '90R_DP' && B.NetName == 'GND'"))

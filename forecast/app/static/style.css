@@ -1,0 +1,580 @@
+/* =====================================================================
+   Stratus Weather - Nano-climate forecast
+   Same instrument-software styling as the alert console: navy, white,
+   black, neutral grays for frames only. Arial throughout, no icons and
+   no emoji, so a printed page and a screen page read the same.
+   ===================================================================== */
+
+:root {
+  --navy:        #0a2540;
+  --navy-deep:   #061a30;
+  --navy-soft:   #eef2f7;
+  --black:       #111418;
+  --white:       #ffffff;
+  --line:        #b9c2cf;
+  --line-dark:   #8c98a8;
+  --muted:       #5b6875;
+  --desktop:     #e7ebf0;
+  --good:        #1f7a4d;
+  --bad:         #c0392b;
+  --warn:        #e08a1e;
+  --band:        #cdd8e6;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--desktop);
+  color: var(--black);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: .92em;
+  background: var(--navy-soft);
+  border: 1px solid var(--line);
+  padding: 0 3px;
+}
+
+/* --- title bar --- */
+
+.titlebar {
+  background: var(--navy);
+  color: var(--white);
+  padding: 7px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--navy-deep);
+}
+
+.titlebar-name { letter-spacing: .04em; font-size: 13px; }
+
+.link-button {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, .5);
+  color: var(--white);
+  font: inherit;
+  padding: 2px 9px;
+  cursor: pointer;
+}
+
+.link-button:hover { background: rgba(255, 255, 255, .12); }
+
+/* --- breadcrumbs --- */
+
+.crumbs {
+  background: var(--white);
+  border-bottom: 1px solid var(--line);
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.crumbs a { color: var(--navy); text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.crumbs span { color: var(--muted); margin: 0 4px; }
+
+/* --- layout --- */
+
+main {
+  max-width: 1120px;
+  margin: 16px auto 40px;
+  padding: 0 14px;
+}
+
+h1 {
+  font-size: 20px;
+  font-weight: normal;
+  color: var(--navy);
+  margin: 12px 0 14px;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: normal;
+  color: var(--navy);
+  margin: 0 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel {
+  background: var(--white);
+  border: 1px solid var(--line-dark);
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+/* --- sign-in, matched to the alert console's login card --- */
+
+.login-wrap {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  /* Light gradient auth screen, matched to stratusweather.co.za sign-in. */
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+}
+
+/* On the sign-in screen the app chrome is hidden (see base.html), so let the
+   content area fill the viewport instead of keeping the reading-width margins. */
+body.auth main {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--line-dark);
+  border-radius: 0;
+  padding: 0 16px 16px;
+  margin-bottom: 20px;
+}
+
+.card.narrow {
+  max-width: 340px;
+  width: 100%;
+  margin: 0;
+  border: 2px solid var(--navy);
+  padding: 22px 24px 24px;
+  background: var(--white);
+}
+
+.card.narrow .login-brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--black);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.card.narrow .login-sub {
+  font-size: 11px;
+  color: var(--black);
+  margin: 2px 0 20px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+form.login-form { display: flex; flex-direction: column; }
+form.login-form label { margin: 0 0 16px 0; color: var(--black); }
+form.login-form label span { margin-bottom: 5px; display: block; }
+form.login-form input { margin-top: 0; width: 100%; }
+form.login-form button { align-self: flex-start; margin-top: 12px; }
+
+.error {
+  padding: 8px 12px;
+  border: 1px solid var(--line-dark);
+  border-left: 4px solid var(--black);
+  margin-bottom: 12px;
+  background: var(--navy-soft);
+  color: var(--black);
+  font-size: 12px;
+}
+
+.panel.danger { border-color: var(--bad); }
+.panel.danger h2 { color: var(--bad); border-bottom-color: var(--bad); }
+
+.empty {
+  background: var(--white);
+  border: 1px dashed var(--line-dark);
+  padding: 26px;
+  margin-bottom: 16px;
+}
+
+/* Two routes in, side by side, so neither reads as the only option. Collapses
+   below 900px rather than squeezing two forms into half a screen each. */
+.two-up {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .two-up { grid-template-columns: 1fr; }
+}
+
+.empty h2 { border: none; margin-bottom: 6px; }
+
+footer {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 14px 30px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* --- messages --- */
+
+.notice, .alert {
+  padding: 8px 11px;
+  margin: 0 0 12px;
+  border-left: 3px solid var(--navy);
+  background: var(--navy-soft);
+}
+
+.alert { border-left-color: var(--bad); background: #fdf1ef; }
+
+.headline {
+  background: var(--navy-soft);
+  border-left: 3px solid var(--navy);
+  padding: 9px 11px;
+  margin: 10px 0 0;
+}
+
+.hint { color: var(--muted); font-size: 12.5px; margin: 6px 0; }
+.muted { color: var(--muted); }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+.ok { color: var(--good); }
+.strong { font-weight: bold; }
+
+/* --- tabs --- */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.tabs a {
+  padding: 6px 13px;
+  background: var(--navy-soft);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  color: var(--navy);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.tabs a.on {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+
+.tabs a:hover:not(.on) { background: var(--white); }
+
+.tabs.sub a { font-size: 12px; padding: 4px 10px; }
+
+/* --- tables --- */
+
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.grid th, table.grid td {
+  border: 1px solid var(--line);
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+table.grid thead th {
+  background: var(--navy);
+  color: var(--white);
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+table.grid tbody tr:nth-child(even) { background: #f7f9fb; }
+
+table.grid.tight th, table.grid.tight td {
+  padding: 3px 7px;
+  font-size: 12.5px;
+}
+
+table.grid .num { text-align: right; font-variant-numeric: tabular-nums; }
+table.grid td.skill { white-space: nowrap; }
+table.grid td.skill svg { vertical-align: middle; margin-right: 5px; }
+
+table.grid a { color: var(--navy); }
+
+.scroll { display: block; max-height: 460px; overflow-y: auto; }
+
+td.actions a { margin-right: 9px; }
+
+/* --- definition lists --- */
+
+dl.facts {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 3px 12px;
+  margin: 0;
+}
+
+dl.facts.inline { grid-template-columns: 130px 1fr 130px 1fr; }
+
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; }
+
+/* --- forms --- */
+
+/* A row of controls that line up on their bottom edge.
+   Applies to both <form class="row"> and a bare <div class="row"> used to group
+   fields side by side. Only form.row was defined before, so a div.row (the
+   Dropbox folder / pattern / interval group) silently fell back to a stacked
+   block and its fields did not sit in a row at all. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* Inside a row the flex gap owns the spacing between items. The per-field
+   bottom margin below is meant for fields stacked in a plain block form; left
+   in place inside a row it lifted every field 10px above the submit button, so
+   align-items:flex-end lined the inputs up 10px higher than the button beside
+   them. Drop it, and drop the small caption margins, so inputs, selects,
+   checkboxes and the button all share one bottom edge. */
+.row .field { margin-bottom: 0; }
+.row > label,
+.row label.check { margin-top: 0; margin-bottom: 0; }
+
+.field { display: flex; flex-direction: column; margin-bottom: 10px; }
+.field.narrow { max-width: 170px; }
+
+label { font-size: 12.5px; color: var(--muted); margin-bottom: 3px; }
+
+input[type=text], input[type=password], input[type=file], select {
+  font: inherit;
+  padding: 5px 7px;
+  border: 1px solid var(--line-dark);
+  background: var(--white);
+  color: var(--black);
+}
+
+input[type=text]:focus, input[type=password]:focus, select:focus {
+  outline: 2px solid var(--navy);
+  outline-offset: -1px;
+}
+
+fieldset {
+  border: 1px solid var(--line);
+  margin: 10px 0;
+  padding: 9px 12px;
+}
+
+legend { color: var(--muted); font-size: 12.5px; padding: 0 5px; }
+
+label.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 16px 3px 0;
+  color: var(--black);
+  font-size: 13px;
+}
+
+button {
+  font: inherit;
+  padding: 6px 15px;
+  border: 1px solid var(--navy);
+  background: var(--white);
+  color: var(--navy);
+  cursor: pointer;
+}
+
+button:hover { background: var(--navy-soft); }
+
+button.primary { background: var(--navy); color: var(--white); }
+button.primary:hover { background: var(--navy-deep); }
+
+button.destructive { border-color: var(--bad); color: var(--bad); }
+button.destructive:hover { background: #fdf1ef; }
+
+a.primary-link { color: var(--navy); }
+
+/* --- chart legend --- */
+
+.legend { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+
+.legend .key {
+  display: inline-block;
+  width: 22px;
+  height: 3px;
+  margin: 0 5px 0 14px;
+  vertical-align: middle;
+}
+
+.legend .key:first-child { margin-left: 0; }
+.legend .line-navy { background: var(--navy); }
+.legend .line-red { background: var(--bad); height: 2px; }
+.legend .band { background: var(--band); height: 10px; }
+
+ul.plain { margin: 6px 0; padding-left: 18px; }
+ul.plain li { margin: 2px 0; }
+
+.columns code { margin: 0 4px 4px 0; display: inline-block; }
+
+.inline-right { margin: 0; }
+
+@media (max-width: 720px) {
+  dl.facts, dl.facts.inline { grid-template-columns: 1fr; }
+  dl.facts dt { margin-top: 6px; }
+}
+
+/* =====================================================================
+   Sign-in, matched to the main stratusweather.co.za login.
+
+   A light gradient screen with a navy-circle logo, a white rounded card, and a
+   blue submit, so the forecast sign-in reads as the same product as the main
+   site and the alert console. Scoped to .auth-* classes; the old .card.narrow
+   rules above are left in place and simply unused by the new template.
+   ===================================================================== */
+.auth-shell {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.auth-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #1e3a5f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .1), 0 4px 6px -4px rgba(0, 0, 0, .1);
+  flex-shrink: 0;
+}
+.auth-logo-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: block;
+}
+.auth-brand-name {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: #111827;
+}
+.auth-brand-sub {
+  font-size: 14px;
+  color: #4b5563;
+}
+.auth-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .1), 0 8px 10px -6px rgba(0, 0, 0, .1);
+  padding: 24px;
+}
+.auth-card-head {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.auth-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+}
+.auth-desc {
+  font-size: 14px;
+  color: #4b5563;
+  margin-top: 4px;
+}
+.auth-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.auth-field { display: flex; flex-direction: column; gap: 6px; }
+.auth-field label {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 400;
+  margin: 0;
+}
+.auth-field input {
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+  font-family: inherit;
+  margin: 0;
+}
+.auth-field input::placeholder { color: #9ca3af; }
+.auth-field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+}
+.auth-submit {
+  width: 100%;
+  height: 40px;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+.auth-submit:hover { background: #1d4ed8; }
+.auth-foot {
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ---- Boxed links -----------------------------------------------------------
+   Breadcrumb and in-page links read as their own bordered controls rather than
+   plain underlined text, so the formatting is consistent across the estate. The
+   sign-in screen (body.auth) is excluded so its plain text links keep the
+   main-site look. */
+.crumbs a,
+body:not(.auth) main a {
+  display: inline-block;
+  border: 1px solid var(--line-dark);
+  border-radius: 4px;
+  padding: 3px 9px;
+  margin: 2px 3px 2px 0;
+  background: var(--white);
+  color: var(--navy);
+  text-decoration: none;
+  line-height: 1.35;
+}
+.crumbs a:hover,
+body:not(.auth) main a:hover {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+  text-decoration: none;
+}

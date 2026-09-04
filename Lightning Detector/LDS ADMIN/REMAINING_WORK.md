@@ -55,17 +55,17 @@ Backend is ready: `GET {base}/data/cpu?station=<id>&range=24h|7d|30d` returns
 - Requirements: 5.1-5.9. Property 1 (data is tenant-scoped via the endpoint).
 
 --------------------------------------------------------------------------------
-## Task 12: Storm-activity visualisation
+## Task 12: Storm-activity visualization
 
 Backend is ready: `GET {base}/data/strikes?station=<id>&window=<minutes>` returns
 `{radius_km:40, rings:[10,20,30,40], bearing_measured:false,
-strikes:[{t, distance_km, energy, band, colour}]}`.
+strikes:[{t, distance_km, energy, band, color}]}`.
 
 - [ ] 12.1 Add `app/static/js/storm-view.js` (external, self-hosted):
       - Draw concentric distance range-rings (10/20/30/40 km) on a `<canvas>`
-        or inline SVG, station marker at centre.
+        or inline SVG, station marker at center.
       - Plot each strike by distance only; spread angle deterministically.
-      - Colour each strike by `colour` (energy band); render an energy legend.
+      - Color each strike by `color` (energy band); render an energy legend.
       - Animate a short pulse when a new strike appears on refresh (poll
         `/data/strikes` every ~30 s).
       - Respect `prefers-reduced-motion`: no animation, static plot.

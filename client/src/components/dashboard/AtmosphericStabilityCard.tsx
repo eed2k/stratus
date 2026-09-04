@@ -84,7 +84,7 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
           {deltaTemperature != null && (
             <div className="pt-2 border-t border-gray-200">
               <div className="flex justify-between text-xs">
-                <span className="text-black">ΔT (8m − 2m)</span>
+                <span className="text-black">ΔT (8m - 2m)</span>
                 <span className={`font-normal ${deltaTemperature > 0 ? 'text-red-500' : 'text-green-600'}`} style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                   {deltaTemperature > 0 ? '+' : ''}{safeFixed(deltaTemperature, 2)} °C
                 </span>
@@ -109,7 +109,7 @@ export function AtmosphericStabilityCard({ windSpeed, solarRadiation, cloudCover
           </div>
 
           <p className="text-xs text-black italic pt-2 border-t border-gray-200" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            Pasquill-Gifford stability classification for atmospheric dispersion. Class A (extremely unstable) favours 
+            Pasquill-Gifford stability classification for atmospheric dispersion. Class A (extremely unstable) favors 
             rapid pollutant dispersion, Class F (stable) indicates pollutant trapping. Used for mining blast planning, 
             industrial emissions monitoring, and air quality management.
           </p>

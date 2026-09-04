@@ -82,10 +82,10 @@ Energy = Electromagnetic signal strength (not Joules or Watts!)
 ```
 
 **Think of it as a "lightning loudness" scale:**
-- **0 - 400,000** (0-20%): Whisper — very distant, weak
-- **400,000 - 1,000,000** (20-50%): Speaking voice — moderate, approaching
-- **1,000,000 - 1,600,000** (50-80%): Shouting — strong, nearby
-- **1,600,000 - 2,097,151** (80-100%): Air horn — extremely powerful, overhead
+- **0 - 400,000** (0-20%): Whisper - very distant, weak
+- **400,000 - 1,000,000** (20-50%): Speaking voice - moderate, approaching
+- **1,000,000 - 1,600,000** (50-80%): Shouting - strong, nearby
+- **1,600,000 - 2,097,151** (80-100%): Air horn - extremely powerful, overhead
 
 ### Why 21-bit?
 

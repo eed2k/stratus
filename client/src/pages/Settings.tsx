@@ -268,7 +268,7 @@ export default function Settings() {
     }
   };
 
-  // Open Dropbox OAuth authorisation page
+  // Open Dropbox OAuth authorization page
   const handleGetRefreshToken = () => {
     if (!dropboxAppKey) {
       toast({
@@ -284,8 +284,8 @@ export default function Settings() {
     setShowAuthCodeInput(true);
     
     toast({
-      title: "Dropbox Authorisation",
-      description: "A new window opened. After authorising, copy the code and paste it below.",
+      title: "Dropbox Authorization",
+      description: "A new window opened. After authorizing, copy the code and paste it below.",
     });
   };
 
@@ -294,7 +294,7 @@ export default function Settings() {
     if (!dropboxAppKey || !dropboxAppSecret || !dropboxAuthCode) {
       toast({
         title: "Error",
-        description: "App Key, App Secret, and Authorisation Code are all required",
+        description: "App Key, App Secret, and Authorization Code are all required",
         variant: "destructive",
       });
       return;
@@ -323,7 +323,7 @@ export default function Settings() {
           description: "Refresh token obtained. Click 'Save & Test Credentials' to complete setup.",
         });
       } else {
-        throw new Error(result.error || 'Failed to exchange authorisation code');
+        throw new Error(result.error || 'Failed to exchange authorization code');
       }
     } catch (error: any) {
       toast({
@@ -619,7 +619,7 @@ export default function Settings() {
                   
                   <p className="text-sm font-medium">Step 2: Get Refresh Token</p>
                   <p className="text-xs text-muted-foreground">
-                    Click the button below to authorise Stratus with your Dropbox account. After authorising, paste the code you receive.
+                    Click the button below to authorize Stratus with your Dropbox account. After authorizing, paste the code you receive.
                   </p>
                   
                   <div className="flex gap-2">
@@ -628,18 +628,18 @@ export default function Settings() {
                       onClick={handleGetRefreshToken}
                       disabled={!dropboxAppKey}
                     >
-                      Authorise with Dropbox
+                      Authorize with Dropbox
                     </Button>
                   </div>
                   
                   {showAuthCodeInput && (
                     <div className="space-y-2 p-3 border rounded-md bg-blue-50 dark:bg-blue-900/20">
-                      <Label htmlFor="dropboxAuthCode" className="text-xs">Authorisation Code</Label>
+                      <Label htmlFor="dropboxAuthCode" className="text-xs">Authorization Code</Label>
                       <div className="flex gap-2">
                         <Input
                           id="dropboxAuthCode"
                           type="text"
-                          placeholder="Paste the authorisation code from Dropbox"
+                          placeholder="Paste the authorization code from Dropbox"
                           value={dropboxAuthCode}
                           onChange={(e) => setDropboxAuthCode(e.target.value)}
                           className="font-mono"
@@ -656,7 +656,7 @@ export default function Settings() {
                     <Input
                       id="dropboxRefreshToken"
                       type="password"
-                      placeholder="Automatically filled after authorisation, or paste manually"
+                      placeholder="Automatically filled after authorization, or paste manually"
                       value={dropboxRefreshToken}
                       onChange={(e) => setDropboxRefreshToken(e.target.value)}
                     />

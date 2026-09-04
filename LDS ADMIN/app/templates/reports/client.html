@@ -64,7 +64,7 @@
   <h2>Intensity bands</h2>
   <table class="data">
     <caption>
-      What each intensity band means. The colour column matches the shading used
+      What each intensity band means. The color column matches the shading used
       in the charts above.
     </caption>
     <thead>
@@ -78,7 +78,7 @@
       {% for row in energy_legend %}
       <tr>
         <td>
-          <span class="swatch" style="background:{{ row.colour }};"
+          <span class="swatch" style="background:{{ row.color }};"
                 aria-hidden="true"></span>{{ row.name }}
         </td>
         <td class="num">{{ '{:,}'.format(row.lower) }}</td>

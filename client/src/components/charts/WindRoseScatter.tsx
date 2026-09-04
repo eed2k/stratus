@@ -124,7 +124,7 @@ export const WindRoseScatter = memo(function WindRoseScatter({
       legend: showLegend
         ? activeClasses.map((sc) => ({ label: sc.label, color: sc.color, shape: 'circle' as const }))
         : [],
-      captions: [`Radius = wind speed (${unitLabel}), angle = direction of origin. Point colour follows the WMO/Beaufort class.`],
+      captions: [`Radius = wind speed (${unitLabel}), angle = direction of origin. Point color follows the WMO/Beaufort class.`],
       filename: title,
     });
   }, [title, size, stats, unitLabel, showLegend, activeClasses]);
@@ -182,7 +182,17 @@ export const WindRoseScatter = memo(function WindRoseScatter({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        <svg data-windrose-scatter width={size} height={size} className="overflow-visible">
+        {/*
+          viewBox plus a percentage width is what lets the scatter grow with its
+          card. A fixed width and height attribute pinned it to `size` pixels
+          regardless of available space.
+        */}
+        <svg
+          data-windrose-scatter
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+        >
           {/* Background circles with speed labels */}
           {speedCircles.map((circle, i) => (
             <g key={i}>

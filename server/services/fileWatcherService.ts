@@ -43,7 +43,7 @@ export class FileWatcherService extends EventEmitter {
   }
 
   /**
-   * Initialise the file watcher service
+   * Initialize the file watcher service
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;

@@ -103,7 +103,7 @@ class Config:
         self.pin_green = _env_int("BEACON_PIN_GREEN", 17, 0, 27)
         self.pin_red = _env_int("BEACON_PIN_RED", 27, 0, 27)
         self.pin_orange = _env_int("BEACON_PIN_ORANGE", 22, 0, 27)
-        # Most opto-isolated relay HATs energise on a LOW output.
+        # Most opto-isolated relay HATs energize on a LOW output.
         self.active_low = _env_bool("BEACON_RELAY_ACTIVE_LOW", True)
 
         # What to show when the panel cannot be reached: "red" or "dark".

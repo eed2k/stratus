@@ -111,7 +111,7 @@ export class PakBusProtocol extends EventEmitter {
       clearTimeout(pending.timeout);
       pending.resolve({
         success: false,
-        error: "Connection closed - transaction cancelled",
+        error: "Connection closed - transaction canceled",
       });
     }
     this.pendingTransactions.clear();

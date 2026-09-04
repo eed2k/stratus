@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="auth-shell">
+    <div class="auth-brand">
+      <div class="auth-logo"><span class="auth-logo-dot"></span></div>
+      <div class="auth-brand-text">
+        <div class="auth-brand-name">Stratus</div>
+        <div class="auth-brand-sub">Nano-climate Forecast</div>
+      </div>
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-card-head">
+        <div class="auth-title">Welcome Back</div>
+        <div class="auth-desc">Sign in to view the nano-climate forecast</div>
+      </div>
+
+      {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+      <form method="post" action="/login" class="auth-form">
+        <div class="auth-field">
+          <label for="auth-password">Password</label>
+          <input id="auth-password" type="password" name="password" placeholder="Enter your password"
+                 required autofocus autocomplete="current-password">
+        </div>
+        <button class="auth-submit" type="submit">Sign In</button>
+      </form>
+    </div>
+
+    <div class="auth-foot">Stratus Weather Nano-climate Forecast</div>
+  </div>
+</div>
+{% endblock %}

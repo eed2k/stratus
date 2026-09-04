@@ -82,7 +82,7 @@ b2.apply_online(None)
 check(not l2._state["green"] and not l2._state["red"],
       "unknown -> both off with fail_state=dark")
 check(B.Config().fail_state in ("red", "dark"), "fail_state is constrained")
-os.environ["BEACON_FAIL_STATE"] = "green"       # must not be honoured
+os.environ["BEACON_FAIL_STATE"] = "green"       # must not be honored
 check(B.Config().fail_state == "red", "fail_state=green is refused, falls back to red")
 os.environ["BEACON_FAIL_STATE"] = "red"
 

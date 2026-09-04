@@ -9,7 +9,7 @@
  * is deterministic (incremental → SUM, cumulative → MAX-MIN with reset
  * detection, tip_count → SUM × tipFactor). Otherwise it falls back to the
  * legacy distribution-shape heuristic (auto-detect incremental vs
- * cumulative). Either way the per-bucket result is normalised to mm.
+ * cumulative). Either way the per-bucket result is normalized to mm.
  */
 
 import * as postgres from '../db-postgres';
@@ -74,7 +74,7 @@ function buildBucketExprs(bucket: Bucket, tzOffsetHours: number): {
 
 /**
  * Compute rainfall totals per year (and optionally per month) for a
- * station, honouring per-station config when available.
+ * station, honoring per-station config when available.
  */
 export async function getRainfallTotals(
   stationId: number,

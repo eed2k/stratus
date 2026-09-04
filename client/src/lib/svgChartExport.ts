@@ -6,7 +6,7 @@
  * (wind rose, wind speed scatter, wind power rose).
  *
  * The charts render their plot area as an inline <svg> while the legend and
- * stat blocks are plain DOM elements next to it. Serialising only the <svg>
+ * stat blocks are plain DOM elements next to it. Serializing only the <svg>
  * therefore produced a PNG with no legend, which made the downloaded image
  * unreadable. This helper rebuilds the export document as:
  *
@@ -82,7 +82,7 @@ function addText(
   parent.appendChild(t);
 }
 
-/** Pack legend items into centred rows that fit inside `maxWidth`. */
+/** Pack legend items into centered rows that fit inside `maxWidth`. */
 function layoutLegend(items: ExportLegendItem[], maxWidth: number): ExportLegendItem[][] {
   const rows: ExportLegendItem[][] = [];
   let row: ExportLegendItem[] = [];
@@ -121,7 +121,7 @@ function wrapCaption(text: string, maxWidth: number): string[] {
 }
 
 /**
- * Clone the plot SVG, resolve CSS-variable driven colours to literals, and
+ * Clone the plot SVG, resolve CSS-variable driven colors to literals, and
  * strip classes so the markup renders standalone inside an <img>.
  */
 function cloneResolved(svg: SVGSVGElement): SVGSVGElement {
@@ -156,7 +156,7 @@ function cloneResolved(svg: SVGSVGElement): SVGSVGElement {
   });
 
   clone.querySelectorAll("[class]").forEach((n) => n.removeAttribute("class"));
-  // Tooltips add noise to the serialised markup and never render in a PNG.
+  // Tooltips add noise to the serialized markup and never render in a PNG.
   clone.querySelectorAll("title").forEach((n) => n.remove());
   return clone;
 }

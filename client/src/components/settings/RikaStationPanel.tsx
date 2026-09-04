@@ -109,7 +109,7 @@ function formatWhen(value?: string | null): string {
 
 /**
  * Step outcome shown as a short text tag rather than an icon, per the
- * no-icon policy. The colour carries the same signal an icon would.
+ * no-icon policy. The color carries the same signal an icon would.
  */
 const STEP_TAG: Record<StepStatus, { label: string; className: string }> = {
   ok: { label: "PASS", className: "text-green-700" },
@@ -149,7 +149,7 @@ export function RikaStationPanel({ station, status, onStatusChanged }: RikaStati
     setForm((f) => ({ ...f, [key]: value }));
 
   const connected = status?.connected === true;
-  const statusColour = connected ? "bg-green-500" : status?.lastError ? "bg-red-500" : "bg-gray-400";
+  const statusColor = connected ? "bg-green-500" : status?.lastError ? "bg-red-500" : "bg-gray-400";
 
   async function runTest() {
     setBusy("test");
@@ -269,7 +269,7 @@ export function RikaStationPanel({ station, status, onStatusChanged }: RikaStati
       {/* Identity + live status */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className={`h-2.5 w-2.5 rounded-full ${statusColour}`} />
+          <span className={`h-2.5 w-2.5 rounded-full ${statusColor}`} />
           <span className="font-medium">{station.name}</span>
           <Badge variant="outline" className="text-xs">RikaCloud v2</Badge>
           <Badge variant={connected ? "default" : "secondary"} className="text-xs">

@@ -69,7 +69,7 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
   const strength = estimateRelativeStrikeStrength(lightningEnergy, lightningDistance);
   const proximity = describeStormProximity(lightningDistance);
 
-  // Initialise map
+  // Initialize map
   useEffect(() => {
     if (!hasCoords || !mapRef.current) return;
     let mounted = true;

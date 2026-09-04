@@ -217,7 +217,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialise database first
+  // Initialize database first
   try {
     if (usePostgres) {
       await postgres.initPostgresDatabase();

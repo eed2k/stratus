@@ -233,7 +233,7 @@ def test_every_report_uses_one_font_stack(db_session):
     Quoting legitimately differs between the two contexts: a CSS rule can use
     double quotes, but an SVG font-family attribute is itself double-quoted and
     must use single quotes inside. So the comparison is made on the family list
-    with quoting and spacing normalised away.
+    with quoting and spacing normalized away.
     """
     import re
     want = "arial, liberation sans, helvetica, sans-serif"
@@ -273,7 +273,7 @@ def test_charts_carry_a_text_equivalent(db_session):
     for rtype, html in _all_reports(db_session).items():
         assert "<figure>" in html, rtype
         assert "<figcaption>" in html, rtype
-        # The SVG itself is still labelled for assistive technology.
+        # The SVG itself is still labeled for assistive technology.
         assert 'role="img"' in html, rtype
         assert "aria-label=" in html, rtype
 
@@ -285,7 +285,7 @@ def test_css_safe_text_cannot_break_out_of_a_css_string():
     hostile = 'Acme "Pit" \\ <script>alert(1)</script>; } @page { size: A3 }'
     out = reports.css_safe_text(hostile)
     for ch in ('"', "'", "\\", "<", ">", "{", "}", ";", "@", "&"):
-        assert ch not in out, f"{ch!r} survived sanitising: {out!r}"
+        assert ch not in out, f"{ch!r} survived sanitizing: {out!r}"
     assert "Acme" in out and "Pit" in out          # the readable part survives
     assert reports.css_safe_text(None) == ""
     assert reports.css_safe_text("   ") == ""
@@ -294,7 +294,7 @@ def test_css_safe_text_cannot_break_out_of_a_css_string():
     assert "\n" not in reports.css_safe_text("line one\nline two")
 
 
-def test_footer_text_is_present_and_sanitised(db_session):
+def test_footer_text_is_present_and_sanitized(db_session):
     from app.models import UnitStatus
     t = _seed_month(db_session)
     unit = db_session.get(UnitStatus, "ACME1")
@@ -306,7 +306,7 @@ def test_footer_text_is_present_and_sanitised(db_session):
 
     for rtype in reports.REPORT_TYPES:
         html = reports.render_report_html(rtype, data)
-        # The sanitised value reached the footer, and no stray quote or brace
+        # The sanitized value reached the footer, and no stray quote or brace
         # leaked into the @page rule.
         assert 'content: "Bad Site' in html, rtype
         assert "&quot;" not in html, rtype
@@ -352,7 +352,7 @@ def test_site_line_matches_the_stratus_wording():
         Lat 25.71682 S  |  Lon 27.39935 E  |  Altitude 1209 m AMSL
 
     Hemisphere letters rather than a signed number, two spaces either side of the
-    pipe, altitude rounded to whole metres, ASCII only. If this drifts, a client
+    pipe, altitude rounded to whole meters, ASCII only. If this drifts, a client
     holding a weather report and a lightning report for one site reads the
     position two different ways.
     """

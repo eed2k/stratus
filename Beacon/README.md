@@ -100,7 +100,7 @@ Each relay switches the **12 V feed** to its lamp. The Pi and the lamps share a
 ground reference but the 12 V never touches the Pi: that is the point of the
 relay HAT.
 
-Most opto-isolated HATs energise the coil on a **LOW** output, which is the
+Most opto-isolated HATs energize the coil on a **LOW** output, which is the
 default (`BEACON_RELAY_ACTIVE_LOW=true`). If your lamps come on when they should
 be off, flip that setting rather than rewiring.
 

@@ -20,7 +20,7 @@ def test_energy_band_total_over_domain(e):
     band = metrics.energy_band(e)
     assert band["name"] in {"Low", "Moderate", "High", "Extreme"}
     assert 0 <= band["index"] <= 3
-    assert band["colour"].startswith("#")
+    assert band["color"].startswith("#")
 
 
 @given(

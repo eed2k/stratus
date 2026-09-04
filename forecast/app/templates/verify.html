@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Verification{% endblock %}
+{% block crumbs %}<span>/</span>
+<a href="/station/{{ station.id }}">{{ station.name }}</a>
+<span>/</span><span>Verification</span>{% endblock %}
+
+{% block content %}
+<h1>Verification <span class="muted">{{ station.name }}</span></h1>
+
+<nav class="tabs">
+  <a href="/station/{{ station.id }}/verify"
+     class="{{ 'on' if not days else '' }}">All horizons</a>
+  {% for d in horizons %}
+  <a href="/station/{{ station.id }}/verify?days={{ d }}&variable={{ variable }}"
+     class="{{ 'on' if d == days else '' }}">{{ d }} day</a>
+  {% endfor %}
+  <a href="/station/{{ station.id }}/forecast?days={{ days or 1 }}">Forecast</a>
+</nav>
+
+{% if report.pairs_scored == 0 %}
+<section class="empty">
+  <h2>Nothing scored yet</h2>
+  {% for note in report.notes %}<p>{{ note }}</p>{% endfor %}
+  <p><a href="/station/{{ station.id }}">Back to {{ station.name }}</a> to
+  backfill past forecasts and score them against the record you already
+  hold.</p>
+</section>
+{% else %}
+
+<section class="panel">
+  <p><strong>{{ '{:,}'.format(report.pairs_scored) }}</strong> forecast hours
+  have been compared against what was actually observed.</p>
+  {% if headline and headline.n %}
+  <p class="headline">{{ label_for(variable) }}, day 1: average error
+  <strong>{{ '%.2f'|format(headline.mae) }} {{ unit_for(variable) }}</strong>.
+  {{ headline.verdict }}.</p>
+  {% endif %}
+  {% for note in report.notes %}<p class="alert">{{ note }}</p>{% endfor %}
+</section>
+
+<section class="panel">
+  <h2>How to read this</h2>
+  <p class="hint">A forecast is only worth something if it beats the free
+  alternatives. <em>Persistence</em> assumes nothing changes from the launch
+  hour, which is hard to beat in the first few hours. <em>Climatology</em>
+  assumes the site does what it usually does at this hour, which is hard to beat
+  several days out. Skill is the fractional improvement over a baseline:
+  positive is better, zero is no better, negative is worse. Coverage is how
+  often the observation fell inside the 10th to 90th percentile band, which
+  should be near 80 percent.</p>
+</section>
+
+<section class="panel">
+  <h2>Scores by lead time</h2>
+  <table class="grid tight">
+    <thead>
+      <tr>
+        <th>Variable</th><th>Lead</th><th class="num">n</th>
+        <th class="num">MAE</th><th class="num">Bias</th>
+        <th class="num">RMSE</th>
+        <th class="num">Persistence MAE</th>
+        <th class="num">Climatology MAE</th>
+        <th>Skill vs persistence</th>
+        <th>Skill vs climatology</th>
+        <th class="num">Coverage</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in table %}
+      <tr>
+        <td>{{ label_for(row.variable) }}
+            <span class="muted">{{ unit_for(row.variable) }}</span></td>
+        <td>{{ row.bucket }}</td>
+        <td class="num">{{ row.n }}</td>
+        <td class="num strong">{{ row.mae if row.mae is not none else '-' }}</td>
+        <td class="num">{{ row.bias if row.bias is not none else '-' }}</td>
+        <td class="num">{{ row.rmse if row.rmse is not none else '-' }}</td>
+        <td class="num muted">{{ row.mae_persistence if row.mae_persistence is not none else '-' }}</td>
+        <td class="num muted">{{ row.mae_climatology if row.mae_climatology is not none else '-' }}</td>
+        <td class="skill">{{ skill_bar(row.skill_vs_persistence)|safe }}
+          <span class="{{ 'good' if row.skill_vs_persistence and row.skill_vs_persistence > 0 else 'bad' if row.skill_vs_persistence and row.skill_vs_persistence < 0 else 'muted' }}">
+          {{ row.skill_vs_persistence if row.skill_vs_persistence is not none else 'n/a' }}</span></td>
+        <td class="skill">{{ skill_bar(row.skill_vs_climatology)|safe }}
+          <span class="{{ 'good' if row.skill_vs_climatology and row.skill_vs_climatology > 0 else 'bad' if row.skill_vs_climatology and row.skill_vs_climatology < 0 else 'muted' }}">
+          {{ row.skill_vs_climatology if row.skill_vs_climatology is not none else 'n/a' }}</span></td>
+        <td class="num">{{ (row.interval_coverage_pct ~ '%') if row.interval_coverage_pct is not none else '-' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if available %}
+<nav class="tabs sub">
+  {% for v in available %}
+  <a href="/station/{{ station.id }}/verify?days={{ days }}&variable={{ v }}"
+     class="{{ 'on' if v == variable else '' }}">{{ label_for(v) }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+<section class="panel">
+  <h2>Error over time: {{ label_for(variable) }}</h2>
+  {{ chart|safe }}
+  <p class="hint">Average absolute error for each day that has been scored. A
+  rising trend usually means a drifting sensor or a change in regime the
+  training window has not caught up with, and it is invisible in an all-time
+  average.</p>
+</section>
+{% endif %}
+{% endblock %}

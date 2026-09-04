@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Stations{% endblock %}
+
+{% block content %}
+<h1>Stations</h1>
+
+{% if rows %}
+<table class="grid">
+  <thead>
+    <tr>
+      <th>Station</th><th class="num">Readings</th>
+      <th class="num">Days</th><th>Record covers</th>
+      <th class="num">Forecastable</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><a href="/station/{{ r.station.id }}">{{ r.station.name }}</a>
+          <span class="muted">{{ r.station.slug }}</span></td>
+      <td class="num">{{ '{:,}'.format(r.readings) }}</td>
+      <td class="num">{{ r.days }}</td>
+      <td>{{ r.first.strftime('%Y-%m-%d') if r.first else '-' }}
+          to {{ r.last.strftime('%Y-%m-%d') if r.last else '-' }}</td>
+      <td class="num">{{ r.variables|length }}</td>
+      <td class="actions">
+        <a href="/station/{{ r.station.id }}/forecast?days=1">Forecast</a>
+        <a href="/station/{{ r.station.id }}/verify">Verify</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<section class="empty">
+  <h2>Nothing uploaded yet</h2>
+  <p>This installation has no station data. There is no sample data and no
+  demonstration station: a forecast is only produced from a record you upload,
+  so the numbers always refer to a real place.</p>
+  <p>Two ways to start. If your logger already writes into Dropbox, point a
+  station at that folder and it will feed itself. Otherwise upload a
+  <code>.dat</code> export from a CR300 or CR1000 series logger by hand.</p>
+</section>
+{% endif %}
+
+<div class="two-up">
+<section class="panel">
+  <h2>Feed a station from Dropbox</h2>
+  <p class="hint">For a logger that already drips its table into Dropbox. The
+  folder is watched and the export is ingested whenever it changes, so nothing
+  has to be uploaded by hand. Read-only: this never writes to or deletes
+  anything in your Dropbox.</p>
+
+  {% if dropbox_status.configured %}
+  <p class="notice">Dropbox is connected on this server{% if dropbox_polling %}
+    and the poller is running{% else %}, but background polling is switched
+    off{% endif %}.</p>
+  {% else %}
+  <p class="alert">Dropbox is not connected on this server, so a feed cannot run
+  yet. <code>DROPBOX_APP_KEY</code>, <code>DROPBOX_APP_SECRET</code> and
+  <code>DROPBOX_REFRESH_TOKEN</code> all have to be set. You can still create
+  the station and set the folder now.</p>
+  {% endif %}
+
+  <form method="post" action="/stations/new">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <div class="field">
+      <label for="name">Station name</label>
+      <input type="text" id="name" name="name" required maxlength="60"
+             placeholder="Quaggasklip">
+    </div>
+    <div class="field">
+      <label for="folder_path">Dropbox folder</label>
+      <input type="text" id="folder_path" name="folder_path"
+             placeholder="/StratusData/Quaggasklip">
+      <span class="hint">Leave blank for the app folder root.</span>
+    </div>
+    <div class="row">
+      <div class="field narrow">
+        <label for="new_pattern">File name pattern</label>
+        <input type="text" id="new_pattern" name="file_pattern" value="*.dat">
+      </div>
+      <div class="field narrow">
+        <label for="new_interval">Check every</label>
+        <select id="new_interval" name="interval_minutes">
+          <option value="5">5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="15" selected>15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="60">60 minutes</option>
+        </select>
+      </div>
+    </div>
+    <label class="check">
+      <input type="checkbox" name="dropbox_enabled" value="on" checked>
+      Start feeding now
+    </label>
+    <label class="check">
+      <input type="checkbox" name="auto_forecast" value="on" checked>
+      Refresh the 1, 3 and 5 day forecasts as new data arrives
+    </label>
+    <button type="submit" class="primary">Create and start feeding</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Or upload a file yourself</h2>
+  <p class="hint">A Campbell TOA5 <code>.dat</code> file. Overlapping exports
+  are safe to upload again: readings are matched on station, variable and
+  timestamp, so a repeat corrects rather than duplicates.</p>
+  <form method="post" action="/upload" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <div class="field">
+      <label for="file">Logger file</label>
+      <input type="file" id="file" name="file" accept=".dat,.csv,.txt"
+             required>
+    </div>
+    <div class="field">
+      <label for="station_slug">Station id (optional)</label>
+      <input type="text" id="station_slug" name="station_slug"
+             placeholder="taken from the file header if left blank"
+             pattern="[A-Za-z0-9\-]*" maxlength="60">
+      <span class="hint">Use the same id to add more data to an existing
+      station.</span>
+    </div>
+    <button type="submit" class="primary">Upload and read</button>
+  </form>
+</section>
+</div>
+
+{% if providers %}
+<section class="panel">
+  <h2>Model background</h2>
+  <p class="hint">Optional, and off per station until you choose it. A model
+  background tells the forecast about weather the site has not seen before; the
+  station's own record then corrects it for the site.</p>
+  <table class="grid tight">
+    <thead><tr><th>Provider</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for p in providers %}
+      <tr>
+        <td>{{ p.label }}</td>
+        <td>{% if p.available %}<span class="ok">ready</span>
+            {% else %}<span class="muted">not active</span>
+            {% if p.last_error %}<br><span class="hint">{{ p.last_error }}</span>
+            {% endif %}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

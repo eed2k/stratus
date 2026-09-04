@@ -25,11 +25,11 @@ def _scale_y(val, lo, hi, y0, h):
     return y0 + h - frac * h
 
 
-def _polyline(points, colour, width=2):
+def _polyline(points, color, width=2):
     if not points:
         return ""
     pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
-    return (f'<polyline fill="none" stroke="{colour}" stroke-width="{width}" '
+    return (f'<polyline fill="none" stroke="{color}" stroke-width="{width}" '
             f'stroke-linejoin="round" stroke-linecap="round" points="{pts}"/>')
 
 

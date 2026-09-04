@@ -1,0 +1,29 @@
+[Unit]
+Description=Stratus Weather kiosk display (Chromium full screen)
+# Wait for the network so the first page load is not an error.
+After=network-online.target systemd-user-sessions.service
+Wants=network-online.target
+
+[Service]
+# The BeagleBone Debian images ship a "debian" user. Change User/Group here if
+# your image uses a different login.
+User=debian
+Group=debian
+PAMName=login
+TTYPath=/dev/tty1
+
+# Start an X server on vt1 and run the kiosk launcher inside it. xinit exits
+# when the launcher exits, and Restart=always brings the whole thing back.
+ExecStart=/usr/bin/xinit /opt/stratus-kiosk/start-kiosk.sh -- :0 vt1 -nolisten tcp -keeptty
+
+Restart=always
+RestartSec=5
+# Give the display session its own tty and make sure it owns the console.
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=multi-user.target

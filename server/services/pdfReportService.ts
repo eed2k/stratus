@@ -110,7 +110,7 @@ function dirBin(deg: number): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Field aliases - match the catalogues used by reportSchedulerService
+// Field aliases - match the catalogs used by reportSchedulerService
 // so the PDF can pull a couple of raw series (temperature, rainfall,
 // wind) for the line charts.
 // ─────────────────────────────────────────────────────────────────────
@@ -330,7 +330,7 @@ function buildWindRoseSVG(records: RawRecord[], label: string, size = 320): stri
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Wind speed scatter (polar) - direction vs speed, coloured by class.
+// Wind speed scatter (polar) - direction vs speed, colored by class.
 // ─────────────────────────────────────────────────────────────────────
 
 function buildWindScatterSVG(records: RawRecord[], label: string, sz = 320): string {
@@ -421,27 +421,27 @@ const RULE = "#cbd5e1";
 const GRID = "#eef2f7";
 
 /**
- * Chart line colours.
+ * Chart line colors.
  *
- * These values mirror shared/chartColours.ts (CHART_COLOURS) so a series is
- * drawn in the same colour here as on the dashboard. They are duplicated
+ * These values mirror shared/chartColors.ts (CHART_COLORS) so a series is
+ * drawn in the same color here as on the dashboard. They are duplicated
  * rather than imported because tsconfig.server.json sets rootDir ./server and
- * excludes shared/, so this module cannot reach outside server/. If a colour
- * changes in shared/chartColours.ts, change it here too.
+ * excludes shared/, so this module cannot reach outside server/. If a color
+ * changes in shared/chartColors.ts, change it here too.
  *
  * House rules from that file: ETo and battery voltage are always green, and
  * there is no violet/purple and no pale washed-out blue in the palette.
  */
 export const CHART_COLORS = {
-  temperature: "#ef4444",     // CHART_COLOURS.temperature
-  humidity: "#2563eb",        // CHART_COLOURS.humidity
-  wind: "#0891b2",            // CHART_COLOURS.windSpeed
-  gust: "#f59e0b",            // CHART_COLOURS.windGust
-  solar: "#f59e0b",           // CHART_COLOURS.solarRadiation
-  battery: "#16a34a",         // CHART_COLOURS.batteryVoltage - always green
-  battery2: "#15803d",        // CHART_COLOURS.batteryVoltage2 - second green
-  pressure: "#0f766e",        // CHART_COLOURS.pressure - teal, was violet
-  eto: "#16a34a",             // CHART_COLOURS.eto - always green
+  temperature: "#ef4444",     // CHART_COLORS.temperature
+  humidity: "#2563eb",        // CHART_COLORS.humidity
+  wind: "#0891b2",            // CHART_COLORS.windSpeed
+  gust: "#f59e0b",            // CHART_COLORS.windGust
+  solar: "#f59e0b",           // CHART_COLORS.solarRadiation
+  battery: "#16a34a",         // CHART_COLORS.batteryVoltage - always green
+  battery2: "#15803d",        // CHART_COLORS.batteryVoltage2 - second green
+  pressure: "#0f766e",        // CHART_COLORS.pressure - teal, was violet
+  eto: "#16a34a",             // CHART_COLORS.eto - always green
 };
 
 interface ChartSeries { ts: Date; value: number }
@@ -581,13 +581,13 @@ function buildChartSVG(o: {
   /**
    * Bar series are laid out on ordinal bands, not on the continuous time axis.
    *
-   * Plotting a column at its exact timestamp puts the first column's centre
+   * Plotting a column at its exact timestamp puts the first column's center
    * on padL, i.e. straight on top of the y-axis, so half of it renders outside
-   * the plot box, and puts the last column's centre on the right frame. The x
+   * the plot box, and puts the last column's center on the right frame. The x
    * tick labels were separately placed at evenly spaced pixel ratios with their
    * dates interpolated from the time domain, so on a month of daily ETo values
    * the printed date almost never fell under the column for that date. Giving
-   * each point an equal band and centring both the column and its tick label in
+   * each point an equal band and centering both the column and its tick label in
    * that band makes the two align by construction.
    *
    * Line and area series keep the continuous time scale: they have no per-
@@ -598,7 +598,7 @@ function buildChartSVG(o: {
     ? Math.max(...barSeries.map((ser) => ser.points.length))
     : 0;
   const bandW = bandCount > 0 ? innerW / bandCount : 0;
-  /** Centre of the i-th ordinal band. */
+  /** Center of the i-th ordinal band. */
   const xBand = (i: number) => padL + (i + 0.5) * bandW;
 
   const yOf = (value: number, side: "left" | "right") => {
@@ -650,7 +650,7 @@ function buildChartSVG(o: {
 
   if (bandCount > 0) {
     /**
-     * Banded axis: label the actual data points, centred in their own band, so
+     * Banded axis: label the actual data points, centered in their own band, so
      * every label sits under the column it describes. Subsampled to roughly
      * tickCount labels so a month of daily values does not collide.
      */
@@ -662,7 +662,7 @@ function buildChartSVG(o: {
       if (!p) continue;
       const x = xBand(i);
       s += `<line x1="${x.toFixed(1)}" y1="${plotTop + plotH}" x2="${x.toFixed(1)}" y2="${plotTop + plotH + 3}" stroke="${RULE}" stroke-width="0.8"/>`;
-      // Centre every label: a banded label belongs to its band, so clamping the
+      // Center every label: a banded label belongs to its band, so clamping the
       // first and last to the frame edge would pull them off their own column.
       s += `<text x="${x.toFixed(1)}" y="${plotTop + plotH + 13}" text-anchor="middle" font-size="8" fill="${MUTED}" font-family="Helvetica">${escapeXml(fmtTs(p.ts.getTime()))}</text>`;
     }
@@ -686,8 +686,8 @@ function buildChartSVG(o: {
       /**
        * Width comes from the band, not from a raw count against the full plot
        * width, so a short series gets proportionally wide columns and a long one
-       * gets narrow ones, both centred in their band. The 0.7 factor leaves a
-       * visible gutter between neighbouring columns.
+       * gets narrow ones, both centered in their band. The 0.7 factor leaves a
+       * visible gutter between neighboring columns.
        */
       const groupW = Math.max(1.5, bandW * 0.7);
       // Several bar series share a band by splitting it, so they sit side by
@@ -697,11 +697,11 @@ function buildChartSVG(o: {
       const barW = Math.max(1.0, Math.min(18, slotW));
       const baseY = yOf(Math.max(0, (side === "right" ? rightScale : leftScale)?.min ?? 0), side);
       ser.points.forEach((p, i) => {
-        // Offset within the band: centred for a single series, split evenly when
+        // Offset within the band: centered for a single series, split evenly when
         // more than one bar series is present.
-        const centre = xBand(i)
+        const center = xBand(i)
           - (barSeries.length > 1 ? groupW / 2 - slotW * (slotIndex + 0.5) : 0);
-        const x = centre - barW / 2;
+        const x = center - barW / 2;
         const y = yOf(p.value, side);
         const h = Math.max(0.5, baseY - y);
         s += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${ser.color}" fill-opacity="0.85"/>`;
@@ -973,7 +973,7 @@ async function renderStationSection(
     { x: doc.page.margins.left + polarSize + 14, y: polarY, width: polarSize });
   doc.y = polarY + polarH + 10;
 
-  const dirNote = "Petal length shows how often the wind blew from each direction; colour bands show the speed class. "
+  const dirNote = "Petal length shows how often the wind blew from each direction; color bands show the speed class. "
     + "The scatter plots every reading as direction (angle) against speed (radius).";
   // Flowed text (no x,y) so it can never land on top of the figures above or
   // run past the bottom margin - overlapping text boxes are what break DOCX
@@ -1187,7 +1187,7 @@ function meanDirection(values: Array<number | null>): number | null {
     sx += Math.cos(r);
     sy += Math.sin(r);
   }
-  if (Math.abs(sx) < 1e-9 && Math.abs(sy) < 1e-9) return null; // fully cancelling
+  if (Math.abs(sx) < 1e-9 && Math.abs(sy) < 1e-9) return null; // fully canceling
   let deg = (Math.atan2(sy, sx) * 180) / Math.PI;
   if (deg < 0) deg += 360;
   return deg;
@@ -1197,8 +1197,8 @@ function meanDirection(values: Array<number | null>): number | null {
  * Convert the stored rainfall channel into per-reading INTERVAL rainfall.
  *
  * Stations disagree on what the field means. RIKA (and any counter-style gauge)
- * reports millimetres since commissioning, so the raw column climbs forever;
- * summing it would invent metres of rain. Incremental loggers already report
+ * reports millimeters since commissioning, so the raw column climbs forever;
+ * summing it would invent meters of rain. Incremental loggers already report
  * per-interval totals. The station's calibration row decides which, and 'auto'
  * falls back to detecting a monotonic series.
  *

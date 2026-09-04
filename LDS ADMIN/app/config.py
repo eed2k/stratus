@@ -31,11 +31,30 @@ class Settings(BaseSettings):
     LOGIN_MAX_FAILURES: int = 8           # per client IP within the window
     LOGIN_FAILURE_WINDOW: int = 900       # 15 minutes
 
-    # Clickatell One API
-    CLICKATELL_API_KEY: str = ""
-    # Shared secret expected on inbound delivery-receipt callbacks
-    # (configure the same value in the Clickatell One API setup).
-    CLICKATELL_DLR_TOKEN: str = ""
+    # SMS gateway credentials.
+    #
+    # SMS_GATEWAY_* are the names to use. The older provider-specific names are
+    # still read as a fallback so an existing deployment's .env keeps working
+    # untouched - renaming a variable should never be the reason alerts stop.
+    # The gateway's send endpoint. Configurable rather than compiled in, so the
+    # supplier can be changed from .env without touching code.
+    SMS_GATEWAY_URL: str = "https://platform.clickatell.com/v1/message"
+    SMS_GATEWAY_API_KEY: str = ""
+    # Shared secret expected on inbound delivery-receipt callbacks. Configure the
+    # same value in the gateway's delivery-notification setup.
+    SMS_GATEWAY_DLR_TOKEN: str = ""
+    CLICKATELL_API_KEY: str = ""          # legacy alias, still honored
+    CLICKATELL_DLR_TOKEN: str = ""        # legacy alias, still honored
+
+    @property
+    def sms_api_key(self) -> str:
+        """The gateway API key, preferring the current variable name."""
+        return self.SMS_GATEWAY_API_KEY or self.CLICKATELL_API_KEY
+
+    @property
+    def sms_dlr_token(self) -> str:
+        """The delivery-receipt shared secret, preferring the current name."""
+        return self.SMS_GATEWAY_DLR_TOKEN or self.CLICKATELL_DLR_TOKEN
 
     # Site name used in SMS alerts. Set SITE_NAME in the environment per
     # deployment; falls back to the station_id reported by the detector.

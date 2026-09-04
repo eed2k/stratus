@@ -188,13 +188,13 @@ body { padding: 18px; }
     { key: "30-40", label: "FAR",       range: "30-40 KM",      min: 30, max: 40 }
   ];
 
-  // Placeholder colours for the preview only. The real port must read these
+  // Placeholder colors for the preview only. The real port must read these
   // from app/metrics.py::_ENERGY_BANDS so dashboard and PDF agree.
   var EBANDS = [
-    { name: "Low",      upTo: 0.25, colour: "#2c7fb8" },
-    { name: "Moderate", upTo: 0.50, colour: "#d98f16" },
-    { name: "High",     upTo: 0.75, colour: "#d4571d" },
-    { name: "Extreme",  upTo: 1.01, colour: "#c0392b" }
+    { name: "Low",      upTo: 0.25, color: "#2c7fb8" },
+    { name: "Moderate", upTo: 0.50, color: "#d98f16" },
+    { name: "High",     upTo: 0.75, color: "#d4571d" },
+    { name: "Extreme",  upTo: 1.01, color: "#c0392b" }
   ];
   function eband(e) {
     var f = Math.max(0, Math.min(1, e / E_MAX));
@@ -248,13 +248,13 @@ body { padding: 18px; }
   function buildBand(def, stats) {
     var active = stats.count > 0;
     var eb = active ? eband(stats.mean) : null;
-    var colour = active ? eb.colour : "#93a0b0";
+    var color = active ? eb.color : "#93a0b0";
     var f = active ? Math.max(0, Math.min(1, stats.mean / E_MAX)) : 0;
     var s = 0.74 + f * 0.40;                 // small clouds, mild size cue
 
     var cell = document.createElement("div");
     cell.className = "band" + (active ? "" : " idle");
-    cell.style.setProperty("--bandc", colour);
+    cell.style.setProperty("--bandc", color);
 
     var hdr = document.createElement("div");
     hdr.className = "band-range";
@@ -273,7 +273,7 @@ body { padding: 18px; }
     el("feGaussianBlur", { stdDeviation: 3.6 }, filt);
 
     if (active) {
-      el("circle", { cx: CX, cy: CY + 6, r: 28, fill: colour,
+      el("circle", { cx: CX, cy: CY + 6, r: 28, fill: color,
                      filter: "url(#" + fid + ")", "class": "halo",
                      opacity: 0 }, svg);
     }
@@ -282,9 +282,9 @@ body { padding: 18px; }
     var glow, main, core;
     if (active) {
       var path = jag(CX, BOLT_TOP, BOLT_END);
-      glow = el("polyline", { points: path, stroke: colour, "stroke-width": 5.5,
+      glow = el("polyline", { points: path, stroke: color, "stroke-width": 5.5,
         "class": "bolt bolt-glow", filter: "url(#" + fid + ")" }, svg);
-      main = el("polyline", { points: path, stroke: colour, "stroke-width": 2.2,
+      main = el("polyline", { points: path, stroke: color, "stroke-width": 2.2,
         "class": "bolt bolt-main" }, svg);
       core = el("polyline", { points: path, stroke: "#ffffff",
         "stroke-width": .9, "class": "bolt bolt-core" }, svg);
@@ -302,7 +302,7 @@ body { padding: 18px; }
         '<div class="band-row"><span>mean</span><b>' + fmtE(stats.mean) + '</b></div>' +
         '<div class="band-row"><span>low</span><b>'  + fmtE(stats.min) + '</b></div>' +
         '<div class="band-row" style="border-top:1px dotted var(--line);margin-top:2px;padding-top:2px;">' +
-          '<span>band</span><b style="color:' + colour + '">' + eb.name + '</b></div>' +
+          '<span>band</span><b style="color:' + color + '">' + eb.name + '</b></div>' +
       '</div>';
     } else {
       html += '<div class="band-none">no strikes recorded</div>';
@@ -331,7 +331,7 @@ body { padding: 18px; }
 
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
 
-  function summarise(list) {
+  function summarize(list) {
     return BANDS.map(function (d) {
       var es = list.filter(function (s) {
         return s.distance_km >= d.min && s.distance_km <= d.max;
@@ -350,7 +350,7 @@ body { padding: 18px; }
       var ts = new Date(s.t).getTime();
       return !isNaN(ts) && ts >= cutoff;
     });
-    var stats = summarise(shown);
+    var stats = summarize(shown);
 
     document.getElementById("count").textContent =
       shown.length + (shown.length === 1 ? " strike" : " strikes") +

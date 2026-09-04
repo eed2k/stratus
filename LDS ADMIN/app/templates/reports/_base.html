@@ -30,7 +30,7 @@
     size: A4;
     margin: 16mm 15mm 20mm;
     @bottom-left {
-      {# Pre-sanitised in reports.py::css_safe_text. This is a CSS string inside
+      {# Pre-sanitized in reports.py::css_safe_text. This is a CSS string inside
          a <style> element, so neither HTML escaping nor raw interpolation is
          safe here: see the note on that function. #}
       content: "{{ footer_text }}";

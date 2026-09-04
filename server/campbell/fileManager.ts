@@ -37,7 +37,7 @@ export interface TransferProgress {
   percentComplete: number;
   bytesPerSecond: number;
   estimatedTimeRemaining: number;
-  status: 'pending' | 'in-progress' | 'completed' | 'failed' | 'cancelled';
+  status: 'pending' | 'in-progress' | 'completed' | 'failed' | 'canceled';
   error?: string;
 }
 
@@ -197,7 +197,7 @@ export class FileManager extends EventEmitter {
       throw new Error(`Invalid file path: must be within backup directory (${allowedDir})`);
     }
     
-    // Initialise progress tracking
+    // Initialize progress tracking
     const progress: TransferProgress = {
       fileName: remoteFilePath,
       totalBytes: 0,
@@ -309,7 +309,7 @@ export class FileManager extends EventEmitter {
 
     const stats = fs.statSync(localFilePath);
     
-    // Initialise progress tracking
+    // Initialize progress tracking
     const progress: TransferProgress = {
       fileName: localFilePath,
       totalBytes: stats.size,
@@ -695,9 +695,9 @@ export class FileManager extends EventEmitter {
   cancelTransfer(transferId: string): boolean {
     const transfer = this.activeTransfers.get(transferId);
     if (transfer && transfer.status === 'in-progress') {
-      transfer.status = 'cancelled';
+      transfer.status = 'canceled';
       this.activeTransfers.delete(transferId);
-      this.emit('transfer-cancelled', transferId);
+      this.emit('transfer-canceled', transferId);
       return true;
     }
     return false;

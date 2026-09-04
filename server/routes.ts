@@ -13,10 +13,10 @@ import * as crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { auditLog, AUDIT_ACTIONS, type AuditAction } from "./services/auditLogService";
 import {
-  normaliseUplink,
+  normalizeUplink,
   describeUplinkFormat,
-  type NormalisedUplink,
-} from "./protocols/uplinkNormaliser";
+  type NormalizedUplink,
+} from "./protocols/uplinkNormalizer";
 import {
   decodePayload,
   validateDecoderSpec,
@@ -67,7 +67,7 @@ const ADMIN_ONLY_STATION_FIELDS = ['apiKey', 'securityCode'] as const;
  * Strip credentials from a station record for non-admin callers.
  * Admins get the row untouched, because the setup and settings screens need it.
  */
-function sanitiseStationForCaller<T extends Record<string, any>>(station: T, isAdminCaller: boolean): T {
+function sanitizeStationForCaller<T extends Record<string, any>>(station: T, isAdminCaller: boolean): T {
   if (isAdminCaller) return station;
 
   const config = readConnectionConfig(station.connectionConfig);
@@ -150,17 +150,17 @@ async function prepareUplinkPayload(
   body: any,
   stationConfig: Record<string, any>,
   stationId: number,
-  pre?: NormalisedUplink,
+  pre?: NormalizedUplink,
 ): Promise<PreparedUplink> {
   const warnings: string[] = [];
-  const uplink = pre ?? normaliseUplink(body);
+  const uplink = pre ?? normalizeUplink(body);
 
   const fail = (message: string): PreparedUplink => ({
     ok: false, message, format: uplink.format, data: {}, timestamp: new Date(),
     tableName: 'datalogger', warnings,
   });
 
-  // Native Stratus body keeps its existing behaviour exactly.
+  // Native Stratus body keeps its existing behavior exactly.
   if (uplink.format === 'stratus') {
     const data = body?.data;
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -178,7 +178,7 @@ async function prepareUplinkPayload(
   }
 
   if (uplink.format === 'unknown') {
-    return fail("Unrecognised payload. Send { \"data\": { ... } }, a Sigfox callback, or a LoRaWAN webhook body.");
+    return fail("Unrecognized payload. Send { \"data\": { ... } }, a Sigfox callback, or a LoRaWAN webhook body.");
   }
 
   const data: Record<string, unknown> = { ...uplink.decoded };
@@ -693,10 +693,10 @@ export async function registerRoutes(
     }
   });
 
-  // Initialise file watcher service
+  // Initialize file watcher service
   await fileWatcherService.initialize();
 
-  // Initialise Dropbox sync with configuration from environment or DB
+  // Initialize Dropbox sync with configuration from environment or DB
   // This auto-syncs .dat files from Dropbox folder every hour
   let DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
   let DROPBOX_FOLDER_PATH = process.env.DROPBOX_FOLDER_PATH || '';
@@ -759,7 +759,7 @@ export async function registerRoutes(
     res.json({ status: 'ok', timestamp: new Date().toISOString(), server: 'stratus' });
   });
 
-  // Initialise data collection service
+  // Initialize data collection service
   try {
     await dataCollectionService.initialize();
     console.log('Campbell Scientific data collection service initialized');
@@ -767,7 +767,7 @@ export async function registerRoutes(
     console.error('Failed to initialize data collection service:', error);
   }
 
-  // Initialise Protocol Manager for all station types
+  // Initialize Protocol Manager for all station types
   try {
     await protocolManager.initialize();
     console.log('Protocol Manager initialized');
@@ -1413,7 +1413,7 @@ export async function registerRoutes(
     try {
       const stations = await storage.getStations();
       const admin = isAdminRequest(req);
-      res.json(stations.map((s) => sanitiseStationForCaller(s, admin)));
+      res.json(stations.map((s) => sanitizeStationForCaller(s, admin)));
     } catch (error) {
       console.error("Error fetching stations:", error);
       res.status(500).json({ message: "Failed to fetch stations" });
@@ -1430,7 +1430,7 @@ export async function registerRoutes(
       if (!station) {
         return res.status(404).json({ message: "Station not found" });
       }
-      res.json(sanitiseStationForCaller(station, isAdminRequest(req)));
+      res.json(sanitizeStationForCaller(station, isAdminRequest(req)));
     } catch (error) {
       console.error("Error fetching station:", error);
       res.status(500).json({ message: "Failed to fetch station" });
@@ -1496,7 +1496,7 @@ export async function registerRoutes(
                 });
                 console.log(`[Routes] Dropbox config created for station ${station.id}: folder=${folderPath}, pattern=${filePattern || '*'}, interval=${syncInterval}s`);
                 
-                // Reinitialise sync service to pick up new config & trigger immediate sync
+                // Reinitialize sync service to pick up new config & trigger immediate sync
                 await dropboxSyncService.reinitialize();
                 setTimeout(async () => {
                   try {
@@ -1626,7 +1626,7 @@ export async function registerRoutes(
                   console.log(`[Routes] Dropbox config created for station ${station.id}: folder=${folderPath}, pattern=${filePattern || '*'}, interval=${syncInterval}s`);
                 }
                 
-                // Reinitialise sync service to pick up DB changes
+                // Reinitialize sync service to pick up DB changes
                 await dropboxSyncService.reinitialize();
               } catch (dbErr: any) {
                 console.warn(`[Routes] Could not update dropbox_configs entry: ${dbErr.message}`);
@@ -1727,11 +1727,11 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Station not found" });
       }
       
-      // Reinitialise sync service so it drops references to deleted station/configs
+      // Reinitialize sync service so it drops references to deleted station/configs
       try {
         await dropboxSyncService.reinitialize();
       } catch (syncErr) {
-        console.warn(`Failed to reinitialise sync service after deleting station ${stationId}:`, syncErr);
+        console.warn(`Failed to reinitialize sync service after deleting station ${stationId}:`, syncErr);
       }
       
       // Log station deletion
@@ -2143,7 +2143,7 @@ export async function registerRoutes(
         });
       }
       
-      // Normalise the body. Native Stratus JSON, Sigfox callbacks, TTN,
+      // Normalize the body. Native Stratus JSON, Sigfox callbacks, TTN,
       // ChirpStack and Helium webhooks and flat JSON all end up in one shape.
       const prepared = await prepareUplinkPayload(req.body, stationConfig, stationId);
       if (!prepared.ok) {
@@ -2191,11 +2191,11 @@ export async function registerRoutes(
    */
   app.post("/api/ingest/uplink", ingestRateLimiter, async (req, res) => {
     try {
-      const uplink = normaliseUplink(req.body);
+      const uplink = normalizeUplink(req.body);
       if (uplink.format === 'unknown') {
         return res.status(400).json({
           success: false,
-          message: "Unrecognised uplink payload. Expected a Sigfox callback, a LoRaWAN webhook (TTN, ChirpStack, Helium) or Stratus JSON.",
+          message: "Unrecognized uplink payload. Expected a Sigfox callback, a LoRaWAN webhook (TTN, ChirpStack, Helium) or Stratus JSON.",
         });
       }
       if (uplink.deviceIds.length === 0) {
@@ -2296,7 +2296,7 @@ export async function registerRoutes(
       if (req.body?.decoder !== undefined) stationConfig.uplinkDecoder = req.body.decoder;
 
       const body = req.body?.payload !== undefined ? req.body.payload : req.body;
-      const uplink = normaliseUplink(body);
+      const uplink = normalizeUplink(body);
       const prepared = await prepareUplinkPayload(body, stationConfig, stationId, uplink);
 
       res.json({
@@ -2355,7 +2355,7 @@ export async function registerRoutes(
           // Only insert if we have some valid data
           if (Object.values(weatherData).some(v => v !== null)) {
             /**
-             * Store every channel the parser recognised, plus the original
+             * Store every channel the parser recognized, plus the original
              * Campbell column names.
              *
              * This used to enumerate thirteen fields by hand, which silently
@@ -2537,7 +2537,7 @@ export async function registerRoutes(
       res.json(orgs);
     } catch (error) {
       console.error("Error fetching organizations:", error);
-      res.status(500).json({ message: "Failed to fetch organisations" });
+      res.status(500).json({ message: "Failed to fetch organizations" });
     }
   });
 
@@ -2549,7 +2549,7 @@ export async function registerRoutes(
       }
       const org = await storage.getOrganization(orgId);
       if (!org) {
-        return res.status(404).json({ message: "Organisation not found" });
+        return res.status(404).json({ message: "Organization not found" });
       }
       
       // Check membership unless demo mode
@@ -2563,7 +2563,7 @@ export async function registerRoutes(
       res.json(org);
     } catch (error) {
       console.error("Error fetching organization:", error);
-      res.status(500).json({ message: "Failed to fetch organisation" });
+      res.status(500).json({ message: "Failed to fetch organization" });
     }
   });
 
@@ -2573,7 +2573,7 @@ export async function registerRoutes(
       const { name, description } = req.body;
       
       if (!name || typeof name !== 'string' || name.trim().length === 0) {
-        return res.status(400).json({ message: "Organisation name is required" });
+        return res.status(400).json({ message: "Organization name is required" });
       }
       
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -2586,7 +2586,7 @@ export async function registerRoutes(
       });
       
       if (!parsed.success) {
-        return res.status(400).json({ message: "Invalid organisation data", errors: parsed.error.errors });
+        return res.status(400).json({ message: "Invalid organization data", errors: parsed.error.errors });
       }
       
       const org = await storage.createOrganization(parsed.data);
@@ -2602,7 +2602,7 @@ export async function registerRoutes(
       res.status(201).json(org);
     } catch (error) {
       console.error("Error creating organization:", error);
-      res.status(500).json({ message: "Failed to create organisation" });
+      res.status(500).json({ message: "Failed to create organization" });
     }
   });
 
@@ -2616,7 +2616,7 @@ export async function registerRoutes(
       
       // Only admins can update organization
       if (!(await isOrgAdmin(orgId, userId))) {
-        return res.status(403).json({ message: "Only organisation admins can update organisation" });
+        return res.status(403).json({ message: "Only organization admins can update organization" });
       }
       
       // Only allow updating specific fields
@@ -2628,12 +2628,12 @@ export async function registerRoutes(
       
       const org = await storage.updateOrganization(orgId, updateData);
       if (!org) {
-        return res.status(404).json({ message: "Organisation not found" });
+        return res.status(404).json({ message: "Organization not found" });
       }
       res.json(org);
     } catch (error) {
       console.error("Error updating organization:", error);
-      res.status(500).json({ message: "Failed to update organisation" });
+      res.status(500).json({ message: "Failed to update organization" });
     }
   });
 
@@ -2648,17 +2648,17 @@ export async function registerRoutes(
       // Only owner can delete organization
       const org = await storage.getOrganization(orgId);
       if (!org) {
-        return res.status(404).json({ message: "Organisation not found" });
+        return res.status(404).json({ message: "Organization not found" });
       }
       if (org.ownerId !== userId) {
-        return res.status(403).json({ message: "Only the organisation owner can delete it" });
+        return res.status(403).json({ message: "Only the organization owner can delete it" });
       }
       
       await storage.deleteOrganization(orgId);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting organization:", error);
-      res.status(500).json({ message: "Failed to delete organisation" });
+      res.status(500).json({ message: "Failed to delete organization" });
     }
   });
 
@@ -2696,7 +2696,7 @@ export async function registerRoutes(
       
       // Only admins can add members directly
       if (!(await isOrgAdmin(orgId, userId))) {
-        return res.status(403).json({ message: "Only organisation admins can add members" });
+        return res.status(403).json({ message: "Only organization admins can add members" });
       }
       
       const { userId: targetUserId, role } = req.body;
@@ -2729,7 +2729,7 @@ export async function registerRoutes(
       
       // Only admins can update roles
       if (!(await isOrgAdmin(orgId, currentUserId))) {
-        return res.status(403).json({ message: "Only organisation admins can update roles" });
+        return res.status(403).json({ message: "Only organization admins can update roles" });
       }
       
       const { role } = req.body;
@@ -2759,13 +2759,13 @@ export async function registerRoutes(
       
       // Only admins can remove members (or user can remove themselves)
       if (targetUserId !== currentUserId && !(await isOrgAdmin(orgId, currentUserId))) {
-        return res.status(403).json({ message: "Only organisation admins can remove members" });
+        return res.status(403).json({ message: "Only organization admins can remove members" });
       }
       
       // Prevent owner from being removed
       const org = await storage.getOrganization(orgId);
       if (org && org.ownerId === targetUserId) {
-        return res.status(400).json({ message: "Cannot remove the organisation owner" });
+        return res.status(400).json({ message: "Cannot remove the organization owner" });
       }
       
       const removed = await storage.removeOrganizationMember(orgId, targetUserId);
@@ -2813,7 +2813,7 @@ export async function registerRoutes(
       
       // Only admins can create invitations
       if (!(await isOrgAdmin(orgId, userId))) {
-        return res.status(403).json({ message: "Only organisation admins can send invitations" });
+        return res.status(403).json({ message: "Only organization admins can send invitations" });
       }
       
       const { email, role } = req.body;
@@ -3577,7 +3577,7 @@ export async function registerRoutes(
     }
   };
   
-  // Auto-Initialise widgets on page load
+  // Auto-Initialize widgets on page load
   function initWidgets() {
     var widgets = document.querySelectorAll('[data-stratus-widget], #stratus-widget, .stratus-widget-container');
     widgets.forEach(function(el) {
@@ -3595,7 +3595,7 @@ export async function registerRoutes(
     initWidgets();
   }
   
-  // Expose globally for manual Initialisation
+  // Expose globally for manual Initialization
   window.StratusWidget = StratusWidget;
 })();
 `;

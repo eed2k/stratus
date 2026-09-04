@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 interface AppSidebarProps {
   user?: {
@@ -35,22 +35,35 @@ interface NavItem {
   /**
    * Renders a plain anchor instead of a client-side route.
    *
-   * The AS3935 Admin Panel is a separate FastAPI application served from its
-   * own subdomain, so it cannot be reached through the SPA router. It also
-   * sends `X-Frame-Options: DENY` and `frame-ancestors 'none'`, which rules
-   * out embedding it in an iframe - a new tab is the only option that works.
+   * The four sibling services each run as a separate application on their own
+   * subdomain, so none of them can be reached through the SPA router. The
+   * AS3935 panel additionally sends `X-Frame-Options: DENY` and
+   * `frame-ancestors 'none'`, which rules out embedding it in an iframe, so a
+   * new tab is the only option that works.
    */
   external?: boolean;
 }
 
-// Lightning Detection System admin panel (separate Python/FastAPI service).
+// Stratus brand navy. Already used for the wordmark, the group label and the
+// admin badge in this file, so the cross-service links pick up the same value
+// rather than a second near-identical blue.
+const STRATUS_NAVY = "#1e3a5f";
+
+// The four sibling services, each a separate deployment on its own subdomain.
 const LIGHTNING_PANEL_URL = "https://adminpanel.stratusweather.co.za";
+const FORECAST_URL = "https://forecast.stratusweather.co.za";
+const INFO_CENTER_URL = "https://info.stratusweather.co.za";
+const LIGHTNING_DEMO_URL = "https://lightningdemo.stratusweather.co.za";
 
 // Admin navigation items - full access
 const adminNavItems: NavItem[] = [
-  // Pinned to the top: the AS3935 panel is the entry point operators reach for
-  // most often, and it is the one item that leaves the SPA entirely.
+  // Pinned to the top: these four are the items that leave the SPA entirely,
+  // so they are grouped together and tinted to read as a distinct block rather
+  // than as four more pages of this application.
   { title: "AS3935 Admin Panel", url: LIGHTNING_PANEL_URL, external: true },
+  { title: "Forecast", url: FORECAST_URL, external: true },
+  { title: "Information Center", url: INFO_CENTER_URL, external: true },
+  { title: "Lightning Demo", url: LIGHTNING_DEMO_URL, external: true },
   { title: "Active Stations", url: "/" },
   { title: "Station Setup", url: "/stations" },
   { title: "User Management", url: "/users" },
@@ -83,8 +96,8 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
             <div className="w-2.5 h-2.5 rounded-full bg-white"></div>
           </div>
           <div className="inline-flex flex-col items-center pt-[5px]">
-            <h2 className="text-[18px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</h2>
-            <span className="text-[9px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>METRON (PTY) LTD</span>
+            <h2 className="text-[18px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: STRATUS_NAVY }}>STRATUS</h2>
+            <span className="text-[9px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: STRATUS_NAVY }}>METRON (PTY) LTD</span>
           </div>
           {/* Metron company logo */}
           <img src="/metron-logo.png" alt="Metron" className="w-8 h-8 object-contain flex-shrink-0 ml-1" />
@@ -93,7 +106,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
 
       <SidebarContent className="bg-sidebar-background">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-base font-semibold" style={{ color: '#1e3a5f' }}>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-base font-semibold" style={{ color: STRATUS_NAVY }}>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -113,14 +126,21 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
                       // rel="noopener noreferrer" keeps the new tab from getting a
                       // handle on this window and withholds the referrer from the
                       // other origin.
+                      //
+                      // Tinted Stratus navy and set semibold so the three
+                      // cross-service links read as a group and are visibly
+                      // different from the in-app pages below them. The color is
+                      // carried inline for the same reason the header uses it
+                      // inline: it is the brand navy, not a themeable token, and
+                      // it must not shift with the sidebar theme.
                       <a
                         href={item.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between gap-2"
+                        className="flex items-center gap-2 font-semibold"
+                        style={{ color: STRATUS_NAVY }}
                       >
                         <span>{item.title}</span>
-                        <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />
                         <span className="sr-only">(opens in a new tab)</span>
                       </a>
                     ) : (
@@ -141,7 +161,7 @@ export function AppSidebar({ user, onLogout, onBackToStations: _onBackToStations
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               {isAdmin ? (
-                <Badge variant="default" className="text-xs" style={{ backgroundColor: '#1e3a5f' }}>
+                <Badge variant="default" className="text-xs" style={{ backgroundColor: STRATUS_NAVY }}>
                   Admin
                 </Badge>
               ) : (

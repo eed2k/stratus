@@ -218,21 +218,31 @@ def event_status(eid: int, _=Depends(verify_token), db: Session = Depends(get_db
     }
 
 
-# -------------------- Clickatell delivery-receipt callback --------------------
-# Configured in Clickatell One API setup as:
-#   POST https://gwld1-admin.dynv6.net/api/clickatell/dlr
-# with custom auth header (we accept the token as either ?token=... or via the
-# X-Auth-Token header) so it works across Clickatell's setup variants.
-dlr_router = APIRouter(prefix="/api/clickatell")
+# -------------------- Delivery-receipt callback --------------------
+# The gateway calls this to report what happened to each message.
+#
+# TWO PATHS, ONE OF THEM DELIBERATELY UGLY
+#   /api/sms/dlr         the name to use, and what new setups should point at
+#   /api/clickatell/dlr  the path already configured at the provider
+#
+# The old path is kept because it is live: the supplier's delivery-notification
+# setting points at it, and quietly renaming it here would strand every delivery
+# receipt with nothing in this panel to indicate why statuses had stopped
+# updating. It can be dropped once the provider's configuration has been pointed
+# at /api/sms/dlr and receipts are confirmed arriving there.
+#
+# The token is accepted as ?token=..., an X-Auth-Token header, or HTTP Basic
+# (password only), because gateway callback configurations vary.
+dlr_router = APIRouter()
 
 
 def _verify_dlr(token_qs: str, x_auth_token: str, authorization: str) -> None:
-    expected = settings.CLICKATELL_DLR_TOKEN
+    expected = settings.sms_dlr_token
     if not expected:
         return  # not configured -> accept (useful for first connectivity test)
     # Accept: ?token=..., X-Auth-Token header, or HTTP Basic where the password
-    # equals the token (Clickatell's "Username + Password" callback auth uses
-    # Basic; we ignore the username and only check the password).
+    # equals the token (a "Username + Password" callback setting sends Basic; the
+    # username is ignored and only the password is checked).
     if (hmac.compare_digest(str(token_qs), str(expected))
             or hmac.compare_digest(str(x_auth_token), str(expected))):
         return
@@ -249,13 +259,13 @@ def _verify_dlr(token_qs: str, x_auth_token: str, authorization: str) -> None:
 
 
 _STATUS_MAP = {
-    # Clickatell numeric statuses
+    # Gateway numeric delivery statuses.
     "1": "queued",      # message unknown
     "2": "queued",      # message queued
     "3": "delivered",   # delivered to gateway
     "4": "delivered",   # received by recipient
     "5": "failed",      # error with message
-    "6": "failed",      # user cancelled
+    "6": "failed",      # user canceled
     "7": "failed",      # error delivering
     "8": "sent",        # OK / accepted
     "9": "failed",      # routing error
@@ -267,19 +277,20 @@ _STATUS_MAP = {
 }
 
 
-@dlr_router.post("/dlr")
-async def clickatell_dlr(request: Request,
-                         token: str = "",
-                         x_auth_token: str = Header(default=""),
-                         authorization: str = Header(default=""),
-                         db: Session = Depends(get_db)):
+@dlr_router.post("/api/sms/dlr")
+@dlr_router.post("/api/clickatell/dlr", include_in_schema=False)
+async def delivery_receipt(request: Request,
+                           token: str = "",
+                           x_auth_token: str = Header(default=""),
+                           authorization: str = Header(default=""),
+                           db: Session = Depends(get_db)):
     _verify_dlr(token, x_auth_token, authorization)
     try:
         data = await request.json()
     except Exception:
         data = {}
 
-    # Clickatell sends one or many delivery receipts; normalise to a list.
+    # The gateway sends one receipt or many; normalize to a list.
     items = data if isinstance(data, list) else (data.get("messages") or [data])
     updated = 0
     for it in items:
@@ -301,5 +312,5 @@ async def clickatell_dlr(request: Request,
             updated += 1
     if updated:
         db.commit()
-    log.info("clickatell DLR processed: %d row(s) updated", updated)
+    log.info("delivery receipt processed: %d row(s) updated", updated)
     return {"status": "ok", "updated": updated}

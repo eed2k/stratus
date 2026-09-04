@@ -74,9 +74,15 @@ def set_alert_cooldown_min(db: Session, minutes: int, tenant_id=None) -> None:
     _write(db, ALERT_COOLDOWN_KEY, tenant_id, str(minutes))
 
 
-def get_last_alert_sent(db: Session, tenant_id=None):
-    """Return the datetime of the last dispatched SMS batch, or None."""
-    row = _read(db, LAST_ALERT_SENT_KEY, tenant_id)
+def get_last_alert_sent(db: Session, tenant_id=None, stage_id=None):
+    """Datetime of the last dispatched batch, or None.
+
+    `stage_id` scopes the marker to one escalation stage. Without it the cooldown
+    is shared across every distance band, so one distant strike claims the slot
+    and the near strike that follows is suppressed as a repeat - which is exactly
+    backward for a safety system. Each stage therefore keeps its own marker.
+    """
+    row = _read(db, _stage_key(LAST_ALERT_SENT_KEY, stage_id), tenant_id)
     if not row or not row.value:
         return None
     try:
@@ -85,9 +91,20 @@ def get_last_alert_sent(db: Session, tenant_id=None):
         return None
 
 
-def mark_alert_sent(db: Session, when: datetime = None, tenant_id=None) -> None:
+def mark_alert_sent(db: Session, when: datetime = None, tenant_id=None,
+                    stage_id=None) -> None:
     when = when or now_sast()
-    _write(db, LAST_ALERT_SENT_KEY, tenant_id, when.isoformat())
+    _write(db, _stage_key(LAST_ALERT_SENT_KEY, stage_id), tenant_id,
+           when.isoformat())
+
+
+def _stage_key(base: str, stage_id) -> str:
+    """Namespace a key to one stage, leaving the un-staged key untouched.
+
+    A tenant that has defined no stages keeps using the original key, so its
+    existing cooldown state carries across this change rather than resetting.
+    """
+    return base if stage_id is None else f"s{int(stage_id)}:{base}"
 
 
 # --------------------------- Unit liveness -----------------------------

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}File could not be read{% endblock %}
+
+{% block content %}
+<h1>That file could not be read</h1>
+<section class="panel">
+  <h2>{{ filename }}</h2>
+  <p class="alert">{{ reason }}</p>
+  <p class="hint">This tool reads Campbell TOA5 exports, which begin with a
+  <code>"TOA5",...</code> line followed by a row of column names, a row of
+  units and a row of aggregations. A plain CSV with a single header row is also
+  accepted.</p>
+  <p><a href="/">Back to stations</a></p>
+</section>
+{% endblock %}

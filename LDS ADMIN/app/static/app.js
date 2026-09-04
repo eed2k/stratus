@@ -14,12 +14,14 @@ document.addEventListener("DOMContentLoaded", function () {
   dismissLoader();
 });
 
-// Clear the loading overlay declared in base.html.
+// Clear the loading overlay declared in base.html, and drive its percentage.
 //
-// The overlay already dismisses itself through a CSS animation, so this is an
-// optimisation, not the mechanism: it clears the overlay as soon as the page is
-// genuinely ready instead of waiting out the CSS timeout. That ordering matters
-// because the fallback must not depend on this file running at all.
+// The overlay already dismisses itself through a CSS animation, so the
+// dismissal here is an optimization, not the mechanism: it clears the overlay as
+// soon as the page is genuinely ready instead of waiting out the CSS timeout.
+// That ordering matters because the fallback must not depend on this file
+// running at all. The same applies to the ring: CSS animates it, this only adds
+// the number.
 //
 // It waits for window "load" rather than DOMContentLoaded so the deferred
 // Recharts bundles have run and the charts have taken their final size. That is
@@ -31,12 +33,46 @@ function dismissLoader() {
     return;
   }
 
+  // Drive the percentage next to the ring. The ring itself is animated by CSS
+  // so it still works with scripting off; only the number needs this. It tracks
+  // the same 2.4s ease-out to 90% the CSS arc uses, so the digits and the arc
+  // agree instead of telling two different stories.
+  var pctEl = document.getElementById("pl-pct");
+  var labelEl = document.getElementById("pl-label-pct");
+  var started = Date.now();
+  var ticker = null;
+
+  function paint(value) {
+    if (pctEl) {
+      pctEl.textContent = value + "%";
+    }
+    if (labelEl) {
+      labelEl.textContent = " " + value + "%";
+    }
+  }
+
+  function tick() {
+    var linear = Math.min(1, (Date.now() - started) / 2400);
+    var eased = 1 - Math.pow(1 - linear, 3);
+    paint(Math.min(90, Math.round(eased * 90)));
+  }
+
+  paint(0);
+  ticker = setInterval(tick, 80);
+
   var cleared = false;
   function clear() {
     if (cleared) {
       return;
     }
     cleared = true;
+    if (ticker) {
+      clearInterval(ticker);
+      ticker = null;
+    }
+    // Show 100 before fading, so the ring is never seen jumping from a partial
+    // value straight into the page.
+    paint(100);
     loader.classList.add("is-done");
     // Take it out of the document once the fade is over so a fixed overlay can
     // never sit on top of the page and swallow clicks.

@@ -25,11 +25,11 @@ def _scale_y(val, lo, hi, y0, h):
     return y0 + h - frac * h
 
 
-def _polyline(points, colour, width=2):
+def _polyline(points, color, width=2):
     if not points:
         return ""
     pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
-    return (f'<polyline fill="none" stroke="{colour}" stroke-width="{width}" '
+    return (f'<polyline fill="none" stroke="{color}" stroke-width="{width}" '
             f'stroke-linejoin="round" stroke-linecap="round" points="{pts}"/>')
 
 
@@ -140,7 +140,7 @@ def cpu_chart_svg(samples, hours=24):
     if load_pts:
         parts.append(_polyline(load_pts, "#2c7fb8"))
 
-    # Legend: text only, no marker glyphs. The label is drawn in the same colour
+    # Legend: text only, no marker glyphs. The label is drawn in the same color
     # as its line, which identifies the series without a square in front of it.
     parts.append(
         f'<text x="{x0}" y="{pad_t-6}" font-family="{_ARIAL}" font-size="11" '
@@ -209,18 +209,18 @@ def _esc(s):
                   .replace("\u2265", "&#8805;"))
 
 
-def _text(x, y, s, size=11, colour=_INK, anchor="start", weight="normal"):
+def _text(x, y, s, size=11, color=_INK, anchor="start", weight="normal"):
     return (
         f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" '
         f'font-family="{_ARIAL}" font-size="{size}" font-weight="{weight}" '
-        f'fill="{colour}">{s}</text>'
+        f'fill="{color}">{s}</text>'
     )
 
 
 def _empty_svg(w, h, message):
     return (
         _svg_head(w, h, "no data")
-        + _text(w / 2, h / 2, message, size=11, colour=_MUTED, anchor="middle")
+        + _text(w / 2, h / 2, message, size=11, color=_MUTED, anchor="middle")
         + "</svg>"
     )
 
@@ -270,7 +270,7 @@ def cpu_trend_svg(samples, hours=24, warn=CPU_WARN_C, crit=CPU_CRIT_C,
     if title is None:
         title = "CPU temperature (deg C)"
     parts = [_svg_head(W, H, "CPU temperature")]
-    parts.append(_text(x0, 16, title, size=12, colour=_NAVY, weight="bold"))
+    parts.append(_text(x0, 16, title, size=12, color=_NAVY, weight="bold"))
 
     # Gridlines and left axis labels.
     for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
@@ -279,17 +279,17 @@ def cpu_trend_svg(samples, hours=24, warn=CPU_WARN_C, crit=CPU_CRIT_C,
         parts.append(f'<line x1="{x0}" y1="{gy:.1f}" x2="{x0+plot_w}" '
                      f'y2="{gy:.1f}" stroke="{_GRID}" stroke-width="1"/>')
         parts.append(_text(x0 - 5, gy + 3, f"{val:.0f}", size=9,
-                           colour=_MUTED, anchor="end"))
+                           color=_MUTED, anchor="end"))
 
     # Threshold lines (dashed) if within range.
-    for thr, colour, name in ((warn, "#e08a1e", "WARN"), (crit, "#c0392b", "CRIT")):
+    for thr, color, name in ((warn, "#e08a1e", "WARN"), (crit, "#c0392b", "CRIT")):
         if t_lo <= thr <= t_hi:
             ty = py(thr)
             parts.append(f'<line x1="{x0}" y1="{ty:.1f}" x2="{x0+plot_w}" '
-                         f'y2="{ty:.1f}" stroke="{colour}" stroke-width="1" '
+                         f'y2="{ty:.1f}" stroke="{color}" stroke-width="1" '
                          f'stroke-dasharray="4 3"/>')
             parts.append(_text(x0 + plot_w, ty - 3, f"{name} {thr:.0f}",
-                               size=8, colour=colour, anchor="end"))
+                               size=8, color=color, anchor="end"))
 
     # Temperature polyline.
     pts = " ".join(f"{px(s.ts):.1f},{py(s.cpu_temp_c):.1f}"
@@ -306,14 +306,14 @@ def cpu_trend_svg(samples, hours=24, warn=CPU_WARN_C, crit=CPU_CRIT_C,
     else:
         left_lbl = f"-{int(round(span_h))}h"
         right_lbl = "now"
-    parts.append(_text(x0, H - 8, left_lbl, size=9, colour=_MUTED))
-    parts.append(_text(x0 + plot_w, H - 8, right_lbl, size=9, colour=_MUTED,
+    parts.append(_text(x0, H - 8, left_lbl, size=9, color=_MUTED))
+    parts.append(_text(x0 + plot_w, H - 8, right_lbl, size=9, color=_MUTED,
                        anchor="end"))
     parts.append("</svg>")
     return "".join(parts)
 
 
-def _bar_chart_svg(labels, counts, colours, title, label_note=""):
+def _bar_chart_svg(labels, counts, colors, title, label_note=""):
     """Generic vertical bar chart used by the distance and energy charts."""
     W, H = 520, 200
     pad_l, pad_r, pad_t, pad_b = 40, 16, 28, 34
@@ -321,7 +321,7 @@ def _bar_chart_svg(labels, counts, colours, title, label_note=""):
     x0, y0 = pad_l, pad_t
     n = len(labels)
     parts = [_svg_head(W, H, title)]
-    parts.append(_text(x0, 16, title, size=12, colour=_NAVY, weight="bold"))
+    parts.append(_text(x0, 16, title, size=12, color=_NAVY, weight="bold"))
     top = max(counts) if counts and max(counts) > 0 else 1
     # Y gridlines.
     for frac in (0.0, 0.5, 1.0):
@@ -329,22 +329,22 @@ def _bar_chart_svg(labels, counts, colours, title, label_note=""):
         parts.append(f'<line x1="{x0}" y1="{gy:.1f}" x2="{x0+plot_w}" '
                      f'y2="{gy:.1f}" stroke="{_GRID}" stroke-width="1"/>')
         parts.append(_text(x0 - 5, gy + 3, f"{int(round(top*frac))}", size=9,
-                           colour=_MUTED, anchor="end"))
+                           color=_MUTED, anchor="end"))
     if n:
         slot = plot_w / n
         bw = slot * 0.6
-        for i, (lab, cnt, col) in enumerate(zip(labels, counts, colours)):
+        for i, (lab, cnt, col) in enumerate(zip(labels, counts, colors)):
             bh = (cnt / top) * plot_h if top else 0
             bx = x0 + i * slot + (slot - bw) / 2
             by = y0 + plot_h - bh
             parts.append(f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" '
                          f'height="{bh:.1f}" fill="{col}"/>')
             parts.append(_text(bx + bw / 2, by - 3, str(cnt), size=9,
-                               colour=_INK, anchor="middle"))
+                               color=_INK, anchor="middle"))
             parts.append(_text(bx + bw / 2, y0 + plot_h + 14, lab, size=9,
-                               colour=_MUTED, anchor="middle"))
+                               color=_MUTED, anchor="middle"))
     if label_note:
-        parts.append(_text(x0, H - 4, label_note, size=8, colour=_MUTED))
+        parts.append(_text(x0, H - 4, label_note, size=8, color=_MUTED))
     parts.append("</svg>")
     return "".join(parts)
 
@@ -364,21 +364,21 @@ def distance_histogram_svg(distances):
             if (lo <= dv < hi) or (i == len(bands) - 1 and dv >= lo and dv <= hi):
                 counts[i] += 1
                 break
-    colours = [_NAVY] * len(bands)
-    return _bar_chart_svg(labels, counts, colours,
+    colors = [_NAVY] * len(bands)
+    return _bar_chart_svg(labels, counts, colors,
                           "Strikes by distance (km)")
 
 
 def energy_band_histogram_svg(energies):
-    """Bar chart of strike counts by energy band, coloured per band."""
+    """Bar chart of strike counts by energy band, colored per band."""
     legend = energy_bands_legend()
     labels = [row["name"] for row in legend]
-    colours = [row["colour"] for row in legend]
+    colors = [row["color"] for row in legend]
     counts = [0] * len(legend)
     for e in energies:
         idx = energy_band(e)["index"]
         counts[idx] += 1
-    return _bar_chart_svg(labels, counts, colours,
+    return _bar_chart_svg(labels, counts, colors,
                           "Strikes by energy band",
                           label_note="Energy is a relative, dimensionless scale "
                                      "(0 to 2,097,151), not Joules or Watts.")
@@ -398,13 +398,13 @@ def uptime_gauge_svg(pct):
     fill = "#2e7d32" if p >= 99 else ("#e08a1e" if p >= 95 else "#c0392b")
     parts = [_svg_head(W, H, "System availability")]
     parts.append(_text(pad_l, 18, "System availability", size=12,
-                       colour=_NAVY, weight="bold"))
+                       color=_NAVY, weight="bold"))
     parts.append(f'<rect x="{pad_l}" y="{y}" width="{bar_w}" height="{bar_h}" '
                  f'fill="#eef1f5" stroke="#d9dee5"/>')
     parts.append(f'<rect x="{pad_l}" y="{y}" width="{bar_w * p / 100.0:.1f}" '
                  f'height="{bar_h}" fill="{fill}"/>')
     parts.append(_text(pad_l + bar_w, y + bar_h + 14, f"{p:.1f}%", size=11,
-                       colour=_INK, anchor="end"))
+                       color=_INK, anchor="end"))
     parts.append("</svg>")
     return "".join(parts)
 
@@ -421,41 +421,68 @@ def uptime_gauge_svg(pct):
 # real cumulonimbus base looks like.
 _CB_BODY = ("M-24 11C-33 11-35 1-27-3C-30-12-20-17-12-14"
             "C-8-22 6-24 12-17C22-20 30-12 26-4C34-1 32 11 24 11Z")
-_CB_BASE = "M-24 4C-12 7 12 7 24 4L24 11L-24 11Z"
+
+# Lightning is blue-white rather than the band color, matching
+# static/js/storm-view.js.
+#
+# The two cannot use identical values. On the dashboard the channel is
+# near-white (#eaf4ff) and is legible only because a blurred blue bloom sits
+# behind it. A report is printed on white paper with no bloom layer, so that
+# near-white would be invisible. Here the blue does the work of the body and
+# white is kept for the hot core, which reads as the same object in print.
+_BOLT_MAIN = "#8fc4ff"          # storm-view.js BOLT_GLOW, used as the body
+_BOLT_CORE = "#ffffff"          # storm-view.js BOLT_CORE
 
 
 def _cumulonimbus(cx, cy, s, active=True):
     """One small cumulonimbus, positioned by transform so the path data above
     can be shared with the browser renderer without recomputing coordinates."""
-    body, base = ("#dde5ee", "#b7c2d0") if active else ("#eceff3", "#d5dbe3")
+    body = "#dde5ee" if active else "#eceff3"
     return (
         f'<g transform="translate({cx:.1f},{cy:.1f}) scale({s:.3f})">'
         f'<path d="{_CB_BODY}" fill="{body}" stroke="#8c98a8" '
         f'stroke-width="1"/>'
-        # No stroke on the base: it is a shading band inside the body, and an
-        # outline would put a hard line back across the cloud.
-        f'<path d="{_CB_BASE}" fill="{base}"/>'
         f'</g>'
     )
 
 
-def _bolt_points(cx, y_top, y_end, seed):
-    """Deterministic sharp channel. Seeded so a regenerated report is
-    byte-identical rather than drawing a different squiggle each run."""
+def _bolt_geometry(cx, y_top, y_end, seed):
+    """Bolt outline and center-line, matching boltGeometry() in storm-view.js.
+
+    One kink, so one zigzag, and a filled outline whose width falls to zero at
+    the last vertex, which is what gives the tip a sharp point. A stroke has
+    uniform width and cannot converge.
+
+    Seeded rather than random so a regenerated report is byte-identical instead
+    of drawing a different channel each run.
+
+    Returns (outline_path, centerline_points).
+    """
     import math
-    segs = 5
-    dy = (y_end - y_top) / segs
-    pts = [(cx, y_top)]
-    for i in range(1, segs):
-        taper = 1 - abs(i / segs - 0.5) * 1.4
-        # Cheap deterministic jitter in [-1, 1] from the seed and index.
-        j = math.sin((seed + 1) * 12.9898 + i * 78.233) * 43758.5453
-        j = (j - math.floor(j)) * 2 - 1
-        pts.append((cx + j * 5.5 * taper, y_top + dy * i))
-    j = math.sin((seed + 1) * 4.1414 + 9.19) * 21783.13
-    j = (j - math.floor(j)) * 2 - 1
-    pts.append((cx + j * 2.5, y_end))
-    return " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+
+    def jitter(salt):
+        """Deterministic value in [0, 1) from the seed."""
+        v = math.sin((seed + 1) * 12.9898 + salt * 78.233) * 43758.5453
+        return v - math.floor(v)
+
+    h = y_end - y_top
+    flip = 1 if (seed % 2 == 0) else -1
+    k1 = flip * (6.5 + jitter(1) * 2.0)
+    y1 = h * (0.44 + jitter(3) * 0.08)
+
+    pts = [(0.0, 0.0), (k1, y1), (0.0, h)]
+    # 60% heavier than the 3.4 this used to be, so the channel still reads at
+    # the smaller cell size. Matches the w array in storm-view.js.
+    widths = [5.4, 3.7, 0.0]                # zero at the tip
+
+    left = [(cx + x - w / 2, y_top + y) for (x, y), w in zip(pts, widths)]
+    right = [(cx + x + w / 2, y_top + y) for (x, y), w in zip(pts, widths)]
+
+    outline = ("M" + "L".join(f"{x:.1f} {y:.1f}" for x, y in left)
+               + "L" + "L".join(f"{x:.1f} {y:.1f}" for x, y in reversed(right))
+               + "Z")
+    center = " ".join(f"{cx + x:.1f},{y_top + y:.1f}" for x, y in pts)
+    return outline, center
 
 
 def storm_bands_svg(strikes, radius_km=40):
@@ -487,30 +514,35 @@ def storm_bands_svg(strikes, radius_km=40):
     for i, b in enumerate(bands):
         x = pad_l + i * (cell_w + gap)
         active = b["count"] > 0
-        colour = b["colour"] if active and b["colour"] else "#93a0b0"
+        color = b["color"] if active and b["color"] else "#93a0b0"
 
         # Band header.
         parts.append(f'<rect x="{x}" y="{pad_t}" width="{cell_w}" '
-                     f'height="{head_h}" fill="{colour if active else "#93a0b0"}"/>')
+                     f'height="{head_h}" fill="{color if active else "#93a0b0"}"/>')
         parts.append(_text(x + cell_w / 2, pad_t + 11.5,
                            _esc(b["range"].upper()),
-                           size=8, colour="#ffffff", anchor="middle",
+                           size=8, color="#ffffff", anchor="middle",
                            weight="bold"))
 
         # Cloud, sized on the band mean against the busiest peak on the page so
         # the cells stay comparable with one another.
         frac = (b["mean"] / max_peak) if (active and max_peak) else 0.0
-        s = (0.74 + min(1.0, max(0.0, frac)) * 0.40) * 0.80
+        s = (0.62 + min(1.0, max(0.0, frac)) * 0.30) * 0.80
         ccx = x + cell_w / 2
-        ccy = pad_t + head_h + 30
+        ccy = pad_t + head_h + 26
         parts.append(_cumulonimbus(ccx, ccy, s, active))
 
         if active:
-            pts = _bolt_points(ccx, ccy + 16, ccy + 46, i)
-            parts.append(f'<polyline points="{pts}" fill="none" '
-                         f'stroke="{colour}" stroke-width="2.2" '
-                         f'stroke-linecap="round" stroke-linejoin="round" '
-                         f'opacity="0.85"/>')
+            # Shorter channel than before: 24 units rather than 30.
+            outline, center = _bolt_geometry(ccx, ccy + 14, ccy + 38, i)
+            # Filled outline for the channel, thin stroke for the hot core.
+            # Blue-white, not the band color, matching the dashboard.
+            parts.append(f'<path d="{outline}" fill="{_BOLT_MAIN}" stroke="none" '
+                         f'opacity="0.95"/>')
+            parts.append(f'<polyline points="{center}" fill="none" '
+                         f'stroke="{_BOLT_CORE}" stroke-width="1.3" '
+                         f'stroke-linecap="butt" stroke-linejoin="miter" '
+                         f'stroke-miterlimit="6" opacity="0.9"/>')
 
         # Data block.
         dy = pad_t + head_h + cloud_h
@@ -518,31 +550,31 @@ def storm_bands_svg(strikes, radius_km=40):
                      f'height="{data_h}" fill="#fafbfd" stroke="#b9c2cf" '
                      f'stroke-width="1"/>')
         parts.append(f'<rect x="{x}" y="{dy}" width="{cell_w}" height="3" '
-                     f'fill="{colour}"/>')
+                     f'fill="{color}"/>')
         parts.append(_text(x + cell_w / 2, dy + 21, str(b["count"]), size=16,
-                           colour=_INK, anchor="middle", weight="bold"))
+                           color=_INK, anchor="middle", weight="bold"))
         parts.append(_text(x + cell_w / 2, dy + 31,
                            "strike" if b["count"] == 1 else "strikes",
-                           size=7, colour=_MUTED, anchor="middle"))
+                           size=7, color=_MUTED, anchor="middle"))
         parts.append(_text(x + cell_w / 2, dy + 41, _esc(b["label"]), size=7,
-                           colour=colour, anchor="middle", weight="bold"))
+                           color=color, anchor="middle", weight="bold"))
         if active:
             for j, (k, v) in enumerate((("peak", b["peak"]),
                                         ("mean", b["mean"]),
                                         ("low", b["low"]))):
                 ry = dy + 51 + j * 8
-                parts.append(_text(x + 7, ry, k, size=7, colour=_MUTED))
+                parts.append(_text(x + 7, ry, k, size=7, color=_MUTED))
                 parts.append(_text(x + cell_w - 7, ry, f"{v / 1e6:.2f}M",
-                                   size=7, colour=_INK, anchor="end",
+                                   size=7, color=_INK, anchor="end",
                                    weight="bold"))
         else:
             parts.append(_text(x + cell_w / 2, dy + 54, "no strikes", size=7,
-                               colour="#8c98a8", anchor="middle"))
+                               color="#8c98a8", anchor="middle"))
 
     total = summary["total"]
     foot = (f"{total} strike{'' if total == 1 else 's'} in this period. "
             f"Nearest band first. Distance only - bearing not measured. "
             f"Intensity is a relative sensor value, not joules.")
-    parts.append(_text(pad_l, H - 8, _esc(foot), size=8, colour=_MUTED))
+    parts.append(_text(pad_l, H - 8, _esc(foot), size=8, color=_MUTED))
     parts.append("</svg>")
     return "".join(parts)

@@ -28,11 +28,6 @@ import { calculateSolarEstimates } from "@/components/dashboard/SolarPowerHarves
 import { SolarPositionCard } from "@/components/dashboard/SolarPositionCard";
 import { FireDangerCard } from "@/components/dashboard/FireDangerCard";
 import { AirQualityCard } from "@/components/dashboard/AirQualityCard";
-import { AtmosphericStabilityCard } from "@/components/dashboard/AtmosphericStabilityCard";
-
-import { DensityAltitudeCard } from "@/components/dashboard/DensityAltitudeCard";
-
-import { TurbulenceCard } from "@/components/dashboard/TurbulenceCard";
 import { WindPowerRose, processWindPowerRoseData } from "@/components/charts/WindPowerRose";
 // RainfallYearlyCard removed - yearly data shown in Rainfall MetricCard subMetric
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -60,7 +55,7 @@ import {
   calculateWindChill,
 } from "@shared/utils/calc";
 import { interpretLightningIntensity } from "@shared/utils/lightning";
-import { CHART_COLOURS } from "@shared/chartColours";
+import { CHART_COLORS } from "@shared/chartColors";
 import { getSimplifiedClasses, getWindUnitLabel, getWindDirectionLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import {
   STANDARD_SEA_LEVEL_PRESSURE_HPA,
@@ -177,7 +172,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       const date = new Date(dateKey + 'T12:00:00');
       const label = date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
 
-      // Rainfall: per-day total. Behaviour depends on logger type.
+      // Rainfall: per-day total. Behavior depends on logger type.
       const rainfallVals = dayData.map(d => d.rainfall).filter((v): v is number => v != null);
       let dayRain = 0;
       if (rainfallVals.length > 0) {
@@ -850,7 +845,7 @@ function SharedDashboardContent() {
 
     const hasData = (field: keyof WeatherData, allowZero = false) => {
       // If parameter was disabled in config, hide it. Parameters added to the
-      // catalogue after a config was saved stay visible (LATE_ADDED_PARAMETERS).
+      // catalog after a config was saved stay visible (LATE_ADDED_PARAMETERS).
       if (toggleableFields.has(field) && !isParameterEnabled(field, ep)) {
         return false;
       }
@@ -1813,7 +1808,7 @@ function SharedDashboardContent() {
         {sv.primaryMetrics !== false && (availableFields.temperature || availableFields.humidity || availableFields.pressure || availableFields.windSpeed || availableFields.rainfall) && (
         <section className="space-y-4">
           {/* Primary metrics: identical presentation to the main dashboard
-              (station header + grey metric blocks) so a shared link looks the
+              (station header + gray metric blocks) so a shared link looks the
               same as what the owner sees. */}
           <CurrentConditions
             stationName={station.name || "Weather Station"}
@@ -1870,7 +1865,7 @@ function SharedDashboardContent() {
             />
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Barometric Pressure History" data={chartData}
-              series={[{ dataKey: "pressure", name: "Station Pressure", color: CHART_COLOURS.pressure, unit: "hPa" }]}
+              series={[{ dataKey: "pressure", name: "Station Pressure", color: CHART_COLORS.pressure, unit: "hPa" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Pressure"
               showAverage={true} showMinMax={true} currentValue={currentData.pressure || 0}
             />
@@ -1904,7 +1899,7 @@ function SharedDashboardContent() {
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Battery Voltage History" data={batteryChartData}
               series={[
-                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.batteryVoltage, unit: "V" },
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLORS.batteryVoltage, unit: "V" },
               ]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Voltage"
               showAverage={true} showMinMax={true} currentValue={currentData.batteryVoltage || 0}
@@ -1915,7 +1910,7 @@ function SharedDashboardContent() {
             <Suspense fallback={<ChartFallback />}>
             <DataBlockChart title="Battery Voltage vs Solar Irradiance" data={chartData}
               series={[
-                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLOURS.batteryVoltage, unit: "V", yAxisId: "left" },
+                { dataKey: "batteryVoltage", name: "Battery Voltage", color: CHART_COLORS.batteryVoltage, unit: "V", yAxisId: "left" },
                 { dataKey: "solar", name: "Solar Irradiance", color: "#f59e0b", unit: "W/m²", yAxisId: "right", strokeDasharray: "4 3" },
               ]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Voltage (V)"
@@ -2026,7 +2021,7 @@ function SharedDashboardContent() {
             <DataBlockChart title="Daily Solar Energy Harvested" data={chargerEnergyData}
               series={[
                 ...(availableFields.mpptSolarPower ? [{ dataKey: "chargerEnergy1", name: availableFields.mppt2SolarPower ? "Charger 1" : "Harvested", color: "#f59e0b", unit: "Wh" }] : []),
-                ...(availableFields.mppt2SolarPower ? [{ dataKey: "chargerEnergy2", name: "Charger 2", color: CHART_COLOURS.chargerEnergy2, unit: "Wh" }] : []),
+                ...(availableFields.mppt2SolarPower ? [{ dataKey: "chargerEnergy2", name: "Charger 2", color: CHART_COLORS.chargerEnergy2, unit: "Wh" }] : []),
                 ...(availableFields.mpptSolarPower && availableFields.mppt2SolarPower
                   ? [{ dataKey: "chargerEnergyTotal", name: "System total", color: "#1e3a5f", unit: "Wh" }]
                   : []),
@@ -2297,7 +2292,7 @@ function SharedDashboardContent() {
             )}
             {availableFields.solarRadiation && (
             <DataBlockChart title="Reference ETo" data={chartData}
-              series={[{ dataKey: "eto", name: "Reference ETo", color: CHART_COLOURS.eto, unit: "mm/day" }]}
+              series={[{ dataKey: "eto", name: "Reference ETo", color: CHART_COLORS.eto, unit: "mm/day" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="ETo (mm/day)"
               showAverage={true} showMinMax={true} currentValue={currentData.eto ?? calculatedETo ?? 0}
             />
@@ -2307,7 +2302,7 @@ function SharedDashboardContent() {
               series={[{ dataKey: "irrigationTime", name: "Irrigation Time", color: "#3b82f6", unit: "min" }]}
               chartType="bar" xAxisLabel="Time" yAxisLabel="Minutes"
               showAverage={true} showMinMax={true}
-              footer="(ETo − rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
+              footer="(ETo - rainfall) × crop factor × valve flow rate | Based on FAO-56 Penman-Monteith ETo. Assumes Kc=1.0 (reference grass) and 5 mm/hr flow rate. Estimation only (does not account for soil type, crop stage, or irrigation system efficiency)."
             />
             )}
             {/* Dew Point Temperature */}
@@ -2350,7 +2345,7 @@ function SharedDashboardContent() {
             )}
             {availableFields.temperature && availableFields.windSpeed && (
             <DataBlockChart title="Wind Chill" data={chartData}
-              series={[{ dataKey: "windChill", name: "Wind Chill", color: CHART_COLOURS.windChill, unit: "°C" }]}
+              series={[{ dataKey: "windChill", name: "Wind Chill", color: CHART_COLORS.windChill, unit: "°C" }]}
               chartType="line" xAxisLabel="Time" yAxisLabel="Wind Chill (°C)"
               showAverage={true} showMinMax={true}
               currentValue={currentData.temperature != null && currentData.windSpeed != null ? calculateWindChill(currentData.temperature, windSpeedUnit === 'kmh' ? kmhToMs(currentData.windSpeed) : currentData.windSpeed) : 0}
@@ -2697,17 +2692,7 @@ function SharedDashboardContent() {
               />
             </Suspense>
             )}
-            {(() => {
-              const recentSpeeds = sortedHistoricalData.slice(-10).map(d => d.windSpeed ?? 0);
-              const mean = recentSpeeds.length > 0 ? recentSpeeds.reduce((a, b) => a + b, 0) / recentSpeeds.length : 0;
-              const stdDev = recentSpeeds.length > 1 ? Math.sqrt(recentSpeeds.reduce((s, v) => s + (v - mean) ** 2, 0) / (recentSpeeds.length - 1)) : 0;
-              return mean > 0.5 ? (
-                <TurbulenceCard
-                  windStdDev={stdDev}
-                  meanWindSpeed={mean}
-                />
-              ) : null;
-            })()}
+            {/* Turbulence Intensity card removed at the operator's request. */}
             {sortedHistoricalData.length >= 10 && (
               <WindPowerRose
                 data={windPowerRoseData}
@@ -2752,31 +2737,8 @@ function SharedDashboardContent() {
         </section>
         )}
 
-        {/* Atmospheric Stability / Aviation / Road Weather - 2x2 grid */}
-        {((sv.atmosphericStability !== false && availableFields.windSpeed && availableFields.solarRadiation) ||
-          (sv.aviation !== false && availableFields.pressure && availableFields.temperature)) && (
-        <section className="space-y-4">
-          <h2 className="text-base font-normal text-foreground">Atmospheric Stability &amp; Aviation</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {sv.atmosphericStability !== false && (availableFields.windSpeed && availableFields.solarRadiation) && (
-            <AtmosphericStabilityCard
-              windSpeed={currentData.windSpeed!}
-              solarRadiation={currentData.solarRadiation!}
-              cloudCover={currentData.cloudCover}
-              deltaTemperature={currentData.deltaTemperature}
-            />
-            )}
-            {sv.aviation !== false && (availableFields.pressure && availableFields.temperature) && (
-            <DensityAltitudeCard
-              stationPressure={currentData.pressure!}
-              temperature={currentData.temperature!}
-              dewPoint={effectiveDewPoint ?? undefined}
-              stationElevation={station?.altitude ?? undefined}
-            />
-            )}
-          </div>
-        </section>
-        )}
+        {/* Atmospheric Stability & Aviation (Pasquill-Gifford and Density
+            Altitude) section removed at the operator's request. */}
 
 
 
@@ -2793,7 +2755,7 @@ function SharedDashboardContent() {
           {(() => {
             /**
              * Hidden for cumulative-counter stations (e.g. RIKA reports a
-             * lifetime millimetre counter), where a yearly aggregate is not a
+             * lifetime millimeter counter), where a yearly aggregate is not a
              * trustworthy rainfall depth. The shared station payload does not
              * expose connectionType, so we key off the configured rainfall
              * type instead - which is the authoritative signal anyway.
@@ -2823,7 +2785,7 @@ function SharedDashboardContent() {
                   })}
                 </div>
                 <p className="text-xs text-black italic" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                  Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronisation interruptions.
+                  Rainfall totals are calculated from station logger data. Accuracy may be affected by periods where the station was offline, clogged or blocked rain gauges, logger resets, or data gaps during synchronization interruptions.
                 </p>
               </CardContent>
             </Card>
@@ -2843,7 +2805,7 @@ function SharedDashboardContent() {
               chartType="bar"
               series={[
                 { dataKey: "rain", name: "Rainfall (mm)", color: "#3b82f6", unit: "mm", yAxisId: "left" },
-                { dataKey: "eto", name: "ETo (mm/day)", color: CHART_COLOURS.eto, unit: "mm/day", yAxisId: "right" },
+                { dataKey: "eto", name: "ETo (mm/day)", color: CHART_COLORS.eto, unit: "mm/day", yAxisId: "right" },
               ]}
               yAxisLabel="Rainfall (mm)"
               rightYAxisLabel="ETo (mm/day)"
@@ -2929,7 +2891,7 @@ function SharedDashboardContent() {
             {availableFields.pressure && (
             <TabsContent value="pressure" className="mt-4">
               <WeatherChart title="Barometric Pressure" data={historicalChartData}
-                series={[{ dataKey: "pressure", name: "Pressure (hPa)", color: CHART_COLOURS.pressure }]}
+                series={[{ dataKey: "pressure", name: "Pressure (hPa)", color: CHART_COLORS.pressure }]}
               />
             </TabsContent>
             )}

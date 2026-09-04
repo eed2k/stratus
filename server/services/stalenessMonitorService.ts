@@ -37,7 +37,7 @@ let getAllUsers: () => Promise<any[]>;
 let usePostgres = false;
 
 /**
- * Initialise the staleness monitor
+ * Initialize the staleness monitor
  */
 export async function initStalenessMonitor(): Promise<void> {
   // Check if staleness alerts are enabled (disabled by default for now)

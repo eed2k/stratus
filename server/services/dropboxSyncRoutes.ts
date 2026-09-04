@@ -3,7 +3,7 @@
 
 /**
  * Dropbox Sync API Routes
- * Provides endpoints to configure and manage Dropbox synchronisation
+ * Provides endpoints to configure and manage Dropbox synchronization
  */
 
 import { Router, Request, Response } from 'express';
@@ -16,7 +16,7 @@ const router = Router();
 
 /**
  * GET /api/dropbox-sync/oauth/url
- * Generate OAuth authorisation URL for Dropbox
+ * Generate OAuth authorization URL for Dropbox
  */
 router.get('/oauth/url', (req: Request, res: Response) => {
   const { appKey } = req.query;
@@ -31,14 +31,14 @@ router.get('/oauth/url', (req: Request, res: Response) => {
 
 /**
  * POST /api/dropbox-sync/oauth/token
- * Exchange authorisation code for refresh token
+ * Exchange authorization code for refresh token
  */
 router.post('/oauth/token', async (req: Request, res: Response) => {
   try {
     const { appKey, appSecret, authCode } = req.body;
     
     if (!appKey || !appSecret || !authCode) {
-      return res.status(400).json({ error: 'App Key, App Secret, and Authorisation Code are required' });
+      return res.status(400).json({ error: 'App Key, App Secret, and Authorization Code are required' });
     }
     
     // Exchange code for tokens using Dropbox OAuth endpoint
@@ -182,7 +182,7 @@ router.post('/configs', async (req: Request, res: Response) => {
       enabled: enabled !== false,
     });
     
-    // Reinitialise sync service to pick up new config
+    // Reinitialize sync service to pick up new config
     await dropboxSyncService.reinitialize();
     invalidateDropboxFilesCache();
     
@@ -222,7 +222,7 @@ router.put('/configs/:id', async (req: Request, res: Response) => {
       enabled,
     });
     
-    // Reinitialise sync service to pick up changes
+    // Reinitialize sync service to pick up changes
     await dropboxSyncService.reinitialize();
     invalidateDropboxFilesCache();
     
@@ -242,7 +242,7 @@ router.delete('/configs/:id', async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     await storage.deleteDropboxConfig(id);
     
-    // Reinitialise sync service to pick up changes
+    // Reinitialize sync service to pick up changes
     await dropboxSyncService.reinitialize();
     invalidateDropboxFilesCache();
     

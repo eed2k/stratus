@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ days }} day forecast{% endblock %}
+{% block crumbs %}<span>/</span>
+<a href="/station/{{ station.id }}">{{ station.name }}</a>
+<span>/</span><span>{{ days }} day forecast</span>{% endblock %}
+
+{% block content %}
+<h1>{{ days }} day forecast <span class="muted">{{ station.name }}</span></h1>
+
+<nav class="tabs">
+  {% for d in horizons %}
+  <a href="/station/{{ station.id }}/forecast?days={{ d }}&variable={{ variable }}"
+     class="{{ 'on' if d == days else '' }}">{{ d }} day</a>
+  {% endfor %}
+  <a href="/station/{{ station.id }}/verify?days={{ days }}">Verification</a>
+</nav>
+
+{% if not run %}
+<section class="empty">
+  <h2>No {{ days }} day forecast yet</h2>
+  <p>Nothing has been produced for this horizon. Go back to the station and run
+  a forecast.</p>
+  <p><a href="/station/{{ station.id }}">Back to {{ station.name }}</a></p>
+</section>
+{% else %}
+
+<section class="panel">
+  <dl class="facts inline">
+    <dt>Launched from</dt><dd>{{ run.base_time }}</dd>
+    <dt>Issued</dt><dd>{{ run.issued_at }}</dd>
+    <dt>Background</dt>
+    <dd>{% if run.provider %}{{ run.provider }}
+        {% if run.resolution_km %}({{ run.resolution_km }} km){% endif %}
+        {% else %}station history only{% endif %}</dd>
+  </dl>
+  {% if run.notes %}<p class="hint">{{ run.notes }}</p>{% endif %}
+</section>
+
+{% if available %}
+<nav class="tabs sub">
+  {% for v in available %}
+  <a href="/station/{{ station.id }}/forecast?days={{ days }}&variable={{ v }}"
+     class="{{ 'on' if v == variable else '' }}">{{ label_for(v) }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+<section class="panel">
+  <h2>{{ label_for(variable) }}
+    <span class="muted">{{ unit_for(variable) }}</span></h2>
+  {{ chart|safe }}
+  <p class="legend">
+    <span class="key line-navy"></span> forecast
+    <span class="key band"></span> 10th to 90th percentile
+    <span class="key line-red"></span> observed, where the hour has passed
+  </p>
+  {% if observed_count %}
+  <p class="hint">{{ observed_count }} of the forecast hours have since been
+  observed and are drawn as the dashed line. The
+  <a href="/station/{{ station.id }}/verify?days={{ days }}">verification page</a>
+  turns that into error statistics.</p>
+  {% else %}
+  <p class="hint">None of these hours have been observed yet, so there is
+  nothing to compare against on this chart.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Hourly values</h2>
+  <table class="grid tight scroll">
+    <thead>
+      <tr><th>Valid at</th><th class="num">Lead</th>
+        <th class="num">Forecast</th><th class="num">p10</th>
+        <th class="num">p90</th><th class="num">Persistence</th>
+        <th class="num">Climatology</th></tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.valid_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td class="num">+{{ r.lead_hours|round(0, 'floor')|int }}h</td>
+        <td class="num strong">{{ '%.2f'|format(r.value) if r.value is not none else '-' }}</td>
+        <td class="num">{{ '%.2f'|format(r.p10) if r.p10 is not none else '-' }}</td>
+        <td class="num">{{ '%.2f'|format(r.p90) if r.p90 is not none else '-' }}</td>
+        <td class="num muted">{{ '%.2f'|format(r.persistence) if r.persistence is not none else '-' }}</td>
+        <td class="num muted">{{ '%.2f'|format(r.climatology) if r.climatology is not none else '-' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="hint">Persistence and climatology are what the two free baselines
+  said for the same hour, recorded when the forecast was issued. The
+  verification page compares against them.</p>
+</section>
+{% endif %}
+{% endblock %}

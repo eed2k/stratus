@@ -71,7 +71,7 @@ function getDbPath(): string {
 }
 
 /**
- * Initialise the database connection
+ * Initialize the database connection
  */
 export async function initDatabase(): Promise<Database> {
   if (db) return db;
@@ -690,7 +690,7 @@ async function createTables(database: Database): Promise<void> {
     )
   `);
 
-  // Organisations table
+  // Organizations table
   database.run(`
     CREATE TABLE IF NOT EXISTS organizations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

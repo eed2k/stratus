@@ -5,7 +5,7 @@ panel-mount pilot lights and a buzzer. It is completely independent of the
 detector unit and only makes **outbound** HTTPS requests, so it needs no inbound
 access and no changes to the client firewall.
 
-## Behaviour
+## Behavior
 
 | Indicator | Meaning |
 |-----------|---------|
@@ -31,7 +31,7 @@ numbers in `beacon_config.json`.)
 
 ## Wiring
 
-**CH1 — GREEN/RED, fail-safe change-over (one SPDT relay):**
+**CH1 - GREEN/RED, fail-safe change-over (one SPDT relay):**
 ```
 12V+ ──► CH1 COM
          CH1 NO  ──► GREEN lamp ──► 12V-
@@ -41,12 +41,12 @@ The software energises CH1 **only** while the cloud confirms the unit online. On
 power loss, crash, or loss of cloud contact, the relay drops out → RED. A dead
 beacon can never show GREEN.
 
-**CH2 — AMBER lamp:**
+**CH2 - AMBER lamp:**
 ```
 12V+ ──► CH2 COM ──► CH2 NO ──► AMBER lamp ──► 12V-
 ```
 
-**CH3 — 12 V buzzer:**
+**CH3 - 12 V buzzer:**
 ```
 12V+ ──► CH3 COM ──► CH3 NO ──► BUZZER ──► 12V-
 ```
@@ -99,6 +99,6 @@ journalctl -u beacon.service -f      # watch it poll
 | `buzzer_seconds` | Buzzer ring duration (default 5 s) |
 
 ## Thresholds set on the cloud (server side)
-- `UNIT_ACTIVE_THRESHOLD_MIN` — minutes before a missed heartbeat = OFFLINE
-- `BEACON_LIGHTNING_KM` — alarm radius (default 10 km)
-- `BEACON_ALLCLEAR_MIN` — window for the convenience `lightning_active` flag
+- `UNIT_ACTIVE_THRESHOLD_MIN` - minutes before a missed heartbeat = OFFLINE
+- `BEACON_LIGHTNING_KM` - alarm radius (default 10 km)
+- `BEACON_ALLCLEAR_MIN` - window for the convenience `lightning_active` flag

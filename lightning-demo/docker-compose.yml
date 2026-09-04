@@ -1,0 +1,49 @@
+# Lightning Data Demonstration at lightningdemo.stratusweather.co.za
+#
+# A separate compose project from /opt/stratus and /opt/lightning-panel, so
+# bringing it up or down cannot affect either live site. It joins the existing
+# Traefik network as an external network rather than creating one.
+#
+# Static content only. The container has no database, no secrets and no route to
+# the panel, which is why it is safe to serve without authentication: there is
+# nothing behind it. Read-only root filesystem enforces that.
+
+services:
+  demo:
+    image: nginx:1.27-alpine
+    container_name: lightning-demo
+    restart: unless-stopped
+    networks:
+      - stratus_stratus-network
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # nginx needs to write its cache and pid, so the root filesystem is
+    # read-only with tmpfs for exactly those paths and nothing else.
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    # A static site on a 951 MB box: cap it so it can never crowd out the panel
+    # or the Stratus app.
+    mem_limit: 64m
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=stratus_stratus-network"
+      - "traefik.http.routers.lightningdemo.rule=Host(`lightningdemo.stratusweather.co.za`)"
+      - "traefik.http.routers.lightningdemo.entrypoints=websecure"
+      - "traefik.http.routers.lightningdemo.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lightningdemo.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  stratus_stratus-network:
+    external: true

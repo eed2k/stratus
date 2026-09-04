@@ -34,7 +34,7 @@ export function StationImageUpload({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
 
-  // Process image: scale, rotate, then centre-crop to a fixed 1:1 square (1024x1024)
+  // Process image: scale, rotate, then center-crop to a fixed 1:1 square (1024x1024)
   // for uniform "research-grade" presentation across all station cards.
   const processImage = useCallback((imageSrc: string, targetScale: number, targetRotation: number): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -61,12 +61,12 @@ export function StationImageUpload({
         const drawnW = img.width * scaleFactor;
         const drawnH = img.height * scaleFactor;
 
-        // Translate to centre, rotate, then draw centred so the image is
-        // centre-cropped to a square automatically.
+        // Translate to center, rotate, then draw centered so the image is
+        // center-cropped to a square automatically.
         ctx.translate(OUT / 2, OUT / 2);
         ctx.rotate((targetRotation * Math.PI) / 180);
 
-        // Fit the larger dimension to the square (cover behaviour)
+        // Fit the larger dimension to the square (cover behavior)
         const fitRatio = OUT / Math.min(drawnW, drawnH);
         const finalW = drawnW * fitRatio;
         const finalH = drawnH * fitRatio;

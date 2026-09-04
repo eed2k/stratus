@@ -19,7 +19,7 @@
   are all correctly idle and there is nothing to look at.
 
   The band arithmetic in the stub mirrors app/metrics.py::distance_band_summary,
-  and the colours are the real values from app/metrics.py::_ENERGY_BANDS.
+  and the colors are the real values from app/metrics.py::_ENERGY_BANDS.
 -->
 <link rel="stylesheet" href="/LDS%20ADMIN/app/static/style.css">
 <style>
@@ -68,7 +68,7 @@
 <p class="note">
   Running the panel's own <code>style.css</code> and <code>storm-view.js</code>
   against a simulated <code>/data/strikes</code>. Nothing on this page
-  reimplements the display, so the clouds, bands, colours, flashing and range
+  reimplements the display, so the clouds, bands, colors, flashing and range
   selector are the deployed code. The live panel has no strikes on record yet,
   which is why its bands are all idle there and populated here.
 </p>
@@ -129,10 +129,10 @@
 
   // Exactly app/metrics.py::_ENERGY_BANDS. Not invented for this page.
   var ENERGY_BANDS = [
-    { name: "Low",      lower: 0,     colour: "#8aa0b8" },
-    { name: "Moderate", lower: Q,     colour: "#1b3a5b" },
-    { name: "High",     lower: Q * 2, colour: "#e08a1e" },
-    { name: "Extreme",  lower: Q * 3, colour: "#c0392b" }
+    { name: "Low",      lower: 0,     color: "#8aa0b8" },
+    { name: "Moderate", lower: Q,     color: "#1b3a5b" },
+    { name: "High",     lower: Q * 2, color: "#e08a1e" },
+    { name: "Extreme",  lower: Q * 3, color: "#c0392b" }
   ];
 
   function energyBand(e) {
@@ -203,7 +203,7 @@
   }
 
   /* ---- band aggregation, mirroring distance_band_summary ---- */
-  function summarise(list) {
+  function summarize(list) {
     var buckets = DISTANCE_BANDS.map(function () { return []; });
     var unplaced = 0;
 
@@ -228,7 +228,7 @@
       var es = buckets[i];
       if (!es.length) {
         return { key: def.key, label: def.label, range: def.range, count: 0,
-                 peak: null, mean: null, low: null, band: null, colour: null,
+                 peak: null, mean: null, low: null, band: null, color: null,
                  share: 0 };
       }
       var sum = es.reduce(function (a, b) { return a + b; }, 0);
@@ -240,7 +240,7 @@
         peak: Math.max.apply(null, es),
         mean: mean,
         low: Math.min.apply(null, es),
-        band: eb.name, colour: eb.colour,
+        band: eb.name, color: eb.color,
         share: total ? es.length / total : 0
       };
     });
@@ -251,7 +251,7 @@
   function payloadFor(windowMin) {
     var cutoff = Date.now() - windowMin * 60000;
     var inWindow = strikes.filter(function (s) { return s.t >= cutoff; });
-    var summary = summarise(inWindow);
+    var summary = summarize(inWindow);
     return {
       radius_km: 40,
       rings: [10, 20, 30, 40],
@@ -269,7 +269,7 @@
             distance_km: s.distance_km,
             energy: s.energy,
             band: eb.name,
-            colour: eb.colour
+            color: eb.color
           };
         })
     };

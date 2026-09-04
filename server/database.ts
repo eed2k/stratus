@@ -105,7 +105,7 @@ if (usePostgres) {
 let dbModule: any = null;
 
 /**
- * Initialise the database
+ * Initialize the database
  * Automatically selects SQLite or PostgreSQL based on DATABASE_URL
  */
 export async function initDatabase(): Promise<any> {

@@ -1,0 +1,6 @@
+DRC Rules Export File for PCB: Z:\Wireless\01_Products\AS3935\03_Hardware\Demoboard\AS3935_DemoBoard_1v1\AS3935_DemoBoard.PcbDoc
+RuleKind=Clearance|RuleName=Clearance_1|Scope=Board|Minimum=3.94
+RuleKind=ShortCircuit|RuleName=ShortCircuit|Scope=Board|Allowed=0
+RuleKind=SolderMaskExpansion|RuleName=SolderMaskExpansion|Scope=Board|Minimum=4.00
+RuleKind=Width|RuleName=Width|Scope=Board|Minimum=5.91
+RuleKind=Clearance|RuleName=Clearance|Scope=Board|Minimum=5.91

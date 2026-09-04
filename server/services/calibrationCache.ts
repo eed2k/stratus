@@ -81,7 +81,7 @@ export async function ensureCalibrationCache(): Promise<void> {
       await query(CREATE_SQL);
       await reloadCalibrationCache();
       // Seed the historical RIKA R25021205 (station #2) offset if no
-      // explicit row exists - preserves legacy behaviour for callers
+      // explicit row exists - preserves legacy behavior for callers
       // upgrading from the hard-coded config.
       if (!cache.has(2)) {
         try {

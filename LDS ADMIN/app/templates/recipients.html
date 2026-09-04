@@ -3,6 +3,8 @@
 {% block content %}
 <h1>Recipients</h1>
 
+{% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+
 {% set can_write = user.role in ['admin','operator'] %}
 
 {% if can_write %}

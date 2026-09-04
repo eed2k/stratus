@@ -23,12 +23,18 @@ def _format_sent_at(when: Optional[datetime] = None) -> str:
 
 
 def build_lightning_sms(payload: Dict[str, Any], site_name: Optional[str] = None,
-                        sent_at: Optional[datetime] = None) -> str:
-    """Format a production lightning SMS from strike data.
+                        sent_at: Optional[datetime] = None,
+                        stage_name: Optional[str] = None) -> str:
+    """Format a production lightning alert from strike data.
 
     Distance and energy come from the Pi webhook payload. The timestamp in
-    brackets is when the SMS is sent (SAST). Recipients are already
-    filtered by each group's distance threshold before this is called.
+    brackets is when the message is sent (SAST). Recipients have already been
+    selected before this is called.
+
+    `stage_name` is the escalation step that fired, e.g. "Warning" or "Stop work".
+    It leads the message because it is the part that tells the reader what to do:
+    a distance alone requires them to remember the site's own thresholds. A client
+    with no stages defined gets exactly the previous wording, unchanged.
     """
     site = (site_name or _site_name(payload)).strip().upper()
     try:
@@ -40,7 +46,9 @@ def build_lightning_sms(payload: Dict[str, Any], site_name: Optional[str] = None
     except (TypeError, ValueError, KeyError):
         energy = 0
     stamp = _format_sent_at(sent_at)
+    stage = (stage_name or "").strip().upper()
+    heading = f"LIGHTNING {stage}" if stage else "LIGHTNING ALERT"
     return (
-        f"LIGHTNING ALERT [{stamp}] Location: {site} "
+        f"{heading} [{stamp}] Location: {site} "
         f"Distance {dist}km (Energy: {energy}). {_FOOTER}"
     )

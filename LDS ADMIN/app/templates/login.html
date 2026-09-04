@@ -7,9 +7,18 @@
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="post" action="{{ base }}/login" class="login-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label><span>E-mail</span><input type="email" name="email" required autofocus></label>
-    <label><span>Password</span><input type="password" name="password" required></label>
+    <label><span>E-mail</span><input type="email" name="email" required autofocus
+           autocomplete="username"></label>
+    <label><span>Password</span><input type="password" name="password" required
+           autocomplete="current-password"></label>
     <button class="primary" type="submit">Log In</button>
   </form>
+  {# Only offered on the platform panel. Inside a client panel this page already
+     belongs to that client, so pointing them elsewhere would be a dead end. #}
+  {% if not base %}
+  <p class="muted" style="text-align:left;padding:10px 0 0;">
+    Client sites sign in <a href="/client">here</a>.
+  </p>
+  {% endif %}
 </div>
 {% endblock %}

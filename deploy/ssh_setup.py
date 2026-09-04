@@ -4,7 +4,7 @@ import paramiko
 import sys
 import os
 
-# Configuration — set via environment variables (never hardcode credentials)
+# Configuration - set via environment variables (never hardcode credentials)
 SERVER_IP = os.environ.get("STRATUS_DEPLOY_HOST", "")
 USERNAME = os.environ.get("STRATUS_DEPLOY_USER", "root")
 PASSWORD = os.environ.get("STRATUS_DEPLOY_PASSWORD", "")

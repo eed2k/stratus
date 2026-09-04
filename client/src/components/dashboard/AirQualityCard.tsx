@@ -49,7 +49,7 @@ export function AirQualityCard({ pm25, pm10, pm1, co2, tvoc, so2, particulateCou
             </div>
           )}
 
-          {/* AQI colour bar */}
+          {/* AQI color bar */}
           {aqiResult && (
             <div className="space-y-1">
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">

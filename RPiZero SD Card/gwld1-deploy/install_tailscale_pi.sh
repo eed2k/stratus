@@ -209,7 +209,7 @@ if [ "$NEED_UP" -eq 1 ]; then
     --ssh \
     --accept-dns=false \
     --accept-routes=false \
-    || die "tailscale up failed. Common causes: key expired, key not authorised for $TS_TAG, or device approval pending in the admin console."
+    || die "tailscale up failed. Common causes: key expired, key not authorized for $TS_TAG, or device approval pending in the admin console."
   info "joined as $TS_HOSTNAME with $TS_TAG"
 fi
 

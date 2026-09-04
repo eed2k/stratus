@@ -7,7 +7,7 @@
     (in-memory SQLite, seeded tenants and users)
   - _Requirements: 10.2_
 - [x] 1.2 Implement pure metrics helpers in `app/metrics.py`
-  - `energy_band(e)` returning band name, index, and accent colour over
+  - `energy_band(e)` returning band name, index, and accent color over
     [0, 2,097,151] using the tabulated boundaries and the 1,000,000 fire marker
   - `valid_coords(lat, lon)` range check
   - `uptime_pct(received, expected)` clamped to 0..100
@@ -144,11 +144,11 @@
     graceful fallback if vendor or fetch fails
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.9_
 
-- [ ] 12. Storm-activity visualisation
+- [ ] 12. Storm-activity visualization
   - `app/static/js/storm-view.js` draws distance range-rings, plots strikes by
     distance only with a "bearing not measured" note, animates a pulse per new
-    strike, colour-codes by energy band, and shows an energy legend; add a
-    subtle CSS cloud/storm backdrop; honour `prefers-reduced-motion` and fall
+    strike, color-codes by energy band, and shows an energy legend; add a
+    subtle CSS cloud/storm backdrop; honor `prefers-reduced-motion` and fall
     back to a static view on failure
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8_
 

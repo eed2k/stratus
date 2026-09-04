@@ -160,17 +160,32 @@ export const WindRose = memo(function WindRose({
   if (bare) {
     return (
       <div className="flex flex-col items-center justify-center h-full w-full">
-        <div className="text-xs text-black font-medium mb-0.5">{title}</div>
-        <svg data-windrose width={size} height={size} className="overflow-visible">
+        <div className="text-[0.95rem] text-black font-semibold mb-0.5 flex-shrink-0">{title}</div>
+        {/*
+          A viewBox plus a percentage size is what makes the rose scale. With a
+          fixed width and height attribute and no viewBox it renders at exactly
+          `size` pixels no matter how much room the container has, which left
+          large screens with a small rose in a big empty box.
+
+          `meet` letterboxes the square inside whatever aspect ratio the grid
+          cell happens to have, so it grows to fill the space without ever
+          overflowing a fixed-height compact row.
+        */}
+        <svg
+          data-windrose
+          viewBox={`0 0 ${size} ${size}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="w-full flex-1 min-h-0"
+        >
           {[0.25, 0.5, 0.75, 1].map((ratio) => (
             <g key={ratio}>
               <circle cx={center} cy={center} r={maxRadius * ratio} fill="none" stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />
-              <text x={center + 5} y={center - maxRadius * ratio + 12} className="fill-muted-foreground text-xs">{safeFixed(ratio * 100, 0)}%</text>
+              <text x={center + 5} y={center - maxRadius * ratio + 12} className="fill-muted-foreground text-[6px]">{safeFixed(ratio * 100, 0)}%</text>
             </g>
           ))}
           {WIND_DIRECTIONS.map((dir, i) => {
             const pos = polarToCart(i * 22.5, maxRadius + 20);
-            return (<text key={dir} x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-xs font-normal">{dir}</text>);
+            return (<text key={dir} x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-[9px] font-normal">{dir}</text>);
           })}
           {data.map((d, dirIndex) => {
             let currentRadius = 0;
@@ -214,7 +229,15 @@ export const WindRose = memo(function WindRose({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        <svg data-windrose width={size} height={size} className="overflow-visible">
+        {/* Fixed render size on the full dashboards. Unlike the compact wall
+            display, these roses are not meant to grow to fill big screens, so
+            they render at a fixed `size` rather than scaling with the card. */}
+        <svg
+          data-windrose
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+        >
           {/* Concentric circles with percentage labels */}
           {[0.25, 0.5, 0.75, 1].map((ratio) => (
             <g key={ratio}>

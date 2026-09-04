@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{% block title %}Nano-climate forecast{% endblock %} :: Stratus Weather</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="apple-touch-icon" href="/static/favicon.svg">
+{#
+  Critical loader styles, inlined on purpose.
+
+  An external stylesheet cannot prevent an unstyled flash, because the flash
+  happens in the window before that stylesheet arrives. These rules ship in the
+  first packet of the document, so the overlay covers the page from the first
+  paint. Nothing here may reference /static/style.css or its custom properties,
+  since :root is declared in that same late-arriving file.
+
+  This is the same loader the main Stratus dashboards and the alert console use:
+  a white gate, a gray track, a slow translucent spinner that gives motion before
+  any progress exists, and a determinate arc with the percentage in the middle.
+  The colors are the literal values from the dashboard component so the three
+  products look like one product.
+
+  Circumference is 2*pi*46 = 289.03; a quarter of it is 72.26. Written out
+  because CSS cannot compute it and a wrong value silently draws the wrong arc.
+
+  Dismissal is driven by a CSS animation with a hard timeout as well as by
+  JavaScript, so a script error can never leave the page blank.
+#}
+<style>
+#page-loader{position:fixed;inset:0;z-index:9999;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;
+  background:#ffffff;opacity:1;
+  animation:pl-auto 3.2s ease-in 1 forwards}
+#page-loader.is-done{animation:none;opacity:0;pointer-events:none;
+  transition:opacity .3s ease}
+@keyframes pl-auto{0%,70%{opacity:1}100%{opacity:0;visibility:hidden}}
+
+#page-loader .pl-ring{position:relative;width:112px;height:112px}
+#page-loader .pl-ring svg{width:112px;height:112px;transform:rotate(-90deg)}
+#page-loader .pl-track{fill:none;stroke:#e5e7eb;stroke-width:6}
+#page-loader .pl-spin{fill:none;stroke:#1e3a5f;stroke-width:6;
+  stroke-linecap:round;stroke-dasharray:72.26 289.03;opacity:.25;
+  transform-origin:56px 56px;animation:pl-spin 1.4s linear infinite}
+#page-loader .pl-arc{fill:none;stroke:#1e3a5f;stroke-width:6;
+  stroke-linecap:round;stroke-dasharray:289.03;stroke-dashoffset:289.03;
+  animation:pl-fill 2.4s ease-out 1 forwards}
+#page-loader.is-done .pl-arc{animation:none;stroke-dashoffset:0}
+#page-loader .pl-pct{position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;
+  font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:600;
+  color:#1e3a5f;font-variant-numeric:tabular-nums}
+#page-loader .pl-label{margin-top:24px;
+  font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:500;
+  color:#1e3a5f}
+
+@keyframes pl-spin{to{transform:rotate(360deg)}}
+/* Stops at 90%: the last tenth belongs to "actually ready", and a ring sitting
+   at 100% while the page is still assembling is a lie the user can see. */
+@keyframes pl-fill{
+  0%{stroke-dashoffset:289.03}
+  100%{stroke-dashoffset:28.9}}
+
+@media (prefers-reduced-motion:reduce){
+  #page-loader{animation-duration:1.2s}
+  #page-loader .pl-spin{animation:none;opacity:.2}
+  #page-loader .pl-arc{animation:none;stroke-dashoffset:28.9}
+}
+</style>
+<link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+<script src="/static/app.js?v={{ asset_version }}" defer></script>
+</head>
+<body class="{% if not request.cookies.get('forecast_session') %}auth{% endif %}">
+{# Purely visual: the content underneath is never hidden, so this is kept out of
+   the accessibility tree rather than announced as a live region. #}
+<div id="page-loader" aria-hidden="true">
+  <div class="pl-ring">
+    <svg viewBox="0 0 112 112" width="112" height="112"
+         focusable="false" aria-hidden="true">
+      <circle class="pl-track" cx="56" cy="56" r="46" fill="none"
+              stroke="#e5e7eb" stroke-width="6"/>
+      <circle class="pl-spin" cx="56" cy="56" r="46" fill="none"
+              stroke="#1e3a5f" stroke-width="6" stroke-linecap="round"
+              stroke-dasharray="72.26 289.03"/>
+      <circle class="pl-arc" cx="56" cy="56" r="46" fill="none"
+              stroke="#1e3a5f" stroke-width="6" stroke-linecap="round"
+              stroke-dasharray="289.03" stroke-dashoffset="289.03"/>
+    </svg>
+    {# Filled in by app.js. With scripting off the ring still animates and this
+       stays empty rather than reading a fake 0%. #}
+    <span class="pl-pct" id="pl-pct"></span>
+  </div>
+  <p class="pl-label">Loading<span id="pl-label-pct"></span></p>
+</div>
+
+{# App chrome is hidden on the sign-in screen so it reads as a clean, full-page
+   login like the main stratusweather.co.za site rather than an app page. #}
+{% if request.cookies.get('forecast_session') %}
+<div class="titlebar">
+  <span class="titlebar-name">STRATUS WEATHER &nbsp;::&nbsp; Nano-climate forecast</span>
+  <form method="post" action="/logout" class="inline-right">
+    <button type="submit" class="link-button">Sign out</button>
+  </form>
+</div>
+
+<nav class="crumbs">
+  <a href="/">Stations</a>
+  {% block crumbs %}{% endblock %}
+</nav>
+{% endif %}
+
+<main>
+  {% if message %}<p class="notice">{{ message }}</p>{% endif %}
+  {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+
+{% if request.cookies.get('forecast_session') %}
+<footer>
+  <p>Forecasts are built from this station's own uploaded record. Every figure
+  on the verification page is measured against observations that arrived after
+  the forecast was issued.</p>
+</footer>
+{% endif %}
+</body>
+</html>

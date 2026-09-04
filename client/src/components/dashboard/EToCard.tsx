@@ -55,12 +55,12 @@ export function EToCard({ dailyETo, weeklyETo, monthlyETo }: EToCardProps) {
                   <span className="mx-1.5">=</span>
                   <span className="inline-flex flex-col items-center align-middle mx-1">
                     <span className="text-xs border-b border-black px-2 pb-0.5">
-                      0.408 Δ(<span className="italic">R<sub>n</sub></span> − <span className="italic">G</span>) + γ
+                      0.408 Δ(<span className="italic">R<sub>n</sub></span> - <span className="italic">G</span>) + γ
                       <span className="inline-flex flex-col items-center align-middle mx-0.5">
                         <span className="text-xs border-b border-black px-1">900</span>
                         <span className="text-xs px-1"><span className="italic">T</span> + 273</span>
                       </span>
-                      <span className="italic">u</span><sub>2</sub>(<span className="italic">e<sub>s</sub></span> − <span className="italic">e<sub>a</sub></span>)
+                      <span className="italic">u</span><sub>2</sub>(<span className="italic">e<sub>s</sub></span> - <span className="italic">e<sub>a</sub></span>)
                     </span>
                     <span className="text-xs px-2 pt-0.5">
                       Δ + γ(1 + 0.34 <span className="italic">u</span><sub>2</sub>)
@@ -69,7 +69,7 @@ export function EToCard({ dailyETo, weeklyETo, monthlyETo }: EToCardProps) {
                 </div>
               </div>
               <div className="flex justify-center gap-4 mt-2 text-xs text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                <span>Δ = slope vapour pressure curve</span>
+                <span>Δ = slope vapor pressure curve</span>
                 <span>γ = psychrometric constant</span>
               </div>
             </div>

@@ -1,7 +1,7 @@
 /* =====================================================================
    Stratus Weather - Lightning Alert Console
    Old-school research / instrument-software styling.
-   Palette: navy + white + black (neutral greys for frames only).
+   Palette: navy + white + black (neutral grays for frames only).
    ===================================================================== */
 
 :root {
@@ -30,7 +30,7 @@ body {
 /* -------------------- Application window frame ---------------------
    Fills the viewport at every size.
 
-   The frame used to be capped at 1080px and centred, which left most of a
+   The frame used to be capped at 1080px and centered, which left most of a
    modern monitor as empty desktop while the content area stayed cramped. It is
    now a full-height flex column: title bar and menu bar keep their natural
    height, the work area takes the remaining space and scrolls on its own, and

@@ -180,6 +180,6 @@ Nothing in this repo holds a working credential for `139.84.242.126`:
 
 Supply access as either:
 
-- an SSH key already authorised on the box, passed as `DEPLOY_KEY`, or
+- an SSH key already authorized on the box, passed as `DEPLOY_KEY`, or
 - the root password in `deploy/.deploy_secret` (one line, gitignored) or the
   `DEPLOY_PASSWORD` environment variable.

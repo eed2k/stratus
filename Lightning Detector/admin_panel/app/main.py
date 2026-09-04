@@ -34,7 +34,7 @@ app.add_middleware(SessionMiddleware,
                    max_age=settings.SESSION_MAX_AGE)
 
 
-# Defence-in-depth response headers applied to every response.
+# Defense-in-depth response headers applied to every response.
 _CSP = ("default-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
         "script-src 'self'; "

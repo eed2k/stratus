@@ -1,4 +1,6 @@
 import re
+import logging
+
 from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import (RedirectResponse, HTMLResponse, JSONResponse,
                                FileResponse)
@@ -6,11 +8,14 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from pathlib import Path
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from ..db import get_db
 from ..config import settings
 from ..models import (User, Recipient, Group, AlertEvent, MessageLog,
-                      HeartbeatSample, UnitStatus, Tenant, CalibrationEvent)
+                      HeartbeatSample, UnitStatus, Tenant, CalibrationEvent,
+                      AlertStage, Setting)
+from ..bootstrap import platform_tenant_id
 from ..metrics import (energy_band, distance_band_summary, valid_coords,
                       CPU_WARN_C, CPU_CRIT_C)
 from .. import reports as reports_mod
@@ -27,7 +32,9 @@ from ..security import (get_csrf_token, verify_csrf, login_allowed,
                         record_login_failure, reset_login_failures)
 from ..tenancy import (url_tenant, base_path, redirect_to, scope, scoped_get,
                        validate_slug, normalize_slug)
-from .. import clickatell_sender
+from .. import sms_gateway
+
+log = logging.getLogger("web")
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -86,6 +93,8 @@ def render(request, name, **ctx):
     ctx.setdefault("tenant_name", (urlt or {}).get("name"))
     ctx.setdefault("is_platform_admin",
                    bool(user is not None and getattr(user, "is_platform_admin", False)))
+    # Status-bar indicator. Whether the gateway is usable, never which gateway.
+    ctx.setdefault("gateway_ready", bool(settings.sms_api_key))
     return templates.TemplateResponse(name, {"request": request, "user": user, **ctx})
 
 
@@ -111,7 +120,7 @@ def login_post(request: Request, email: str = Form(...), password: str = Form(..
     urlt = url_tenant(request)
     url_tid = urlt["id"] if urlt else None
     if u.is_platform_admin:
-        # Platform staff may sign in on any panel; effective tenant follows URL.
+        # Stratus Admin may sign in on any panel; effective tenant follows URL.
         tid = url_tid if url_tid is not None else u.tenant_id
     else:
         # A client login only works on its own panel. Signing in at the wrong
@@ -130,14 +139,109 @@ def login_post(request: Request, email: str = Form(...), password: str = Form(..
     request.session["uid"] = u.id
     request.session["tid"] = tid
 
-    # Land inside the tenant that was authenticated. A client who signed in on
-    # the root panel is sent to their own slug rather than the platform panel.
-    dest = base_path(request) or "/"
-    if url_tid is None and not u.is_platform_admin:
-        t = db.get(Tenant, tid)
-        if t is not None:
-            dest = f"/{t.slug}/"
-    return RedirectResponse(dest, status_code=303)
+    return RedirectResponse(_login_destination(db, request, u, url_tid),
+                            status_code=303)
+
+
+def _login_destination(db, request, user, url_tid) -> str:
+    """Where a successful sign-in lands.
+
+    Stratus Admin on the unprefixed panel go straight to the client list: their
+    job is managing panels, and it is the only page their navigation offers, so
+    anywhere else is a detour. A platform admin who signed in at a specific
+    client's address stays in that client's panel.
+
+    A client always ends up inside their own panel, whichever login page they
+    used.
+    """
+    if user.is_platform_admin:
+        return base_path(request) or "/tenants"
+    if url_tid is not None:
+        return base_path(request) or "/"
+    t = db.get(Tenant, user.tenant_id)
+    return f"/{t.slug}/" if t is not None else "/"
+
+
+# -------------------- CLIENT SIGN-IN --------------------
+# A separate front door for clients, at /client.
+#
+# The main /login page asks for an e-mail address, which is the right thing for
+# Stratus Admin but wrong for a site: the people who use a client panel know
+# their installation as "GWLD1", not as an e-mail address, and a shared site
+# login is usually not attached to one person's mailbox at all.
+#
+# This route is authentication only. It deliberately does NOT depend on
+# current_user, because current_user refuses a client login on any unprefixed
+# path by design - that refusal is what stops one client reading another's panel,
+# and it must stay. So /client verifies the credentials, then redirects into the
+# client's own panel where the normal tenant binding takes over.
+@router.get("/client", response_class=HTMLResponse)
+def client_login_get(request: Request):
+    # Only ever served on the platform panel. Inside a client panel the tenant is
+    # already known, so the normal login page is the right one.
+    if base_path(request):
+        return RedirectResponse(redirect_to(request, "/login"), status_code=303)
+    return render(request, "client_login.html", error=None)
+
+
+@router.post("/client")
+def client_login_post(request: Request, username: str = Form(...),
+                      password: str = Form(...),
+                      _: None = Depends(verify_csrf),
+                      db: Session = Depends(get_db)):
+    if base_path(request):
+        return RedirectResponse(redirect_to(request, "/login"), status_code=303)
+    if not login_allowed(request):
+        return render(request, "client_login.html",
+                      error="Too many failed attempts. Try again later.")
+
+    identifier = (username or "").strip()
+    if not identifier:
+        record_login_failure(request)
+        return render(request, "client_login.html", error="Invalid credentials")
+
+    # Accept either the site's sign-in name or an e-mail address, so a client
+    # admin who already knows their e-mail is not turned away from the door they
+    # were pointed at. Both are matched case-insensitively.
+    lowered = identifier.lower()
+    u = (db.query(User)
+         .filter(func.lower(User.username) == lowered,
+                 User.is_active == True)  # noqa: E712
+         .first())
+    if u is None and "@" in identifier:
+        u = (db.query(User)
+             .filter(func.lower(User.email) == lowered,
+                     User.is_active == True)  # noqa: E712
+             .first())
+
+    # One failure message for every rejection below, so this page cannot be used
+    # to discover which site names exist.
+    if u is None or not verify_password(password, u.password_hash):
+        record_login_failure(request)
+        return render(request, "client_login.html", error="Invalid credentials")
+
+    # This is the client door. Stratus Admin have their own, and letting a
+    # platform admin in here would land them on a client panel with cross-tenant
+    # reach from a page that is not meant to grant it.
+    if u.is_platform_admin:
+        return render(request, "client_login.html",
+                      error="Use the staff sign-in page for this account.")
+
+    if u.tenant_id is None:
+        record_login_failure(request)
+        return render(request, "client_login.html", error="Invalid credentials")
+    t = db.get(Tenant, u.tenant_id)
+    if t is None or not t.is_active:
+        # A disabled panel must not be reachable, and saying so would confirm it
+        # exists.
+        record_login_failure(request)
+        return render(request, "client_login.html", error="Invalid credentials")
+
+    reset_login_failures(request)
+    request.session.clear()
+    request.session["uid"] = u.id
+    request.session["tid"] = u.tenant_id
+    return RedirectResponse(f"/{t.slug}/", status_code=303)
 
 
 @router.get("/logout")
@@ -290,7 +394,7 @@ def data_strikes(request: Request, station: str = "", window: int = 1440,
             "distance_km": e.distance_km,
             "energy": e.energy,
             "band": band["name"],
-            "colour": band["colour"],
+            "color": band["color"],
         })
     summary = distance_band_summary(strikes)
     return JSONResponse({"radius_km": _STORM_RADIUS_KM, "rings": _STORM_RINGS_KM,
@@ -351,7 +455,7 @@ def station_update(request: Request, station_id: str,
             alt = float(alt_s)
         except ValueError:
             return _reload(error=(f"Invalid altitude for {station_id}. "
-                                  "Enter metres above mean sea level, or leave "
+                                  "Enter meters above mean sea level, or leave "
                                   "it blank."))
         # Reject NaN, infinities and physically impossible elevations. The bounds
         # span the Dead Sea shore to well above Everest, which is generous for a
@@ -360,7 +464,7 @@ def station_update(request: Request, station_id: str,
         if alt != alt or alt in (float("inf"), float("-inf")) \
                 or not -500.0 <= alt <= 9000.0:
             return _reload(error=(f"Altitude for {station_id} must be between "
-                                  "-500 and 9000 metres."))
+                                  "-500 and 9000 meters."))
         unit.altitude_m = alt
 
     unit.site_label = (site_label or "").strip() or None
@@ -518,14 +622,30 @@ def recipient_create(request: Request, name: str = Form(...),
                      _: None = Depends(verify_csrf),
                      user: User = Depends(require_writer),
                      tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    def _reload(error=None):
+        rows = [] if _is_viewer(user) else \
+            scope(db.query(Recipient), Recipient, tid).order_by(Recipient.name).all()
+        groups = scope(db.query(Group), Group, tid).order_by(Group.name).all()
+        return render(request, "recipients.html", user=user, rows=rows,
+                      groups=groups, error=error)
+
     # The group must belong to this tenant; otherwise a crafted form could
     # attach a recipient to another client's group.
     if scoped_get(db, Group, group_id, tid) is None:
         raise HTTPException(400, "Unknown group")
-    db.add(Recipient(tenant_id=tid, name=name.strip(), phone=phone.strip(),
+    name = (name or "").strip()
+    if not name:
+        return _reload(error="Enter a name for the recipient.")
+    db.add(Recipient(tenant_id=tid, name=name, phone=phone.strip(),
                      whatsapp="", channel="sms", language=language,
                      group_id=group_id, is_active=True))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        log.exception("recipient_create failed for tenant=%s name=%r", tid, name)
+        return _reload(error=f"Could not save '{name}'. It conflicts with an "
+                             "existing recipient.")
     return RedirectResponse(redirect_to(request, "/recipients"), status_code=303)
 
 
@@ -564,9 +684,35 @@ def group_create(request: Request, name: str = Form(...), description: str = For
                  _: None = Depends(verify_csrf),
                  user: User = Depends(require_writer),
                  tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
-    db.add(Group(tenant_id=tid, name=name.strip(), description=description.strip(),
-                 distance_threshold_km=distance_threshold_km, is_active=True))
-    db.commit()
+    def _reload(error=None):
+        rows = [] if _is_viewer(user) else \
+            scope(db.query(Group), Group, tid).order_by(Group.name).all()
+        return render(request, "groups.html", user=user, rows=rows, error=error)
+
+    name = (name or "").strip()
+    if not name:
+        return _reload(error="Enter a name for the group.")
+    # Names are unique per tenant, not globally: two clients may each have a
+    # "control room". Checked here rather than left to the database, because the
+    # models deliberately declare no constraint for it.
+    existing = (scope(db.query(Group), Group, tid)
+                .filter(func.lower(Group.name) == name.lower()).first())
+    if existing is not None:
+        return _reload(error=f"A group called '{name}' already exists.")
+    try:
+        threshold = max(1, min(40, int(distance_threshold_km)))
+    except (TypeError, ValueError):
+        return _reload(error="Alert distance must be a whole number of kilometers.")
+
+    db.add(Group(tenant_id=tid, name=name, description=description.strip(),
+                 distance_threshold_km=threshold, is_active=True))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        log.exception("group_create failed for tenant=%s name=%r", tid, name)
+        return _reload(error=f"Could not save the group '{name}'. "
+                             "It conflicts with existing data.")
     return RedirectResponse(redirect_to(request, "/groups"), status_code=303)
 
 
@@ -600,6 +746,192 @@ def group_delete(request: Request, gid: int, _: None = Depends(verify_csrf),
     if g and not g.recipients:
         db.delete(g); db.commit()
     return RedirectResponse(redirect_to(request, "/groups"), status_code=303)
+
+
+# -------------------- ALERT STAGES --------------------
+# A client's escalation plan: which distance bands raise an alert, what each is
+# called, and who it goes to. Managed by the client's own admin or operator.
+_STAGE_MAX_KM = 40
+_STAGE_PRESET = [("Advisory", 30), ("Warning", 20), ("Stop work", 10)]
+
+
+def _stages_ctx(db, user, tid, error=None, success=None):
+    """Context for the stages page. Stages read nearest-first, like the plan."""
+    rows = [] if _is_viewer(user) else \
+        (scope(db.query(AlertStage), AlertStage, tid)
+         .order_by(AlertStage.distance_km.asc()).all())
+    groups = scope(db.query(Group), Group, tid).order_by(Group.name).all()
+    return {"user": user, "rows": rows, "groups": groups,
+            "max_km": _STAGE_MAX_KM, "error": error, "success": success,
+            "cooldown_default": get_alert_cooldown_min(db, tenant_id=tid)}
+
+
+@router.get("/stages", response_class=HTMLResponse)
+def stages_list(request: Request, user: User = Depends(current_user),
+                tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    return render(request, "stages.html", **_stages_ctx(db, user, tid))
+
+
+@router.post("/stages/create")
+def stage_create(request: Request, name: str = Form(...),
+                 distance_km: int = Form(...), group_id: str = Form(""),
+                 cooldown_min: str = Form(""),
+                 _: None = Depends(verify_csrf),
+                 user: User = Depends(require_writer),
+                 tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    def _reload(error=None):
+        return render(request, "stages.html",
+                      **_stages_ctx(db, user, tid, error=error))
+
+    name = (name or "").strip()
+    if not name:
+        return _reload(error="Give the stage a name, for example 'Warning'.")
+    try:
+        distance = int(distance_km)
+    except (TypeError, ValueError):
+        return _reload(error="Distance must be a whole number of kilometers.")
+    if not 1 <= distance <= _STAGE_MAX_KM:
+        return _reload(error=f"Distance must be between 1 and {_STAGE_MAX_KM} km. "
+                             "The detector cannot place a strike beyond that.")
+
+    # Two stages at the same distance can never both fire: selection takes the
+    # smallest covering band, so the second would be permanently dead.
+    clash = (scope(db.query(AlertStage), AlertStage, tid)
+             .filter(AlertStage.distance_km == distance).first())
+    if clash is not None:
+        return _reload(error=(f"There is already a stage at {distance} km "
+                              f"('{clash.name}'). Each stage needs its own "
+                              "distance, or one of them could never fire."))
+
+    gid = None
+    if (group_id or "").strip():
+        try:
+            gid = int(group_id)
+        except (TypeError, ValueError):
+            return _reload(error="Choose a valid group.")
+        # Must belong to this tenant, or a crafted form could point a stage at
+        # another client's recipients.
+        if scoped_get(db, Group, gid, tid) is None:
+            return _reload(error="Choose a valid group.")
+
+    cool = None
+    if (cooldown_min or "").strip():
+        try:
+            cool = max(0, min(1440, int(cooldown_min)))
+        except (TypeError, ValueError):
+            return _reload(error="Repeat interval must be a whole number of "
+                                 "minutes, or blank to use the panel default.")
+
+    db.add(AlertStage(tenant_id=tid, name=name[:40], distance_km=distance,
+                      group_id=gid, cooldown_min=cool, is_active=True))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        log.exception("stage_create failed for tenant=%s name=%r", tid, name)
+        return _reload(error=f"Could not save the stage '{name}'.")
+    return RedirectResponse(redirect_to(request, "/stages"), status_code=303)
+
+
+@router.post("/stages/preset")
+def stages_preset(request: Request, _: None = Depends(verify_csrf),
+                  user: User = Depends(require_writer),
+                  tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    """Create the common three-step plan in one action.
+
+    30 km advisory, 20 km warning, 10 km stop work: the arrangement most sites
+    end up with. Only fills gaps, so it never disturbs a distance already in use.
+    """
+    existing = {s.distance_km for s in
+                scope(db.query(AlertStage), AlertStage, tid).all()}
+    added = 0
+    for label, km in _STAGE_PRESET:
+        if km in existing:
+            continue
+        db.add(AlertStage(tenant_id=tid, name=label, distance_km=km,
+                          group_id=None, is_active=True))
+        added += 1
+    if added:
+        db.commit()
+    msg = (f"Added {added} stage(s)." if added
+           else "Those distances already have stages.")
+    return render(request, "stages.html", **_stages_ctx(db, user, tid, success=msg))
+
+
+@router.post("/stages/{sid}/update")
+def stage_update(request: Request, sid: int, name: str = Form(...),
+                 distance_km: int = Form(...), group_id: str = Form(""),
+                 cooldown_min: str = Form(""),
+                 _: None = Depends(verify_csrf),
+                 user: User = Depends(require_writer),
+                 tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    def _reload(error=None):
+        return render(request, "stages.html",
+                      **_stages_ctx(db, user, tid, error=error))
+
+    s = scoped_get(db, AlertStage, sid, tid)
+    if s is None:
+        raise HTTPException(404, "Stage not found")
+    name = (name or "").strip()
+    if not name:
+        return _reload(error="Give the stage a name.")
+    try:
+        distance = int(distance_km)
+    except (TypeError, ValueError):
+        return _reload(error="Distance must be a whole number of kilometers.")
+    if not 1 <= distance <= _STAGE_MAX_KM:
+        return _reload(error=f"Distance must be between 1 and {_STAGE_MAX_KM} km.")
+    clash = (scope(db.query(AlertStage), AlertStage, tid)
+             .filter(AlertStage.distance_km == distance,
+                     AlertStage.id != s.id).first())
+    if clash is not None:
+        return _reload(error=(f"There is already a stage at {distance} km "
+                              f"('{clash.name}')."))
+
+    gid = None
+    if (group_id or "").strip():
+        try:
+            gid = int(group_id)
+        except (TypeError, ValueError):
+            return _reload(error="Choose a valid group.")
+        if scoped_get(db, Group, gid, tid) is None:
+            return _reload(error="Choose a valid group.")
+
+    cool = None
+    if (cooldown_min or "").strip():
+        try:
+            cool = max(0, min(1440, int(cooldown_min)))
+        except (TypeError, ValueError):
+            return _reload(error="Repeat interval must be whole minutes.")
+
+    s.name = name[:40]
+    s.distance_km = distance
+    s.group_id = gid
+    s.cooldown_min = cool
+    db.commit()
+    return RedirectResponse(redirect_to(request, "/stages"), status_code=303)
+
+
+@router.post("/stages/{sid}/toggle")
+def stage_toggle(request: Request, sid: int, _: None = Depends(verify_csrf),
+                 user: User = Depends(require_writer),
+                 tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    s = scoped_get(db, AlertStage, sid, tid)
+    if s:
+        s.is_active = not s.is_active
+        db.commit()
+    return RedirectResponse(redirect_to(request, "/stages"), status_code=303)
+
+
+@router.post("/stages/{sid}/delete")
+def stage_delete(request: Request, sid: int, _: None = Depends(verify_csrf),
+                 user: User = Depends(require_writer),
+                 tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    s = scoped_get(db, AlertStage, sid, tid)
+    if s:
+        db.delete(s)
+        db.commit()
+    return RedirectResponse(redirect_to(request, "/stages"), status_code=303)
 
 
 # -------------------- EVENTS --------------------
@@ -705,7 +1037,7 @@ def test_alert_post(request: Request,
                          to_number=to, body=body, status="queued")
         db.add(row); db.flush()
         try:
-            status, sid = clickatell_sender.send_sms(to, body)
+            status, sid = sms_gateway.send_sms(to, body)
             row.status = status
             row.provider_message_id = sid
             event.messages_sent = 1
@@ -730,8 +1062,8 @@ def test_alert_post(request: Request,
 def settings_page(request: Request, user: User = Depends(require_admin),
                   tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
     gateway = {
-        "clickatell_api_key": bool(settings.CLICKATELL_API_KEY),
-        "clickatell_dlr_token": bool(settings.CLICKATELL_DLR_TOKEN),
+        "api_key": bool(settings.sms_api_key),
+        "dlr_token": bool(settings.sms_dlr_token),
         "webhook_token": bool(settings.ALERT_WEBHOOK_TOKEN),
     }
     return render(request, "settings.html", user=user, gateway=gateway,
@@ -742,7 +1074,7 @@ def settings_page(request: Request, user: User = Depends(require_admin),
 @router.get("/users", response_class=HTMLResponse)
 def users_list(request: Request, user: User = Depends(require_admin),
                tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
-    # A client admin sees only their own panel's logins. Platform staff inside a
+    # A client admin sees only their own panel's logins. Stratus Admin inside a
     # tenant see that tenant's logins.
     rows = scope(db.query(User), User, tid).order_by(User.email).all()
     return render(request, "users.html", user=user, rows=rows)
@@ -753,23 +1085,35 @@ def users_create(request: Request, email: str = Form(...), password: str = Form(
                  role: str = Form("operator"), _: None = Depends(verify_csrf),
                  user: User = Depends(require_admin),
                  tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    # Errors come back on the form itself. Raising HTTPException here replaced
+    # the page with a bare error, losing what the admin had typed.
+    def _reload(error=None):
+        rows = scope(db.query(User), User, tid).order_by(User.email).all()
+        return render(request, "users.html", user=user, rows=rows, error=error)
+
     if role not in ("admin", "operator", "viewer"):
-        raise HTTPException(400, "Invalid role")
-    email = email.strip().lower()
+        return _reload(error="Choose a valid role.")
+    email = (email or "").strip().lower()
     if "@" not in email or len(email) < 5:
-        raise HTTPException(400, "A valid e-mail address is required")
+        return _reload(error="A valid e-mail address is required.")
     if len(password) < MIN_PASSWORD_LEN:
-        raise HTTPException(400,
-                            f"Password must be at least {MIN_PASSWORD_LEN} characters")
+        return _reload(
+            error=f"Password must be at least {MIN_PASSWORD_LEN} characters.")
     # E-mail is globally unique (login is by e-mail alone), so this check is not
     # scoped to the tenant.
     if db.query(User).filter(User.email == email).first():
-        raise HTTPException(400, "A user with that e-mail already exists")
+        return _reload(error="A user with that e-mail already exists.")
     # New logins belong to the current tenant and are never platform admins:
     # only the seeded Stratus admin holds cross-tenant reach.
     db.add(User(email=email, password_hash=hash_password(password),
                 role=role, is_active=True, tenant_id=tid, is_platform_admin=False))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two admins submitting the same address at once both pass the check
+        # above; the database is the only real arbiter.
+        db.rollback()
+        return _reload(error="A user with that e-mail already exists.")
     return RedirectResponse(redirect_to(request, "/users"), status_code=303)
 
 
@@ -793,7 +1137,7 @@ def users_delete(request: Request, uid: int, _: None = Depends(verify_csrf),
 
 
 # ==================== CLIENT PANELS (platform admins only) ====================
-# Stratus staff create and open per-client panels here. A client never sees
+# Stratus Admin create and open per-client panels here. A client never sees
 # these routes: require_platform_admin 404s for anyone else, and the middleware
 # only exposes them on the platform panel (no slug prefix).
 @router.get("/tenants", response_class=HTMLResponse)
@@ -848,18 +1192,33 @@ def tenant_create(request: Request, name: str = Form(...), slug: str = Form(...)
     if len(admin_password) < MIN_PASSWORD_LEN:
         return back(f"Admin password must be at least {MIN_PASSWORD_LEN} characters.")
 
+    # One transaction for the whole panel: tenant, its admin login and its
+    # default group. This used to commit the tenant first and the admin and group
+    # second, so when the second commit failed the client panel existed with no
+    # way to sign into it and no group to attach recipients to. A panel is only
+    # useful complete, so it is created all at once or not at all.
     t = Tenant(slug=slug, name=name.strip() or slug,
                site_name=(site_name.strip() or name.strip() or slug),
                is_active=True)
-    db.add(t); db.commit(); db.refresh(t)
-    # Seed the client's own admin and a default recipient group.
+    db.add(t)
+    db.flush()          # assigns t.id without ending the transaction
     db.add(User(email=admin_email, password_hash=hash_password(admin_password),
                 role="admin", is_active=True, tenant_id=t.id,
                 is_platform_admin=False))
     db.add(Group(tenant_id=t.id, name="default",
                  description="Default recipient group",
                  distance_threshold_km=15, is_active=True))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # A constraint the pre-checks above do not cover, such as a legacy
+        # UNIQUE index left on groups.name by an older schema. Roll back so the
+        # session is usable for re-rendering the page.
+        db.rollback()
+        log.exception("tenant_create failed for slug=%s", slug)
+        return back("Could not create that panel: it conflicts with existing "
+                    "data. Nothing was saved. Please check the name and "
+                    "address, then try again.")
     return RedirectResponse(redirect_to(request, "/tenants"), status_code=303)
 
 
@@ -872,4 +1231,198 @@ def tenant_toggle(request: Request, tenant_pk: int, _: None = Depends(verify_csr
     if t and t.slug != settings.PLATFORM_TENANT_SLUG:
         t.is_active = not t.is_active
         db.commit()
+    return RedirectResponse(redirect_to(request, "/tenants"), status_code=303)
+
+
+def _tenant_contents(db, tenant_pk: int) -> dict:
+    """Count everything that belongs to a client panel.
+
+    Used both to show an admin what a deletion would destroy and to prove
+    afterwards that it was destroyed.
+    """
+    return {
+        "users": db.query(User).filter(User.tenant_id == tenant_pk).count(),
+        "groups": db.query(Group).filter(Group.tenant_id == tenant_pk).count(),
+        "stages": db.query(AlertStage)
+                    .filter(AlertStage.tenant_id == tenant_pk).count(),
+        "recipients": db.query(Recipient)
+                        .filter(Recipient.tenant_id == tenant_pk).count(),
+        "events": db.query(AlertEvent)
+                    .filter(AlertEvent.tenant_id == tenant_pk).count(),
+        "units": db.query(UnitStatus)
+                   .filter(UnitStatus.tenant_id == tenant_pk).count(),
+        "heartbeats": db.query(HeartbeatSample)
+                        .filter(HeartbeatSample.tenant_id == tenant_pk).count(),
+        "calibrations": db.query(CalibrationEvent)
+                          .filter(CalibrationEvent.tenant_id == tenant_pk).count(),
+    }
+
+
+@router.get("/tenants/{tenant_pk}/edit", response_class=HTMLResponse)
+def tenant_edit_get(request: Request, tenant_pk: int,
+                    user: User = Depends(require_platform_admin),
+                    db: Session = Depends(get_db)):
+    t = db.get(Tenant, tenant_pk)
+    if t is None:
+        raise HTTPException(404, "Client panel not found")
+    if t.slug == settings.PLATFORM_TENANT_SLUG:
+        # The platform panel is Stratus' own and is not a client record.
+        raise HTTPException(404, "Client panel not found")
+    admins = (db.query(User)
+              .filter(User.tenant_id == t.id, User.role == "admin")
+              .order_by(User.email).all())
+    return render(request, "tenant_edit.html", user=user, t=t, admins=admins,
+                  contents=_tenant_contents(db, t.id), error=None, success=None)
+
+
+@router.post("/tenants/{tenant_pk}/update")
+def tenant_update(request: Request, tenant_pk: int,
+                  name: str = Form(...), site_name: str = Form(""),
+                  client_username: str = Form(""),
+                  _: None = Depends(verify_csrf),
+                  user: User = Depends(require_platform_admin),
+                  db: Session = Depends(get_db)):
+    """Rename a client panel and set its client sign-in name.
+
+    The panel address (slug) is deliberately NOT editable. It is baked into the
+    detector's configured webhook URL - ".../gwld1/api/v1/lightning" - and into
+    whatever the client has bookmarked. Changing it here would silently stop a
+    live detector from reporting, with nothing on this page to suggest why. A
+    panel that genuinely needs a new address should be created afresh.
+    """
+    t = db.get(Tenant, tenant_pk)
+    if t is None or t.slug == settings.PLATFORM_TENANT_SLUG:
+        raise HTTPException(404, "Client panel not found")
+
+    def _reload(error=None, success=None):
+        admins = (db.query(User)
+                  .filter(User.tenant_id == t.id, User.role == "admin")
+                  .order_by(User.email).all())
+        return render(request, "tenant_edit.html", user=user, t=t, admins=admins,
+                      contents=_tenant_contents(db, t.id),
+                      error=error, success=success)
+
+    new_name = (name or "").strip()
+    if not new_name:
+        return _reload(error="Enter a client name.")
+
+    wanted = (client_username or "").strip()
+    if wanted:
+        # Same rule as the login: names are compared case-insensitively, so two
+        # logins differing only in case would be indistinguishable at sign-in.
+        clash = (db.query(User)
+                 .filter(func.lower(User.username) == wanted.lower())
+                 .first())
+        admins = (db.query(User)
+                  .filter(User.tenant_id == t.id, User.role == "admin")
+                  .order_by(User.email).all())
+        if clash is not None and clash.tenant_id != t.id:
+            return _reload(error=f"The sign-in name '{wanted}' is already in use.")
+        if len(admins) != 1:
+            return _reload(
+                error=("This panel has "
+                       + ("no admin login" if not admins
+                          else f"{len(admins)} admin logins")
+                       + ", so there is no single account to attach a sign-in "
+                         "name to. Set it on the panel's own Users page."))
+        admins[0].username = wanted
+
+    t.name = new_name
+    t.site_name = (site_name or "").strip() or new_name
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        log.exception("tenant_update failed for slug=%s", t.slug)
+        return _reload(error="Could not save those changes.")
+    return _reload(success="Saved.")
+
+
+@router.post("/tenants/{tenant_pk}/delete")
+def tenant_delete(request: Request, tenant_pk: int,
+                  confirm_slug: str = Form(""),
+                  _: None = Depends(verify_csrf),
+                  user: User = Depends(require_platform_admin),
+                  db: Session = Depends(get_db)):
+    """Delete a client panel and everything filed under it.
+
+    THIS IS IRREVERSIBLE AND IT IS MEANT TO BE HARD TO DO BY ACCIDENT.
+
+    The admin must type the panel address to confirm, because a misplaced click
+    on a row would otherwise destroy a client's entire alert history. The
+    platform panel can never be deleted.
+
+    Detectors are the one thing NOT deleted. A unit is physical hardware that is
+    still out there transmitting: its UnitStatus row is reassigned to the
+    platform tenant, exactly where an unclaimed detector lives, so it reappears
+    on the Unassigned Units page for reassignment instead of being orphaned and
+    then silently re-created on its next heartbeat with no owner.
+
+    Deletion order follows the foreign keys inward: message logs before events,
+    recipients before groups, and stages before the groups they point at.
+    """
+    t = db.get(Tenant, tenant_pk)
+    if t is None:
+        raise HTTPException(404, "Client panel not found")
+    if t.slug == settings.PLATFORM_TENANT_SLUG:
+        raise HTTPException(400, "The platform panel cannot be deleted.")
+
+    def _reload(error):
+        admins = (db.query(User)
+                  .filter(User.tenant_id == t.id, User.role == "admin")
+                  .order_by(User.email).all())
+        return render(request, "tenant_edit.html", user=user, t=t, admins=admins,
+                      contents=_tenant_contents(db, t.id), error=error,
+                      success=None)
+
+    if (confirm_slug or "").strip().lower() != t.slug.lower():
+        return _reload(error=(f"To delete this panel, type its address "
+                              f"'{t.slug}' exactly. Nothing was deleted."))
+
+    slug = t.slug
+    before = _tenant_contents(db, t.id)
+    platform_id = platform_tenant_id(db)
+
+    try:
+        # Message logs reference events, so they go first. Collected by event id
+        # because MessageLog carries no tenant_id of its own.
+        event_ids = [e.id for e in db.query(AlertEvent.id)
+                     .filter(AlertEvent.tenant_id == t.id).all()]
+        if event_ids:
+            db.query(MessageLog).filter(MessageLog.event_id.in_(event_ids))\
+              .delete(synchronize_session=False)
+        db.query(AlertEvent).filter(AlertEvent.tenant_id == t.id)\
+          .delete(synchronize_session=False)
+        db.query(HeartbeatSample).filter(HeartbeatSample.tenant_id == t.id)\
+          .delete(synchronize_session=False)
+        db.query(CalibrationEvent).filter(CalibrationEvent.tenant_id == t.id)\
+          .delete(synchronize_session=False)
+        # Stages reference groups; recipients reference groups. Both before them.
+        db.query(AlertStage).filter(AlertStage.tenant_id == t.id)\
+          .delete(synchronize_session=False)
+        db.query(Recipient).filter(Recipient.tenant_id == t.id)\
+          .delete(synchronize_session=False)
+        db.query(Group).filter(Group.tenant_id == t.id)\
+          .delete(synchronize_session=False)
+        db.query(User).filter(User.tenant_id == t.id)\
+          .delete(synchronize_session=False)
+        # Hand the hardware back rather than deleting it.
+        released = (db.query(UnitStatus).filter(UnitStatus.tenant_id == t.id)
+                    .update({UnitStatus.tenant_id: platform_id},
+                            synchronize_session=False))
+        # Per-tenant runtime settings are keyed "t<id>:name" and have no foreign
+        # key, so they would otherwise be left behind for a future tenant that
+        # happens to reuse the id.
+        db.query(Setting).filter(Setting.key.like(f"t{t.id}:%"))\
+          .delete(synchronize_session=False)
+        db.delete(t)
+        db.commit()
+    except Exception:
+        db.rollback()
+        log.exception("tenant_delete failed for slug=%s", slug)
+        return _reload(error="Could not delete that panel. Nothing was deleted.")
+
+    log.warning("client panel '%s' deleted by %s - removed %s, released %d "
+                "detector(s) to the platform panel",
+                slug, user.email, before, released)
     return RedirectResponse(redirect_to(request, "/tenants"), status_code=303)

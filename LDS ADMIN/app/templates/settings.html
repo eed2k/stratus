@@ -48,12 +48,12 @@
         <td>SMS only</td>
       </tr>
       <tr>
-        <td>Clickatell API key</td>
-        <td>{% if gateway.clickatell_api_key %}<span class="state-on">configured</span>{% else %}<span class="state-off">not set</span>{% endif %}</td>
+        <td>Gateway API key</td>
+        <td>{% if gateway.api_key %}<span class="state-on">configured</span>{% else %}<span class="state-off">not set</span>{% endif %}</td>
       </tr>
       <tr>
-        <td>Clickatell delivery-receipt token</td>
-        <td>{% if gateway.clickatell_dlr_token %}<span class="state-on">configured</span>{% else %}<span class="muted">not set (optional)</span>{% endif %}</td>
+        <td>Delivery-receipt token</td>
+        <td>{% if gateway.dlr_token %}<span class="state-on">configured</span>{% else %}<span class="muted">not set (optional)</span>{% endif %}</td>
       </tr>
       <tr>
         <td>Pi webhook token</td>
@@ -62,8 +62,8 @@
     </tbody>
   </table>
   <p class="muted" style="text-align:left;padding:10px 0 0;">
-    To change the Clickatell API key, update <code>CLICKATELL_API_KEY</code> in
-    the server <code>.env</code> and restart the panel.
+    To change the gateway API key, update <code>SMS_GATEWAY_API_KEY</code> in the
+    server <code>.env</code> and restart the panel.
   </p>
 </div>
 {% endif %}

@@ -101,7 +101,7 @@ interface WeatherChartProps {
   defaultRange?: string;
   onRangeChange?: (range: string) => void;
   heightClass?: string; // override chart area height, e.g. "h-full" for flexible layouts
-  compact?: boolean; // hide legend, colour-code title by series, 6-hour time ticks
+  compact?: boolean; // hide legend, color-code title by series, 6-hour time ticks
   /**
    * Give the second and later series their own axis on the right.
    *
@@ -111,6 +111,13 @@ interface WeatherChartProps {
    * to match its series so it is obvious which scale belongs to which line.
    */
   dualAxis?: boolean;
+  /**
+   * Anchor the compact y-axis at zero (both axes) so short-range charts read
+   * against a stable baseline instead of zooming into a hair-thin band. The
+   * compact dashboard passes this for the 1h/6h/12h windows; 24h keeps the
+   * min-span auto scaling.
+   */
+  zeroFloor?: boolean;
 }
 
 export const WeatherChart = memo(function WeatherChart({
@@ -123,11 +130,12 @@ export const WeatherChart = memo(function WeatherChart({
   heightClass,
   compact = false,
   dualAxis = false,
+  zeroFloor = false,
 }: WeatherChartProps) {
   // A second axis only makes sense when there is a second series to put on it.
   const useDualAxis = dualAxis && series.length > 1;
-  const leftColour = series[0]?.color;
-  const rightColour = series[1]?.color;
+  const leftColor = series[0]?.color;
+  const rightColor = series[1]?.color;
   const [selectedRange, setSelectedRange] = useState(defaultRange);
 
   const handleRangeChange = (range: string) => {
@@ -140,7 +148,7 @@ export const WeatherChart = memo(function WeatherChart({
    *
    * The default x-axis is a *category* axis keyed on the ISO timestamp string.
    * Recharts derives category ticks from the domain and thins them with
-   * `interval`; it does not honour an explicit `ticks` list, and `interval={0}`
+   * `interval`; it does not honor an explicit `ticks` list, and `interval={0}`
    * means "label every category" - roughly 500 labels inside a 200px compact
    * cell, which collapses into an unreadable smear. That is why the compact
    * charts appeared to have no x-axis values at all.
@@ -149,7 +157,7 @@ export const WeatherChart = memo(function WeatherChart({
    * exactly, so we choose a handful of evenly spaced instants and Recharts
    * draws precisely those. `__t` is epoch milliseconds derived from the
    * timestamp; it is added only in compact mode so the standard dashboard
-   * keeps its existing category behaviour.
+   * keeps its existing category behavior.
    */
   const compactData = useMemo(() => {
     if (!compact) return data;
@@ -178,6 +186,59 @@ export const WeatherChart = memo(function WeatherChart({
     return out;
   }, [compact, compactDomain]);
 
+  /**
+   * A y-axis domain for the compact charts that will not zoom into a hair-thin
+   * band when the readings barely move over a short window.
+   *
+   * Recharts' default ["auto","auto"] fits the axis tightly to the data, so an
+   * hour in which the temperature holds within 0.2 C is drawn as a dramatic
+   * swing and the chart "looks weird". This enforces a sensible minimum span
+   * per quantity (picked from the series unit), floors the zero-based
+   * quantities at 0, and pads the range slightly so the line is never glued to
+   * an edge. Non-compact charts keep Recharts' own scaling untouched.
+   */
+  const compactAxisDomain = (
+    dataKey: string,
+    unit?: string,
+  ): [number | string, number | string] => {
+    if (!compact) return ["auto", "auto"];
+    const vals = (data as Array<Record<string, unknown>>)
+      .map((d) => d[dataKey])
+      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    if (vals.length === 0) return ["auto", "auto"];
+    let lo = Math.min(...vals);
+    let hi = Math.max(...vals);
+    const u = (unit ?? "").toLowerCase();
+    // Percentages (humidity) read most honestly against the full 0-100 scale.
+    if (u.includes("%")) return [0, 100];
+    // Short ranges (1h/6h/12h): anchor both axes at 0 so small movements look
+    // small rather than filling the plot. 24h leaves zeroFloor off.
+    if (zeroFloor) {
+      const top = Math.max(hi, 1);
+      return [0, Math.ceil(top * 1.1)];
+    }
+    let minSpan = 1;
+    let floorZero = false;
+    if (u.includes("c")) minSpan = 10;                 // temperature, deg C
+    else if (u.includes("hpa")) minSpan = 12;          // pressure
+    else if (u.includes("w/m")) { floorZero = true; minSpan = 50; }  // solar
+    else if (u.includes("mm")) { floorZero = true; minSpan = 2; }    // ET0
+    if (floorZero) lo = 0;
+    let span = hi - lo;
+    if (span < minSpan) {
+      if (floorZero) {
+        hi = Math.max(minSpan, hi);
+      } else {
+        const mid = (hi + lo) / 2;
+        lo = mid - minSpan / 2;
+        hi = mid + minSpan / 2;
+      }
+      span = hi - lo;
+    }
+    const pad = span * 0.1;
+    return [floorZero ? 0 : Math.floor(lo - pad), Math.ceil(hi + pad)];
+  };
+
   /** Epoch millis -> HH:mm for the compact axis. */
   const formatTimeTick = (t: number) => {
     const d = new Date(t);
@@ -185,8 +246,8 @@ export const WeatherChart = memo(function WeatherChart({
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  // Coloured title: each series name in its own colour, joined by " vs "
-  const colouredTitle = (
+  // Colored title: each series name in its own color, joined by " vs "
+  const coloredTitle = (
     <span>
       {series.map((s, i) => (
         <span key={s.dataKey}>
@@ -205,8 +266,8 @@ export const WeatherChart = memo(function WeatherChart({
       <CardHeader className={compact
         ? "flex flex-row flex-wrap items-center justify-between gap-2 p-2 pb-0 space-y-0"
         : "flex flex-row flex-wrap items-center justify-between gap-4 pb-2"}>
-        <CardTitle className={compact ? "text-xs font-normal leading-tight" : "text-lg font-normal"}>
-          {compact ? colouredTitle : title}
+        <CardTitle className={compact ? "text-[0.95rem] font-semibold leading-tight" : "text-lg font-normal"}>
+          {compact ? coloredTitle : title}
         </CardTitle>
         <div className="flex flex-wrap gap-1">
           {timeRanges.map((range) => (
@@ -287,23 +348,23 @@ export const WeatherChart = memo(function WeatherChart({
                 <YAxis
                   key="y-left"
                   yAxisId="left"
-                  tick={{ fontSize: compact ? 8 : 11, fill: leftColour }}
+                  tick={{ fontSize: compact ? 8 : 11, fill: leftColor }}
                   tickLine={false}
                   axisLine={false}
                   width={compact ? COMPACT_AXIS_W : 40}
                   tickCount={compact ? 4 : undefined}
-                  domain={["auto", "auto"]}
+                  domain={compact ? compactAxisDomain(series[0]?.dataKey ?? "", series[0]?.unit) : ["auto", "auto"]}
                 />,
                 <YAxis
                   key="y-right"
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fontSize: compact ? 8 : 11, fill: rightColour }}
+                  tick={{ fontSize: compact ? 8 : 11, fill: rightColor }}
                   tickLine={false}
                   axisLine={false}
                   width={compact ? COMPACT_AXIS_W : 44}
                   tickCount={compact ? 4 : undefined}
-                  domain={["auto", "auto"]}
+                  domain={compact ? compactAxisDomain(series[1]?.dataKey ?? "", series[1]?.unit) : ["auto", "auto"]}
                 />,
               ] : (
                 <YAxis
@@ -312,6 +373,7 @@ export const WeatherChart = memo(function WeatherChart({
                   axisLine={false}
                   width={compact ? COMPACT_AXIS_W : 40}
                   tickCount={compact ? 4 : undefined}
+                  domain={compact ? compactAxisDomain(series[0]?.dataKey ?? "", series[0]?.unit) : ["auto", "auto"]}
                 />
               )}
               <Tooltip content={<CustomTooltip />} />

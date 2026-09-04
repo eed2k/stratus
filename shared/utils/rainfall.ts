@@ -6,14 +6,14 @@
  *
  * Rain is the one field where different station families disagree about what a
  * reading MEANS, and getting it wrong is not a rounding error - it either
- * invents hundreds of millimetres of rain or reports a dry month during a storm.
+ * invents hundreds of millimeters of rain or reports a dry month during a storm.
  *
  * Two shapes exist in the wild:
  *
  *   incremental / tip_count  each reading is the rain that fell during that
  *                            logging interval, so a period total is the SUM.
  *   cumulative_*             each reading is a running counter (RIKA reports
- *                            millimetres since the device was commissioned), so
+ *                            millimeters since the device was commissioned), so
  *                            a period total is the sum of POSITIVE DELTAS.
  *
  * Summing a cumulative counter is the classic failure: 24 hourly readings of a

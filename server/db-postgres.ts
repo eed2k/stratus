@@ -44,7 +44,7 @@ export function getDatabaseUrl(): string | undefined {
 }
 
 /**
- * Initialise PostgreSQL connection pool
+ * Initialize PostgreSQL connection pool
  */
 export async function initPostgresDatabase(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;

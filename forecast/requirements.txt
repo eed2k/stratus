@@ -1,0 +1,8 @@
+# Pinned exactly. The engine is pure standard library on purpose: no numpy,
+# no pandas, no scipy. That keeps the image small enough to sit alongside the
+# panel, Stratus and Traefik on a 951 MB host, and it is why the container needs
+# nothing but a web framework and a template engine.
+fastapi==0.115.6
+uvicorn==0.34.0
+jinja2==3.1.5
+python-multipart==0.0.20

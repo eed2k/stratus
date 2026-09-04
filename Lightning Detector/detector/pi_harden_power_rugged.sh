@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# GWLD1 Pi Zero W - security hardening + power optimisation + ruggedness
+# GWLD1 Pi Zero W - security hardening + power optimization + ruggedness
 # Run on the Pi:   sudo bash pi_harden_power_rugged.sh
 # Idempotent: safe to re-run. Does NOT implement CPU suspend/sleep (the
 # detector must stay awake to service AS3935 interrupts).

@@ -394,7 +394,7 @@ export function StationHardware({ stationId }: StationHardwareProps) {
                                   installationHeight: e.target.value,
                                 })
                               }
-                              placeholder="Height in metres"
+                              placeholder="Height in meters"
                               data-testid="input-height"
                             />
                           </div>

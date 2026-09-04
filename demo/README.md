@@ -88,7 +88,7 @@ peak for that reason.
 **Lightning on the 7-day-and-wider chart.** The daily aggregation in the
 dashboard sums the lightning channel, but that channel is a cumulative counter,
 so the daily "Lightning Strikes" bars read far too high on ranges of 7 days and
-above. This is existing dashboard behaviour rather than something the demo data
+above. This is existing dashboard behavior rather than something the demo data
 introduces. The report total, the current-conditions strike count, and the
 shorter chart ranges are all correct.
 

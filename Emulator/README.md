@@ -12,7 +12,7 @@ Click's own buttons are left unwired and unused.
 ## The one thing worth knowing before you wire anything
 
 The EMU Click does not generate a pulse when you press its buttons. Its
-`CLOSE`, `MID` and `FAR` pins are **inputs to the host MCU** — they are just
+`CLOSE`, `MID` and `FAR` pins are **inputs to the host MCU** - they are just
 three buttons the host is expected to poll. The emulated strike is produced
 entirely by the host writing a timed 12-bit profile to the board's I2C DAC,
 which drives an inductor.
@@ -49,7 +49,7 @@ The vendor's `thunderemu_generate_thunder()` is reproduced exactly:
 roughly 280 us of bus time, which dwarfs the 22 us delay between samples. The
 transfer time is therefore what actually sets the envelope's timing, so raising
 the bus to 400 kHz would compress the waveform by roughly a factor of three and
-change what the AS3935 sees. If strikes stop being recognised after you touch
+change what the AS3935 sees. If strikes stop being recognized after you touch
 `Wire.setClock()`, that is the first thing to put back.
 
 ---
@@ -59,7 +59,7 @@ change what the AS3935 sees. If strikes stop being recognised after you touch
 | | Arduino Nano | Raspberry Pi Zero 2 W |
 |---|---|---|
 | Code | `arduino/lightning_emulator/` | `rpi/lightning_emulator.py` |
-| Logic level | 5 V — **needs checking**, see below | 3.3 V, matches the Click directly |
+| Logic level | 5 V - **needs checking**, see below | 3.3 V, matches the Click directly |
 | Level shifter | maybe | never |
 | Timing | exact | needs the batching trick below |
 | Control | 4 buttons + serial | 4 buttons + keyboard + `--fire` for scripts |
@@ -80,7 +80,7 @@ about 6 ms.
 A Python loop would add per-call syscall overhead of the same order as the gap
 itself, and worse, the scheduler can preempt between samples and insert a gap
 measured in *milliseconds*. A burst stretched like that stops looking like
-lightning to the AS3935's rejection algorithm, and it fails intermittently —
+lightning to the AS3935's rejection algorithm, and it fails intermittently -
 the worst kind of fault to chase.
 
 So the Pi hands each whole burst to the kernel in **one `i2c_rdwr` ioctl**: 20
@@ -90,7 +90,7 @@ the 22 µs gap, about 7% of the sample period, which is far less error than a
 single scheduler hiccup would cause.
 
 `--pace loop` reproduces the Arduino timing literally, for comparison. If the
-sensor recognises one mode and not the other, that is worth knowing, and finding
+sensor recognizes one mode and not the other, that is worth knowing, and finding
 that out is what this rig is for.
 
 It also takes `SCHED_FIFO` for the few milliseconds of a burst when run with
@@ -115,10 +115,10 @@ tidier for bench work, but one is enough if that is what you have.
 | 3V3 [1] | 3.3V | power, no shifter needed |
 | GND [6] | GND | common ground |
 | GPIO17 [11] | RST | Click's thunder LED (optional) |
-| GPIO5 [29] | — | button to GND: CLOSE |
-| GPIO6 [31] | — | button to GND: MID |
-| GPIO13 [33] | — | button to GND: FAR |
-| GPIO19 [35] | — | button to GND: STORM |
+| GPIO5 [29] | - | button to GND: CLOSE |
+| GPIO6 [31] | - | button to GND: MID |
+| GPIO13 [33] | - | button to GND: FAR |
+| GPIO19 [35] | - | button to GND: STORM |
 
 Setup:
 
@@ -171,8 +171,8 @@ part.
 
 Check the board for a `VCC SEL` jumper or a "3.3 V / 5 V" marking:
 
-- **Jumper present, set to 5 V** — wire `5V` to `VCC` and connect I2C directly.
-- **3.3 V only** — power `VCC` from the Nano's `3V3` pin and put a bidirectional
+- **Jumper present, set to 5 V** - wire `5V` to `VCC` and connect I2C directly.
+- **3.3 V only** - power `VCC` from the Nano's `3V3` pin and put a bidirectional
   I2C level shifter on SDA and SCL, or use a 3.3 V board (Nano 33 IoT, Nano
   Every at 3.3 V, or a Pi) instead.
 
@@ -217,7 +217,7 @@ Pressing CLOSE does not command "1 km". The three modes vary the emitted energy,
 and the AS3935 derives its own distance from what it receives. The reported
 distance therefore depends on coil spacing, orientation and local noise as much
 as on the mode. Expect CLOSE to land in a nearer band than FAR, but do not
-expect a specific kilometre figure, and do not treat the emulator as a
+expect a specific kilometer figure, and do not treat the emulator as a
 calibration reference. It tests the pipeline, not the accuracy of the sensor.
 
 Some presses will produce nothing at all. That is normal: the AS3935 runs a

@@ -2,7 +2,7 @@
 
 Layout
 ------
-  /                     platform panel (Stratus staff)      tenant = bootstrap
+  /                     platform panel (Stratus Admin)      tenant = bootstrap
   /tenants              client-panel management (platform admins only)
   /<slug>/...           that client's own panel, e.g. /glencore/recipients
 
@@ -39,6 +39,16 @@ RESERVED_SLUGS = {
     "test", "settings", "users", "tenants", "api", "alerts", "docs", "redoc",
     "openapi.json", "health", "healthz", "favicon.ico", "robots.txt", "dlr",
     "admin", "assets",
+    # The client sign-in page. Without this a tenant slugged "client" would
+    # swallow /client: the middleware would strip the segment and the login
+    # route would never run.
+    "client",
+    # Reserved ahead of the generic gateway callback path, so the same cannot
+    # happen to /sms/... later.
+    "sms",
+    # Alert stages live under /<slug>/stages inside a client panel, but reserve
+    # it on the platform panel too for symmetry.
+    "stages",
 }
 
 # Lower-case letters, digits and single inner hyphens. Keeps the slug safe in a

@@ -53,11 +53,11 @@ export function processWindPowerRoseData(
   }));
 }
 
-/* ── Power density colour scale (W/m²) ──
+/* ── Power density color scale (W/m²) ──
  * House style excludes violet/purple and pale washed-out blues, so the ramp
  * runs dark cyan → blue → green → amber → red → dark red. Every step is
  * saturated enough to stay distinguishable when the chart is printed in a
- * greyscale or low-ink PDF report. Keep it consistent with shared/chartColours.ts. */
+ * grayscale or low-ink PDF report. Keep it consistent with shared/chartColors.ts. */
 const POWER_CLASSES = [
   { min: 0,   max: 50,   label: '0-50 W/m²',   color: '#0891b2' },
   { min: 50,  max: 150,  label: '50-150',        color: '#2563eb' },
@@ -124,7 +124,7 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
         `Dominant: ${stats.dominantDirection} (${stats.dominantPct}%)   |   Overall Avg: ${stats.overallMeanPower} W/m²   |   Readings: ${data.reduce((s, d) => s + d.count, 0)}`,
       ],
       legend: POWER_CLASSES.map(pc => ({ label: pc.label, color: pc.color, shape: 'rect' as const })),
-      captions: ['Petal length = energy contribution (%). Colour = mean wind power density (W/m²) per direction.'],
+      captions: ['Petal length = energy contribution (%). Color = mean wind power density (W/m²) per direction.'],
       filename: title,
     });
   }, [title, size, stats, data]);
@@ -146,7 +146,17 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        <svg data-windpowerrose width={size} height={size} className="overflow-visible">
+        {/*
+          viewBox plus a percentage width is what lets the rose grow with its
+          card. A fixed width and height attribute pinned it to `size` pixels
+          regardless of available space.
+        */}
+        <svg
+          data-windpowerrose
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+        >
           {/* Concentric circles */}
           {[0.25, 0.5, 0.75, 1].map(ratio => (
             <g key={ratio}>
@@ -167,7 +177,7 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
             );
           })}
 
-          {/* Power petals - single wedge per direction coloured by mean power */}
+          {/* Power petals - single wedge per direction colored by mean power */}
           {data.map((d, i) => {
             const outerR = Math.max(2, (d.energyContribution / maxContribution) * maxRadius);
             if (d.count === 0) return null;
@@ -185,7 +195,7 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
             );
           })}
 
-          {/* Centre dot */}
+          {/* Center dot */}
           <circle cx={center} cy={center} r={8} fill="currentColor" className="text-black/30" />
         </svg>
 
@@ -207,7 +217,7 @@ export const WindPowerRose = memo(function WindPowerRose({ data, title = "Wind P
 
         {/* Legend - W/m² power density by wind direction */}
         <p className="mt-3 text-xs text-black text-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-          Petal length = energy contribution (%). Colour = mean wind power density (W/m²) per direction.
+          Petal length = energy contribution (%). Color = mean wind power density (W/m²) per direction.
         </p>
         <div className="mt-1 flex flex-wrap justify-center gap-1">
           {POWER_CLASSES.map(pc => (

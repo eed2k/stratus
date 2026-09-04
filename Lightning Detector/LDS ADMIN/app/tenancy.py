@@ -2,7 +2,7 @@
 
 Layout
 ------
-  /                     platform panel (Stratus staff)      tenant = bootstrap
+  /                     platform panel (Stratus Admin)      tenant = bootstrap
   /tenants              client-panel management (platform admins only)
   /<slug>/...           that client's own panel, e.g. /glencore/recipients
 

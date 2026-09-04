@@ -126,14 +126,14 @@ def clear_sky_ghi(elev_deg: float, when: datetime) -> float:
 # Psychrometrics
 # ---------------------------------------------------------------------------
 
-def sat_vapour_pressure_kpa(temp_c: float) -> float:
-    """Saturation vapour pressure, kPa (FAO-56 eq. 11)."""
+def sat_vapor_pressure_kpa(temp_c: float) -> float:
+    """Saturation vapor pressure, kPa (FAO-56 eq. 11)."""
     return 0.6108 * math.exp(17.27 * temp_c / (temp_c + 237.3))
 
 
 def rh_from_dewpoint(temp_c: float, dew_c: float) -> float:
     """Relative humidity in percent from air and dew-point temperature."""
-    rh = 100.0 * sat_vapour_pressure_kpa(dew_c) / sat_vapour_pressure_kpa(temp_c)
+    rh = 100.0 * sat_vapor_pressure_kpa(dew_c) / sat_vapor_pressure_kpa(temp_c)
     return max(3.0, min(100.0, rh))
 
 

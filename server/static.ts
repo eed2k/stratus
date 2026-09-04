@@ -90,6 +90,20 @@ export function serveStatic(app: Express) {
     index: false,
   }));
 
+  // Any /assets/* request that reaches here missed the static handler above,
+  // so the hashed file simply does not exist. Answer with a real 404 instead
+  // of falling through to the SPA handler below.
+  //
+  // Without this, a request for an old chunk (say Dashboard-<oldhash>.js) is
+  // answered with index.html and a 200. The browser then tries to evaluate
+  // HTML as a JavaScript module and throws "error loading dynamically imported
+  // module" - exactly what a tab left open across a deploy hits once its chunk
+  // hashes have been replaced. A clean 404 lets the client's preload-error
+  // handler reload to the fresh index.html instead.
+  app.use("/assets", (_req, res) => {
+    res.status(404).type("text/plain").send("Not found");
+  });
+
   // Serve other static files with no-cache. Disable index serving so
   // requests for "/" (and any other path resolving to a directory) fall
   // through to the SPA wildcard handler below, which sets strict no-cache

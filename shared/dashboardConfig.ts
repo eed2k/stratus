@@ -1065,7 +1065,7 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
 };
 
 /**
- * Parameters added to the catalogue after dashboards were already being saved.
+ * Parameters added to the catalog after dashboards were already being saved.
  *
  * A saved dashboard config stores an explicit `enabledParameters` list, so any
  * parameter added later would be treated as "switched off" and silently vanish
@@ -1076,7 +1076,7 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
 export const LATE_ADDED_PARAMETERS: ReadonlySet<string> = new Set<string>([]);
 
 /**
- * Whether a catalogued parameter should be treated as enabled.
+ * Whether a cataloged parameter should be treated as enabled.
  * `enabledParameters` may be undefined for dashboards that were never configured.
  */
 export function isParameterEnabled(dataField: string, enabledParameters?: string[] | null): boolean {

@@ -24,7 +24,7 @@ services:
       - MAILERSEND_FROM_NAME=${MAILERSEND_FROM_NAME:-Stratus Weather}
       - MAILERSEND_ALERTS_EMAIL=${MAILERSEND_ALERTS_EMAIL}
       - APP_BASE_URL=${PUBLIC_URL:-https://stratusweather.co.za}
-      # Staleness monitor (offline-station email alerts — disabled by default)
+      # Staleness monitor (offline-station email alerts - disabled by default)
       - STALENESS_ALERTS_ENABLED=${STALENESS_ALERTS_ENABLED:-false}
       - STALENESS_CHECK_INTERVAL=${STALENESS_CHECK_INTERVAL:-900000}
       - STALENESS_THRESHOLD=${STALENESS_THRESHOLD:-7200000}

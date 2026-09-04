@@ -437,7 +437,7 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
       }
     }
     
-    // Initialise to null if not found
+    // Initialize to null if not found
     if (result[standardField] === undefined) {
       result[standardField] = null;
     }

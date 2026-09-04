@@ -378,7 +378,7 @@ export default function Stations() {
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
-        toast({ title: "Unauthorised", description: "Please log in again.", variant: "destructive" });
+        toast({ title: "Unauthorized", description: "Please log in again.", variant: "destructive" });
         setTimeout(() => { window.location.href = "/"; }, 500);
         return;
       }
@@ -397,7 +397,7 @@ export default function Stations() {
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
-        toast({ title: "Unauthorised", description: "Please log in again.", variant: "destructive" });
+        toast({ title: "Unauthorized", description: "Please log in again.", variant: "destructive" });
         setTimeout(() => { window.location.href = "/"; }, 500);
         return;
       }
@@ -585,7 +585,7 @@ X-API-Key: your-key (optional)
                       <p className="text-xs font-medium">Sigfox and LoRaWAN uplinks</p>
                       <p className="text-xs text-muted-foreground">
                         The same endpoint accepts Sigfox backend callbacks and LoRaWAN webhooks from The Things Stack v3,
-                        ChirpStack and Helium. Stratus recognises each envelope automatically, so no reformatting is needed.
+                        ChirpStack and Helium. Stratus recognizes each envelope automatically, so no reformatting is needed.
                         Signal quality (RSSI, SNR, spreading factor, frame counter, gateway count) is stored with every reading.
                       </p>
 

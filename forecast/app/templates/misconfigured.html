@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Not configured{% endblock %}
+
+{% block content %}
+<h1>Not configured</h1>
+<section class="panel">
+  <p class="alert">No operator password is set, so this service is refusing
+  every request.</p>
+  <p>This tool accepts file uploads and stores them. Rather than serve an
+  unauthenticated upload endpoint on a public hostname, it declines to work
+  until a password is configured.</p>
+  <p class="hint">Set <code>FORECAST_PASSWORD</code> in the environment and
+  restart the container. Set <code>FORECAST_SECRET</code> as well if sessions
+  should survive a restart.</p>
+</section>
+{% endblock %}

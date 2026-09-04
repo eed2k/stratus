@@ -20,7 +20,7 @@ def test_energy_band_total_over_domain(e):
     band = metrics.energy_band(e)
     assert band["name"] in {"Low", "Moderate", "High", "Extreme"}
     assert 0 <= band["index"] <= 3
-    assert band["colour"].startswith("#")
+    assert band["color"].startswith("#")
 
 
 @given(
@@ -255,13 +255,13 @@ def test_distance_band_summary_clamps_energy_to_full_scale():
     assert out["bands"][1]["peak"] == metrics.ENERGY_MAX
 
 
-def test_distance_band_colours_come_from_the_energy_bands():
-    """The cell tint must be the panel's own energy-band colour, so the display
+def test_distance_band_colors_come_from_the_energy_bands():
+    """The cell tint must be the panel's own energy-band color, so the display
     cannot drift from the legend."""
     out = metrics.distance_band_summary(
         [{"distance_km": 5, "energy": metrics.ENERGY_MAX}])
     band = out["bands"][1]
-    assert band["colour"] == metrics.energy_band(metrics.ENERGY_MAX)["colour"]
+    assert band["color"] == metrics.energy_band(metrics.ENERGY_MAX)["color"]
     assert band["band"] == metrics.energy_band(metrics.ENERGY_MAX)["name"]
 
 

@@ -20,7 +20,7 @@ import { isAuthenticated } from "../localAuth";
 
 const router = Router();
 
-// DATABASE Initialisation - Create compliance tables if they don't exist
+// DATABASE Initialization - Create compliance tables if they don't exist
 
 function initComplianceTables(): void {
   const database = db.getDatabase();
@@ -148,7 +148,7 @@ function initComplianceTables(): void {
   db.saveDatabase();
 }
 
-// Initialise tables on module load
+// Initialize tables on module load
 try {
   initComplianceTables();
 } catch (error) {

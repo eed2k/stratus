@@ -9,7 +9,7 @@ interface DensityAltitudeCardProps {
   stationPressure: number;  // hPa
   temperature: number;      // °C
   dewPoint?: number;        // °C
-  stationElevation?: number; // metres
+  stationElevation?: number; // meters
 }
 
 export function DensityAltitudeCard({ stationPressure, temperature, dewPoint, stationElevation }: DensityAltitudeCardProps) {

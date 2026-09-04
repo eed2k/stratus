@@ -343,7 +343,7 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
             });
           });
 
-          // Calm centre circle
+          // Calm center circle
           s += `<circle cx="${ctr}" cy="${ctr}" r="8" fill="#999" opacity="0.3"/>`;
           s += `</g>`;
 

@@ -1,0 +1,13 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "LSM100A") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/LSM100A/LSM100A.kicad_sym") (options "") (descr ""))
+	(lib (name "1066") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/1066/1066.kicad_sym") (options "") (descr ""))
+	(lib (name "SN74HCT240PWR") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/SN74HCT240PWR/SN74HCT240PWR.kicad_sym") (options "") (descr ""))
+	(lib (name "PTS645SH50SMTR92_LFS") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/PTS645SH50SMTR92_LFS/PTS645SH50SMTR92_LFS.kicad_sym") (options "") (descr ""))
+	(lib (name "tps54331d") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/TPS54331/tps54331d.kicad_sym") (options "") (descr ""))
+	(lib (name "BS-7") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/BS_7/BS-7.kicad_sym") (options "") (descr ""))
+	(lib (name "20279-001E-03") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/20279-001E-03/20279-001E-03.kicad_sym") (options "") (descr ""))
+	(lib (name "MSD-1-A") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/MSD_1_A/MSD-1-A.kicad_sym") (options "") (descr ""))
+	(lib (name "TS-1088-AR02016") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/TS-1088-AR02016/TS-1088-AR02016.kicad_sym") (options "") (descr ""))
+	(lib (name "SS-12D10L5") (type "KiCad") (uri "D:/Desktop/upwork/Client14/IOT_Controller_V1.0/Libraries/SS-12D10L5/SS-12D10L5.kicad_sym") (options "") (descr ""))
+)

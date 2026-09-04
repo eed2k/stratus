@@ -22,7 +22,8 @@ log = logging.getLogger("bootstrap")
 # table -> {column: DDL type}. Kept deliberately narrow: nullable columns only,
 # which every supported backend can add to a populated table without a rewrite.
 _ADDED_COLUMNS = {
-    "users": {"tenant_id": "INTEGER", "is_platform_admin": "BOOLEAN"},
+    "users": {"tenant_id": "INTEGER", "is_platform_admin": "BOOLEAN",
+              "username": "VARCHAR(64)"},
     "groups": {"tenant_id": "INTEGER"},
     "recipients": {"tenant_id": "INTEGER"},
     "alert_events": {"tenant_id": "INTEGER"},
@@ -48,6 +49,222 @@ def add_missing_columns() -> None:
                     continue
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
                 log.info("schema: added %s.%s", table, col)
+
+
+# ---------------------------------------------------------------------------
+# Stale UNIQUE constraints left by older schemas
+# ---------------------------------------------------------------------------
+# Columns that must NOT be globally unique, but were in an earlier version of
+# models.py. create_all() only creates missing tables and add_missing_columns()
+# only adds columns, so neither can remove a constraint: a database created
+# under the old models keeps enforcing it forever.
+#
+# This mattered in production. groups.name carried a table-level UNIQUE, while
+# every tenant is seeded with a group named "default", so creating the second
+# client panel raised
+#     sqlite3.IntegrityError: UNIQUE constraint failed: groups.name
+# and the request 500'd. The model is explicit that the intended scope is per
+# tenant, not global: two clients may both have a "control room" group.
+_STALE_UNIQUE = {
+    "groups": {"name"},
+    "recipients": {"name", "phone"},
+}
+
+# Model classes by table, so a rebuilt table is created from current metadata
+# rather than hand-written DDL that could drift from models.py.
+_MODEL_BY_TABLE = {
+    "groups": Group,
+    "recipients": Recipient,
+}
+
+
+def _single_column_unique_indexes(insp, table):
+    """Unique indexes on `table` that cover exactly one column.
+
+    Returns [(index_name_or_None, column)]. A name of None means the constraint
+    is an implicit table-level UNIQUE (SQLite's sqlite_autoindex_*), which has
+    no droppable index object and forces a table rebuild.
+    """
+    found = []
+    for ix in insp.get_indexes(table):
+        cols = list(ix.get("column_names") or [])
+        if ix.get("unique") and len(cols) == 1:
+            found.append((ix.get("name"), cols[0]))
+    # Implicit UNIQUE(...) clauses are reported as unique constraints, not
+    # indexes, by the SQLite dialect.
+    try:
+        for uc in insp.get_unique_constraints(table):
+            cols = list(uc.get("column_names") or [])
+            if len(cols) == 1:
+                name = uc.get("name")
+                if not any(c == cols[0] for _n, c in found):
+                    found.append((name, cols[0]))
+    except NotImplementedError:
+        pass
+    return found
+
+
+def _rebuild_without_unique(conn, table):
+    """Recreate `table` from current ORM metadata, dropping stale constraints.
+
+    SQLite cannot ALTER away a table-level UNIQUE, so the table is rebuilt:
+    drop its named indexes, rename it aside, create the current definition, copy
+    the columns the two versions share, then drop the old copy.
+    """
+    model = _MODEL_BY_TABLE[table]
+    insp = inspect(conn)
+    old_cols = {c["name"] for c in insp.get_columns(table)}
+    new_cols = [c.name for c in model.__table__.columns]
+    common = [c for c in new_cols if c in old_cols]
+    before = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+
+    # Named indexes travel with the table across a rename and would then collide
+    # with the ones create() is about to make, so remove them first.
+    for ix in insp.get_indexes(table):
+        if ix.get("name"):
+            conn.execute(text(f'DROP INDEX IF EXISTS "{ix["name"]}"'))
+
+    old = f"{table}__stale"
+    conn.execute(text(f'DROP TABLE IF EXISTS "{old}"'))
+    # legacy_alter_table keeps SQLite from rewriting other tables' foreign keys
+    # to point at the renamed-aside copy. recipients.group_id must still
+    # reference groups, not groups__stale, once this is done.
+    conn.execute(text("PRAGMA legacy_alter_table=ON"))
+    try:
+        conn.execute(text(f'ALTER TABLE "{table}" RENAME TO "{old}"'))
+    finally:
+        conn.execute(text("PRAGMA legacy_alter_table=OFF"))
+
+    model.__table__.create(bind=conn)
+    cols = ", ".join(f'"{c}"' for c in common)
+    conn.execute(text(f'INSERT INTO "{table}" ({cols}) SELECT {cols} FROM "{old}"'))
+    after = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+    if after != before:
+        # Leave the copy in place for inspection rather than lose rows.
+        raise RuntimeError(
+            f"rebuild of {table} copied {after} of {before} rows; "
+            f'original retained as "{old}"')
+    conn.execute(text(f'DROP TABLE "{old}"'))
+    log.warning("schema: rebuilt %s without its stale UNIQUE constraint "
+                "(%d row(s) preserved)", table, after)
+
+
+def drop_stale_unique_constraints() -> None:
+    """Remove UNIQUE constraints that the current models do not declare."""
+    insp = inspect(engine)
+    tables = set(insp.get_table_names())
+    for table, bad_cols in _STALE_UNIQUE.items():
+        if table not in tables:
+            continue
+        model = _MODEL_BY_TABLE.get(table)
+        if model is None:
+            continue
+        # Never remove something the models still ask for.
+        declared = {c.name for c in model.__table__.columns if c.unique}
+        offenders = [(name, col)
+                     for name, col in _single_column_unique_indexes(insp, table)
+                     if col in bad_cols and col not in declared]
+        if not offenders:
+            continue
+        needs_rebuild = False
+        with engine.begin() as conn:
+            for name, col in offenders:
+                # An implicit constraint has no real index to drop. SQLite names
+                # these sqlite_autoindex_*, and they cannot be dropped directly.
+                if name and not name.startswith("sqlite_autoindex"):
+                    conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
+                    log.warning("schema: dropped stale unique index %s on %s.%s",
+                                name, table, col)
+                else:
+                    needs_rebuild = True
+        if needs_rebuild:
+            with engine.begin() as conn:
+                _rebuild_without_unique(conn, table)
+
+
+def ensure_tenant_defaults(db: Session) -> None:
+    """Give every tenant the default recipient group it should have been seeded
+    with.
+
+    Repairs panels left half-built by the failure above: tenant_create committed
+    the tenant, then failed inserting its admin user and default group, so the
+    panel existed with no group to attach recipients to and therefore no way to
+    alert anyone. Idempotent.
+    """
+    repaired = []
+    for t in db.query(Tenant).all():
+        if db.query(Group).filter(Group.tenant_id == t.id).first():
+            continue
+        db.add(Group(tenant_id=t.id, name="default",
+                     description="Default recipient group",
+                     distance_threshold_km=15, is_active=True))
+        repaired.append(t.slug)
+    if repaired:
+        db.commit()
+        log.warning("seeded a missing default group for tenant(s): %s",
+                    ", ".join(repaired))
+
+
+def ensure_client_usernames(db: Session) -> None:
+    """Give each client panel's admin a sign-in name matching its address.
+
+    Clients sign in at /client with a short name rather than an e-mail address,
+    because they know their site as "GWLD1" and not as
+    admin@gwld1.stratusweather.co.za. This derives that name from the panel's own
+    slug, so an existing client can use the new login without anyone having to
+    hand out fresh credentials.
+
+    Deliberately conservative. A username is only assigned when:
+      - the tenant is not the platform tenant (Stratus Admin sign in at /login),
+      - the tenant has exactly ONE admin user, so there is no doubt which login
+        the site's name should refer to,
+      - that user has no username yet, and
+      - the name is not already taken by another login.
+
+    Anything ambiguous is left alone and logged rather than guessed at, because
+    silently attaching a site's name to the wrong login would hand one client's
+    panel to another. Idempotent.
+    """
+    platform_slug = platform_tenant_slug()
+    assigned, skipped = [], []
+
+    # One pass to collect the names already in use, compared case-insensitively
+    # because that is how the login looks them up.
+    taken = set()
+    for u in db.query(User).all():
+        if u.username:
+            taken.add(u.username.strip().lower())
+
+    for t in db.query(Tenant).all():
+        if t.slug == platform_slug:
+            continue
+        candidate = (t.slug or "").strip().upper()
+        if not candidate:
+            continue
+        if candidate.lower() in taken:
+            continue          # already assigned, or claimed by another login
+        admins = (db.query(User)
+                  .filter(User.tenant_id == t.id, User.role == "admin")
+                  .all())
+        if len(admins) != 1:
+            # Zero admins is a broken panel; more than one is ambiguous. Either
+            # way an operator should choose, not this function.
+            if admins:
+                skipped.append(f"{t.slug} ({len(admins)} admins)")
+            continue
+        admin = admins[0]
+        if admin.username:
+            continue
+        admin.username = candidate
+        taken.add(candidate.lower())
+        assigned.append(f"{candidate} -> {admin.email}")
+
+    if assigned:
+        db.commit()
+        log.info("client sign-in names assigned: %s", ", ".join(assigned))
+    if skipped:
+        log.warning("client sign-in name not assigned automatically for: %s "
+                    "(set it on the Users page)", ", ".join(skipped))
 
 
 def platform_tenant_slug() -> str:

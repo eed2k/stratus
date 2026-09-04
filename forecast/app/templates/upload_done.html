@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}File read{% endblock %}
+{% block crumbs %}<span>/</span>
+<a href="/station/{{ station.id }}">{{ station.name }}</a>
+<span>/</span><span>Upload</span>{% endblock %}
+
+{% block content %}
+<h1>File read</h1>
+
+{% if duplicate %}
+<p class="notice">This exact file had already been uploaded for this station.
+The readings were matched on timestamp, so nothing was duplicated.</p>
+{% endif %}
+
+<section class="panel">
+  <h2>{{ filename }}</h2>
+  <dl class="facts">
+    <dt>Station</dt>
+    <dd><a href="/station/{{ station.id }}">{{ station.name }}</a>
+        <span class="muted">{{ station.slug }}</span></dd>
+    <dt>Format</dt><dd>{{ report.file_format }}
+        {% if report.table_name %}, table {{ report.table_name }}{% endif %}</dd>
+    <dt>Rows</dt>
+    <dd>{{ '{:,}'.format(report.rows_kept) }} kept,
+        {{ report.rows_skipped }} skipped of
+        {{ '{:,}'.format(report.rows_read) }} read</dd>
+    <dt>Covers</dt><dd>{{ report.first_timestamp }} to {{ report.last_timestamp }}</dd>
+    <dt>Readings written</dt><dd>{{ '{:,}'.format(readings_written) }}</dd>
+    <dt>Station total</dt><dd>{{ '{:,}'.format(total_readings) }} readings</dd>
+  </dl>
+</section>
+
+<section class="panel">
+  <h2>Columns understood</h2>
+  <p class="hint">A column that is not listed here was ignored. A weather
+  variable you expected to see missing from this list means the column name was
+  not recognized, not that the sensor is absent.</p>
+  <table class="grid tight">
+    <thead><tr><th>Variable</th><th>From column</th><th>Role</th></tr></thead>
+    <tbody>
+    {% for variable, column in report.mapped.items() %}
+      <tr>
+        <td>{{ label_for(variable) }}
+            <span class="muted">{{ unit_for(variable) }}</span></td>
+        <td><code>{{ column }}</code></td>
+        <td>{% if variable in report.engine_variables_found %}forecast
+            {% else %}stored only{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if report.conversions %}
+<section class="panel">
+  <h2>Units converted</h2>
+  <ul class="plain">
+    {% for c in report.conversions %}<li>{{ c }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if report.warnings %}
+<section class="panel">
+  <h2>Worth checking</h2>
+  {% for w in report.warnings %}<p class="alert">{{ w }}</p>{% endfor %}
+</section>
+{% endif %}
+
+{% if report.unmapped_columns %}
+<section class="panel">
+  <h2>Columns not used</h2>
+  <p class="hint">Recognized as data but not something this forecast uses.</p>
+  <p class="columns">
+    {% for c in report.unmapped_columns %}<code>{{ c }}</code>{% endfor %}
+  </p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <p><a href="/station/{{ station.id }}" class="primary-link">Continue to
+  {{ station.name }}</a></p>
+</section>
+{% endblock %}

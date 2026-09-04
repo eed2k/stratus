@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}{{ report.station_name }} :: {{ sector_label }}{% endblock %}
+{% block crumbs %}<span>/</span>
+  <a href="/station/{{ report.station_id }}">{{ report.station_name }}</a>
+  <span>/</span><span>{{ sector_label }}</span>{% endblock %}
+
+{#
+  Server-rendered throughout, and it must stay that way: every chart below is
+  inline SVG produced by charts.py, so this page works with scripting blocked.
+  There is no client-side charting library anywhere in this service, which is
+  what keeps the container inside its 320 MB budget.
+
+  Nothing here is cached. Every figure is recomputed from the stored forecast
+  points and the station's sector configuration each time the page is drawn, so
+  it cannot drift out of step with the forecast it came from.
+#}
+
+{% block content %}
+<h1>{{ sector_label }} <span class="muted">{{ report.station_name }}</span></h1>
+
+<nav class="tabs">
+  {% for s in enabled_sectors %}
+  <a href="/station/{{ report.station_id }}/sector/{{ s }}?days={{ report.horizon_days }}"
+     class="{% if s == report.sector %}on{% endif %}">{{ sector_labels[s] }}</a>
+  {% endfor %}
+</nav>
+
+<nav class="tabs sub">
+  {% for d in horizons %}
+  <a href="/station/{{ report.station_id }}/sector/{{ report.sector }}?days={{ d }}"
+     class="{% if d == report.horizon_days %}on{% endif %}">{{ d }} day</a>
+  {% endfor %}
+</nav>
+
+<section class="panel">
+  <h2>This run</h2>
+  <dl class="facts inline">
+    <dt>Based on</dt><dd>{{ report.base_time or 'unknown' }}</dd>
+    <dt>Horizon</dt><dd>{{ report.horizon_days }} day</dd>
+    <dt>Method version</dt>
+    <dd>{% if report.method_version %}<code>{{ report.method_version }}</code>
+        {% else %}not recorded{% endif %}</dd>
+    <dt>Sectors enabled</dt>
+    <dd>{% for s in enabled_sectors %}{{ sector_labels[s] }}{% if not loop.last %},
+        {% endif %}{% endfor %}</dd>
+  </dl>
+  <p class="hint">Every figure on this page is recomputed from the forecast run
+  above. Nothing is stored except the method version, which records the code that
+  produced the run and cannot be recovered later.</p>
+</section>
+
+{% if not report.usable %}
+<section class="empty">
+  <h2>This sector needs more than the station currently provides</h2>
+  <p>Each section below says what is missing. Nothing is shown as zero, because a
+  zero would read as a measurement.</p>
+</section>
+{% endif %}
+
+{% for section in report.sections %}
+<section class="panel{% if not section.available %} danger{% endif %}">
+  <h2>{{ section.title }}</h2>
+
+  {% if not section.available %}
+    <p class="alert">Not available at this station.</p>
+    {% if section.missing %}
+    <p>Needs:</p>
+    <ul class="plain">
+      {% for m in section.missing %}<li>{{ m }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if section.note %}<p class="hint">{{ section.note }}</p>{% endif %}
+
+  {% else %}
+    {% if section.note %}<p class="hint">{{ section.note }}</p>{% endif %}
+    {% set d = section.data %}
+
+    {# ---------------- solar ---------------- #}
+    {% if section.title == 'Plane of array and yield' %}
+      <dl class="facts inline">
+        <dt>Tilt</dt><dd>{{ '%.0f'|format(d.tilt_deg) }} deg</dd>
+        <dt>Facing</dt>
+        <dd>{{ '%.0f'|format(d.surface_azimuth_deg) }} deg from north</dd>
+        <dt>Plane-of-array total</dt>
+        <dd>{{ '%.2f'|format(d.poa_kwh_per_m2) }} kWh/m2</dd>
+        {% if d.dc_kwh is not none %}
+        <dt>Modeled DC yield</dt><dd>{{ '%.2f'|format(d.dc_kwh) }} kWh</dd>
+        {% endif %}
+      </dl>
+      {{ poa_chart|safe }}
+      <p class="legend">
+        <span class="key line-navy"></span>plane of array
+        <span class="key" style="background:#e08a1e"></span>global horizontal
+        <span class="key" style="background:#5b6875"></span>clear sky
+      </p>
+      <table class="grid tight scroll">
+        <thead><tr><th>Hour</th><th class="num">Sun elevation</th>
+          <th class="num">GHI</th><th class="num">DNI</th><th class="num">DHI</th>
+          <th class="num">Plane of array</th><th class="num">Cell temp</th>
+          <th>Clear sky from</th></tr></thead>
+        <tbody>
+        {% for r in d.rows %}
+        <tr>
+          <td>{{ r.valid_at.strftime('%d %b %H:%M') }}</td>
+          <td class="num">{{ '%.1f'|format(r.elevation) }}</td>
+          <td class="num">{{ '%.0f'|format(r.ghi) if r.ghi is not none else '' }}</td>
+          <td class="num">{{ '%.0f'|format(r.dni) }}</td>
+          <td class="num">{{ '%.0f'|format(r.dhi) }}</td>
+          <td class="num">{{ '%.0f'|format(r.poa) }}</td>
+          <td class="num">{{ '%.1f'|format(r.cell_temp) if r.cell_temp is not none else '' }}</td>
+          <td>{{ r.clear_sky_source }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+    {# ---------------- wind ---------------- #}
+    {% elif section.title == 'Wind resource' %}
+      <dl class="facts inline">
+        <dt>Mean speed</dt>
+        <dd>{{ '%.1f'|format(d.mean_speed_kmh) }} km/h</dd>
+        <dt>Power density</dt>
+        <dd>{% if d.power_density_wm2 %}{{ '%.0f'|format(d.power_density_wm2) }}
+            W/m2{% else %}not available{% endif %}</dd>
+        <dt>Air density used</dt>
+        <dd>{% if d.air_density %}{{ '%.3f'|format(d.air_density) }} kg/m3
+            {% else %}sea-level standard{% endif %}</dd>
+        <dt>Measured at</dt>
+        <dd>{{ '%.0f'|format(d.measurement_height_m) }} m</dd>
+        <dt>P90 (pessimistic)</dt>
+        <dd>{{ '%.1f'|format(d.p90_speed_kmh) }} km/h</dd>
+        <dt>P50</dt><dd>{{ '%.1f'|format(d.p50_speed_kmh) }} km/h</dd>
+        <dt>P10 (optimistic)</dt>
+        <dd>{{ '%.1f'|format(d.p10_speed_kmh) }} km/h</dd>
+        {% if d.weibull %}
+        <dt>Weibull shape k</dt><dd>{{ '%.2f'|format(d.weibull.shape) }}</dd>
+        <dt>Weibull scale c</dt>
+        <dd>{{ '%.1f'|format(d.weibull.scale) }} km/h</dd>
+        {% endif %}
+      </dl>
+      <p class="hint">P90 is the speed exceeded 90 percent of the time, so it is
+      the pessimistic case and sits below P50.</p>
+
+    {% elif section.title == 'Hub height' and d.shear %}
+      <dl class="facts inline">
+        <dt>Hub height</dt>
+        <dd>{{ '%.0f'|format(d.shear.hub_height_m) }} m</dd>
+        <dt>Speed at hub</dt>
+        <dd>{{ '%.1f'|format(d.shear.speed_kmh) }} km/h</dd>
+        <dt>Shear exponent</dt>
+        <dd>{{ '%.3f'|format(d.shear.exponent) }}
+            <strong>({{ d.shear.basis }})</strong></dd>
+      </dl>
+
+    {% elif section.title == 'Direction' %}
+      {{ wind_rose_svg|safe }}
+      {% if d.prevailing_deg is not none %}
+      <p>Most energy arrives from
+      <strong>{{ '%.0f'|format(d.prevailing_deg) }} deg</strong>.</p>
+      {% endif %}
+
+    {% elif section.title == 'Gust factor' and d.turbulence %}
+      <dl class="facts inline">
+        <dt>Gust factor</dt>
+        <dd>{% if d.turbulence.gust_factor %}
+            {{ '%.2f'|format(d.turbulence.gust_factor) }}
+            {% else %}not available{% endif %}</dd>
+        <dt>Turbulence intensity</dt>
+        <dd>{% if d.turbulence.turbulence_intensity %}
+            {{ '%.3f'|format(d.turbulence.turbulence_intensity) }}
+            {% else %}not computed{% endif %}</dd>
+        <dt>IEC 61400-1 class</dt>
+        <dd>{{ d.turbulence.iec_class or 'not computed' }}</dd>
+      </dl>
+
+    {# ---------------- agriculture ---------------- #}
+    {% elif section.title == 'Frost' %}
+      {% set fa = d.assessment %}
+      <dl class="facts inline">
+        <dt>Risk band</dt><dd><strong>{{ fa.risk }}</strong></dd>
+        <dt>Coldest expected</dt>
+        <dd>{% if fa.min_temperature is not none %}
+            {{ '%.1f'|format(fa.min_temperature) }} deg C
+            {% if fa.min_at %}at {{ fa.min_at.strftime('%H:%M') }}{% endif %}
+            {% else %}unknown{% endif %}</dd>
+        <dt>Frost type</dt><dd>{{ fa.frost_type or 'undetermined' }}</dd>
+        <dt>Determined from</dt>
+        <dd>{{ fa.frost_type_basis|replace('_', ' ') }}</dd>
+        <dt>Frost fans</dt>
+        <dd>{% if fa.frost_fans_help is none %}
+            no claim: this needs a measured inversion
+            {% elif fa.frost_fans_help %}expected to help
+            {% else %}not expected to help{% endif %}</dd>
+      </dl>
+      {% for night in d.nights %}
+        {% if night.headline %}
+        <p class="headline">Night of
+        {{ night.from_hour.strftime('%d %b') }}:
+        <strong>{{ '%.0f'|format(night.headline.value * 100) }}%</strong>
+        chance of air frost. {{ night.headline.describe() }}</p>
+        {% endif %}
+      {% endfor %}
+      <ul class="plain">
+        {% for r in fa.reasoning %}<li>{{ r }}</li>{% endfor %}
+      </ul>
+
+    {% elif section.title == 'Leaf wetness and disease' %}
+      <dl class="facts inline">
+        <dt>Dew expected</dt><dd>{{ 'yes' if d.dew.expected else 'no' }}</dd>
+        <dt>Wet duration</dt>
+        <dd>{{ '%.0f'|format(d.dew.duration_hours) }} hours (derived)</dd>
+        <dt>Disease pressure</dt><dd>{{ d.dew.disease_pressure }}</dd>
+      </dl>
+      {% if d.diseases %}
+      <table class="grid tight">
+        <thead><tr><th>Crop</th><th>Model</th><th>Risk</th>
+          <th>Why</th></tr></thead>
+        <tbody>
+        {% for r in d.diseases %}
+        <tr><td>{{ r.crop }}</td><td>{{ r.model }}</td>
+          <td><strong>{{ r.level }}</strong></td><td>{{ r.note }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+    {% elif section.title == 'Chill' %}
+      <dl class="facts inline">
+        <dt>Chill hours (0 to 7.2 C)</dt><dd>{{ d.chill.chill_hours }}</dd>
+        <dt>Utah chill units</dt>
+        <dd>{% if d.chill.utah_chill_units is not none %}
+            {{ '%.1f'|format(d.chill.utah_chill_units) }}
+            {% else %}not available{% endif %}</dd>
+        <dt>Chill portions (Dynamic)</dt>
+        <dd>{% if d.chill.chill_portions is not none %}
+            {{ '%.2f'|format(d.chill.chill_portions) }}
+            {% else %}not available{% endif %}</dd>
+      </dl>
+      <p class="hint">{{ d.chill.note }}</p>
+
+    {% elif section.title == 'Livestock heat load' and d.peak %}
+      <dl class="facts inline">
+        <dt>Species</dt><dd>{{ d.peak.species|replace('_', ' ') }}</dd>
+        <dt>Peak THI</dt><dd>{{ '%.1f'|format(d.peak.thi) }}</dd>
+        <dt>Stress category</dt><dd><strong>{{ d.peak.category }}</strong></dd>
+      </dl>
+
+    {% elif section.title == 'Spray windows' %}
+      {% if d.windows %}
+      <table class="grid tight">
+        <thead><tr><th>From</th><th>To</th><th>Quality</th>
+          <th>Notes</th></tr></thead>
+        <tbody>
+        {% for w in d.windows %}
+        <tr><td>{{ w.start.strftime('%d %b %H:%M') }}</td>
+          <td>{{ w.end.strftime('%d %b %H:%M') }}</td>
+          <td>{{ w.quality }}</td>
+          <td>{{ w.note }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>No suitable spray window in this period.</p>
+      {% endif %}
+      <p class="hint">{{ d.inversion.note }}</p>
+
+    {# ---------------- agrivoltaics ---------------- #}
+    {% elif section.title == 'Crop light under the array' %}
+      <dl class="facts inline">
+        <dt>Ground cover ratio</dt><dd>{{ '%.2f'|format(d.gcr) }}</dd>
+        <dt>Daily light integral, open</dt>
+        <dd>{{ '%.1f'|format(d.budget.dli_open) }} mol/m2/day</dd>
+        <dt>Under the array</dt>
+        <dd>{{ '%.1f'|format(d.budget.dli_under_array) }} mol/m2/day</dd>
+        <dt>Light given to the panels</dt>
+        <dd>{{ '%.1f'|format(d.budget.dli_difference) }} mol/m2/day</dd>
+      </dl>
+      {{ dli_chart|safe }}
+
+    {% elif section.title == 'Energy against crop light' %}
+      <dl class="facts inline">
+        <dt>DC energy, energy branch</dt>
+        <dd>{{ '%.0f'|format(d.tradeoff.dc_energy_open_wh_per_m2) }} Wh/m2</dd>
+        <dt>DC energy, crop branch</dt>
+        <dd>{{ '%.0f'|format(d.tradeoff.dc_energy_crop_wh_per_m2) }} Wh/m2</dd>
+        <dt>Given up for the crop</dt>
+        <dd>{{ '%.0f'|format(d.tradeoff.dc_energy_given_up_wh_per_m2) }} Wh/m2</dd>
+        <dt>Crop DLI, energy branch</dt>
+        <dd>{{ '%.1f'|format(d.tradeoff.dli_energy_branch) }} mol/m2/day</dd>
+        <dt>Crop DLI, crop branch</dt>
+        <dd>{{ '%.1f'|format(d.tradeoff.dli_crop_branch) }} mol/m2/day</dd>
+      </dl>
+      {{ tradeoff_chart|safe }}
+
+    {% elif section.title == 'Microclimate' and d.microclimate %}
+      <dl class="facts inline">
+        <dt>Reference ET, open</dt>
+        <dd>{{ '%.2f'|format(d.microclimate.et0_open_mm) }} mm/day</dd>
+        <dt>Reference ET, shaded</dt>
+        <dd>{{ '%.2f'|format(d.microclimate.et0_shaded_mm) }} mm/day</dd>
+        <dt>Water demand avoided</dt>
+        <dd>{{ '%.2f'|format(d.microclimate.et_avoided_mm) }} mm/day</dd>
+        <dt>Water-use efficiency</dt>
+        <dd>{% if d.microclimate.water_use_efficiency %}
+            {{ '%.1f'|format(d.microclimate.water_use_efficiency) }}
+            mol PAR per mm{% else %}not available{% endif %}</dd>
+        <dt>Shaded hours above heat caution</dt>
+        <dd>{{ d.microclimate.heat_stress_hours_shaded }}</dd>
+      </dl>
+
+    {% else %}
+      <p class="muted">Nothing further to show for this section.</p>
+    {% endif %}
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

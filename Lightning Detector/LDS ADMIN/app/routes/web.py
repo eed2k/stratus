@@ -252,7 +252,7 @@ def data_strikes(request: Request, station: str = "", window: int = 1440,
     """Recent in-range strikes for the storm-activity display.
 
     Positioned by distance only (the sensor does not measure bearing). Each
-    strike carries its energy band and accent colour for the legend.
+    strike carries its energy band and accent color for the legend.
     """
     from datetime import timedelta
     try:
@@ -276,7 +276,7 @@ def data_strikes(request: Request, station: str = "", window: int = 1440,
             "distance_km": e.distance_km,
             "energy": e.energy,
             "band": band["name"],
-            "colour": band["colour"],
+            "color": band["color"],
         })
     return JSONResponse({"radius_km": _STORM_RADIUS_KM, "rings": _STORM_RINGS_KM,
                          "bearing_measured": False, "strikes": strikes})
@@ -737,7 +737,7 @@ def users_delete(request: Request, uid: int, _: None = Depends(verify_csrf),
 
 
 # ==================== CLIENT PANELS (platform admins only) ====================
-# Stratus staff create and open per-client panels here. A client never sees
+# Stratus Admin create and open per-client panels here. A client never sees
 # these routes: require_platform_admin 404s for anyone else, and the middleware
 # only exposes them on the platform panel (no slug prefix).
 @router.get("/tenants", response_class=HTMLResponse)

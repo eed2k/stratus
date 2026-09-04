@@ -81,7 +81,7 @@ interface ClientAccount {
 // In-memory client accounts (for simplicity - extend to database for production)
 const clientAccounts: Map<string, ClientAccount> = new Map();
 
-// Initialise with client accounts from environment variables
+// Initialize with client accounts from environment variables
 async function initClientAccounts() {
   // Admin account - credentials from environment variables
   const adminEmail = process.env.STRATUS_ADMIN_EMAIL;

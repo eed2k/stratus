@@ -53,24 +53,24 @@ That is exactly how the policy is written, but there is a prerequisite:
 
 > Tailscale is not an identity provider and does not support signing up with a
 > plain email address. There are no Tailscale passwords.
-> — [Supported SSO identity providers](https://tailscale.com/kb/1013/sso-providers/)
+> - [Supported SSO identity providers](https://tailscale.com/kb/1013/sso-providers/)
 
 So `admin@stratusweather.co.za` only works as a Tailscale identity if that
 address is backed by a login provider. Pick one of these:
 
-1. **Google Workspace or Microsoft 365 on `stratusweather.co.za`** — if the
+1. **Google Workspace or Microsoft 365 on `stratusweather.co.za`** - if the
    mailbox already lives on either, you are done. Sign in with it and the
    identity Tailscale sees is literally `admin@stratusweather.co.za`, which is
    what the policy expects. No policy edit needed.
-2. **A Google account created against that address** — Google lets you create
+2. **A Google account created against that address** - Google lets you create
    an account using an existing non-Gmail address. Sign in to Tailscale with
    Google and the identity is again `admin@stratusweather.co.za`. Free, and no
    policy edit needed. Worth ten minutes to test before committing.
-3. **Custom OIDC** — supported, and the free plan allows it for up to three
+3. **Custom OIDC** - supported, and the free plan allows it for up to three
    users, but it requires publishing a WebFinger endpoint on the domain to
    prove control. More setup than this job warrants unless you already run an
    identity provider.
-4. **Accept a different identity** — sign in with GitHub or a passkey and the
+4. **Accept a different identity** - sign in with GitHub or a passkey and the
    identity becomes `you@github` or `you@passkey`, *not* the email address. This
    works fine, but you must then change the one line in
    `tailscale-policy.hujson` under `group:lds-admin` to match. Least friction,
@@ -78,7 +78,7 @@ address is backed by a login provider. Pick one of these:
 
 Options 1 and 2 satisfy your requirement as stated. If neither is available and
 you specifically want an email-address gate with no identity provider at all,
-see *Alternatives* at the bottom — Cloudflare Access can do email one-time-PIN
+see *Alternatives* at the bottom - Cloudflare Access can do email one-time-PIN
 without an IdP, and that is the one area where it genuinely beats Tailscale.
 
 **Also**: create the tailnet by signing in *as the admin account itself*.
@@ -168,7 +168,7 @@ Two things it does that are worth knowing about:
   There is no official Tailscale build for ARMv6, and the Debian/Raspbian armhf
   packages are compiled for ARMv7 and will not run. The static 32-bit ARM
   tarball is the route that works. The trade-off is that apt will not patch
-  Tailscale for you — re-run this script periodically.
+  Tailscale for you - re-run this script periodically.
 - **It sets `--accept-dns=false`.** The detector resolves
   `adminpanel.stratusweather.co.za` to post strikes, heartbeats and
   calibrations. Letting Tailscale rewrite `/etc/resolv.conf` on an unattended
@@ -183,7 +183,7 @@ exits.
 ### 4. Confirm the enrolment
 
 In **Machines**, the new device should show `tag:detector` and key expiry
-**Disabled**. If the tag is missing, the auth key was generated without it —
+**Disabled**. If the tag is missing, the auth key was generated without it - 
 regenerate with the tag and re-run the installer.
 
 ### 5. Onboard the admin
@@ -228,7 +228,7 @@ changes on the Pi. That is the whole point of granting to a group.
 
 - **Someone leaves**: remove them from `group:lds-admin` and Save. Effective
   across the tailnet almost immediately. Also suspend or delete the user under
-  **Users** so they cannot re-enrol devices.
+  **Users** so they cannot re-enroll devices.
 - **Lost or stolen laptop**: **Machines → that device → Remove**. Its node key
   is revoked straight away, so the device loses access even if it is still
   powered on and signed in.
@@ -274,7 +274,7 @@ pocket as a **fallback path** alongside Tailscale rather than instead of it.
 manual key distribution and no identity layer. More work than Tailscale for a
 strictly worse result at this scale.
 
-**Public port forward plus dynamic DNS** — the previous `gwld1-admin.dynv6.net`
+**Public port forward plus dynamic DNS** - the previous `gwld1-admin.dynv6.net`
 arrangement. Puts an SSH listener on the public internet at a site you do not
 control. Not recommended, and it is the thing this setup replaces.
 
@@ -282,7 +282,7 @@ control. Not recommended, and it is the thing this setup replaces.
 
 ## Operational notes
 
-- **Cost on the Pi.** `tailscaled` adds roughly 40–60 MB RSS. On 512 MB with
+- **Cost on the Pi.** `tailscaled` adds roughly 40-60 MB RSS. On 512 MB with
   the detector running this is acceptable, but it is not free. The installer
   prints `free -h` before and after so you can see the real number on your
   unit rather than trusting an estimate. If memory gets tight, that is a signal

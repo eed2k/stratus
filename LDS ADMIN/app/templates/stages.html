@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Alert Stages{% endblock %}
+{% block content %}
+<h1>Alert Stages</h1>
+
+{% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+{% if success %}<div class="success" role="status">{{ success }}</div>{% endif %}
+
+{% set can_write = user.role in ['admin','operator'] %}
+
+<p class="muted" style="text-align:left;padding:0 0 10px;">
+  Stages are distance bands that escalate. A strike raises the
+  <strong>nearest stage that covers it</strong>, and only that one, so one flash
+  never sends someone three messages. With stages at 30, 20 and 10&nbsp;km a
+  strike at 8&nbsp;km raises <em>10&nbsp;km</em>; one at 25&nbsp;km raises
+  <em>30&nbsp;km</em>; one at 36&nbsp;km raises nothing.
+</p>
+<p class="muted" style="text-align:left;padding:0 0 10px;">
+  While no stages are defined, alerts fall back to each group's own distance
+  threshold on the <a href="{{ base }}/groups">Groups</a> page. Define a stage and
+  the stages take over: the stage decides the distance, and the group it names
+  decides who is told.
+</p>
+
+{% if can_write %}
+{% if not rows %}
+<div class="card">
+  <h3>Start with the usual plan</h3>
+  <p class="muted" style="text-align:left;padding:0 0 10px;">
+    Advisory at 30&nbsp;km, Warning at 20&nbsp;km, Stop work at 10&nbsp;km, each
+    going to every active group. Adjust or delete them afterwards.
+  </p>
+  <form method="post" action="{{ base }}/stages/preset" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="primary" type="submit">Create 30 / 20 / 10 km stages</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Add a stage</h3>
+  <form method="post" action="{{ base }}/stages/create" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Stage name<input name="name" placeholder="Warning" maxlength="40" required></label>
+    <label>Raise at or within (km)
+      <input name="distance_km" type="number" min="1" max="{{ max_km }}" value="20" required>
+    </label>
+    <label>Notify
+      <select name="group_id">
+        <option value="">Every active group</option>
+        {% for g in groups %}
+        <option value="{{ g.id }}">{{ g.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Repeat interval (min)
+      <input name="cooldown_min" type="number" min="0" max="1440"
+             placeholder="{{ cooldown_default or 'panel default' }}">
+    </label>
+    <button class="primary" type="submit">Add stage</button>
+  </form>
+  <p class="muted" style="text-align:left;padding:8px 0 0;">
+    Leave the repeat interval blank to use the panel default. Each stage counts
+    its own interval, so a near stage can repeat more often than a far one
+    without one silencing the other.
+  </p>
+</div>
+{% endif %}
+
+<table>
+  <thead>
+    <tr><th>Raise at</th><th>Stage</th><th>Notifies</th><th>Repeat</th>
+        <th>Active</th>{% if can_write %}<th></th>{% endif %}</tr>
+  </thead>
+  <tbody>
+    {% for s in rows %}
+    <tr class="{{ '' if s.is_active else 'dim' }}">
+      {% if can_write %}
+      <td colspan="4">
+        <form method="post" action="{{ base }}/stages/{{ s.id }}/update" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input name="distance_km" type="number" min="1" max="{{ max_km }}"
+                 value="{{ s.distance_km }}" style="width:70px;"
+                 aria-label="Raise at or within, km">
+          <input name="name" value="{{ s.name }}" maxlength="40"
+                 style="width:130px;" aria-label="Stage name">
+          <select name="group_id" aria-label="Notify">
+            <option value="" {% if not s.group_id %}selected{% endif %}>Every active group</option>
+            {% for g in groups %}
+            <option value="{{ g.id }}" {% if s.group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+            {% endfor %}
+          </select>
+          <input name="cooldown_min" type="number" min="0" max="1440"
+                 value="{{ s.cooldown_min if s.cooldown_min is not none else '' }}"
+                 placeholder="default" style="width:80px;"
+                 aria-label="Repeat interval, minutes">
+          <button type="submit">Save</button>
+        </form>
+      </td>
+      {% else %}
+      <td>&le; {{ s.distance_km }} km</td>
+      <td>{{ s.name }}</td>
+      <td>{{ s.group.name if s.group else 'Every active group' }}</td>
+      <td>{{ s.cooldown_min if s.cooldown_min is not none else 'default' }}</td>
+      {% endif %}
+      <td>{{ 'yes' if s.is_active else 'no' }}</td>
+      {% if can_write %}
+      <td>
+        <form method="post" action="{{ base }}/stages/{{ s.id }}/toggle" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit">{{ 'Disable' if s.is_active else 'Enable' }}</button>
+        </form>
+        <form method="post" action="{{ base }}/stages/{{ s.id }}/delete" class="inline"
+              data-confirm="Delete this stage?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="danger" type="submit">Delete</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% else %}
+    <tr><td colspan="{% if can_write %}6{% else %}5{% endif %}" class="center">
+      No stages defined - group thresholds are in use.
+    </td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

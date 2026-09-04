@@ -1,7 +1,7 @@
 """Pre-upgrade backup that streams straight off the VPS, staging nothing on it.
 
 The instance disk is 93% full, so writing dumps there first is not an option and
-would also risk blocking the Vultr resize. Every artefact here is produced on
+would also risk blocking the Vultr resize. Every artifact here is produced on
 stdout by a remote command and piped directly into a local file, so the VPS
 needs no free space at all.
 
@@ -87,7 +87,7 @@ def describe_db(raw: str) -> tuple[str, str]:
         local = host in ("localhost", "127.0.0.1", "postgres", "stratus-postgres", "db")
         where = "container on this box" if local else "external / managed"
         return ("postgres-local" if local else "postgres-external"), f"host {host} ({where})"
-    return "unknown", "unrecognised scheme"
+    return "unknown", "unrecognized scheme"
 
 
 def main() -> None:

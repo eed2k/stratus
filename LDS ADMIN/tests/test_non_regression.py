@@ -102,9 +102,9 @@ def test_chart_endpoints_are_reachable_and_shaped_as_the_charts_expect(client, d
         assert key in sbody, f"/data/strikes payload missing {key}"
     assert sbody["bearing_measured"] is False
     assert sbody["radius_km"] == 40
-    # storm-view.js colours each dot from the payload, so the colour must be there.
+    # storm-view.js colors each dot from the payload, so the color must be there.
     if sbody["strikes"]:
-        assert "colour" in sbody["strikes"][0]
+        assert "color" in sbody["strikes"][0]
         assert "band" in sbody["strikes"][0]
 
     # storm-view.js renders one cell per band and reads every one of these keys
@@ -112,12 +112,12 @@ def test_chart_endpoints_are_reachable_and_shaped_as_the_charts_expect(client, d
     assert len(sbody["bands"]) == 5
     for band in sbody["bands"]:
         for key in ("key", "label", "range", "count", "peak", "mean", "low",
-                    "band", "colour", "share"):
+                    "band", "color", "share"):
             assert key in band, f"/data/strikes band missing {key}"
     assert sum(b["count"] for b in sbody["bands"]) == sbody["total"]
 
 
-def test_strikes_window_is_honoured_and_bands_stay_consistent(client, db_session):
+def test_strikes_window_is_honored_and_bands_stay_consistent(client, db_session):
     """The 1H..24H selector works by passing `window`, so a narrower window has
     to return a subset, and the band counts must keep summing to the total."""
     _seed(db_session)
@@ -172,7 +172,7 @@ def test_loader_is_self_contained(client, db_session):
     assert inline, "the loader's critical CSS must be inline in the head"
     css = inline.group(1)
 
-    # Colours and sizes must be literals: a custom property would resolve to
+    # Colors and sizes must be literals: a custom property would resolve to
     # nothing until the external stylesheet lands.
     body = re.sub(r"/\*.*?\*/", "", css, flags=re.S)   # drop comments
     assert "var(" not in body, "inline loader CSS must not rely on custom properties"
@@ -339,7 +339,7 @@ def test_report_generation_never_dispatches_an_alert(client, db_session, monkeyp
             monkeypatch.setattr(worker, name, _tripwire, raising=False)
 
     # Also trip on the SMS gateway itself, which is the thing that costs money.
-    import app.clickatell_sender as sender
+    import app.sms_gateway as sender
     for name in ("send_sms", "send"):
         if hasattr(sender, name):
             monkeypatch.setattr(sender, name, _tripwire, raising=False)

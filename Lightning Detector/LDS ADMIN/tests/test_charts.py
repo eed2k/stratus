@@ -62,7 +62,7 @@ def test_uptime_gauge_valid_and_clamped():
 
 
 def test_storm_rings_valid():
-    strikes = [{"distance_km": 5, "energy": 600000, "colour": "#1b3a5b"},
+    strikes = [{"distance_km": 5, "energy": 600000, "color": "#1b3a5b"},
                {"distance_km": 22, "energy": 1600000},
                {"distance_km": 40, "energy": 100}]
     svg = charts.storm_rings_svg(strikes, radius_km=40)

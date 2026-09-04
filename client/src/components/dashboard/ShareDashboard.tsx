@@ -373,7 +373,7 @@ export function ShareDashboard({ stationId, stationName }: ShareDashboardProps) 
                           No timeframe control: the compact dashboard is a fixed
                           24-hour single-screen view by design, so offering a
                           range picker here promised something the page never
-                          honoured. */}
+                          honored. */}
                       <div className="flex items-center gap-2 pt-1 border-t mt-1">
                         <span className="text-xs text-black whitespace-nowrap">Compact</span>
                         <Button

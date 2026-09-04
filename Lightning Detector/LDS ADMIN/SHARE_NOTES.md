@@ -74,12 +74,12 @@ your own `.env`.**
 them, the panel seeds accounts with passwords that are visible in this
 source. Always set both explicitly in `.env` before the first boot, or
 change the passwords in-app immediately after. This is pre-existing
-behaviour, unchanged in this copy.
+behavior, unchanged in this copy.
 
 Note that `deploy/` scripts and `README.md` still carry the existing VPS IP
 and dynv6 hostname as defaults, since the tooling is built around them.
 Override them for a different target, or scrub them if this copy is going
-outside your organisation.
+outside your organization.
 
 ## Running it locally
 

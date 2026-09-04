@@ -46,29 +46,29 @@ If you would rather change nothing, use the same 32-bit desktop image. Both work
 
 ---
 
-## Step 1 — Flash with Raspberry Pi Imager 2.0
+## Step 1 - Flash with Raspberry Pi Imager 2.0
 
 Imager 2.0 is a six-screen wizard. Download it from
 <https://www.raspberrypi.com/software/>.
 
-**Screen 1 — Raspberry Pi Device:** `Raspberry Pi Zero`
+**Screen 1 - Raspberry Pi Device:** `Raspberry Pi Zero`
 
 Choosing the device first matters: Imager then filters the OS list to images
 that actually run on ARMv6, which is the simplest way to avoid picking a 64-bit
 build by mistake.
 
-**Screen 2 — Operating System:** `Raspberry Pi OS (other)` →
+**Screen 2 - Operating System:** `Raspberry Pi OS (other)` →
 `Raspberry Pi OS Lite (32-bit)`
 
-**Screen 3 — Storage:** your SD card. Check the reported size matches the card,
+**Screen 3 - Storage:** your SD card. Check the reported size matches the card,
 not another drive.
 
-**Screen 4 — Configure your system:**
+**Screen 4 - Configure your system:**
 
 | Field | Value |
 | --- | --- |
 | Hostname | `lightning-detector` |
-| Username | `gwld1` — mandatory, see above |
+| Username | `gwld1` - mandatory, see above |
 | Password | your choice |
 | Wireless LAN SSID | your site SSID (the current one is in `network-config`) |
 | Wireless LAN password | the site passphrase |
@@ -83,21 +83,21 @@ The key in `gwld1-deploy/authorized_keys` (ed25519, comment `stratus-deploy`) is
 the same one as `%USERPROFILE%\.ssh\pi_gwld1.pub`, so pasting either works and
 `ssh -i` with your existing private key will be accepted.
 
-Leave Raspberry Pi Connect off — it is a third remote-access channel you do not
+Leave Raspberry Pi Connect off - it is a third remote-access channel you do not
 need alongside SSH and Tailscale, and it phones home continuously.
 
 If this screen offers **interface options**, enable **SPI** and the **serial
 port (hardware, not console)**. If it does not, Step 2 sets them anyway; doing
 both is harmless.
 
-**Screen 5 — Write:** confirm the erase warning.
+**Screen 5 - Write:** confirm the erase warning.
 
-**Screen 6 — Done.** Remove and re-insert the card so Windows mounts the boot
+**Screen 6 - Done.** Remove and re-insert the card so Windows mounts the boot
 partition, which appears as **`bootfs`**.
 
 ---
 
-## Step 2 — Hardware settings (do not skip)
+## Step 2 - Hardware settings (do not skip)
 
 Imager does **not** configure the sensor interfaces. A default `config.txt`
 gives you a Pi that boots and is reachable but cannot talk to the AS3935 at all.
@@ -148,14 +148,14 @@ Without SPI the Pi boots, joins WiFi, posts heartbeats and detects nothing.
 
 What each does, so you can judge changes later:
 
-- `dtparam=spi=on` — the AS3935 is on SPI. Without it the detector cannot read
+- `dtparam=spi=on` - the AS3935 is on SPI. Without it the detector cannot read
   the sensor.
-- `enable_uart=1` — serial line to the Campbell logger.
-- `dtoverlay=disable-bt` — Bluetooth off, saves power on a solar site.
-- `act_led_*` — activity LED off, saves a little more power.
-- `dtoverlay=dwc2,dr_mode=peripheral` — puts the USB port in device mode so the
+- `enable_uart=1` - serial line to the Campbell logger.
+- `dtoverlay=disable-bt` - Bluetooth off, saves power on a solar site.
+- `act_led_*` - activity LED off, saves a little more power.
+- `dtoverlay=dwc2,dr_mode=peripheral` - puts the USB port in device mode so the
   Pi appears as a network adapter to your laptop.
-- `arm_freq=800` — underclocked from 1000 MHz for lower power and heat.
+- `arm_freq=800` - underclocked from 1000 MHz for lower power and heat.
 
 Then edit **`cmdline.txt`** and add this to the existing text:
 
@@ -168,7 +168,7 @@ Pi booting. Add the parameter with a space, do not press Enter.
 
 ---
 
-## Step 3 — Copy the deploy bundle
+## Step 3 - Copy the deploy bundle
 
 Copy the whole **`gwld1-deploy`** folder to the root of `bootfs`.
 
@@ -187,7 +187,7 @@ nothing.
 
 ---
 
-## Step 4 — First boot and install
+## Step 4 - First boot and install
 
 Boot the Pi and give it two or three minutes to expand the filesystem, join
 WiFi and create the user.
@@ -202,7 +202,7 @@ If `.local` does not resolve, find the address in your router's client list, or
 `ping lightning-detector`.
 
 > **Why not USB?** The fixed `192.168.7.2` address on the USB gadget comes from
-> cloud-init's `network-config`. With Imager's customisation there is no
+> cloud-init's `network-config`. With Imager's customization there is no
 > cloud-init, so `g_ether` loads but `usb0` gets no IPv4 address and the laptop
 > cannot reach it. WiFi is the path of least resistance for first contact.
 >
@@ -237,7 +237,7 @@ idempotent, so re-running it is safe.
 
 ---
 
-## Step 5 — Verify
+## Step 5 - Verify
 
 ```bash
 systemctl status lightning-detector
@@ -268,8 +268,8 @@ The unit appears as **GLENCORE WONDERKOP**, already assigned to the gwld1
 client. Heartbeats are telemetry only and cannot trigger an SMS.
 
 > Do not change `station_id` in `lightning_config.json` without assigning the
-> new name on the panel first. The panel files an unrecognised unit under the
-> platform tenant, where it stays invisible to this client — it will look like
+> new name on the panel first. The panel files an unrecognized unit under the
+> platform tenant, where it stays invisible to this client - it will look like
 > the heartbeat vanished even though it returned 200.
 
 ---
@@ -277,7 +277,7 @@ client. Heartbeats are telemetry only and cannot trigger an SMS.
 ## Alternative: keep cloud-init
 
 Your existing card seeds cloud-init from the boot partition rather than using
-Imager's customisation. Raspberry Pi OS does now support this, but it is the
+Imager's customization. Raspberry Pi OS does now support this, but it is the
 more fragile of the two routes, and there is a known bug where cloud-init runs
 before the boot volume is mounted and fails to read `meta-data`.
 
@@ -301,7 +301,7 @@ instance-id, so to make it deploy again you change the date in *both*
 `cmdline.txt` and `meta-data`, and delete `.installed`. Changing only one of the
 three is why a re-deploy silently does nothing.
 
-On a fresh card none of that applies — the id has never been seen, so it runs.
+On a fresh card none of that applies - the id has never been seen, so it runs.
 
 ---
 
@@ -321,5 +321,5 @@ Keep `.ssh/pi_gwld1` safe; after hardening runs, the key is the only way in
 apart from a serial console.
 
 Optional remote access from anywhere is staged at
-`/home/gwld1/install_tailscale_pi.sh` — see
+`/home/gwld1/install_tailscale_pi.sh` - see
 `Lightning Detector/remote_access/REMOTE_ACCESS.md`.

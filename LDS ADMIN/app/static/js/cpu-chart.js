@@ -22,12 +22,12 @@
 
   // Matches the server-side palette in app/charts.py and style.css so the
   // interactive chart and the printed report look like the same product.
-  var COLOUR_TEMP = "#c0392b";   // red
-  var COLOUR_LOAD = "#2c7fb8";   // blue, same as the load line in charts.py
-  var COLOUR_WARN = "#e08a1e";   // amber
-  var COLOUR_CRIT = "#c0392b";
-  var COLOUR_GRID = "#d7dee8";
-  var COLOUR_MUTED = "#5b6673";
+  var COLOR_TEMP = "#c0392b";   // red
+  var COLOR_LOAD = "#2c7fb8";   // blue, same as the load line in charts.py
+  var COLOR_WARN = "#e08a1e";   // amber
+  var COLOR_CRIT = "#c0392b";
+  var COLOR_GRID = "#d7dee8";
+  var COLOR_MUTED = "#5b6673";
 
   /** Format an ISO timestamp for the x axis, given the window length. */
   function makeTickFormatter(range) {
@@ -74,20 +74,20 @@
     var hasLoad = data.some(function (d) { return d.load !== null; });
 
     var children = [
-      h(Recharts.CartesianGrid, { key: "grid", stroke: COLOUR_GRID, strokeDasharray: "3 3", vertical: false }),
+      h(Recharts.CartesianGrid, { key: "grid", stroke: COLOR_GRID, strokeDasharray: "3 3", vertical: false }),
       h(Recharts.XAxis, {
         key: "x",
         dataKey: "t",
         tickFormatter: makeTickFormatter(range),
-        tick: { fontSize: 10, fill: COLOUR_MUTED },
-        stroke: COLOUR_MUTED,
+        tick: { fontSize: 10, fill: COLOR_MUTED },
+        stroke: COLOR_MUTED,
         minTickGap: 24
       }),
       h(Recharts.YAxis, {
         key: "yTemp",
         yAxisId: "temp",
-        tick: { fontSize: 10, fill: COLOUR_MUTED },
-        stroke: COLOUR_MUTED,
+        tick: { fontSize: 10, fill: COLOR_MUTED },
+        stroke: COLOR_MUTED,
         width: 38,
         // Always include the CRIT line in the domain so the reference lines are
         // visible even on a cool day, and pad the top a little above CRIT.
@@ -97,7 +97,7 @@
         ],
         label: {
           value: "CPU temp (deg C)", angle: -90, position: "insideLeft",
-          fontSize: 10, fill: COLOUR_MUTED, style: { textAnchor: "middle" }
+          fontSize: 10, fill: COLOR_MUTED, style: { textAnchor: "middle" }
         }
       })
     ];
@@ -108,12 +108,12 @@
         yAxisId: "load",
         orientation: "right",
         domain: [0, 100],
-        tick: { fontSize: 10, fill: COLOUR_MUTED },
-        stroke: COLOUR_MUTED,
+        tick: { fontSize: 10, fill: COLOR_MUTED },
+        stroke: COLOR_MUTED,
         width: 38,
         label: {
           value: "Load (%)", angle: 90, position: "insideRight",
-          fontSize: 10, fill: COLOUR_MUTED, style: { textAnchor: "middle" }
+          fontSize: 10, fill: COLOR_MUTED, style: { textAnchor: "middle" }
         }
       }));
     }
@@ -128,7 +128,7 @@
       contentStyle: { fontSize: "11px", fontFamily: "Arial, Helvetica, sans-serif" }
     }));
 
-    // Legend: a very small caption under the plot, two coloured dots and their
+    // Legend: a very small caption under the plot, two colored dots and their
     // labels. Recharts' default legend draws its own line/square markers, which
     // is what the icons were; a custom `content` replaces them entirely.
     children.push(h(Recharts.Legend, {
@@ -136,7 +136,7 @@
       verticalAlign: "bottom",
       height: 14,
       content: function () {
-        function item(key, colour, label) {
+        function item(key, color, label) {
           return h("span", {
             key: key,
             style: {
@@ -148,17 +148,17 @@
               key: "d",
               style: {
                 width: "5px", height: "5px", borderRadius: "50%",
-                background: colour, display: "inline-block", flex: "0 0 auto"
+                background: color, display: "inline-block", flex: "0 0 auto"
               }
             }),
             h("span", { key: "l" }, label)
           ]);
         }
-        var items = [item("t", COLOUR_TEMP, "CPU temp")];
-        if (hasLoad) items.push(item("l", COLOUR_LOAD, "Load"));
+        var items = [item("t", COLOR_TEMP, "CPU temp")];
+        if (hasLoad) items.push(item("l", COLOR_LOAD, "Load"));
         return h("div", {
           style: {
-            fontSize: "9px", lineHeight: "1", color: COLOUR_MUTED,
+            fontSize: "9px", lineHeight: "1", color: COLOR_MUTED,
             textAlign: "center", fontFamily: "Arial, Helvetica, sans-serif"
           }
         }, items);
@@ -169,25 +169,25 @@
     // so the chart always agrees with the detector's configured limits.
     children.push(h(Recharts.ReferenceLine, {
       key: "warn", yAxisId: "temp", y: payload.warn,
-      stroke: COLOUR_WARN, strokeDasharray: "6 3", strokeWidth: 1.2, ifOverflow: "extendDomain",
-      label: { value: "WARN " + payload.warn, position: "insideTopRight", fontSize: 9, fill: COLOUR_WARN }
+      stroke: COLOR_WARN, strokeDasharray: "6 3", strokeWidth: 1.2, ifOverflow: "extendDomain",
+      label: { value: "WARN " + payload.warn, position: "insideTopRight", fontSize: 9, fill: COLOR_WARN }
     }));
     children.push(h(Recharts.ReferenceLine, {
       key: "crit", yAxisId: "temp", y: payload.crit,
-      stroke: COLOUR_CRIT, strokeDasharray: "2 2", strokeWidth: 1.2, ifOverflow: "extendDomain",
-      label: { value: "CRIT " + payload.crit, position: "insideTopRight", fontSize: 9, fill: COLOUR_CRIT }
+      stroke: COLOR_CRIT, strokeDasharray: "2 2", strokeWidth: 1.2, ifOverflow: "extendDomain",
+      label: { value: "CRIT " + payload.crit, position: "insideTopRight", fontSize: 9, fill: COLOR_CRIT }
     }));
 
     children.push(h(Recharts.Line, {
       key: "lineTemp", yAxisId: "temp", type: "monotone", dataKey: "temp",
-      name: "CPU temp", stroke: COLOUR_TEMP, strokeWidth: 1.6,
+      name: "CPU temp", stroke: COLOR_TEMP, strokeWidth: 1.6,
       dot: false, activeDot: { r: 3 }, connectNulls: false, isAnimationActive: false
     }));
 
     if (hasLoad) {
       children.push(h(Recharts.Line, {
         key: "lineLoad", yAxisId: "load", type: "monotone", dataKey: "load",
-        name: "Load", stroke: COLOUR_LOAD, strokeWidth: 1.2, strokeDasharray: "4 3",
+        name: "Load", stroke: COLOR_LOAD, strokeWidth: 1.2, strokeDasharray: "4 3",
         dot: false, activeDot: { r: 3 }, connectNulls: false, isAnimationActive: false
       }));
     }

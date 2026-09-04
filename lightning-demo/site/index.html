@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lightning Data Demonstration</title>
+<meta name="description" content="Timelapse demonstration of the Stratus Weather
+lightning detection console, replaying 24 hours of simulated storm activity.">
+<!-- Public demonstration of a private console. Nothing here is indexed. -->
+<meta name="robots" content="noindex, nofollow">
+
+<style>
+/* Loader, inlined so it covers the page before style.css arrives. */
+#page-loader{position:fixed;inset:0;z-index:9999;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;
+  background:#061a30;opacity:1;animation:pl-auto 3.2s ease-in 1 forward}
+#page-loader.is-done{animation:none;opacity:0;pointer-events:none;
+  transition:opacity .28s ease}
+@keyframes pl-auto{0%,70%{opacity:1}100%{opacity:0;visibility:hidden}}
+#page-loader .bolt{display:block;width:34px;height:46px;fill:#fff;
+  animation:lb 1.15s ease-in-out infinite}
+#page-loader .nm{margin-top:14px;font:700 12px/1 Consolas,"Courier New",monospace;
+  letter-spacing:.22em;text-transform:uppercase;color:#fff}
+#page-loader .sb{margin-top:5px;font:10px/1 Consolas,"Courier New",monospace;
+  letter-spacing:.12em;color:#8aa0b8}
+@keyframes lb{0%,100%{opacity:.35;transform:scale(.94)}
+  12%{opacity:1;transform:scale(1.04)}30%{opacity:.5;transform:scale(.98)}
+  46%{opacity:1;transform:scale(1.02)}}
+</style>
+
+<!-- The panel's own stylesheet, copied at deploy time from
+     LDS ADMIN/app/static/style.css so the demo looks like the real console. -->
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="demo.css">
+</head>
+<body class="is-app">
+
+<div id="page-loader" aria-hidden="true">
+  <svg class="bolt" viewBox="0 0 24 32" width="34" height="46" fill="#ffffff"
+       focusable="false" aria-hidden="true">
+    <path d="M13.8 0 3 18.4h6.4L7.9 32 21 12.6h-6.7L15.9 0z"/>
+  </svg>
+  <div class="nm">Stratus Weather</div>
+  <div class="sb">Lightning Alert Console</div>
+</div>
+
+<div class="appwindow">
+
+  <div class="titlebar">
+    <span class="titlebar-name">STRATUS WEATHER &nbsp;::&nbsp; Lightning Alert Console</span>
+    <span class="titlebar-meta">
+      Site A &nbsp;|&nbsp; <span id="simclock">--:--:--</span> SAST (simulated)
+    </span>
+  </div>
+
+  <div class="menubar">
+    <nav>
+      <a href="#" class="is-current" aria-current="page">Dashboard</a>
+      <a href="#" aria-disabled="true">Recipients</a>
+      <a href="#" aria-disabled="true">Groups</a>
+      <a href="#" aria-disabled="true">Stations</a>
+      <a href="#" aria-disabled="true">Events</a>
+      <a href="#" aria-disabled="true">Reports</a>
+    </nav>
+    <div class="menubar-user">
+      <span class="menubar-tenant">SITE A</span>
+      <span>viewer@stratusweather.co.za [viewer]</span>
+    </div>
+  </div>
+
+  <main class="workarea">
+
+    <div class="demo-banner" role="note">
+      <strong>Demonstration.</strong> Twenty-four hours of simulated storm
+      activity, replayed as a timelapse.
+    </div>
+
+    <div class="card demo-controls">
+      <div class="demo-controls-row">
+        <button type="button" id="play" class="primary">Pause</button>
+        <div class="demo-speed" role="group" aria-label="Playback speed">
+          <button type="button" data-speed="120">2 min/s</button>
+          <button type="button" data-speed="360" aria-pressed="true">6 min/s</button>
+          <button type="button" data-speed="900">15 min/s</button>
+          <button type="button" data-speed="1800">30 min/s</button>
+        </div>
+        <button type="button" id="restart">Restart</button>
+        <span class="demo-elapsed">
+          <span id="simday">--</span> &nbsp;&middot;&nbsp;
+          <span id="progresspct">0%</span> of 24 h
+        </span>
+      </div>
+      <div class="demo-track" aria-hidden="true"><i id="progressbar"></i></div>
+    </div>
+
+    <div class="kpis demo-kpis">
+      <div class="kpi"><div class="num" id="kpi-total">0</div>
+        <div class="lbl">Strikes so far</div></div>
+      <div class="kpi"><div class="num" id="kpi-closest">-</div>
+        <div class="lbl">Closest approach (km)</div></div>
+      <div class="kpi"><div class="num" id="kpi-last">-</div>
+        <div class="lbl">Most recent (km)</div></div>
+    </div>
+
+    <div class="card storm-card">
+      <h3>Storm activity</h3>
+      <div class="storm-sky" aria-hidden="true"></div>
+      <div class="storm-body">
+        <div class="storm-view">
+          <div class="storm-head">
+            <p class="storm-summary" id="storm-summary">-</p>
+            <div class="storm-range" role="group" aria-label="Window">
+              <button type="button" data-window="60">1 H</button>
+              <button type="button" data-window="180">3 H</button>
+              <button type="button" data-window="360">6 H</button>
+              <button type="button" data-window="720">12 H</button>
+              <button type="button" data-window="1440" aria-pressed="true">24 H</button>
+            </div>
+          </div>
+          <div class="storm-bands" id="bands"></div>
+        </div>
+        <p class="storm-note">
+          Recorded strikes grouped into five distance bands, nearest first, over
+          the selected window. Each band gives its strike count with the peak,
+          mean and lowest intensity recorded in that band. A cloud starts
+          flashing on the first strike in its band and keeps flashing until
+          12&nbsp;hours pass with no further activity there, so a lit cloud means
+          the cell is still live. The count follows the window you select, which
+          is why a lit cloud can read zero on a short window. The AS3935 reports
+          distance up to 40&nbsp;km in 15 discrete
+          steps (&plusmn;4&nbsp;km) but does not measure bearing, so no direction
+          is shown anywhere. Intensity is a relative sensor value for comparing
+          strikes with each other, not joules.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Storm track</h3>
+      <div id="track" class="demo-trackchart"></div>
+      <p class="muted demo-cap">
+        Distance of every strike against time. The approach and retreat of each
+        cell is what the five bands above summarize. Vertical axis is distance
+        from the detector, so lower is closer.
+      </p>
+    </div>
+
+    <h2>Recent alerts</h2>
+    <table class="demo-events">
+      <thead>
+        <tr>
+          <th scope="col">Time (SAST)</th>
+          <th scope="col">Station</th>
+          <th scope="col" class="num">Distance (km)</th>
+          <th scope="col" class="num">Energy</th>
+          <th scope="col">Band</th>
+        </tr>
+      </thead>
+      <tbody id="events">
+        <tr><td colspan="5" class="muted">No strikes recorded yet.</td></tr>
+      </tbody>
+    </table>
+
+  </main>
+
+  <div class="statusbar">
+    <span>Demonstration data</span>
+    <span>Station: Site A</span>
+    <span class="statusbar-right">Stratus Weather Lightning Alert System</span>
+  </div>
+</div>
+
+<script src="demo.js"></script>
+</body>
+</html>

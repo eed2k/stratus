@@ -244,7 +244,7 @@ class Config:
         #  System
         # ===========================================================
         self.HEARTBEAT_INTERVAL      = 600   # 10 minutes
-        self.BOOT_STABILISE_SECS     = 5
+        self.BOOT_STABILIZE_SECS     = 5
         self.INIT_RETRY_LIMIT        = 10
         self.INIT_RETRY_DELAY        = 5
         self.REGISTER_CHECK_INTERVAL = 86400  # 24 hours (register drift / auto-cal)
@@ -377,14 +377,14 @@ class AS3935:
     def _read_register(self, register):
         """Read a single register from the AS3935."""
         if self.spi is None:
-            raise RuntimeError("SPI not initialised")
+            raise RuntimeError("SPI not initialized")
         result = self.spi.xfer2([(register & 0x3F) | 0x40, 0x00])
         return result[1]
 
     def _write_register(self, register, value):
         """Write a single register to the AS3935."""
         if self.spi is None:
-            raise RuntimeError("SPI not initialised")
+            raise RuntimeError("SPI not initialized")
         self.spi.xfer2([register & 0x3F, value & 0xFF])
 
     def _modify_register(self, register, mask, shift, value):
@@ -528,8 +528,8 @@ class AS3935:
             return False
         return True
 
-    def initialise(self, config):
-        """Full initialisation sequence with given configuration."""
+    def initialize(self, config):
+        """Full initialization sequence with given configuration."""
         self.reset()
         time.sleep(0.010)
         cal_ok = self.calibrate()
@@ -651,7 +651,7 @@ class CampbellUartTx:
         self._active = False
 
     def open(self):
-        """Initialise pigpio connection and configure TX pin."""
+        """Initialize pigpio connection and configure TX pin."""
         if not self.enabled:
             return
         if pigpio is None:
@@ -843,7 +843,7 @@ class LightningDetector:
 
         self.logger = logging.getLogger("lightning")
 
-        # Initialise data logger
+        # Initialize data logger
         self.data_logger = DataLogger(config.LOG_DIR)
 
         # Campbell UART TX output (to logger serial input)
@@ -898,7 +898,7 @@ class LightningDetector:
         "REGISTER_CHECK_INTERVAL": (int, 60, 604800),
         "LOG_RETENTION_DAYS":   (int, 1, 3650),
         "MAX_CONSECUTIVE_ERRORS": (int, 1, 1000),
-        "BOOT_STABILISE_SECS":  (int, 0, 60),
+        "BOOT_STABILIZE_SECS":  (int, 0, 60),
         "INIT_RETRY_LIMIT":     (int, 1, 100),
         "INIT_RETRY_DELAY":     (int, 1, 300),
         "PULSE_MIRROR_ENABLED": (bool, None, None),
@@ -969,22 +969,22 @@ class LightningDetector:
         return True
 
     # ===================================================================
-    #  Hardware Initialisation
+    #  Hardware Initialization
     # ===================================================================
 
     def _init_hardware(self):
-        """Initialise GPIO and AS3935 with retry logic for cold boot.
+        """Initialize GPIO and AS3935 with retry logic for cold boot.
 
         After a power loss the SPI bus or sensor may not be ready
         immediately.  This method retries up to INIT_RETRY_LIMIT times
         with INIT_RETRY_DELAY seconds between attempts.
         """
-        # Boot stabilisation delay
+        # Boot stabilization delay
         self.logger.info(
-            "[1/4] Boot stabilisation delay (%d s)...",
-            self.config.BOOT_STABILISE_SECS
+            "[1/4] Boot stabilization delay (%d s)...",
+            self.config.BOOT_STABILIZE_SECS
         )
-        time.sleep(self.config.BOOT_STABILISE_SECS)
+        time.sleep(self.config.BOOT_STABILIZE_SECS)
 
         # GPIO setup
         self.logger.info("[2/4] Configuring GPIO...")
@@ -1005,7 +1005,7 @@ class LightningDetector:
                 )
 
         # SPI + AS3935 init with retries
-        self.logger.info("[3/4] Initialising AS3935 sensor...")
+        self.logger.info("[3/4] Initializing AS3935 sensor...")
         last_err = None
         for attempt in range(1, self.config.INIT_RETRY_LIMIT + 1):
             try:
@@ -1015,7 +1015,7 @@ class LightningDetector:
                     self.config.SPI_SPEED_HZ,
                     self.config.SPI_MODE
                 )
-                cal_ok = self.sensor.initialise(self.config)
+                cal_ok = self.sensor.initialize(self.config)
                 if cal_ok:
                     self.logger.info(
                         "AS3935 calibration PASSED (attempt %d/%d)",
@@ -1694,7 +1694,7 @@ class LightningDetector:
         # Enable LCO display on IRQ pin (REG 0x08, bit 7)
         reg08 = self.sensor._read_register(0x08)
         self.sensor._write_register(0x08, reg08 | 0x80)
-        time.sleep(0.05)  # Allow oscillator to stabilise
+        time.sleep(0.05)  # Allow oscillator to stabilize
 
         # Count pulses over measurement window
         measure_ms = 200  # 200 ms measurement window
@@ -1866,16 +1866,16 @@ class LightningDetector:
             self._last_register_check = now
             if not self.sensor.verify_registers(self.config):
                 self.logger.warning(
-                    "Register drift detected - re-initialising AS3935"
+                    "Register drift detected - re-initializing AS3935"
                 )
-                self.sensor.initialise(self.config)
+                self.sensor.initialize(self.config)
 
     # ===================================================================
     #  Main Loop
     # ===================================================================
 
     def start(self):
-        """Initialise the sensor and start the detection loop."""
+        """Initialize the sensor and start the detection loop."""
         global _detector_instance
         _detector_instance = self
 

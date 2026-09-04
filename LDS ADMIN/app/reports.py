@@ -88,7 +88,7 @@ def css_safe_text(value, limit=90):
 
     The running footer puts the site name into `content: "..."` in an `@page`
     rule. That is a CSS string inside an HTML `<style>` element, where neither of
-    the usual defences applies: Jinja's HTML autoescaping would turn a quote into
+    the usual defenses applies: Jinja's HTML autoescaping would turn a quote into
     `&quot;`, which a CSS parser does not decode and would print literally, while
     an unescaped quote closes the string early and breaks the rule, and with it
     the pagination of the whole report.
@@ -124,7 +124,7 @@ def format_site_line(latitude, longitude, altitude_m):
 
     Decimal degrees with an explicit hemisphere letter rather than a signed
     number, because a signed latitude on a printed report is easy to misread.
-    Altitude is metres above mean sea level.
+    Altitude is meters above mean sea level.
 
     ASCII only, no degree sign: the PDF renderer's font is WinAnsi-encoded, the
     same reason the reports write "deg C".
@@ -239,7 +239,7 @@ def gather_report_data(db, tenant, station_id, year, month):
     return {
         "tenant": tenant,
         "meta": meta,
-        # Pre-sanitised for the running footer, which embeds it in a CSS string.
+        # Pre-sanitized for the running footer, which embeds it in a CSS string.
         "footer_text": css_safe_text(f"{meta['site']} - {month_label}"),
         "period": {"year": year, "month": month, "label": month_label,
                    "start": start, "end": nxt},

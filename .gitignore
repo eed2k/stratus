@@ -91,6 +91,11 @@ docker-compose.override.yml
 # ── Images (tracked assets live in assets/) ──
 *.png
 
+# ── Video / large media (not source; keep repo lean) ──
+*.m4v
+*.mp4
+*.mov
+
 # ── Build logs ──
 build.log
 
@@ -159,7 +164,7 @@ LDS ADMIN PANEL/
 # ── Raspberry Pi SD card: real credentials ──
 # These three cloud-init files carry a wifi PSK and a user password hash. Both
 # are directly usable, and git history keeps them recoverable forever, so only
-# the sanitised *.example templates are tracked.
+# the sanitized *.example templates are tracked.
 RPiZero SD Card/user-data
 RPiZero SD Card/network-config
 RPiZero SD Card/meta-data

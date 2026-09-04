@@ -1,0 +1,473 @@
+*************************************************************
+FileName = AS3935_DemoBoard.GBR
+AutoAperture = True
+*************************************************************
+Generating : Top Layer
+      File : AS3935_DemoBoard.GTL
+
+    Adding Layer      : Top Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D10
+    D11
+    D12
+    D13
+    D14
+    D15
+    D16
+    D17
+    D18
+    D19
+    D20
+    D21
+    D22
+    D23
+    D24
+    D25
+    D26
+    D27
+    D28
+    D29
+    D30
+    D31
+    D32
+    D33
+*************************************************************
+
+*************************************************************
+Generating : Bottom Layer
+      File : AS3935_DemoBoard.GBL
+
+    Adding Layer      : Bottom Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D13
+    D14
+    D20
+    D21
+    D22
+    D23
+    D24
+    D25
+    D26
+    D27
+    D28
+    D29
+    D30
+    D31
+    D32
+    D33
+    D34
+    D35
+    D36
+    D37
+    D38
+    D39
+    D40
+    D41
+*************************************************************
+
+*************************************************************
+Generating : Bottom Pad Master
+      File : AS3935_DemoBoard.GPB
+
+    Adding Layer      : Bottom Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D13
+    D14
+    D22
+    D23
+    D24
+    D25
+    D26
+    D27
+    D28
+    D29
+    D30
+    D34
+    D35
+    D36
+    D37
+    D38
+    D39
+    D40
+*************************************************************
+
+*************************************************************
+Generating : Top Pad Master
+      File : AS3935_DemoBoard.GPT
+
+    Adding Layer      : Top Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D10
+    D11
+    D12
+    D13
+    D14
+    D15
+    D16
+    D17
+    D18
+    D19
+    D22
+    D23
+    D24
+    D25
+    D26
+    D27
+    D28
+    D29
+    D30
+*************************************************************
+
+*************************************************************
+Generating : Top Overlay
+      File : AS3935_DemoBoard.GTO
+
+    Adding Layer      : Top Overlay
+
+
+Used DCodes :
+    D21
+    D42
+    D43
+    D44
+    D45
+    D46
+    D47
+    D48
+*************************************************************
+
+*************************************************************
+Generating : Top Paste
+      File : AS3935_DemoBoard.GTP
+
+    Adding Layer      : Top Paste
+
+    Adding Layer      : Top Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D10
+    D11
+    D12
+    D13
+    D14
+    D15
+    D16
+    D17
+    D18
+    D19
+*************************************************************
+
+*************************************************************
+Generating : Top Solder
+      File : AS3935_DemoBoard.GTS
+
+    Adding Layer      : Top Solder
+
+    Adding Layer      : Top Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D13
+    D14
+    D16
+    D17
+    D18
+    D19
+    D22
+    D23
+    D26
+    D27
+    D28
+    D29
+    D30
+    D49
+    D50
+    D51
+    D52
+    D53
+    D54
+    D55
+    D56
+    D57
+*************************************************************
+
+*************************************************************
+Generating : Bottom Solder
+      File : AS3935_DemoBoard.GBS
+
+    Adding Layer      : Bottom Solder
+
+    Adding Layer      : Bottom Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D13
+    D14
+    D22
+    D23
+    D26
+    D27
+    D28
+    D29
+    D30
+    D36
+    D37
+    D38
+    D39
+    D53
+    D54
+    D55
+    D56
+    D57
+    D58
+    D59
+    D60
+*************************************************************
+
+*************************************************************
+Generating : Bottom Paste
+      File : AS3935_DemoBoard.GBP
+
+    Adding Layer      : Bottom Paste
+
+    Adding Layer      : Bottom Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D13
+    D14
+    D34
+    D35
+    D36
+    D37
+    D38
+    D39
+    D40
+*************************************************************
+
+*************************************************************
+Generating : Bottom Overlay
+      File : AS3935_DemoBoard.GBO
+
+    Adding Layer      : Bottom Overlay
+
+
+Used DCodes :
+    D21
+    D42
+    D43
+    D45
+    D46
+    D47
+    D48
+    D61
+*************************************************************
+
+*************************************************************
+Generating : BOARD_OUT
+      File : AS3935_DemoBoard.GM1
+
+    Adding Layer      : BOARD_OUT
+
+
+Used DCodes :
+    D21
+*************************************************************
+
+*************************************************************
+Generating : COMMENT
+      File : AS3935_DemoBoard.GM2
+
+    Adding Layer      : COMMENT
+
+
+Used DCodes :
+    D45
+    D48
+*************************************************************
+
+*************************************************************
+Generating : Mechanical 3
+      File : AS3935_DemoBoard.GM3
+
+    Adding Layer      : Mechanical 3
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : Mechanical 4
+      File : AS3935_DemoBoard.GM4
+
+    Adding Layer      : Mechanical 4
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : Mechanical 5
+      File : AS3935_DemoBoard.GM5
+
+    Adding Layer      : Mechanical 5
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : Mechanical 6
+      File : AS3935_DemoBoard.GM6
+
+    Adding Layer      : Mechanical 6
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : TName
+      File : AS3935_DemoBoard.GM7
+
+    Adding Layer      : TName
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : BName
+      File : AS3935_DemoBoard.GM8
+
+    Adding Layer      : BName
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : TValue
+      File : AS3935_DemoBoard.GM9
+
+    Adding Layer      : TValue
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : Bvalue
+      File : AS3935_DemoBoard.GM10
+
+    Adding Layer      : Bvalue
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : 3D_TOP
+      File : AS3935_DemoBoard.GM11
+
+    Adding Layer      : 3D_TOP
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : 3D_BOT
+      File : AS3935_DemoBoard.GM12
+
+    Adding Layer      : 3D_BOT
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : ASSY_TOP
+      File : AS3935_DemoBoard.GM13
+
+    Adding Layer      : ASSY_TOP
+
+
+Used DCodes :
+    D43
+    D46
+    D48
+    D61
+*************************************************************
+
+*************************************************************
+Generating : ASSY_BOT
+      File : AS3935_DemoBoard.GM14
+
+    Adding Layer      : ASSY_BOT
+
+
+Used DCodes :
+    D43
+    D46
+    D61
+    D62
+*************************************************************
+
+*************************************************************
+Generating : PLACE_TOP
+      File : AS3935_DemoBoard.GM15
+
+    Adding Layer      : PLACE_TOP
+
+
+Used DCodes :
+    D61
+*************************************************************
+
+*************************************************************
+Generating : PLACE_BOT
+      File : AS3935_DemoBoard.GM16
+
+    Adding Layer      : PLACE_BOT
+
+
+Used DCodes :
+    D61
+*************************************************************
+
+*************************************************************
+Generating : Keep-Out Layer
+      File : AS3935_DemoBoard.GKO
+
+    Adding Layer      : Keep-Out Layer
+
+
+Used DCodes :
+*************************************************************
+

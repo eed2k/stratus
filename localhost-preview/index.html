@@ -78,7 +78,7 @@
     <p class="storm-note">
       Strikes from the last 24 hours, placed by distance from the detector.
       The AS3935 reports distance up to 40 km but does not measure bearing, so
-      the direction a strike appears in carries no meaning. Colour shows the
+      the direction a strike appears in carries no meaning. Color shows the
       relative intensity band.
     </p>
   </div>
@@ -92,7 +92,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function dots() {
     return Array.prototype.slice.call(
       document.querySelectorAll(".storm-view svg circle"))
-      .filter(function (c) { return c.getAttribute("r") !== "3"; });  // skip the centre
+      .filter(function (c) { return c.getAttribute("r") !== "3"; });  // skip the center
   }
   function pulse(el) {
     el.classList.remove("strike-new");

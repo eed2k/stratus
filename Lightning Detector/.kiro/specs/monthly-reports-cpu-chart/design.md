@@ -3,7 +3,7 @@
 ## Overview
 
 This design adds two downloadable PDF reports, a station metadata section,
-an interactive Recharts CPU chart, a storm-activity visualisation with an
+an interactive Recharts CPU chart, a storm-activity visualization with an
 energy legend, longer telemetry retention, and the detector-side telemetry
 needed to feed them, all within the multi-tenant `LDS ADMIN` panel and its
 existing tenant-isolation model.
@@ -154,9 +154,9 @@ Created by `Base.metadata.create_all`. No backfill required (new, optional data)
 
 21-bit full scale is 2,097,151. Bands are computed from the relative value:
 
-| Band     | Range (inclusive)      | Approx. full scale | Colour (data accent) |
+| Band     | Range (inclusive)      | Approx. full scale | Color (data accent) |
 |----------|------------------------|--------------------|----------------------|
-| Low      | 0 .. 524,287           | 0 to 25 percent    | light grey-blue      |
+| Low      | 0 .. 524,287           | 0 to 25 percent    | light gray-blue      |
 | Moderate | 524,288 .. 1,048,575   | 25 to 50 percent   | navy                 |
 | High     | 1,048,576 .. 1,572,863 | 50 to 75 percent   | amber                |
 | Extreme  | 1,572,864 .. 2,097,151 | 75 to 100 percent  | red                  |
@@ -273,10 +273,10 @@ CPU chart (Recharts):
   `react-dom.production.min.js`, `recharts.min.js` loaded with same-origin
   `<script src>`.
 
-Storm-activity visualisation:
+Storm-activity visualization:
 - `app/static/js/storm-view.js` draws concentric distance range-rings, plots
   recent strikes by distance only (with a visible "bearing not measured"
-  note), animates a pulse per new strike, colour-codes by energy band, and
+  note), animates a pulse per new strike, color-codes by energy band, and
   shows an on-screen legend. A subtle CSS cloud/storm backdrop stays behind
   the data. `prefers-reduced-motion` and load failure fall back to a static
   distance view.
@@ -295,7 +295,7 @@ Station metadata UI:
 - Report file paths are built from validated station/month/type and the
   tenant slug, never from raw user input, preventing traversal.
 - Detector ingest stays token-authenticated; new units file under the
-  platform tenant until assigned, matching current behaviour.
+  platform tenant until assigned, matching current behavior.
 - All new scripts, styles, fonts, and vendored libraries are same-origin,
   so the existing CSP is unchanged.
 - Report generation runs in the web request path, separate from the alert
@@ -401,7 +401,7 @@ one with a value stores that value.
 | R5 Recharts CPU chart | Vendored UMD, cpu-chart.js, /data/cpu, timeframe controls |
 | R6 CPU load telemetry | Detector get_cpu_load plus heartbeat field (panel stores it) |
 | R7 Retention | HEARTBEAT_RETENTION_DAYS prune, bounded growth |
-| R8 Storm visualisation | storm-view.js, /data/strikes, energy bands, reduced-motion |
+| R8 Storm visualization | storm-view.js, /data/strikes, energy bands, reduced-motion |
 | R9 PPTX reconciliation | Doc pass vs code: thresholds, cadence, SMS-only, energy scale |
 | R10 Reliability/non-regression | Web-path generation, self-hosted assets, scope() everywhere |
 

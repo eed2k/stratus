@@ -326,7 +326,7 @@ RPiZero SD Card/    Boot-partition contents for the detector
   *.example         cloud-init templates (real files hold credentials, gitignored)
   FLASH_FROM_SCRATCH.md
 
-localhost-preview/  Standalone HTML previews for iterating on visualisations
+localhost-preview/  Standalone HTML previews for iterating on visualizations
                     without deploying
 ```
 

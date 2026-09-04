@@ -1,0 +1,36 @@
+------------------------------------------------------------------------------------------
+Gerber File Extension Report For: AS3935_DemoBoard.GBR   3/11/2013  12:18:33 PM
+------------------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------------------
+Layer Extension     Layer Description                      
+------------------------------------------------------------------------------------------
+.GTL                Top Layer                               
+.GBL                Bottom Layer                            
+.GPB                Bottom Pad Master                       
+.GPT                Top Pad Master                          
+.GTO                Top Overlay                             
+.GTP                Top Paste                               
+.GTS                Top Solder                              
+.GBS                Bottom Solder                           
+.GBP                Bottom Paste                            
+.GBO                Bottom Overlay                          
+.GM1                BOARD_OUT                               
+.GM2                COMMENT                                 
+.GM3                Mechanical 3                            
+.GM4                Mechanical 4                            
+.GM5                Mechanical 5                            
+.GM6                Mechanical 6                            
+.GM7                TName                                   
+.GM8                BName                                   
+.GM9                TValue                                  
+.GM10               Bvalue                                  
+.GM11               3D_TOP                                  
+.GM12               3D_BOT                                  
+.GM13               ASSY_TOP                                
+.GM14               ASSY_BOT                                
+.GM15               PLACE_TOP                               
+.GM16               PLACE_BOT                               
+.GKO                Keep-Out Layer                          
+------------------------------------------------------------------------------------------

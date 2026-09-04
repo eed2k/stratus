@@ -255,7 +255,7 @@ _STATUS_MAP = {
     "3": "delivered",   # delivered to gateway
     "4": "delivered",   # received by recipient
     "5": "failed",      # error with message
-    "6": "failed",      # user cancelled
+    "6": "failed",      # user canceled
     "7": "failed",      # error delivering
     "8": "sent",        # OK / accepted
     "9": "failed",      # routing error
@@ -279,7 +279,7 @@ async def clickatell_dlr(request: Request,
     except Exception:
         data = {}
 
-    # Clickatell sends one or many delivery receipts; normalise to a list.
+    # Clickatell sends one or many delivery receipts; normalize to a list.
     items = data if isinstance(data, list) else (data.get("messages") or [data])
     updated = 0
     for it in items:

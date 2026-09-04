@@ -266,6 +266,13 @@ async function gatherDbMetrics(): Promise<DbMetrics> {
   return m;
 }
 
+interface BackupCategory {
+  count: number;
+  sizeBytes: number;
+  latestDate: Date | null;
+  latestAgeMs: number | null;
+}
+
 interface BackupMetrics {
   dir: string | null;
   totalBackups: number;
@@ -273,7 +280,26 @@ interface BackupMetrics {
   latestBackup: string | null;
   latestDate: Date | null;
   latestAgeMs: number | null;
+  /** Breakdown by what each backup covers, so the report shows that the main
+   *  app AND each subdomain (panel logins/recipients, forecast setup, configs)
+   *  are being captured, not just a single lumped count. */
+  categories: Record<string, BackupCategory>;
 }
+
+/** Map a backup filename to the estate component it covers. Mirrors the file
+ *  prefixes written by deploy/backup.sh. */
+function backupCategory(file: string): string {
+  if (file.startsWith('stratus_backup_')) return 'Main database (full)';
+  if (file.startsWith('stratus_config_')) return 'Main database (config + accounts)';
+  if (file.startsWith('panel_')) return 'Admin panel (logins, recipients)';
+  if (file.startsWith('forecast_')) return 'Forecast (station + feed setup)';
+  if (file.startsWith('config_')) return 'Service configs (.env, compose)';
+  return 'Other';
+}
+
+// Categories expected to refresh on every 6-hourly run. If the newest file in
+// one of these is older than this, the cron has likely stopped.
+const BACKUP_STALE_MS = 8 * 3600000;
 
 /**
  * Scan the on-disk backup directory (written by deploy/backup*.sh).
@@ -287,6 +313,7 @@ function gatherBackupMetrics(): BackupMetrics {
     latestBackup: null,
     latestDate: null,
     latestAgeMs: null,
+    categories: {},
   };
 
   const baseDir = BACKUP_DIRS.find(d => {
@@ -310,6 +337,13 @@ function gatherBackupMetrics(): BackupMetrics {
           m.latestDate = stats.mtime;
           m.latestBackup = prefix ? `${prefix}/${file}` : file;
         }
+        const cat = backupCategory(file);
+        const c = m.categories[cat] || (m.categories[cat] = {
+          count: 0, sizeBytes: 0, latestDate: null, latestAgeMs: null,
+        });
+        c.count += 1;
+        c.sizeBytes += stats.size;
+        if (!c.latestDate || stats.mtime > c.latestDate) c.latestDate = stats.mtime;
       } catch { /* ignore unreadable entry */ }
     }
   };
@@ -321,6 +355,9 @@ function gatherBackupMetrics(): BackupMetrics {
   }
 
   if (m.latestDate) m.latestAgeMs = Date.now() - m.latestDate.getTime();
+  for (const c of Object.values(m.categories)) {
+    if (c.latestDate) c.latestAgeMs = Date.now() - c.latestDate.getTime();
+  }
   return m;
 }
 
@@ -423,6 +460,7 @@ function formatDigest(
     lines.push(`Backup directory:   ${backup.dir}`);
     lines.push(`Backup files:       ${backup.totalBackups}`);
     lines.push(`Total backup size:  ${fmtBytes(backup.totalSizeBytes)}`);
+    lines.push(`Schedule:           every 6 hours (cron)`);
     if (backup.latestBackup) {
       lines.push(`Latest backup:      ${backup.latestBackup}`);
       lines.push(`Latest backup at:   ${backup.latestDate ? backup.latestDate.toUTCString() : 'n/a'} (${backup.latestAgeMs != null ? fmtDuration(backup.latestAgeMs) + ' ago' : 'n/a'})`);
@@ -431,6 +469,22 @@ function formatDigest(
       }
     } else {
       lines.push('No backup files found - check the backup cron.');
+    }
+
+    // Per-component coverage, so it is visible at a glance that the main app
+    // AND each subdomain (panel logins/recipients, forecast setup, configs) are
+    // being captured - not just a single lumped count.
+    const cats = Object.keys(backup.categories).sort();
+    if (cats.length) {
+      lines.push('');
+      lines.push('Coverage by component (newest of each):');
+      for (const name of cats) {
+        const c = backup.categories[name];
+        const age = c.latestAgeMs != null ? fmtDuration(c.latestAgeMs) + ' ago' : 'n/a';
+        const stale = c.latestAgeMs != null && c.latestAgeMs > BACKUP_STALE_MS
+          && name !== 'Main database (full)';
+        lines.push(`   ${(name + ':').padEnd(38)} ${String(c.count).padStart(3)} file(s), newest ${age}${stale ? '  <-- STALE, check cron' : ''}`);
+      }
     }
   }
   lines.push('');
@@ -507,7 +561,7 @@ export async function initWeeklyDigest(): Promise<void> {
   await ensureDbWired();
 
   scheduledTask = cron.schedule(DIGEST_CRON, () => {
-    // Second line of defence on the weekday rule: DIGEST_CRON is
+    // Second line of defense on the weekday rule: DIGEST_CRON is
     // operator-supplied, so a value of "0 8 * * *" would otherwise quietly
     // reinstate Saturday and Sunday mail.
     if (!isDigestWeekday()) {

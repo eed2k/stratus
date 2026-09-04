@@ -29,10 +29,10 @@ _Q = (ENERGY_MAX + 1) // 4      # quarter of full scale (524_288)
 # high-intensity strike / elevated fire risk. Drawn as a marker on legends.
 ENERGY_FIRE_RISK_MARKER = 1_000_000
 
-# Ordered low -> high. Each band is (name, lower_inclusive, accent_colour).
-# Colours are data accents that sit inside the white/navy/black theme.
+# Ordered low -> high. Each band is (name, lower_inclusive, accent_color).
+# Colors are data accents that sit inside the white/navy/black theme.
 _ENERGY_BANDS = (
-    ("Low",      0,        "#8aa0b8"),   # light grey-blue
+    ("Low",      0,        "#8aa0b8"),   # light gray-blue
     ("Moderate", _Q,       "#1b3a5b"),   # navy
     ("High",     _Q * 2,   "#e08a1e"),   # amber
     ("Extreme",  _Q * 3,   "#c0392b"),   # red
@@ -42,7 +42,7 @@ _ENERGY_BANDS = (
 def energy_band(energy):
     """Classify a relative energy value into a named band.
 
-    Returns a dict: {"name", "index", "colour"}. The function is total over the
+    Returns a dict: {"name", "index", "color"}. The function is total over the
     valid 21-bit domain and clamps out-of-range input so it never raises:
     negatives fold into the lowest band, values above full scale into the
     highest. Higher energy never yields a lower band index (monotonic).
@@ -57,11 +57,11 @@ def energy_band(energy):
         e = ENERGY_MAX
 
     idx = 0
-    for i, (_name, lower, _colour) in enumerate(_ENERGY_BANDS):
+    for i, (_name, lower, _color) in enumerate(_ENERGY_BANDS):
         if e >= lower:
             idx = i
-    name, _lower, colour = _ENERGY_BANDS[idx]
-    return {"name": name, "index": idx, "colour": colour}
+    name, _lower, color = _ENERGY_BANDS[idx]
+    return {"name": name, "index": idx, "color": color}
 
 
 def energy_band_name(energy):
@@ -70,18 +70,18 @@ def energy_band_name(energy):
 
 
 def energy_bands_legend():
-    """Legend rows for display: name, colour, and human-readable range.
+    """Legend rows for display: name, color, and human-readable range.
 
     The ranges are expressed against full scale so the reader understands the
     relative nature of the value.
     """
     rows = []
     n = len(_ENERGY_BANDS)
-    for i, (name, lower, colour) in enumerate(_ENERGY_BANDS):
+    for i, (name, lower, color) in enumerate(_ENERGY_BANDS):
         upper = _ENERGY_BANDS[i + 1][1] - 1 if i + 1 < n else ENERGY_MAX
         rows.append({
             "name": name,
-            "colour": colour,
+            "color": color,
             "lower": lower,
             "upper": upper,
         })

@@ -118,7 +118,7 @@ echo ""
 echo "WARNING: This will REPLACE all current data with the backup."
 read -p "Type 'RESTORE' to confirm: " confirm
 if [ "$confirm" != "RESTORE" ]; then
-    echo "[Restore] Cancelled."
+    echo "[Restore] Canceled."
     exit 0
 fi
 

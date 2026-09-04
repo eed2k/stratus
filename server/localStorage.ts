@@ -1482,7 +1482,7 @@ export class DatabaseStorage {
         createdAt: new Date(org.created_at)
       }));
     }
-    // Return all organisations
+    // Return all organizations
     return this.getOrganizations();
   }
 

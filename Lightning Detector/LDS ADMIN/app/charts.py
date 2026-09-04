@@ -25,11 +25,11 @@ def _scale_y(val, lo, hi, y0, h):
     return y0 + h - frac * h
 
 
-def _polyline(points, colour, width=2):
+def _polyline(points, color, width=2):
     if not points:
         return ""
     pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
-    return (f'<polyline fill="none" stroke="{colour}" stroke-width="{width}" '
+    return (f'<polyline fill="none" stroke="{color}" stroke-width="{width}" '
             f'stroke-linejoin="round" stroke-linecap="round" points="{pts}"/>')
 
 
@@ -170,18 +170,18 @@ def _svg_head(w, h, label):
     )
 
 
-def _text(x, y, s, size=11, colour=_INK, anchor="start", weight="normal"):
+def _text(x, y, s, size=11, color=_INK, anchor="start", weight="normal"):
     return (
         f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" '
         f'font-family="{_ARIAL}" font-size="{size}" font-weight="{weight}" '
-        f'fill="{colour}">{s}</text>'
+        f'fill="{color}">{s}</text>'
     )
 
 
 def _empty_svg(w, h, message):
     return (
         _svg_head(w, h, "no data")
-        + _text(w / 2, h / 2, message, size=11, colour=_MUTED, anchor="middle")
+        + _text(w / 2, h / 2, message, size=11, color=_MUTED, anchor="middle")
         + "</svg>"
     )
 
@@ -231,7 +231,7 @@ def cpu_trend_svg(samples, hours=24, warn=CPU_WARN_C, crit=CPU_CRIT_C,
     if title is None:
         title = "CPU temperature (deg C)"
     parts = [_svg_head(W, H, "CPU temperature")]
-    parts.append(_text(x0, 16, title, size=12, colour=_NAVY, weight="bold"))
+    parts.append(_text(x0, 16, title, size=12, color=_NAVY, weight="bold"))
 
     # Gridlines and left axis labels.
     for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
@@ -240,17 +240,17 @@ def cpu_trend_svg(samples, hours=24, warn=CPU_WARN_C, crit=CPU_CRIT_C,
         parts.append(f'<line x1="{x0}" y1="{gy:.1f}" x2="{x0+plot_w}" '
                      f'y2="{gy:.1f}" stroke="{_GRID}" stroke-width="1"/>')
         parts.append(_text(x0 - 5, gy + 3, f"{val:.0f}", size=9,
-                           colour=_MUTED, anchor="end"))
+                           color=_MUTED, anchor="end"))
 
     # Threshold lines (dashed) if within range.
-    for thr, colour, name in ((warn, "#e08a1e", "WARN"), (crit, "#c0392b", "CRIT")):
+    for thr, color, name in ((warn, "#e08a1e", "WARN"), (crit, "#c0392b", "CRIT")):
         if t_lo <= thr <= t_hi:
             ty = py(thr)
             parts.append(f'<line x1="{x0}" y1="{ty:.1f}" x2="{x0+plot_w}" '
-                         f'y2="{ty:.1f}" stroke="{colour}" stroke-width="1" '
+                         f'y2="{ty:.1f}" stroke="{color}" stroke-width="1" '
                          f'stroke-dasharray="4 3"/>')
             parts.append(_text(x0 + plot_w, ty - 3, f"{name} {thr:.0f}",
-                               size=8, colour=colour, anchor="end"))
+                               size=8, color=color, anchor="end"))
 
     # Temperature polyline.
     pts = " ".join(f"{px(s.ts):.1f},{py(s.cpu_temp_c):.1f}"
@@ -267,14 +267,14 @@ def cpu_trend_svg(samples, hours=24, warn=CPU_WARN_C, crit=CPU_CRIT_C,
     else:
         left_lbl = f"-{int(round(span_h))}h"
         right_lbl = "now"
-    parts.append(_text(x0, H - 8, left_lbl, size=9, colour=_MUTED))
-    parts.append(_text(x0 + plot_w, H - 8, right_lbl, size=9, colour=_MUTED,
+    parts.append(_text(x0, H - 8, left_lbl, size=9, color=_MUTED))
+    parts.append(_text(x0 + plot_w, H - 8, right_lbl, size=9, color=_MUTED,
                        anchor="end"))
     parts.append("</svg>")
     return "".join(parts)
 
 
-def _bar_chart_svg(labels, counts, colours, title, label_note=""):
+def _bar_chart_svg(labels, counts, colors, title, label_note=""):
     """Generic vertical bar chart used by the distance and energy charts."""
     W, H = 520, 200
     pad_l, pad_r, pad_t, pad_b = 40, 16, 28, 34
@@ -282,7 +282,7 @@ def _bar_chart_svg(labels, counts, colours, title, label_note=""):
     x0, y0 = pad_l, pad_t
     n = len(labels)
     parts = [_svg_head(W, H, title)]
-    parts.append(_text(x0, 16, title, size=12, colour=_NAVY, weight="bold"))
+    parts.append(_text(x0, 16, title, size=12, color=_NAVY, weight="bold"))
     top = max(counts) if counts and max(counts) > 0 else 1
     # Y gridlines.
     for frac in (0.0, 0.5, 1.0):
@@ -290,22 +290,22 @@ def _bar_chart_svg(labels, counts, colours, title, label_note=""):
         parts.append(f'<line x1="{x0}" y1="{gy:.1f}" x2="{x0+plot_w}" '
                      f'y2="{gy:.1f}" stroke="{_GRID}" stroke-width="1"/>')
         parts.append(_text(x0 - 5, gy + 3, f"{int(round(top*frac))}", size=9,
-                           colour=_MUTED, anchor="end"))
+                           color=_MUTED, anchor="end"))
     if n:
         slot = plot_w / n
         bw = slot * 0.6
-        for i, (lab, cnt, col) in enumerate(zip(labels, counts, colours)):
+        for i, (lab, cnt, col) in enumerate(zip(labels, counts, colors)):
             bh = (cnt / top) * plot_h if top else 0
             bx = x0 + i * slot + (slot - bw) / 2
             by = y0 + plot_h - bh
             parts.append(f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" '
                          f'height="{bh:.1f}" fill="{col}"/>')
             parts.append(_text(bx + bw / 2, by - 3, str(cnt), size=9,
-                               colour=_INK, anchor="middle"))
+                               color=_INK, anchor="middle"))
             parts.append(_text(bx + bw / 2, y0 + plot_h + 14, lab, size=9,
-                               colour=_MUTED, anchor="middle"))
+                               color=_MUTED, anchor="middle"))
     if label_note:
-        parts.append(_text(x0, H - 4, label_note, size=8, colour=_MUTED))
+        parts.append(_text(x0, H - 4, label_note, size=8, color=_MUTED))
     parts.append("</svg>")
     return "".join(parts)
 
@@ -325,21 +325,21 @@ def distance_histogram_svg(distances):
             if (lo <= dv < hi) or (i == len(bands) - 1 and dv >= lo and dv <= hi):
                 counts[i] += 1
                 break
-    colours = [_NAVY] * len(bands)
-    return _bar_chart_svg(labels, counts, colours,
+    colors = [_NAVY] * len(bands)
+    return _bar_chart_svg(labels, counts, colors,
                           "Strikes by distance (km)")
 
 
 def energy_band_histogram_svg(energies):
-    """Bar chart of strike counts by energy band, coloured per band."""
+    """Bar chart of strike counts by energy band, colored per band."""
     legend = energy_bands_legend()
     labels = [row["name"] for row in legend]
-    colours = [row["colour"] for row in legend]
+    colors = [row["color"] for row in legend]
     counts = [0] * len(legend)
     for e in energies:
         idx = energy_band(e)["index"]
         counts[idx] += 1
-    return _bar_chart_svg(labels, counts, colours,
+    return _bar_chart_svg(labels, counts, colors,
                           "Strikes by energy band",
                           label_note="Energy is a relative, dimensionless scale "
                                      "(0 to 2,097,151), not Joules or Watts.")
@@ -359,19 +359,19 @@ def uptime_gauge_svg(pct):
     fill = "#2e7d32" if p >= 99 else ("#e08a1e" if p >= 95 else "#c0392b")
     parts = [_svg_head(W, H, "System availability")]
     parts.append(_text(pad_l, 18, "System availability", size=12,
-                       colour=_NAVY, weight="bold"))
+                       color=_NAVY, weight="bold"))
     parts.append(f'<rect x="{pad_l}" y="{y}" width="{bar_w}" height="{bar_h}" '
                  f'fill="#eef1f5" stroke="#d9dee5"/>')
     parts.append(f'<rect x="{pad_l}" y="{y}" width="{bar_w * p / 100.0:.1f}" '
                  f'height="{bar_h}" fill="{fill}"/>')
     parts.append(_text(pad_l + bar_w, y + bar_h + 14, f"{p:.1f}%", size=11,
-                       colour=_INK, anchor="end"))
+                       color=_INK, anchor="end"))
     parts.append("</svg>")
     return "".join(parts)
 
 
 def storm_rings_svg(strikes, radius_km=40):
-    """Concentric distance-ring plot of strikes, coloured by energy band.
+    """Concentric distance-ring plot of strikes, colored by energy band.
 
     Positions strikes by distance only (the sensor has no bearing); angles are
     spread deterministically so overlapping distances remain visible.
@@ -389,8 +389,8 @@ def storm_rings_svg(strikes, radius_km=40):
         parts.append(f'<circle cx="{cx}" cy="{cy}" r="{rr:.1f}" fill="none" '
                      f'stroke="{_GRID}" stroke-width="1"/>')
         parts.append(_text(cx + 2, cy - rr + 10, f"{rk} km", size=8,
-                           colour=_MUTED))
-    # Station marker at centre.
+                           color=_MUTED))
+    # Station marker at center.
     parts.append(f'<circle cx="{cx}" cy="{cy}" r="3" fill="{_NAVY}"/>')
     # Strikes.
     golden = math.pi * (3 - math.sqrt(5))  # spread angle
@@ -403,10 +403,10 @@ def storm_rings_svg(strikes, radius_km=40):
         ang = i * golden
         sx = cx + rr * math.cos(ang)
         sy = cy + rr * math.sin(ang)
-        colour = s.get("colour") or energy_band(s.get("energy", 0))["colour"]
+        color = s.get("color") or energy_band(s.get("energy", 0))["color"]
         parts.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3.5" '
-                     f'fill="{colour}" fill-opacity="0.85"/>')
+                     f'fill="{color}" fill-opacity="0.85"/>')
     parts.append(_text(cx, H - 6, "Distance only - bearing not measured",
-                       size=8, colour=_MUTED, anchor="middle"))
+                       size=8, color=_MUTED, anchor="middle"))
     parts.append("</svg>")
     return "".join(parts)

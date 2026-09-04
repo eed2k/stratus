@@ -78,7 +78,7 @@ Then check the panel, under Stations:
 
 The unit appears as "GLENCORE WONDERKOP", which is already assigned to the
 gwld1 client. Do not change station_id in lightning_config.json without
-assigning the new name on the panel first: the panel files an unrecognised
+assigning the new name on the panel first: the panel files an unrecognized
 unit under the platform tenant, where it stays invisible to this client.
 
 A heartbeat is telemetry only. The panel records liveness and a CPU sample and
@@ -97,7 +97,7 @@ copy directly. The file on the boot partition is only a template.
 
 USB CONNECTION TO PC (Pi Zero W)
 --------------------------------
-1. Use the INNER USB port (labelled USB, not PWR) with a DATA cable.
+1. Use the INNER USB port (labeled USB, not PWR) with a DATA cable.
 2. Boot the Pi with this SD card.
 3. Windows shows an "RNDIS" network adapter.
 4. Set that adapter to a manual IP:
