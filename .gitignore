@@ -191,3 +191,8 @@ RPiZero SD Card/overlays/
 *.bak.[0-9]*
 config.txt.bak.*
 cmdline.txt.bak.*
+
+# ── Editor / tool local history (auto-generated, not source) ──
+.history/
+.history
+.history_trim
