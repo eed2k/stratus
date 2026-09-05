@@ -157,11 +157,17 @@ def test_dashboard_has_a_loader_and_a_unit_range_selector(client, db_session):
 def test_loader_is_self_contained(client, db_session):
     """The overlay must not depend on /static/style.css for anything visual.
 
-    Regression: the bolt's fill and size lived in style.css, so for one frame
-    before that file arrived the SVG rendered with a default black fill at its
-    intrinsic size - a big black lightning bolt, which is exactly the kind of
-    flash the loader exists to prevent. `fill: var(--white)` could not have
-    worked either, because :root is declared in that same late-arriving file.
+    Regression: the loader's colors and sizes once lived in style.css, so for one
+    frame before that file arrived the SVG rendered with browser defaults at its
+    intrinsic size - exactly the kind of flash the loader exists to prevent.
+    `stroke: var(--navy)` could not have worked either, because :root is declared
+    in that same late-arriving file.
+
+    The overlay is the shared Stratus navy progress ring (the same one the
+    dashboards and the forecast use, deliberately, so the estate looks like one
+    product). This test pins the guarantee, not the artwork: every rule the ring
+    needs is inline, uses literal values, and is mirrored onto SVG presentation
+    attributes so it is correct even mid-parse.
     """
     import re
     _seed(db_session)
@@ -177,15 +183,20 @@ def test_loader_is_self_contained(client, db_session):
     body = re.sub(r"/\*.*?\*/", "", css, flags=re.S)   # drop comments
     assert "var(" not in body, "inline loader CSS must not rely on custom properties"
 
-    for rule in ("page-loader-bolt", "page-loader-name", "page-loader-track"):
+    for rule in ("page-loader", "pl-track", "pl-spin", "pl-arc", "pl-label"):
         assert rule in css, f"{rule} must be styled inline, not in style.css"
-    assert "fill:#ffffff" in css
+    # Literal brand navy and track gray, not custom properties.
+    assert "#1e3a5f" in css
+    assert "#e5e7eb" in css
 
     # Belt and braces: presentation attributes apply while the element is being
     # parsed, before any CSS at all is in play.
-    assert re.search(r'class="page-loader-bolt"[^>]*fill="#ffffff"', html), \
-        "the bolt needs an explicit fill attribute, not only a CSS rule"
-    assert re.search(r'class="page-loader-bolt"[^>]*width="34"', html)
+    assert re.search(r'class="pl-track"[^>]*stroke="#e5e7eb"', html), \
+        "the ring track needs an explicit stroke attribute, not only a CSS rule"
+    assert re.search(r'class="pl-arc"[^>]*stroke="#1e3a5f"', html), \
+        "the progress arc needs an explicit stroke attribute"
+    assert re.search(r'class="pl-arc"[^>]*r="46"', html), \
+        "the ring geometry must be an attribute so it is right mid-parse"
 
 
 # ---------------------------------------------------------------------------

@@ -317,6 +317,57 @@ def test_forecast_page_before_any_run(signed_in, station_id):
     assert "No 1 day forecast yet" in r.text
 
 
+# ---------------------------------------------------------------------------
+# Outlook: the plain-language dashboard
+# ---------------------------------------------------------------------------
+
+def _run_forecast(c, station_id, days=1):
+    """Produce a forecast, carrying the CSRF token the fixture holds."""
+    return c.post(f"/station/{station_id}/run",
+                  data={"days": days,
+                        "csrf_token": c.headers.get("X-CSRF-Token", "")},
+                  follow_redirects=False)
+
+
+def test_outlook_needs_a_session(client):
+    r = client.get("/station/1/dashboard", follow_redirects=True)
+    assert LOGIN_MARKER in r.text
+
+
+def test_outlook_before_any_run_says_so_rather_than_erroring(signed_in,
+                                                             station_id):
+    r = signed_in.get(f"/station/{station_id}/dashboard")
+    assert r.status_code == 200
+    assert "No forecast yet" in r.text
+
+
+def test_outlook_renders_day_cards_after_a_run(signed_in, station_id):
+    _run_forecast(signed_in, station_id)
+    r = signed_in.get(f"/station/{station_id}/dashboard")
+    assert r.status_code == 200
+    # The plain-language furniture, not a variable selector.
+    assert "How to read this" in r.text
+    assert "Confidence" in r.text
+    # At least one day card, labeled relative to today.
+    assert "daycard" in r.text
+    assert ("Today" in r.text or "Tomorrow" in r.text)
+
+
+def test_outlook_states_what_the_forecast_is_built_from(signed_in, station_id):
+    """The reader must be told whether a commercial model is involved."""
+    _run_forecast(signed_in, station_id)
+    r = signed_in.get(f"/station/{station_id}/dashboard")
+    assert "own recorded history" in r.text
+
+
+def test_outlook_never_invents_a_rain_percentage(signed_in, station_id):
+    _run_forecast(signed_in, station_id)
+    r = signed_in.get(f"/station/{station_id}/dashboard")
+    # A percent chance of rain is not something the engine produces.
+    assert "% chance" not in r.text
+    assert "chance of rain" not in r.text.lower()
+
+
 @pytest.mark.parametrize("days", [1, 3, 5])
 def test_run_then_view_each_horizon(signed_in, station_id, days):
     r = signed_in.post(f"/station/{station_id}/run", data={"days": days},

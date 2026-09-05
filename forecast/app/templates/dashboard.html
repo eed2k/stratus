@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Outlook{% endblock %}
+{% block crumbs %}<span>/</span>
+<a href="/station/{{ station.id }}">{{ station.name }}</a>
+<span>/</span><span>Outlook</span>{% endblock %}
+
+{% block content %}
+<h1>Outlook <span class="muted">{{ station.name }}</span></h1>
+
+<nav class="tabs">
+  <a href="/station/{{ station.id }}/dashboard" class="on">Outlook</a>
+  {% for d in horizons %}
+  <a href="/station/{{ station.id }}/forecast?days={{ d }}">{{ d }} day detail</a>
+  {% endfor %}
+  <a href="/station/{{ station.id }}/verify">Accuracy</a>
+</nav>
+
+{% if not outlooks %}
+<section class="empty">
+  <h2>No forecast yet</h2>
+  <p>Nothing has been produced for this station. Go back to the station page and
+  run a forecast, or wait for the next scheduled run.</p>
+  <p><a href="/station/{{ station.id }}">Back to {{ station.name }}</a></p>
+</section>
+{% else %}
+
+{# The one line someone reads if they read nothing else. #}
+<p class="headline">{{ headline }}</p>
+<p class="headline-sub">{{ rain_outlook }}</p>
+
+{# Day cards: the whole outlook at a glance, no chart reading required. #}
+<div class="daycards">
+  {% for o in outlooks %}
+  <div class="daycard{{ ' today' if loop.first else '' }}">
+    <div class="daycard-day">{{ o.label }}</div>
+    <div class="daycard-date">{{ o.day.strftime('%d %b') }}</div>
+
+    <div class="daycard-temp">
+      {% if o.temp_max is not none %}
+        <span class="t-max">{{ '%.0f'|format(o.temp_max) }}&deg;</span>
+        {% if o.temp_min is not none %}
+        <span class="t-min">{{ '%.0f'|format(o.temp_min) }}&deg;</span>
+        {% endif %}
+      {% else %}<span class="t-max">--</span>{% endif %}
+    </div>
+
+    <dl class="daycard-rows">
+      <dt>Rain</dt>
+      <dd>{% if o.rain_mm is none %}--
+          {% elif o.rain_mm < 0.2 %}none
+          {% else %}{{ '%.1f'|format(o.rain_mm) }} mm{% endif %}</dd>
+
+      <dt>Wind</dt>
+      <dd>{% if o.wind_max is none %}--
+          {% else %}{{ '%.0f'|format(o.wind_max) }} km/h{% endif %}</dd>
+
+      {% if o.gust_max is not none %}
+      <dt>Gusts</dt>
+      <dd>{{ '%.0f'|format(o.gust_max) }} km/h</dd>
+      {% endif %}
+
+      {% if o.humidity_max is not none %}
+      <dt>Humidity</dt>
+      <dd>{{ '%.0f'|format(o.humidity_min) }} to {{ '%.0f'|format(o.humidity_max) }}%</dd>
+      {% endif %}
+    </dl>
+
+    <p class="daycard-summary">{{ o.summary }}</p>
+    <p class="daycard-confidence conf-{{ o.confidence }}">
+      Confidence: {{ o.confidence }}
+    </p>
+  </div>
+  {% endfor %}
+</div>
+
+{# One short paragraph explaining how to read the page, so a first-time reader
+   is never guessing what a band or a confidence word means. #}
+<section class="panel readme">
+  <h2>How to read this</h2>
+  <ul>
+    <li><strong>The big number</strong> is the day's high, the small one its low.</li>
+    <li><strong>Rain</strong> is the total expected across the whole day. "None"
+      means less than 0.2 mm, which a rain gauge would not register.</li>
+    <li><strong>Wind</strong> is the strongest sustained wind expected. Gusts are
+      shown separately only when they are well above it.</li>
+    <li><strong>Confidence</strong> comes from how much the forecast range
+      varies, not from a guess. <em>High</em> means the number is reliable;
+      <em>low</em> means treat it as a rough direction, not a figure to plan
+      tightly around.</li>
+    <li>Confidence drops the further ahead you look. The first day or two is
+      always the most trustworthy part of any forecast.</li>
+  </ul>
+  <p class="hint">{{ backing }}</p>
+</section>
+
+{# Charts last: the day cards answer the question, these show the shape. #}
+{% if charts_list %}
+<h2 class="section-head">Hour by hour</h2>
+{% for c in charts_list %}
+<section class="panel chart-panel">
+  <h3>{{ c.title }}</h3>
+  <p class="hint">{{ c.explain }}</p>
+  {{ c.svg|safe }}
+</section>
+{% endfor %}
+{% endif %}
+
+<section class="panel">
+  <dl class="facts inline">
+    <dt>Forecast issued</dt><dd>{{ run.issued_at }}</dd>
+    <dt>Launched from</dt><dd>{{ run.base_time }}</dd>
+    <dt>Covers</dt><dd>{{ days }} days</dd>
+  </dl>
+  <p class="hint">Times are the logger's local standard time and do not shift for
+  daylight saving.</p>
+</section>
+
+{% endif %}
+{% endblock %}

@@ -578,3 +578,135 @@ body:not(.auth) main a:hover {
   border-color: var(--navy);
   text-decoration: none;
 }
+
+/* ------------------------------------------------------------------------
+   Outlook dashboard
+   ------------------------------------------------------------------------
+   A plain-language view of the forecast for a reader who is not a
+   meteorologist. Deliberately built from large figures and short sentences
+   rather than from charts: the charts are still there, below, for anyone who
+   wants the shape of the day, but nobody should have to read one to find out
+   whether it is going to rain.
+   ------------------------------------------------------------------------ */
+
+.headline {
+  margin: 14px 0 2px;
+  font-size: 19px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.headline-sub {
+  margin: 0 0 18px;
+  font-size: 14.5px;
+  color: var(--muted);
+}
+
+/* Day cards. auto-fit rather than a fixed count, so one to five days all lay
+   out sensibly and it stays readable on a laptop without a media query. */
+.daycards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.daycard {
+  background: var(--white);
+  border: 1px solid var(--line-dark);
+  border-top: 3px solid var(--line-dark);
+  padding: 12px 14px 14px;
+}
+
+/* The nearest day is the one most likely to be acted on, so it is marked. */
+.daycard.today { border-top-color: var(--navy); }
+
+.daycard-day {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: .01em;
+}
+
+.daycard-date {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.daycard-temp {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.daycard-temp .t-max {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--navy);
+}
+
+.daycard-temp .t-min {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.daycard-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.daycard-rows dt { color: var(--muted); }
+.daycard-rows dd { margin: 0; text-align: right; font-weight: 600; }
+
+.daycard-summary {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.daycard-confidence {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* Confidence is colored so it is impossible to miss that a number is soft.
+   Literal colors, matching the good/bad variables used elsewhere. */
+.conf-high { color: var(--good); }
+.conf-moderate { color: #b7791f; }
+.conf-low { color: var(--bad); }
+
+.readme ul {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.readme li { margin-bottom: 4px; }
+
+.section-head {
+  margin: 26px 0 10px;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--navy);
+}
+
+.chart-panel h3 {
+  margin: 0 0 2px;
+  font-size: 14.5px;
+  color: var(--navy);
+}
+
+.chart-panel svg { max-width: 100%; height: auto; }

@@ -317,6 +317,16 @@
   <p class="hint">The method column is a hash of the forecast's tuning
   constants. When it changes, the scores either side of the change are not
   measuring the same method.</p>
+  <nav class="tabs">
+    <a href="/station/{{ station.id }}/dashboard" class="on">Outlook</a>
+    {% for d in horizons %}
+    <a href="/station/{{ station.id }}/forecast?days={{ d }}">{{ d }} day detail</a>
+    {% endfor %}
+    <a href="/station/{{ station.id }}/verify">Accuracy</a>
+  </nav>
+  <p class="hint">The <strong>Outlook</strong> is the plain-language view: the
+  forecast by day, in words and figures, with no chart reading required. The day
+  views break the same run down variable by variable.</p>
   {% else %}
   <p class="muted">No forecasts produced yet.</p>
   {% endif %}

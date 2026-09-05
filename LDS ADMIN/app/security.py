@@ -14,6 +14,11 @@ from .config import settings
 
 CSRF_SESSION_KEY = "csrf"
 
+# The message raised when a POST arrives without a usable token. Named so the
+# error handler in main.py can recognize it and show the operator a way forward
+# instead of a bare JSON body, without the two copies of the string drifting.
+CSRF_ERROR_DETAIL = "Invalid or missing CSRF token"
+
 
 # ----------------------------- CSRF ------------------------------------
 def get_csrf_token(request: Request) -> str:
@@ -29,7 +34,7 @@ def verify_csrf(request: Request, csrf_token: str = Form("")):
     """Dependency for state-changing POSTs: reject mismatched/absent tokens."""
     expected = request.session.get(CSRF_SESSION_KEY, "")
     if not expected or not secrets.compare_digest(str(csrf_token), str(expected)):
-        raise HTTPException(status_code=403, detail="Invalid or missing CSRF token")
+        raise HTTPException(status_code=403, detail=CSRF_ERROR_DETAIL)
 
 
 # ----------------------- Login throttling ------------------------------

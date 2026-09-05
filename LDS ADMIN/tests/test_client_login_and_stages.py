@@ -165,10 +165,21 @@ def test_a_disabled_panel_cannot_be_signed_into(client, db_session):
 
 
 def test_client_post_requires_csrf(client, db_session):
+    """A token-less POST must not sign anyone in.
+
+    It is answered with a redirect back to the client sign-in page rather than a
+    bare 403 body: a stale token is the ordinary result of leaving a page open
+    past the session lifetime, and an operator needs a way forward. What matters
+    for security is that the credentials were never accepted, which is asserted
+    by the absence of a session cookie.
+    """
     _client_site(db_session)
     r = client.post("/client", data={"username": "GWLD1", "password": "pw"},
                     follow_redirects=False)
-    assert r.status_code == 403
+    assert r.status_code == 303
+    assert r.headers["location"] == "/client?expired=1"
+    # Nothing was granted: no session was established by the rejected POST.
+    assert "session" not in r.headers.get("set-cookie", "").lower()
 
 
 def test_client_is_a_reserved_slug():

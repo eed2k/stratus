@@ -196,3 +196,11 @@ cmdline.txt.bak.*
 .history/
 .history
 .history_trim
+
+# ── AI/editor assistant workspaces (local tooling, not part of the project) ──
+.kiro/
+.sixth/
+
+# ── KiCad editor lock files (present only while a board is open) ──
+~*.lck
+*.kicad_prl

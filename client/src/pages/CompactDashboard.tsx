@@ -69,20 +69,16 @@ const HEADER_FONT = { fontFamily: 'Arial, Helvetica, sans-serif' } as const;
 const STRATUS_NAVY = "#1e3a5f";
 
 /**
- * Selectable chart windows, matching the shorter half of the full shared
- * dashboard's selector.
+ * The chart window for this view, fixed at 24 hours.
  *
- * Capped at 24 hours on purpose: this view already fetches exactly one 24-hour
- * window, so every option here is a filter over data that is present rather
- * than a new request. Offering 48h or 7d would mean refetching and would break
- * the single-screen, no-scroll budget the compact layout is built around.
+ * There is deliberately no selector. This is an unattended wall display: nobody
+ * is standing at it to change a range, and a control that is never touched only
+ * costs screen space. Every chart and rose states the period it covers in its
+ * own title instead, and that reclaimed row is given back to the plots, which
+ * is what allows the axis labels to be large enough to read from a distance.
  */
-const COMPACT_RANGES = [
-  { label: "1h", hours: 1 },
-  { label: "6h", hours: 6 },
-  { label: "12h", hours: 12 },
-  { label: "24h", hours: 24 },
-] as const;
+const WINDOW_HOURS = 24;
+const WINDOW_LABEL = "24h";
 
 /** Trim a set of readings to the last `hours` before the newest reading. */
 const withinLastHours = (data: WeatherData[], hours: number): WeatherData[] => {
@@ -114,6 +110,15 @@ interface PrimaryTileProps {
 // needs viewport units: it is sized once for the 1920x1080 canvas and scales
 // with everything else.
 const TILE_TEXT_SIZE = "1.34rem";
+
+/**
+ * Type size for the shared wind legend under the roses.
+ *
+ * Matched to the rose and chart headings (0.95rem) rather than to the tiles: the
+ * legend is a key, so it should read as a heading-weight label and not compete
+ * with the readings themselves.
+ */
+const LEGEND_TEXT_SIZE = "0.95rem";
 
 function PrimaryTile({ label, value, sub, valueColor }: PrimaryTileProps) {
   return (
@@ -151,15 +156,20 @@ function InfoField({ label, value, valueColor }: { label: string; value: string;
 }
 
 /**
- * Smallest viewport the compact dashboard is designed for.
+ * Smallest viewport the compact dashboard is designed for: a standard laptop.
  *
  * This view deliberately packs a whole station onto one non-scrolling screen:
- * a 4x3 tile grid, two wind roses and two dual-axis charts. Below roughly a
- * tablet's width those elements cannot be read at all, so the page refuses to
- * render rather than presenting an unusable squashed layout. Viewers on a phone
- * are pointed at the full shared dashboard, which is responsive.
+ * a 4x3 tile grid, two wind roses and two dual-axis charts. It is a wall display
+ * for a laptop, monitor or TV. Tablets and phones are excluded on purpose rather
+ * than accommodated - at those sizes the tiles and axis labels shrink past
+ * readability, and a cramped version of this screen is worse than the full
+ * shared dashboard, which IS responsive and is where those viewers are sent.
+ *
+ * 1280x660 is the floor: the width of a standard laptop panel, and a height that
+ * still admits a laptop with browser chrome while excluding phone landscape.
  */
-const COMPACT_MIN_WIDTH = 900;
+const COMPACT_MIN_WIDTH = 1280;
+const COMPACT_MIN_HEIGHT = 660;
 
 /**
  * Design canvas for the compact wall display.
@@ -179,12 +189,13 @@ const DESIGN_H = 1080;
 const MIN_DESIGN_W = 1280;
 const MAX_DESIGN_W = 3200;
 
-function useIsTooNarrow(minWidth: number): boolean {
-  const [tooNarrow, setTooNarrow] = useState(
-    () => typeof window !== "undefined" && window.innerWidth < minWidth,
-  );
+function useIsTooSmall(minWidth: number, minHeight: number): boolean {
+  const measure = () =>
+    typeof window !== "undefined"
+    && (window.innerWidth < minWidth || window.innerHeight < minHeight);
+  const [tooSmall, setTooSmall] = useState(measure);
   useEffect(() => {
-    const check = () => setTooNarrow(window.innerWidth < minWidth);
+    const check = () => setTooSmall(measure());
     check();
     window.addEventListener("resize", check);
     window.addEventListener("orientationchange", check);
@@ -192,8 +203,9 @@ function useIsTooNarrow(minWidth: number): boolean {
       window.removeEventListener("resize", check);
       window.removeEventListener("orientationchange", check);
     };
-  }, [minWidth]);
-  return tooNarrow;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minWidth, minHeight]);
+  return tooSmall;
 }
 
 interface Stage {
@@ -201,6 +213,9 @@ interface Stage {
   width: number;
   /** Factor that maps design units to CSS pixels. */
   scale: number;
+  /** Pixels to shift the scaled stage by, to center it if it cannot fill. */
+  offsetX: number;
+  offsetY: number;
 }
 
 /**
@@ -215,7 +230,9 @@ interface Stage {
  */
 function useFitStage(): Stage {
   const measure = (): Stage => {
-    if (typeof window === "undefined") return { width: 1920, scale: 1 };
+    if (typeof window === "undefined") {
+      return { width: 1920, scale: 1, offsetX: 0, offsetY: 0 };
+    }
     const vw = window.innerWidth;
     const vh = window.innerHeight || 1;
     const width = Math.max(
@@ -223,7 +240,14 @@ function useFitStage(): Stage {
       Math.min(MAX_DESIGN_W, Math.round(DESIGN_H * (vw / vh))),
     );
     const scale = Math.min(vw / width, vh / DESIGN_H);
-    return { width, scale };
+    // For any ordinary display the width tracks the aspect ratio exactly, both
+    // ratios are equal and these are zero, so the stage fills the screen. They
+    // only become non-zero at the clamped extremes (for example a 32:9
+    // ultrawide), where centering the leftover space looks deliberate whereas
+    // pinning to the top left would look like a rendering fault.
+    const offsetX = Math.max(0, (vw - width * scale) / 2);
+    const offsetY = Math.max(0, (vh - DESIGN_H * scale) / 2);
+    return { width, scale, offsetX, offsetY };
   };
   const [stage, setStage] = useState<Stage>(measure);
   useEffect(() => {
@@ -244,13 +268,10 @@ export default function CompactDashboard() {
   const path = window.location.pathname;
   const shareToken = path.replace("/shared/", "").replace(/\/compact$/, "");
 
-  const isTooNarrow = useIsTooNarrow(COMPACT_MIN_WIDTH);
+  const isTooNarrow = useIsTooSmall(COMPACT_MIN_WIDTH, COMPACT_MIN_HEIGHT);
   const stage = useFitStage();
 
   const [sessionToken, setSessionToken] = useState<string | undefined>();
-  // Chart window. 24h is the default so the page opens looking exactly as it
-  // did before the selector existed.
-  const [rangeHours, setRangeHours] = useState<number>(24);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
@@ -317,7 +338,7 @@ export default function CompactDashboard() {
     queryKey: ["compact-recent", shareToken, sessionToken, latest?.timestamp],
     queryFn: async () => {
       const endTime = latest?.timestamp ? new Date(latest.timestamp) : new Date();
-      const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+      const startTime = new Date(endTime.getTime() - WINDOW_HOURS * 60 * 60 * 1000);
       const res = await fetch(
         `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=500`,
         { headers: shareHeaders }
@@ -349,44 +370,26 @@ export default function CompactDashboard() {
   };
 
   /**
-   * The selected window, sliced out of the single 24-hour fetch.
-   *
-   * Everything time-scoped on this page reads from here rather than from
-   * `recentData`, with two deliberate exceptions noted at their definitions:
-   * the 1-hour wind rose, which is a fixed "right now" reference, and the
-   * 24-hour rainfall total, which is a named 24-hour figure.
+   * The chart window. The fetch and the window are both 24 hours, so this is
+   * simply everything that was fetched; it stays a named value because the
+   * charts, the roses and the rainfall total all have to agree on one period.
    */
-  const rangeData = useMemo(() => withinLastHours(recentData, rangeHours), [recentData, rangeHours]);
-  const rangeLabel = useMemo(
-    () => COMPACT_RANGES.find((r) => r.hours === rangeHours)?.label ?? `${rangeHours}h`,
-    [rangeHours],
-  );
+  const rangeData = recentData;
 
   const windRoseData = useMemo(() => processWindRoseData(rangeData, windSpeedUnit), [rangeData, windSpeedUnit]);
 
-  // Fixed 1-hour wind rose, kept independent of the selector so there is always
-  // a current-conditions reference beside the selected window.
-  const windRoseData1h = useMemo(
+  /**
+   * A fixed 1-hour rose, shown beside the 24-hour one.
+   *
+   * The pair is the point: the 24-hour rose gives the prevailing pattern and the
+   * 1-hour rose gives what the wind is doing right now, so a viewer can see at a
+   * glance whether conditions have turned.
+   */
+  const referenceRose = useMemo(
     () => processWindRoseData(withinLastHours(recentData, 1), windSpeedUnit),
     [recentData, windSpeedUnit],
   );
-
-  // A 30-minute rose, used only when the selected window is itself 1 hour.
-  const windRoseData30m = useMemo(
-    () => processWindRoseData(withinLastHours(recentData, 0.5), windSpeedUnit),
-    [recentData, windSpeedUnit],
-  );
-
-  /**
-   * The reference rose shown beside the selected window.
-   *
-   * With 1h selected, a fixed 1h reference would draw the same rose twice, which
-   * tells the reader nothing. Dropping the reference to 30 minutes keeps the pair
-   * showing two genuinely different periods at every setting.
-   */
-  const hourSelected = rangeHours === 1;
-  const referenceRose = hourSelected ? windRoseData30m : windRoseData1h;
-  const referenceRoseTitle = hourSelected ? "Wind Rose (30 min)" : "Wind Rose (1h)";
+  const referenceRoseTitle = "Wind Rose (1h)";
 
   const chartData = useMemo(() => {
     return rangeData
@@ -489,9 +492,10 @@ export default function CompactDashboard() {
           </div>
           <p className="text-base font-semibold text-black">Screen too small</p>
           <p className="text-sm text-black">
-            The compact dashboard is a single-screen wall display built for a laptop,
-            monitor or TV. Open the full dashboard instead, which is designed for
-            phones and tablets.
+            The compact dashboard is a single-screen wall display and needs a
+            laptop screen or larger (at least {COMPACT_MIN_WIDTH} by{" "}
+            {COMPACT_MIN_HEIGHT}). Open the full dashboard instead, which is
+            designed for tablets and phones.
           </p>
           <a
             href={fullUrl}
@@ -547,17 +551,27 @@ export default function CompactDashboard() {
   const latStr = station?.latitude != null ? `${Number(station.latitude).toFixed(6)}°` : "--";
   const lngStr = station?.longitude != null ? `${Number(station.longitude).toFixed(6)}°` : "--";
 
+  /**
+   * The station's uploaded photo, shown under the branding.
+   *
+   * Served on the share payload as a data URI or URL. Stations created without a
+   * photo are given the Stratus mark as their default image by the server, which
+   * is why a preview generally shows the logo rather than an empty space; a
+   * station whose image has been explicitly removed is null and renders nothing.
+   */
+  const stationImage: string | null = (station as any)?.stationImage || null;
+
   // Hold the loading overlay until the station, latest reading and 24h window
   // have all arrived, so the wall display never flashes half its tiles.
   const loadSteps = [stationReady, latestReady, recentReady];
   const loadReady = loadSteps.filter(Boolean).length;
   const loadDone = loadSteps.every(Boolean);
 
-  // Status is Live when a reading has arrived within the last two hours, else
+  // Status is Active when a reading has arrived within the last two hours, else
   // Inactive. Battery is color-coded by state of charge for a 12 V system.
   const isLive = latest?.timestamp != null
     && (Date.now() - new Date(latest.timestamp).getTime()) < 2 * 60 * 60 * 1000;
-  const statusText = isLive ? "Live" : "Inactive";
+  const statusText = isLive ? "Active" : "Inactive";
   const statusColor = isLive ? "#16a34a" : "#dc2626";
   const batteryColor = batteryVoltage == null ? "#000"
     : batteryVoltage >= 12.4 ? "#16a34a"
@@ -567,11 +581,12 @@ export default function CompactDashboard() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-white">
       <DashboardLoadingOverlay ready={loadReady} total={loadSteps.length} done={loadDone} />
-      {/* Design canvas sized to the viewport aspect ratio and scaled from the
-          top-left to fill the screen. Anchoring top-left (rather than centering)
-          means an ordinary display fills edge to edge with no letterbox; the
-          layout is laid out once in design units and only its scale changes, so
-          it looks identical on a 1080p monitor, a 4K TV, a laptop or a tablet. */}
+      {/* Design canvas sized to the viewport aspect ratio and scaled to fill the
+          screen. The layout is written once in design units and only its scale
+          changes, so it looks identical on a 1080p monitor, a 4K TV, a laptop or
+          a landscape tablet, and it never reflows or clips. The translate is
+          zero on ordinary displays and only centers the stage at the clamped
+          extreme aspect ratios. */}
       <div
         className="flex flex-col overflow-hidden bg-white"
         style={{
@@ -579,63 +594,54 @@ export default function CompactDashboard() {
           height: DESIGN_H,
           padding: 16,
           gap: 12,
-          transform: `scale(${stage.scale})`,
+          transform: `translate(${stage.offsetX}px, ${stage.offsetY}px) scale(${stage.scale})`,
           transformOrigin: "top left",
         }}
       >
-      {/* Header: station identity and health on the left, branding pinned to the
-          top right. Every item uses the same weight and size so the row reads as
-          one line of information rather than a hierarchy. */}
-      <div className="flex items-center justify-between gap-4 flex-shrink-0">
-        {/* Chart window selector on the left; branding pinned right. The station
-            identity now lives in the info block below, not on this strip. */}
-        <div className="flex items-center gap-1 flex-shrink-0" role="group" aria-label="Chart time range">
-          {COMPACT_RANGES.map(({ label, hours }) => (
-            <Button
-              key={hours}
-              variant={rangeHours === hours ? "default" : "outline"}
-              size="sm"
-              className="h-6 px-2 text-xs leading-none"
-              style={rangeHours === hours ? { backgroundColor: STRATUS_NAVY } : undefined}
-              aria-pressed={rangeHours === hours}
-              onClick={() => setRangeHours(hours)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-
-        {/* Powered by Stratus / Metron, top right corner */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs text-black font-normal whitespace-nowrap" style={HEADER_FONT}>
-            Powered by
-          </span>
-          {/* Stratus mark: dark blue circle with white dot (matches the app sidebar) */}
-          <div className="w-6 h-6 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-sm border border-white/10 flex-shrink-0">
-            <div className="w-2 h-2 rounded-full bg-white" />
-          </div>
-          <div className="inline-flex flex-col items-center flex-shrink-0">
-            <span className="text-[13px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</span>
-            <span className="text-[7px] font-bold tracking-wider mt-0.5" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>METRON (PTY) LTD</span>
-          </div>
-          {/* Metron company logo */}
-          <img src="/metron-logo.png" alt="Metron" className="w-6 h-6 object-contain flex-shrink-0" />
-        </div>
-      </div>
-
-      {/* Main 2x2 area below header */}
+      {/* No header row. The window selector is gone and the branding has moved
+          into the station-info block, so the entire canvas height belongs to the
+          content: that is what makes room for taller charts and larger axis
+          labels. */}
       <div className="grid grid-cols-2 grid-rows-2 gap-2 flex-1 min-h-0">
         {/* Top-left: a wide station-info block on top, then the metric tiles
             pushed down toward the wind roses. */}
         <div className="flex flex-col gap-2 min-h-0">
-          <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 grid grid-cols-3 gap-x-4 gap-y-1 flex-shrink-0">
-            <InfoField label="Location" value={`${station?.name || shareInfo?.share?.name || "Weather Station"}${station?.location ? `, ${station.location}` : ""}`} />
-            <InfoField label="Coordinates" value={`${latStr}, ${lngStr}`} />
-            <InfoField label="AMSL" value={station?.altitude != null ? `${Math.round(Number(station.altitude))} m` : "--"} />
-            <InfoField label="Status" value={statusText} valueColor={statusColor} />
-            <InfoField label="Battery" value={`${fmt(batteryVoltage, 2)} V`} valueColor={batteryColor} />
-            <InfoField label="Last Synced" value={lastSynced} />
+          <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 flex items-stretch gap-5 flex-shrink-0">
+            {/* Station identity and health in two columns, so AMSL and Last
+                Synced fall under Status and Battery. Two columns rather than
+                three deliberately: it gives the width back to the station photo
+                beside it, and makes this block tall enough to sit against the
+                metric tiles instead of leaving a gap above them. */}
+            <div className="grid grid-cols-2 gap-x-5 gap-y-1 flex-1 min-w-0">
+              <InfoField label="Location" value={`${station?.name || shareInfo?.share?.name || "Weather Station"}${station?.location ? `, ${station.location}` : ""}`} />
+              <InfoField label="Coordinates" value={`${latStr}, ${lngStr}`} />
+              <InfoField label="Status" value={statusText} valueColor={statusColor} />
+              <InfoField label="Battery" value={`${fmt(batteryVoltage, 2)} V`} valueColor={batteryColor} />
+              <InfoField label="AMSL" value={station?.altitude != null ? `${Math.round(Number(station.altitude))} m` : "--"} />
+              <InfoField label="Last Synced" value={lastSynced} />
+            </div>
+            {/*
+              The station's own photo, given this whole side of the block.
+              object-contain, never object-cover: a site photo cropped or
+              stretched to fit misrepresents the installation, so it is
+              letterboxed inside the space instead. It fills the block's height
+              and is rendered only when the station actually carries an image, so
+              a station without one shows nothing rather than an empty frame.
+            */}
+            {stationImage && (
+              <div className="flex-shrink-0 self-stretch border-l border-gray-200 pl-5 flex items-center">
+                <img
+                  src={stationImage}
+                  alt={`${station?.name || "Weather station"} site photo`}
+                  className="h-full w-64 object-contain"
+                />
+              </div>
+            )}
           </div>
+          {/* Tiles follow the info block directly. They were previously pushed
+              to the bottom of the cell with mt-auto, which opened a large empty
+              band between the two blocks; the taller two-column info block plus
+              normal flow keeps them together. */}
           <div className="grid grid-cols-4 auto-rows-min gap-2 content-start">
             <PrimaryTile label="Temperature" value={`${fmt(temp)}°C`} />
             <PrimaryTile label="Humidity" value={`${fmt(hum)}%`} />
@@ -650,18 +656,37 @@ export default function CompactDashboard() {
             <PrimaryTile label="Wind Chill" value={`${fmt(windChill)}°C`} />
             <PrimaryTile label="FDI" value={fdi != null ? `${fmt(fdi, 0)}` : "--"} valueColor={fdiColor} />
           </div>
+          {/* Branding: one line, left aligned, sitting under the metric tiles and
+              directly above the wind rose headings. It reads as a footer to the
+              station's own data rather than competing with the readings, which is
+              why it is here and not in a corner. */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <span className="text-black font-bold whitespace-nowrap"
+                  style={{ ...HEADER_FONT, fontSize: LEGEND_TEXT_SIZE }}>
+              Powered by
+            </span>
+            {/* Stratus mark: dark blue circle with white dot (matches the app sidebar) */}
+            <div className="w-10 h-10 rounded-full bg-[#1e3a5f] flex items-center justify-center shadow-sm border border-white/10 flex-shrink-0">
+              <div className="w-3 h-3 rounded-full bg-white" />
+            </div>
+            <div className="inline-flex flex-col items-center flex-shrink-0">
+              <span className="text-[20px] font-extrabold tracking-wide leading-none" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>STRATUS</span>
+              <span className="text-[10px] font-bold tracking-wider mt-1" style={{ fontFamily: 'Arial, sans-serif', color: '#1e3a5f' }}>METRON (PTY) LTD</span>
+            </div>
+            {/* Metron company logo */}
+            <img src="/metron-logo.png" alt="Metron" className="w-10 h-10 object-contain flex-shrink-0" />
+          </div>
         </div>
 
         {/* Top-right: Temperature vs Humidity chart */}
         <div className="min-h-0 overflow-hidden">
           <Suspense fallback={<ChartFallback />}>
             <WeatherChart
-              title={`Temperature vs Humidity (${rangeLabel})`}
+              title={`Temperature vs Humidity (${WINDOW_LABEL})`}
               data={chartData}
               heightClass="h-full"
               compact
               dualAxis
-              zeroFloor={rangeHours < 24}
               series={[
                 { dataKey: "temperature", name: "Temperature", color: CHART_COLORS.temperature, unit: "°C" },
                 { dataKey: "humidity", name: "Humidity", color: CHART_COLORS.humidity, unit: "%" },
@@ -670,29 +695,46 @@ export default function CompactDashboard() {
           </Suspense>
         </div>
 
-        {/* Bottom-left: shared wind legend + 1h wind rose + 24h wind rose */}
-        <div className="grid grid-cols-[auto_1fr_1fr] gap-2 min-h-0">
-          {/* One shared legend for the wind rose colors */}
-          <Card className="min-h-0 overflow-hidden">
-            <CardContent className="p-1.5 h-full flex flex-col justify-center gap-0.5">
-              <div className="text-xs text-black font-medium mb-0.5">Wind ({windUnitLabel})</div>
-              {getSimplifiedClasses(windSpeedUnit).map((sc) => (
-                <div key={sc.label} className="flex items-center gap-1">
-                  <span className="inline-block h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: sc.color }} />
-                  <span className="text-[10px] text-black leading-tight">{sc.label}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-          <div className="min-h-0 overflow-hidden">
-            <Suspense fallback={<ChartFallback />}>
-              <WindRose data={referenceRose} title={referenceRoseTitle} windSpeedUnit={windSpeedUnit} size={210} bare />
-            </Suspense>
+        {/* Bottom-left: the two wind roses side by side with one shared legend
+            underneath them.
+            The legend used to be a narrow card to the LEFT of the roses, which
+            cost horizontal space and forced its labels down to 10px. Moving it
+            below frees that column: the roses shift left, gain the gap between
+            them, and pull up toward the metric tiles, while the legend gets the
+            full width to lay its classes out in a single readable row. */}
+        <div className="flex flex-col min-h-0 gap-1">
+          <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
+            <div className="min-h-0 overflow-hidden">
+              <Suspense fallback={<ChartFallback />}>
+                <WindRose data={referenceRose} title={referenceRoseTitle} windSpeedUnit={windSpeedUnit} size={210} bare />
+              </Suspense>
+            </div>
+            <div className="min-h-0 overflow-hidden">
+              <Suspense fallback={<ChartFallback />}>
+                <WindRose data={windRoseData} title={`Wind Rose (${WINDOW_LABEL})`} windSpeedUnit={windSpeedUnit} size={210} bare />
+              </Suspense>
+            </div>
           </div>
-          <div className="min-h-0 overflow-hidden">
-            <Suspense fallback={<ChartFallback />}>
-              <WindRose data={windRoseData} title={`Wind Rose (${rangeLabel})`} windSpeedUnit={windSpeedUnit} size={210} bare />
-            </Suspense>
+          {/* Shared legend, bottom left. One horizontal run of swatches, sized to
+              match the rose and chart headings so it reads as part of the same
+              family rather than as fine print. */}
+          <div className="flex-shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
+            <span className="font-semibold leading-none"
+                  style={{ fontFamily: 'Arial, Helvetica, sans-serif',
+                           fontSize: LEGEND_TEXT_SIZE, color: STRATUS_NAVY }}>
+              Wind ({windUnitLabel})
+            </span>
+            {getSimplifiedClasses(windSpeedUnit).map((sc) => (
+              <span key={sc.label} className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-sm flex-shrink-0"
+                      style={{ backgroundColor: sc.color }} />
+                <span className="leading-none whitespace-nowrap"
+                      style={{ fontFamily: 'Arial, Helvetica, sans-serif',
+                               fontSize: LEGEND_TEXT_SIZE, color: '#000' }}>
+                  {sc.label}
+                </span>
+              </span>
+            ))}
           </div>
         </div>
 
@@ -700,12 +742,11 @@ export default function CompactDashboard() {
         <div className="min-h-0 overflow-hidden">
           <Suspense fallback={<ChartFallback />}>
             <WeatherChart
-              title={`ET₀ vs Solar Irradiance (${rangeLabel})`}
+              title={`ET₀ vs Solar Irradiance (${WINDOW_LABEL})`}
               data={etoSolarData}
               heightClass="h-full"
               compact
               dualAxis
-              zeroFloor={rangeHours < 24}
               series={[
                 { dataKey: "eto", name: "ET₀", color: CHART_COLORS.eto, unit: "mm/d" },
                 { dataKey: "solarRadiation", name: "Solar", color: CHART_COLORS.solarRadiation, unit: "W/m²" },

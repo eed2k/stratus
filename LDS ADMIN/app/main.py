@@ -3,8 +3,10 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import settings
@@ -12,6 +14,7 @@ from .db import Base, engine, SessionLocal
 from .models import User, Setting
 from .auth import hash_password
 from .runtime import ALERTS_ENABLED_KEY
+from .security import CSRF_ERROR_DETAIL
 from .tenancy import TenantPrefixMiddleware, base_path
 from .bootstrap import (add_missing_columns, ensure_platform_tenant,
                         backfill_tenants, drop_stale_unique_constraints,
@@ -30,12 +33,28 @@ app = FastAPI(title="Lightning Alert Admin Panel", docs_url=None, redoc_url=None
 # over HTTPS we use the __Host- cookie prefix, which the browser only accepts
 # when Secure is set, Path=/ and no Domain attribute is present. This pins the
 # cookie to the exact host and blocks subdomain/insecure overwrites.
+#
+# WHY LAX AND NOT STRICT
+#
+#   Strict withholds the cookie on a cross-site top-level navigation, which
+#   includes following the "AS3935" link from stratusweather.co.za. Arriving
+#   that way, an already signed-in operator looked anonymous, the login page
+#   rendered, and rendering mints a session - so the Set-Cookie REPLACED the
+#   live session. Any page still open in another tab then held a CSRF token
+#   that no longer matched the cookie and its next POST failed with
+#   "Invalid or missing CSRF token". That is exactly the report from the field
+#   (two 403s on /alerts/toggle in a row).
+#
+#   Lax fixes it without weakening the defense: the cookie still is NOT sent on
+#   a cross-site POST, which is the request CSRF actually abuses, and the
+#   explicit per-session token checked by verify_csrf remains the primary
+#   control. Only safe top-level GET navigation regains the cookie.
 _SESSION_COOKIE = "__Host-stratus_session" if settings.SECURE_COOKIES \
     else "stratus_session"
 app.add_middleware(SessionMiddleware,
                    secret_key=settings.APP_SECRET_KEY,
                    session_cookie=_SESSION_COOKIE,
-                   same_site="strict",
+                   same_site="lax",
                    https_only=settings.SECURE_COOKIES,
                    max_age=settings.SESSION_MAX_AGE)
 
@@ -101,6 +120,30 @@ _ERROR_PAGE = """<!DOCTYPE html>
   <p>Reference <code>__REF__</code></p>
   <p><a href="__HOME__">Back to the panel</a></p>
 </div></body></html>"""
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request, exc):
+    """Give an expired session a way forward instead of a bare JSON body.
+
+    A stale CSRF token is an ordinary consequence of leaving a page open past
+    the session lifetime, but the default handler answers it with
+    {"detail": "Invalid or missing CSRF token"} - which tells an operator
+    nothing and offers no way out. Send them to the sign-in page of whichever
+    panel they were in, with an explanation. Every other HTTP error keeps its
+    normal behavior, so API 401s and 404s are untouched.
+    """
+    if exc.status_code == 403 and exc.detail == CSRF_ERROR_DETAIL:
+        try:
+            base = base_path(request) or ""
+        except Exception:                                        # noqa: BLE001
+            base = ""
+        # Clients sign in at /client, admins at /login. Sending someone to the
+        # wrong one of those is its own dead end.
+        target = "/client" if request.url.path.rstrip("/").endswith("/client") \
+            else "/login"
+        return RedirectResponse(f"{base}{target}?expired=1", status_code=303)
+    return await http_exception_handler(request, exc)
 
 
 @app.exception_handler(Exception)
@@ -170,13 +213,18 @@ def bootstrap():
     try:
         platform = ensure_platform_tenant(db)
         backfill_tenants(db, platform.id)
-        # Admin login (full access) and operator login (site user).
-        _ensure_user(db, settings.INITIAL_ADMIN_EMAIL,
-                     settings.INITIAL_ADMIN_PASSWORD, "admin",
-                     platform.id, True)
-        _ensure_user(db, settings.INITIAL_OPERATOR_EMAIL,
-                     settings.INITIAL_OPERATOR_PASSWORD, "operator",
-                     platform.id, False)
+        # First boot only: seed the initial admin + operator when there are no
+        # logins yet. Once any login exists, a deleted login must STAY deleted,
+        # so these are never re-created on a later restart. (If every login is
+        # removed the seed runs again, which is the intended way back in rather
+        # than a lockout.)
+        if db.query(User).count() == 0:
+            _ensure_user(db, settings.INITIAL_ADMIN_EMAIL,
+                         settings.INITIAL_ADMIN_PASSWORD, "admin",
+                         platform.id, True)
+            _ensure_user(db, settings.INITIAL_OPERATOR_EMAIL,
+                         settings.INITIAL_OPERATOR_PASSWORD, "operator",
+                         platform.id, False)
         # Every tenant needs a default group, including the platform one. This
         # also repairs any client panel whose creation failed part-way and left
         # it with no group to attach recipients to.

@@ -46,7 +46,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import (charts, dropbox_sync, forecasting, ingest, sector_report,
+from . import (charts, dropbox_sync, forecasting, ingest, plain, sector_report,
                verification)
 from .db import Database
 from .providers import registry
@@ -775,6 +775,120 @@ def station_backfill(station_id: int, request: Request, days: int = Form(1),
     return RedirectResponse(
         f"/station/{station_id}/verify?days={days}&message="
         f"{len(runs)}+past+forecasts+issued+and+scored.", status_code=303)
+
+
+#: Variables the outlook reads. Order matters only for the charts below it.
+_OUTLOOK_VARIABLES = ("temperature", "rainfall", "wind_speed", "wind_gust",
+                      "humidity", "solar_radiation")
+
+#: Which of those get an hour-by-hour chart, with a plain explanation of what
+#: the reader is looking at. Kept to three: the outlook is the answer, and a
+#: wall of charts is what this page exists to avoid.
+_OUTLOOK_CHARTS = (
+    ("temperature", "Temperature through the day",
+     "The line is the expected temperature. The shaded band is the range it "
+     "could reasonably fall in, so a wide band means less certainty."),
+    ("rainfall", "Rainfall",
+     "Expected rainfall per hour. Short tall bars are a shower; a long low "
+     "run is steady rain."),
+    ("wind_speed", "Wind",
+     "Sustained wind speed. Check the band as well as the line: wind is "
+     "harder to forecast than temperature."),
+)
+
+
+@app.get("/station/{station_id}/dashboard", response_class=HTMLResponse)
+def station_dashboard(request: Request, station_id: int,
+                      message: str = "", error: str = ""):
+    """A plain-language outlook: what the weather is doing, in words and figures.
+
+    The detailed forecast page is organized by variable, which suits someone
+    checking the engine. This one is organized by DAY, which is how the question
+    is actually asked ("what is tomorrow like?"). It reuses the stored forecast
+    points, so it can never disagree with the detail page: same run, same
+    numbers, different presentation.
+    """
+    gate = _needs_login(request)
+    if gate:
+        return gate
+    st = db.get_station(station_id)
+    if not st:
+        return RedirectResponse("/?error=No+such+station.", status_code=303)
+
+    # Prefer the longest horizon that has actually been run, so the outlook
+    # covers as many days as the station can support, and fall back through the
+    # shorter ones rather than showing an empty page.
+    run = None
+    days = 0
+    for candidate in sorted(forecasting.HORIZON_DAYS, reverse=True):
+        found = db.latest_run(station_id, forecasting.HORIZON_HOURS[candidate])
+        if found:
+            run, days = found, candidate
+            break
+
+    if not run:
+        return templates.TemplateResponse(request, "dashboard.html", {
+            "station": st, "outlooks": [], "run": None, "days": 0,
+            "horizons": forecasting.HORIZON_DAYS,
+            "headline": "", "rain_outlook": "", "backing": "",
+            "charts_list": [], "message": message, "error": error,
+        })
+
+    stored = set(db.station_variables(station_id))
+    series_by_variable: dict[str, list[dict]] = {}
+    for variable in _OUTLOOK_VARIABLES:
+        if variable not in stored:
+            continue
+        points = db.run_points(run["id"], variable)
+        if points:
+            series_by_variable[variable] = points
+
+    outlooks = plain.build_outlook(series_by_variable, max_days=days or 5)
+
+    # Charts reuse the same builder the detail page uses, so the two cannot
+    # drift apart visually or numerically.
+    charts_list = []
+    for variable, title, explain in _OUTLOOK_CHARTS:
+        points = series_by_variable.get(variable)
+        if not points:
+            continue
+        series = []
+        for p in points:
+            try:
+                valid_at = datetime.strptime(p["valid_at"], "%Y-%m-%d %H:%M:%S")
+            except (KeyError, TypeError, ValueError):
+                continue
+            series.append({
+                "valid_at": valid_at, "value": p["value"],
+                "p10": p["p10"], "p90": p["p90"],
+                "lead_hours": p["lead_hours"],
+                "persistence": p["persistence"],
+                "climatology": p["climatology"],
+            })
+        if not series:
+            continue
+        charts_list.append({
+            "title": title, "explain": explain,
+            "svg": charts.series_chart(series, variable,
+                                       unit=charts.unit_for(variable),
+                                       title=""),
+        })
+
+    # Name the variables an operator opted into, so the page is explicit about
+    # whether a commercial model is involved at all.
+    model_backed = []
+    if run.get("provider"):
+        model_backed = sorted(series_by_variable)
+
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "station": st, "outlooks": outlooks, "run": run, "days": days,
+        "horizons": forecasting.HORIZON_DAYS,
+        "headline": plain.headline(outlooks),
+        "rain_outlook": plain.rain_outlook(outlooks),
+        "backing": plain.describe_backing(model_backed),
+        "charts_list": charts_list,
+        "message": message, "error": error,
+    })
 
 
 @app.get("/station/{station_id}/forecast", response_class=HTMLResponse)

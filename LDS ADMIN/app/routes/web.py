@@ -100,8 +100,12 @@ def render(request, name, **ctx):
 
 # -------------------- AUTH --------------------
 @router.get("/login", response_class=HTMLResponse)
-def login_get(request: Request):
-    return render(request, "login.html", error=None)
+def login_get(request: Request, expired: str = ""):
+    # expired=1 is set by the CSRF error handler in main.py, so a session that
+    # timed out explains itself here rather than as a raw 403 body.
+    error = ("Your session expired, so that action was not carried out. "
+             "Please sign in again and retry.") if expired else None
+    return render(request, "login.html", error=error)
 
 
 @router.post("/login")
@@ -176,12 +180,15 @@ def _login_destination(db, request, user, url_tid) -> str:
 # and it must stay. So /client verifies the credentials, then redirects into the
 # client's own panel where the normal tenant binding takes over.
 @router.get("/client", response_class=HTMLResponse)
-def client_login_get(request: Request):
+def client_login_get(request: Request, expired: str = ""):
     # Only ever served on the platform panel. Inside a client panel the tenant is
     # already known, so the normal login page is the right one.
     if base_path(request):
         return RedirectResponse(redirect_to(request, "/login"), status_code=303)
-    return render(request, "client_login.html", error=None)
+    # expired=1 is set by the CSRF error handler in main.py.
+    error = ("Your session expired, so that action was not carried out. "
+             "Please sign in again and retry.") if expired else None
+    return render(request, "client_login.html", error=error)
 
 
 @router.post("/client")

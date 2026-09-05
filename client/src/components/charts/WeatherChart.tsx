@@ -73,13 +73,23 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 /**
  * Gutter reserved for each y-axis in compact mode.
  *
- * Wide enough for four significant figures at 8px (e.g. "846.2", "100") so the
+ * Wide enough for four significant figures at 12px (e.g. "846.2", "100") so the
  * left and right value columns both render in a half-width dashboard cell
  * instead of being clipped. The HTML time-label row below the plot uses the
  * same figure for its padding, which is what keeps the labels aligned with the
  * plotting area.
  */
-const COMPACT_AXIS_W = 30;
+const COMPACT_AXIS_W = 40;
+
+/**
+ * Tick label size for the compact wall display.
+ *
+ * The compact dashboard renders inside a scaled design canvas, so this is a
+ * design-unit size: it grows with the screen (1:1 at 1080p, doubled on a 4K TV).
+ * It was 8, which was legible up close but not from across a room, so it is
+ * sized here once for both axes rather than repeated at each call site.
+ */
+const COMPACT_TICK_PX = 12;
 
 interface ChartDataPoint {
   timestamp: string;
@@ -246,7 +256,18 @@ export const WeatherChart = memo(function WeatherChart({
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  // Colored title: each series name in its own color, joined by " vs "
+  /**
+   * Colored title: each series name in its own color, joined by " vs ".
+   *
+   * The series names are used rather than the `title` string so each quantity
+   * can be tinted to match its line. That means anything in `title` which is
+   * NOT a series name would be silently dropped, and a trailing qualifier is
+   * exactly that: "Temperature vs Humidity (24h)" rendered as
+   * "Temperature vs Humidity" and the window disappeared from the heading. So
+   * a trailing parenthetical is carried over verbatim, uncolored because it
+   * belongs to the chart rather than to either series.
+   */
+  const titleQualifier = /\s*(\([^)]*\))\s*$/.exec(title)?.[1] ?? "";
   const coloredTitle = (
     <span>
       {series.map((s, i) => (
@@ -255,6 +276,7 @@ export const WeatherChart = memo(function WeatherChart({
           <span style={{ color: s.color }}>{s.name}</span>
         </span>
       ))}
+      {titleQualifier && <span className="text-black"> {titleQualifier}</span>}
     </span>
   );
 
@@ -299,16 +321,14 @@ export const WeatherChart = memo(function WeatherChart({
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
               {compact ? (
                 /**
-                 * Compact: the axis is kept for scaling but NOT drawn.
+                 * Compact: a NUMERIC time axis with an explicit tick list.
                  *
-                 * Three separate attempts to make Recharts draw readable tick
-                 * labels in these short cells failed (category axis ignores an
-                 * explicit `ticks` list; `interval={0}` labels all ~500 points;
-                 * a reserved `height` still got squeezed). The labels are now
-                 * rendered as ordinary HTML directly under the plot, which does
-                 * not depend on Recharts' layout heuristics at all - so they
-                 * cannot silently disappear, and their height is known exactly,
-                 * which keeps the single-screen layout fitting.
+                 * A category axis ignores an explicit `ticks` list and
+                 * `interval={0}` would label all ~500 points, which is why
+                 * earlier attempts showed either no x-axis or an unreadable
+                 * smear. Choosing a few instants on a numeric axis makes
+                 * Recharts draw precisely those, and reserving `height` keeps
+                 * the row from being squeezed out of the single-screen layout.
                  */
                 <XAxis
                   dataKey="__t"
@@ -317,11 +337,11 @@ export const WeatherChart = memo(function WeatherChart({
                   domain={compactDomain ?? ['dataMin', 'dataMax']}
                   ticks={compactTicks}
                   tickFormatter={formatTimeTick}
-                  tick={{ fontSize: 8 }}
+                  tick={{ fontSize: COMPACT_TICK_PX }}
                   tickLine={false}
                   axisLine={false}
-                  tickMargin={2}
-                  height={14}
+                  tickMargin={4}
+                  height={COMPACT_TICK_PX + 10}
                   allowDataOverflow={false}
                 />
               ) : (
@@ -348,7 +368,7 @@ export const WeatherChart = memo(function WeatherChart({
                 <YAxis
                   key="y-left"
                   yAxisId="left"
-                  tick={{ fontSize: compact ? 8 : 11, fill: leftColor }}
+                  tick={{ fontSize: compact ? COMPACT_TICK_PX : 11, fill: leftColor }}
                   tickLine={false}
                   axisLine={false}
                   width={compact ? COMPACT_AXIS_W : 40}
@@ -359,7 +379,7 @@ export const WeatherChart = memo(function WeatherChart({
                   key="y-right"
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fontSize: compact ? 8 : 11, fill: rightColor }}
+                  tick={{ fontSize: compact ? COMPACT_TICK_PX : 11, fill: rightColor }}
                   tickLine={false}
                   axisLine={false}
                   width={compact ? COMPACT_AXIS_W : 44}
@@ -368,7 +388,7 @@ export const WeatherChart = memo(function WeatherChart({
                 />,
               ] : (
                 <YAxis
-                  tick={{ fontSize: compact ? 8 : 11 }}
+                  tick={{ fontSize: compact ? COMPACT_TICK_PX : 11 }}
                   tickLine={false}
                   axisLine={false}
                   width={compact ? COMPACT_AXIS_W : 40}
@@ -386,10 +406,10 @@ export const WeatherChart = memo(function WeatherChart({
                 <Legend
                   verticalAlign="top"
                   align="center"
-                  height={12}
+                  height={15}
                   iconType="plainline"
-                  iconSize={10}
-                  wrapperStyle={{ fontSize: 9, lineHeight: "10px" }}
+                  iconSize={12}
+                  wrapperStyle={{ fontSize: 11, lineHeight: "12px" }}
                 />
               ) : (
                 <Legend iconSize={0} />

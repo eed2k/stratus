@@ -10,28 +10,34 @@ A professional, multi-vendor web application for weather station management, dat
 
 Station & Protocol Support
 
-Stratus is no longer Campbell-only. It ingests data from many station types through a unified protocol manager:
+This section is deliberately split into what is in production use and what is
+only a generic code path, because the difference matters when you are choosing
+how to connect a station.
 
-- Campbell Scientific (PakBus) - Native PakBus implementation over TCP/IP, Cellular (4G/LTE), and LoRaWAN
-  - Supported dataloggers: CR1000X, CR1000, CR6, CR3000, CR800, CR850, CR300, CR200X, Aspen 10
-- RikaCloud (v2 API) - Session-based login with automatic farm/device discovery, polled every 30 minutes
-- Arduino IoT Cloud - OAuth2 client-credentials access to Thing properties
-- CampbellCloud / Konect - Campbell Scientific cloud service
-- WeatherLink Cloud (Davis) - Davis Vantage Pro2 / Vue via the WeatherLink API
-- Blynk IoT and ThingSpeak - Generic IoT platform polling
-- OpenWeatherMap - Reference/comparison data
-- Generic HTTP/REST and MQTT endpoints for custom loggers (ESP32, ESP8266, Raspberry Pi Pico W, etc.)
+In production use, exercised against real hardware:
 
-Connection methods:
+- Campbell Scientific (PakBus) over TCP/IP - native PakBus implementation, including clock sync and scheduled or on-demand collection
+  - Dataloggers seen in service: CR300, CR1000, CR1000X, CR6, CR800, CR850
+- Dropbox sync - watches a folder and ingests a logger export whenever it changes. This is how the cellular sites actually deliver data: the logger writes to Dropbox and Stratus reads it. Read-only; Stratus never writes to your Dropbox
+- HTTP POST ingest - the station pushes readings to a per-station endpoint
+- Manual file import - TOA5 or CSV upload for bulk history
+- RIKA cloud (v2 API) - session login with farm/device discovery, polled on a schedule
 
-- Direct PakBus connection (TCP/IP, 4G/LTE, LoRaWAN)
-- HTTP POST - Datalogger pushes data to a Stratus ingest endpoint
-- Cloud API polling - RikaCloud, Arduino IoT, CampbellCloud, WeatherLink, Blynk, ThingSpeak
-- Dropbox sync - Automatic import from Dropbox folders (ideal for cellular modems uploading to cloud storage)
-- MQTT subscription - Broker-based IoT messaging
-- Manual file import - Upload TOA5 CSV files for bulk historical data
+Implemented but not in production use here:
 
-Stratus also supports automatic clock synchronization and scheduled/on-demand data collection for Campbell dataloggers.
+- Arduino IoT Cloud - OAuth2 client-credentials against Thing properties
+- LoRa uplink decoding and a generic MQTT/HTTP REST path for custom loggers (ESP32, ESP8266, Pico W and similar)
+
+Generic endpoint support only, NOT validated integrations:
+
+- WeatherLink (Davis), Blynk, ThingSpeak and OpenWeatherMap are recognized by URL and given the right auth header, but there is no vendor-specific parser or field mapping for them. Treat them as "a REST endpoint you can point Stratus at", not as finished integrations
+- CampbellCloud / Konect multi-station discovery is **not implemented**; the code raises an explicit error telling you to use a direct PakBus connection
+
+A note on cellular and LoRaWAN: several connection types (`gsm`, `4g`, `lora`,
+`satellite`, `modbus`, `dnp3`) are accepted as labels and mapped onto the HTTP or
+LoRa transport, but there is no native PakBus-over-cellular or PakBus-over-LoRaWAN
+stack. A cellular site works by uploading to Dropbox or by posting over HTTP, not
+by Stratus dialing the logger.
 
 ---
 
@@ -305,10 +311,22 @@ server/             Express backend (TypeScript)
 shared/             Shared types and utilities
   utils/            Calculation functions (LFDI, solar, ETo, air density, AQI, WBGT, Weibull, AEP, ...)
 assets/             Application icons
-deploy/             Deployment scripts, Docker config, secret scanner
+deploy/             Deployment scripts, Docker config, backups, secret scanner
 scripts/            Dropbox auth and documentation generation
-docs/               User documentation
-examples/           CRBasic example programs
+
+forecast/           Nano-climate forecast service (separate deployment)
+  app/              FastAPI + Jinja2, server-rendered SVG charts, no bundler
+    engine.py       Blending, harmonics and the analog ensemble
+    plain.py        Plain-language outlook (day cards and sentences)
+    providers/      NWP adapters (Xweather only) and the per-variable opt-in
+  tests/            pytest suite
+  README.md         What it is, which models it uses, how to read it
+
+info-centre/        Static documentation site (nginx)
+lightning-demo/     Static lightning demo site (nginx)
+Beacon/             Pilot-light/beacon controller for the lightning system
+Emulator/           Bench emulator for the AS3935 detector (Arduino + Pi)
+BeagleBone/         Kiosk that boots a BBB into a wall dashboard over HDMI
 
 LDS ADMIN/          Lightning Alert Console (FastAPI, separate deployment)
   app/
@@ -348,4 +366,7 @@ Credits
 
 Developed by Lukas Esterhuizen (esterhuizen2k@proton.me)
 
-Campbell Scientific and PakBus are trademarks of Campbell Scientific, Inc. RIKA, Davis Instruments, Arduino, and other product names are trademarks of their respective owners.
+Campbell Scientific and PakBus are trademarks of Campbell Scientific, Inc. RIKA,
+Arduino, Vaisala, Xweather, Dropbox, MailerSend and other product names are
+trademarks of their respective owners. Naming a product here describes an
+interface Stratus can talk to; it does not imply any endorsement or partnership.
