@@ -25,9 +25,13 @@ before the rebrand. The old host (`api.aerisapi.com`) is still kept as a fallbac
 because a rebrand is exactly the kind of thing that retires a hostname without
 much warning.
 
-**atmo.ai is not used anywhere.** There is no adapter, no API call, and no
-configuration for it. If you want it, it would need to be written as a new
-provider.
+**About atmo.ai.** Vaisala acquired Atmo, Inc. in June 2026, so Atmo's AI
+forecasting technology now sits inside Vaisala and therefore behind Xweather.
+There is no separate atmo.ai adapter in this codebase and no direct call to it:
+anything Atmo contributes arrives, if at all, inside the Xweather response. The
+API does not tell the caller which model produced a given value, so this service
+does not claim one. Saying "powered by Atmo" on a page here would be an
+assumption, not a fact we can verify per reading.
 
 Two further points that matter when reading the output:
 

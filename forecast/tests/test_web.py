@@ -368,6 +368,30 @@ def test_outlook_never_invents_a_rain_percentage(signed_in, station_id):
     assert "chance of rain" not in r.text.lower()
 
 
+def test_a_hostile_station_name_cannot_escape_any_page(signed_in, station_id):
+    """The chart SVG is injected with |safe, so escaping is load-bearing.
+
+    charts.py escapes every text insertion and Jinja autoescapes the templates.
+    This asserts both hold on a real request, with the station name as the
+    payload because it is operator-supplied, stored, and echoed back widely.
+    """
+    import re as _re
+    payload = '<script>alert("xss")</script>'
+    signed_in.post("/stations/new",
+                   data={"name": payload, "slug": "xsstest",
+                         "csrf_token": signed_in.headers.get("X-CSRF-Token", "")},
+                   follow_redirects=True)
+    _run_forecast(signed_in, station_id)
+
+    for path in ("/", f"/station/{station_id}",
+                 f"/station/{station_id}/dashboard",
+                 f"/station/{station_id}/forecast?days=1"):
+        body = signed_in.get(path).text
+        assert payload not in body, f"unescaped station name on {path}"
+        assert not _re.search(r"<\s*script\s*>\s*alert", body, _re.I), \
+            f"executable payload reached {path}"
+
+
 @pytest.mark.parametrize("days", [1, 3, 5])
 def test_run_then_view_each_horizon(signed_in, station_id, days):
     r = signed_in.post(f"/station/{station_id}/run", data={"days": days},

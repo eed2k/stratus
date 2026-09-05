@@ -116,6 +116,22 @@ app.use(helmet({
   originAgentCluster: false, // Disable for HTTP
 }));
 
+/**
+ * Permissions-Policy, which Helmet does not set.
+ *
+ * This was the one security header the audit found missing on the main app
+ * while every other surface had it. A dashboard needs none of these devices, so
+ * denying them outright means a future dependency cannot quietly start asking
+ * for a location or a camera on our origin.
+ *
+ * Set after helmet so it cannot be overwritten by it.
+ */
+app.use((_req, res, next) => {
+  res.setHeader("Permissions-Policy",
+                "geolocation=(), microphone=(), camera=()");
+  next();
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;

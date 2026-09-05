@@ -33,6 +33,15 @@ services:
     mem_limit: 320m
     security_opt:
       - no-new-privileges:true
+    # Bound the log. Docker's default json-file driver grows without limit, and
+    # this host has repeatedly sat above 80 percent disk; an unbounded log is a
+    # self-inflicted outage that also blocks kernel updates. Three 10 MB files is
+    # plenty of history for a service that logs one line per poll.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=stratus_stratus-network"

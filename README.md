@@ -17,7 +17,7 @@ how to connect a station.
 In production use, exercised against real hardware:
 
 - Campbell Scientific (PakBus) over TCP/IP - native PakBus implementation, including clock sync and scheduled or on-demand collection
-  - Dataloggers seen in service: CR300, CR1000, CR1000X, CR6, CR800, CR850
+  - Supported dataloggers: CR300, CR310, CR350, CR1000, CR1000X, CR1000Xe
 - Dropbox sync - watches a folder and ingests a logger export whenever it changes. This is how the cellular sites actually deliver data: the logger writes to Dropbox and Stratus reads it. Read-only; Stratus never writes to your Dropbox
 - HTTP POST ingest - the station pushes readings to a per-station endpoint
 - Manual file import - TOA5 or CSV upload for bulk history
@@ -26,7 +26,7 @@ In production use, exercised against real hardware:
 Implemented but not in production use here:
 
 - Arduino IoT Cloud - OAuth2 client-credentials against Thing properties
-- LoRa uplink decoding and a generic MQTT/HTTP REST path for custom loggers (ESP32, ESP8266, Pico W and similar)
+- Stratus Logger - Metron's own datalogger board, reporting over LoRa or Sigfox. The LoRa uplink decoder and the generic MQTT/HTTP REST path exist for this board; the hardware design lives in `StratusLoggerV1[metron]/`
 
 Generic endpoint support only, NOT validated integrations:
 
@@ -327,6 +327,12 @@ lightning-demo/     Static lightning demo site (nginx)
 Beacon/             Pilot-light/beacon controller for the lightning system
 Emulator/           Bench emulator for the AS3935 detector (Arduino + Pi)
 BeagleBone/         Kiosk that boots a BBB into a wall dashboard over HDMI
+
+StratusLoggerV1[metron]/  Stratus Logger hardware design (KiCad): the in-house
+                          datalogger board, LoRa/Sigfox uplink
+AS3935/             Lightning detector (Pi Zero W + AS3935) firmware
+AS3935handheld/     Handheld lightning detector hardware design (KiCad)
+RPiZero SD Card/    Boot-partition contents and installer for the detector
 
 LDS ADMIN/          Lightning Alert Console (FastAPI, separate deployment)
   app/
