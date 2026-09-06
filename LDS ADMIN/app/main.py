@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
@@ -163,6 +163,64 @@ async def unhandled_error(request, exc):
 
 BASE = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon_ico():
+    """Serve the tab icon from the site root as well as from /static.
+
+    Browsers request /favicon.ico whether or not the document links one, and this
+    path previously answered with FastAPI's JSON 404, which is why the panel
+    showed a blank tab while every other Stratus surface showed the mark. It also
+    covers the case where the response carries no markup at all, such as the
+    redirect a logged-out visitor receives.
+
+    Deliberately public, and ahead of the tenant prefix middleware's concern: the
+    icon is the same for the platform panel and every client sub-panel.
+    """
+    return FileResponse(BASE / "static" / "favicon.ico",
+                        media_type="image/x-icon",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+def apple_touch_icon():
+    """The icon iOS asks for by convention, answered with the same mark.
+
+    The SVG is served rather than a second raster file, so there is only ever one
+    image to keep in step.
+    """
+    return FileResponse(BASE / "static" / "favicon.svg",
+                        media_type="image/svg+xml",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon_ico():
+    """Serve the tab icon from the site root as well as from /static.
+
+    Browsers ask for /favicon.ico whether or not the document links one, and a
+    client sub-panel is served under a path prefix, so a relative reference is
+    not dependable either. Answering here means the mark appears in the tab
+    regardless of which of the two routes the browser chooses to take.
+    """
+    return FileResponse(BASE / "static" / "favicon.ico",
+                        media_type="image/x-icon",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+def apple_touch_icon():
+    """Same reasoning for the icon iOS asks for by convention.
+
+    The SVG is what is served: it is the same mark, and it scales, so there is no
+    second raster file to keep in step with the first.
+    """
+    return FileResponse(BASE / "static" / "favicon.svg",
+                        media_type="image/svg+xml",
+                        headers={"Cache-Control": "public, max-age=86400"})
 
 # Resolve /<client-slug> into a tenant before routing, so one routing table
 # serves the platform panel and every client sub-panel. Added last => runs

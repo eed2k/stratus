@@ -80,6 +80,80 @@ const STRATUS_NAVY = "#1e3a5f";
 const WINDOW_HOURS = 24;
 const WINDOW_LABEL = "24h";
 
+/** How often the display re-reads the station. */
+const REFRESH_MS = 60 * 1000;
+
+/**
+ * The only columns this view plots over the 24-hour window.
+ *
+ * Requested explicitly because a full reading carries about 120 columns, so the
+ * 500-point window came back as roughly 880 KB of mostly nulls, once a minute,
+ * for every viewer. These six cover both charts, both wind roses and the
+ * 24-hour rainfall total; `timestamp` is always returned by the endpoint.
+ *
+ * The live tiles are NOT served from here, they read the latest reading, so
+ * narrowing this list does not narrow what the screen shows. Wind gust is absent
+ * for exactly that reason: it appears on the wind tile, which reads the latest
+ * reading, and nothing plots it across the window.
+ */
+const WINDOW_FIELDS = [
+  "temperature", "humidity", "windSpeed", "windDirection",
+  "solarRadiation", "rainfall",
+] as const;
+
+/**
+ * Polling options shared by every query on this page.
+ *
+ * This is an unattended wall display, so refreshing has to be unconditional:
+ *
+ * - `refetchInterval` keeps the screen current without anyone touching it.
+ * - `refetchIntervalInBackground` matters because React Query stops its timers
+ *   while the document is hidden. A display parked on a second tab, or a screen
+ *   the operating system has dimmed, would otherwise quietly stop updating and
+ *   then show hours-old readings the moment somebody glanced at it.
+ * - `staleTime: 0` so a scheduled refetch actually goes to the network instead
+ *   of being served from the cache under the global 30 second staleTime.
+ */
+const LIVE_QUERY = {
+  refetchInterval: REFRESH_MS,
+  refetchIntervalInBackground: true,
+  staleTime: 0,
+} as const;
+
+/**
+ * Statuses that mean the share link itself is unusable, as opposed to a request
+ * that merely failed.
+ *
+ * 404 the token is unknown, 403 deactivated or expired, 410 gone.
+ */
+const SHARE_GONE_STATUSES = [403, 404, 410];
+
+/**
+ * A share that no longer exists, distinguished from a request that failed.
+ *
+ * The two were treated the same, and every failure rendered "Share link not
+ * found or expired". A momentary fault on page load therefore accused the link
+ * of being dead, and a fraction of a second later the retry succeeded and the
+ * dashboard appeared, which is the flash that was reported. Only this error type
+ * is allowed to produce that message, and only it skips the retry.
+ */
+class ShareGoneError extends Error {
+  constructor(message?: string) {
+    super(message || "This share link is no longer available.");
+    this.name = "ShareGoneError";
+  }
+}
+
+/**
+ * A reading as the share endpoint returns it.
+ *
+ * The server stamps every row with `collectedAt`, the moment the record was
+ * taken off the station, which is a different thing from `timestamp`, the moment
+ * the logger recorded it. It is not part of the shared WeatherData type because
+ * that type models the reading itself, so it is declared here where it is read.
+ */
+type SharedReading = WeatherData & { collectedAt?: string | Date | null };
+
 /** Trim a set of readings to the last `hours` before the newest reading. */
 const withinLastHours = (data: WeatherData[], hours: number): WeatherData[] => {
   if (data.length === 0 || hours >= 24) return data;
@@ -278,28 +352,53 @@ export default function CompactDashboard() {
   const shareHeaders: HeadersInit = sessionToken ? { "X-Share-Session": sessionToken } : {};
 
   // Share info (name + password requirement)
-  const { data: shareInfo, isLoading: loadingShare, error: shareError } = useQuery({
+  const {
+    data: shareInfo,
+    isLoading: loadingShare,
+    error: shareError,
+  } = useQuery({
     queryKey: ["compact-share-info", shareToken],
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}`);
-      if (!res.ok) throw new Error("Share not found");
+      // A status that describes the LINK is terminal: no amount of retrying
+      // will bring back a share that was deleted, deactivated or has expired.
+      if (SHARE_GONE_STATUSES.includes(res.status)) {
+        const body = await res.json().catch(() => ({}));
+        throw new ShareGoneError(body?.error);
+      }
+      // Anything else is a fault in the request, not a verdict on the link, so
+      // it is allowed to be retried.
+      if (!res.ok) throw new Error(`Share lookup failed with ${res.status}`);
       return res.json();
     },
     enabled: !!shareToken,
-    retry: false,
+    // Retry transient faults; fail fast when the link itself is gone.
+    retry: (failureCount, error) => !(error instanceof ShareGoneError) && failureCount < 3,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
+    // Keep trying in the background so an unattended display recovers by itself
+    // once the server is reachable again, instead of sitting on an error screen
+    // until somebody walks over and reloads it.
+    ...LIVE_QUERY,
   });
 
   const requiresPassword = shareInfo?.share?.requiresPassword && !sessionToken;
 
-  // Station info
+  // Station info.
+  //
+  // Polled rather than fetched once: the sync time and the active/inactive state
+  // are read from here, so a static copy would freeze them on screen. slim=1
+  // drops the station photo from the reply, which this view does not display and
+  // which would otherwise add about 64 KB to every poll.
   const { data: stationData, isSuccess: stationReady } = useQuery<{ station: any }>({
     queryKey: ["compact-station", shareToken, sessionToken],
     queryFn: async () => {
-      const res = await fetch(`/api/shares/${shareToken}/station`, { headers: shareHeaders });
+      const res = await fetch(`/api/shares/${shareToken}/station?slim=1`, { headers: shareHeaders });
       if (!res.ok) throw new Error("Station not found");
       return res.json();
     },
     enabled: !!shareToken && !requiresPassword,
+    placeholderData: (prev) => prev,
+    ...LIVE_QUERY,
   });
   const station = stationData?.station;
   const windSpeedUnit: WindSpeedUnit = station?.windSpeedUnit === "kmh" ? "kmh" : "ms";
@@ -322,7 +421,7 @@ export default function CompactDashboard() {
   const rainfallTipFactor = rainfallConfig?.tipFactor ?? 0.2;
 
   // Latest reading (live sync data) - refreshes with station sync
-  const { data: latest, isSuccess: latestReady } = useQuery<WeatherData>({
+  const { data: latest, isSuccess: latestReady } = useQuery<SharedReading>({
     queryKey: ["compact-latest", shareToken, sessionToken],
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}/data/latest`, { headers: shareHeaders });
@@ -330,7 +429,8 @@ export default function CompactDashboard() {
       return res.json();
     },
     enabled: !!shareToken && !requiresPassword,
-    refetchInterval: 60000,
+    placeholderData: (prev) => prev,
+    ...LIVE_QUERY,
   });
 
   // Recent 24h window for wind rose + temp/humidity chart (fixed, no user options)
@@ -340,14 +440,20 @@ export default function CompactDashboard() {
       const endTime = latest?.timestamp ? new Date(latest.timestamp) : new Date();
       const startTime = new Date(endTime.getTime() - WINDOW_HOURS * 60 * 60 * 1000);
       const res = await fetch(
-        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&limit=500`,
+        `/api/shares/${shareToken}/data?startTime=${startTime.toISOString()}`
+        + `&endTime=${endTime.toISOString()}&limit=500&fields=${WINDOW_FIELDS.join(",")}`,
         { headers: shareHeaders }
       );
       if (!res.ok) return [];
       return res.json();
     },
     enabled: !!shareToken && !requiresPassword,
-    refetchInterval: 60000,
+    // The key contains the newest reading's timestamp, so every sync creates a
+    // fresh cache entry. Without carrying the previous result over, the charts
+    // and both wind roses would empty out for as long as the new window takes to
+    // arrive - a visible blink on the wall every time data lands.
+    placeholderData: (prev) => prev,
+    ...LIVE_QUERY,
   });
 
   const handlePasswordSubmit = async () => {
@@ -451,8 +557,22 @@ export default function CompactDashboard() {
     [recentData, rainfallType, rainfallTipFactor],
   );
   const batteryVoltage = num(latest?.batteryVoltage);
-  const lastSynced = latest?.timestamp
-    ? new Date(latest.timestamp).toLocaleString("en-ZA", {
+  /**
+   * When the server last took data off this station.
+   *
+   * This is deliberately NOT the newest reading's timestamp. A logger stamps a
+   * record at, say, 20:40 and the file carrying it is collected at 21:23, so the
+   * reading timestamp can sit close to an hour behind the actual sync and this
+   * screen disagreed with every other view in the app.
+   *
+   * The precedence matches Stations and StationSelector so all three agree:
+   * the station's own last-connected time, then the ingest time stamped on the
+   * newest reading, then the reading's own time as a last resort for a station
+   * whose sync time was never recorded.
+   */
+  const lastSyncedAt = station?.lastConnected ?? latest?.collectedAt ?? latest?.timestamp ?? null;
+  const lastSynced = lastSyncedAt
+    ? new Date(lastSyncedAt).toLocaleString("en-ZA", {
         timeZone: "Africa/Johannesburg",
         day: "2-digit",
         month: "short",
@@ -518,8 +638,32 @@ export default function CompactDashboard() {
       </div>
     );
   }
-  if (shareError) {
-    return <div className="h-screen flex items-center justify-center text-black">Share link not found or expired.</div>;
+  /**
+   * Only take over the screen when there is genuinely nothing to show.
+   *
+   * `shareInfo` is kept by the query cache across a failed refetch, so a single
+   * dropped poll on a display that has been running for hours no longer wipes it
+   * and replaces it with an error. And the wording now follows the actual cause:
+   * a deleted or expired link says so, while a request that failed says it is
+   * retrying, because it is - see the retry and refetch settings on the query.
+   */
+  if (shareError && !shareInfo) {
+    const gone = shareError instanceof ShareGoneError;
+    return (
+      <div className="h-screen flex items-center justify-center bg-white p-6">
+        <div className="max-w-sm text-center space-y-2">
+          <p className="text-base font-semibold text-black">
+            {gone ? "Share link not available" : "Cannot reach the server"}
+          </p>
+          <p className="text-sm text-black">
+            {gone
+              ? shareError.message
+              : "This dashboard could not load its data. It keeps retrying and will "
+                + "appear on its own once the connection is back."}
+          </p>
+        </div>
+      </div>
+    );
   }
   if (requiresPassword) {
     return (
@@ -557,10 +701,14 @@ export default function CompactDashboard() {
   const loadReady = loadSteps.filter(Boolean).length;
   const loadDone = loadSteps.every(Boolean);
 
-  // Status is Active when a reading has arrived within the last two hours, else
-  // Inactive. Battery is color-coded by state of charge for a 12 V system.
-  const isLive = latest?.timestamp != null
-    && (Date.now() - new Date(latest.timestamp).getTime()) < 2 * 60 * 60 * 1000;
+  // Status is Active when the station has synced within the last two hours, else
+  // Inactive. Judged on the same timestamp shown as "Last Synced" so the two
+  // fields cannot contradict each other: a station that synced five minutes ago
+  // reads Active even when its newest record is older, which is normal for a
+  // logger that reports in batches. Battery is color-coded by state of charge for
+  // a 12 V system.
+  const isLive = lastSyncedAt != null
+    && (Date.now() - new Date(lastSyncedAt).getTime()) < 2 * 60 * 60 * 1000;
   const statusText = isLive ? "Active" : "Inactive";
   const statusColor = isLive ? "#16a34a" : "#dc2626";
   const batteryColor = batteryVoltage == null ? "#000"

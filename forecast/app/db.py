@@ -40,6 +40,20 @@ from pathlib import Path
 
 TS_FMT = "%Y-%m-%d %H:%M:%S"
 
+# Model background defaults applied to a NEW station. See the stations table
+# comment in SCHEMA for why the background is on rather than off.
+#
+# Written as literals here rather than imported from ingest and providers.registry
+# because the same values are also SQL column defaults, which have to be
+# constants. tests/test_nwp_defaults.py asserts they stay in step with
+# ingest.ENGINE_VARIABLES and registry.ALL_PROVIDER_NAMES, so the two cannot
+# drift apart unnoticed.
+DEFAULT_NWP_PROVIDERS = ("xweather",)
+DEFAULT_NWP_VARIABLES = (
+    "temperature", "humidity", "dew_point", "pressure", "wind_speed",
+    "wind_gust", "wind_direction", "solar_radiation", "rainfall",
+)
+
 
 def to_db(when: datetime) -> str:
     return when.strftime(TS_FMT)
@@ -70,10 +84,20 @@ CREATE TABLE IF NOT EXISTS stations (
     -- exactly one diurnal quarter-cycle. Defaults to +2 for SAST.
     utc_offset_hours REAL NOT NULL DEFAULT 2.0,
     created_at    TEXT    NOT NULL,
-    -- Model background opt-in, off until the operator turns it on.
-    nwp_enabled   INTEGER NOT NULL DEFAULT 0,
-    nwp_providers TEXT    NOT NULL DEFAULT '[]',
-    nwp_variables TEXT    NOT NULL DEFAULT '[]'
+    -- Model background, ON by default with every engine variable selected.
+    --
+    -- The method is a station's own history CORRECTING a model background. With
+    -- the background off a station can only ever reproduce its own past, which
+    -- is the weaker half of that and not what a nano-climate forecast is for. So
+    -- a new station is model-backed from the start; the operator can still
+    -- narrow the variable list or switch it off per station afterwards.
+    --
+    -- Nothing is fetched until the station has coordinates (see
+    -- forecasting.run_forecast), so this cannot spend the access budget on a
+    -- station that was created and never positioned.
+    nwp_enabled   INTEGER NOT NULL DEFAULT 1,
+    nwp_providers TEXT    NOT NULL DEFAULT '["xweather"]',
+    nwp_variables TEXT    NOT NULL DEFAULT '["temperature","humidity","dew_point","pressure","wind_speed","wind_gust","wind_direction","solar_radiation","rainfall"]'
 );
 
 CREATE TABLE IF NOT EXISTS uploads (
@@ -258,7 +282,7 @@ class Station:
     longitude: float | None = None
     elevation_m: float | None = None
     utc_offset_hours: float = 2.0
-    nwp_enabled: bool = False
+    nwp_enabled: bool = True
     nwp_providers: list[str] | None = None
     nwp_variables: list[str] | None = None
 
@@ -326,9 +350,14 @@ class Database:
         wanted = {
             "stations": [
                 ("utc_offset_hours", "REAL NOT NULL DEFAULT 2.0"),
-                ("nwp_enabled", "INTEGER NOT NULL DEFAULT 0"),
-                ("nwp_providers", "TEXT NOT NULL DEFAULT '[]'"),
-                ("nwp_variables", "TEXT NOT NULL DEFAULT '[]'"),
+                # Matches the SCHEMA defaults: a database being brought up to
+                # this version gets the background on, like a fresh one.
+                ("nwp_enabled", "INTEGER NOT NULL DEFAULT 1"),
+                ("nwp_providers", "TEXT NOT NULL DEFAULT '[\"xweather\"]'"),
+                ("nwp_variables",
+                 "TEXT NOT NULL DEFAULT '[\"temperature\",\"humidity\","
+                 "\"dew_point\",\"pressure\",\"wind_speed\",\"wind_gust\","
+                 "\"wind_direction\",\"solar_radiation\",\"rainfall\"]'"),
                 ("elevation_m", "REAL"),
             ],
             "forecast_points": [
@@ -380,11 +409,18 @@ class Database:
                         "logger_model) WHERE id = ?",
                         (name, logger_model, row["id"]))
                 return int(row["id"])
+            # The model background is written explicitly rather than left to the
+            # column default, because a database created by an earlier version
+            # has these columns with the old off-by-default and a new station
+            # there would silently be history-only.
             cur = c.execute(
-                "INSERT INTO stations (slug, name, logger_model, created_at) "
-                "VALUES (?, ?, ?, ?)",
+                "INSERT INTO stations (slug, name, logger_model, created_at, "
+                "nwp_enabled, nwp_providers, nwp_variables) "
+                "VALUES (?, ?, ?, ?, 1, ?, ?)",
                 (slug, name or slug, logger_model,
-                 to_db(datetime.now())))
+                 to_db(datetime.now()),
+                 json.dumps(list(DEFAULT_NWP_PROVIDERS)),
+                 json.dumps(list(DEFAULT_NWP_VARIABLES))))
             return int(cur.lastrowid)
 
     def _station_from_row(self, r: sqlite3.Row) -> Station:

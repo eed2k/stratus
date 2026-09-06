@@ -1,7 +1,7 @@
 // Stratus Weather Server
 // Created by Lukas Esterhuizen
 
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
@@ -9,6 +9,7 @@ import { createShare as sqliteCreateShare, getShareByToken as sqliteGetShareByTo
 import * as postgres from "../db-postgres";
 import { isAuthenticated } from "../localAuth";
 import { storage } from "../localStorage";
+import { apiLogger } from "../utils/logger";
 
 const router = Router();
 const usePostgres = postgres.isPostgresEnabled();
@@ -131,6 +132,31 @@ const sharePublicRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests. Please slow down.' },
 });
+
+/**
+ * Nothing on a share link may be stored by a browser or a proxy.
+ *
+ * Express answers these routes with an ETag and no Cache-Control at all. That
+ * combination lets a browser keep the reply and revalidate it on the next load
+ * instead of fetching, which produced two reported faults on the compact
+ * dashboard: a flash of "Share link not found or expired" on reload, from a
+ * stored reply for a moment when the link genuinely was unavailable, and a
+ * display that looked like it had stopped refreshing because the poll was being
+ * answered from the cache.
+ *
+ * These payloads are live readings and access decisions. Neither is cacheable in
+ * any useful sense, so no-store is both the fix and the correct policy: every
+ * poll reaches the origin, and no conditional request is ever made, so a 304 can
+ * never surface to the page as a failed fetch.
+ */
+function noStore(_req: Request, res: Response, next: NextFunction): void {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+  next();
+}
+router.use('/shares', noStore);
 
 // Generate a session ID for validated share access
 const generateSessionId = (): string => {
@@ -493,6 +519,17 @@ router.get('/shares/:shareToken/station', async (req: Request, res: Response) =>
     if (!station) {
       return res.status(404).json({ success: false, error: 'Station not found' });
     }
+    /**
+     * slim=1 omits stationImage.
+     *
+     * The image is a base64 data URI, which makes this reply about 64 KB for a
+     * station that has one. That is a sensible cost for a page that displays the
+     * photo and fetches once, and a pointless one for the compact wall display,
+     * which shows no photo and re-polls this endpoint on a timer to keep the
+     * sync time and status current. The field is still returned by default so
+     * this stays backward compatible.
+     */
+    const slim = req.query.slim === '1' || req.query.slim === 'true';
     // Return only public-safe station info (no connection config/secrets)
     res.json({
       station: {
@@ -502,9 +539,18 @@ router.get('/shares/:shareToken/station', async (req: Request, res: Response) =>
         latitude: station.latitude,
         longitude: station.longitude,
         altitude: station.altitude,
-        stationImage: station.stationImage,
+        ...(slim ? {} : { stationImage: station.stationImage }),
         isActive: station.isActive,
         windSpeedUnit: station.windSpeedUnit || 'ms',
+        /**
+         * When the server last ingested data for this station, which is what the
+         * rest of the app means by "last sync". It is NOT the same as the newest
+         * reading's timestamp: a logger records at, say, 20:40 and the file that
+         * carries that record is collected at 21:23. The compact dashboard was
+         * showing the reading timestamp under a "Last Synced" label, so it read
+         * up to an hour behind the actual sync.
+         */
+        lastConnected: (station as any).lastConnected ?? null,
       }
     });
   } catch (error) {
@@ -548,6 +594,7 @@ router.get('/shares/:shareToken/data', async (req: Request, res: Response) => {
       new Date(endTime as string)
     );
     const rawCount = data.length;
+    // The projection is applied after downsampling, below.
     // Server-side downsampling
     const maxPoints = limit ? parseInt(limit as string) : 500;
     if (data.length > maxPoints) {
@@ -561,10 +608,55 @@ router.get('/shares/:shareToken/data', async (req: Request, res: Response) => {
       }
       data = sampled;
     }
-    const firstTs = data.length > 0 ? data[0].timestamp : null;
-    const lastTs = data.length > 0 ? data[data.length - 1].timestamp : null;
-    console.log(`[shared-data] station=${access.stationId} raw=${rawCount} sent=${data.length} maxPts=${maxPoints} range=${firstTs}..${lastTs}`);
-    res.json(data);
+    /**
+     * Rows come back newest first, so data[0] is the newest reading and the last
+     * element is the oldest. This was logged as "range=<first>..<last>", which
+     * printed a range that appears to run backwards and reads like a bug in the
+     * query. It is labeled explicitly now, and demoted to debug: it fired on
+     * every request from every shared dashboard, which is the single noisiest
+     * line in the production log.
+     */
+    const newestTs = data.length > 0 ? data[0].timestamp : null;
+    const oldestTs = data.length > 0 ? data[data.length - 1].timestamp : null;
+    /**
+     * Optional field projection, for example fields=temperature,humidity.
+     *
+     * A reading carries about 120 columns, nearly all of them null for any one
+     * station, and a 500-point window therefore serializes to roughly 880 KB.
+     * The compact dashboard re-requests that window on a timer and plots eight
+     * of those columns, so the rest is pure cost: bytes on the wire, and time
+     * holding a database client while the rows are fetched and stringified.
+     * That client contention is what produced "timeout exceeded when trying to
+     * connect" in the log, which the page then reported to the viewer as an
+     * expired share link.
+     *
+     * timestamp is always included, because every consumer plots against it.
+     * Omitting the parameter returns the full record, so existing callers are
+     * unaffected.
+     */
+    const fieldsParam = typeof req.query.fields === 'string' ? req.query.fields : '';
+    const wanted = fieldsParam
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean);
+    let payload: unknown = data;
+    if (wanted.length > 0) {
+      const keep = new Set(['timestamp', ...wanted]);
+      payload = data.map((row) => {
+        const out: Record<string, unknown> = {};
+        for (const key of keep) {
+          if (key in (row as Record<string, unknown>)) {
+            out[key] = (row as Record<string, unknown>)[key];
+          }
+        }
+        return out;
+      });
+    }
+    apiLogger.debug(
+      `shared-data station=${access.stationId} raw=${rawCount} sent=${data.length} ` +
+      `maxPts=${maxPoints} fields=${wanted.length || 'all'} ` +
+      `newest=${newestTs} oldest=${oldestTs}`);
+    res.json(payload);
   } catch (error) {
     console.error('Error getting shared data range:', error);
     res.status(500).json({ message: 'Failed to fetch weather data' });

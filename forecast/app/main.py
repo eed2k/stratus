@@ -42,7 +42,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import (HTMLResponse, RedirectResponse, JSONResponse,
+                               FileResponse)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -130,6 +131,39 @@ app = FastAPI(title="Stratus nano-climate forecast", docs_url=None,
               redoc_url=None, openapi_url=None, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")),
           name="static")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon_ico():
+    """Serve the tab icon from the site root as well as from /static.
+
+    Browsers request /favicon.ico whether or not the document links one, and this
+    path previously answered with FastAPI's JSON 404. Serving it means the mark
+    appears even on a response that carries no markup, such as the 303 a
+    logged-out visitor receives.
+
+    Deliberately public: it is the same file the login page already links, so
+    requiring a session to fetch it would only mean a blank tab for a visitor who
+    has not signed in yet.
+    """
+    return FileResponse(APP_DIR / "static" / "favicon.ico",
+                        media_type="image/x-icon",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+def apple_touch_icon():
+    """The icon iOS asks for by convention, answered with the same mark.
+
+    The SVG is served rather than a second raster file, so there is only ever one
+    image to keep in step.
+    """
+    return FileResponse(APP_DIR / "static" / "favicon.svg",
+                        media_type="image/svg+xml",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 templates.env.globals["label_for"] = charts.label_for
 templates.env.globals["unit_for"] = charts.unit_for

@@ -199,6 +199,39 @@ def test_nearest_point_refuses_to_stretch():
     assert fc.at(T0 + timedelta(hours=5)) is None
 
 
+def test_mixed_time_awareness_is_not_covered_rather_than_an_exception():
+    """The crash that switching the model background on used to produce.
+
+    Xweather stamps its periods in UTC, so its points are timezone-aware, while
+    a station's history is naive local time. forecasting.run_forecast asks twice,
+    once with the station's offset attached and once naive, so that an aware
+    provider is answered by the first call and a naive one by the second. The
+    call that does not match used to reach a subtraction of a naive datetime from
+    an aware one, and TypeError out of a method the engine calls once per
+    variable per lead hour, which killed the entire run.
+    """
+    # Built here rather than from T0, whose awareness is not the point of this
+    # test and must not silently decide its outcome.
+    naive_when = datetime(2026, 8, 30, 12, 0)
+    aware_when = naive_when.replace(tzinfo=timezone.utc)
+
+    aware_series = base.NwpForecast(
+        provider="x", issued_at=aware_when,
+        points=[base.NwpPoint(valid_at=aware_when,
+                              values={"temperature": 20.0})])
+    # Naive query against an aware series: declined, not raised.
+    assert aware_series.at(naive_when) is None
+    # The matching query still resolves.
+    assert aware_series.at(aware_when) is not None
+
+    naive_series = base.NwpForecast(
+        provider="x", issued_at=naive_when,
+        points=[base.NwpPoint(valid_at=naive_when,
+                              values={"temperature": 20.0})])
+    assert naive_series.at(aware_when) is None
+    assert naive_series.at(naive_when) is not None
+
+
 # ---------------------------------------------------------------------------
 #  Xweather adapter
 # ---------------------------------------------------------------------------

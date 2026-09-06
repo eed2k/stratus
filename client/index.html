@@ -14,8 +14,12 @@
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
     <meta name="theme-color" content="#1e3a5f" />
 
-    <!-- Stratus mark in the browser tab -->
+    <!-- Stratus mark in the browser tab. The SVG is what modern browsers use;
+         the .ico is kept because some browsers request /favicon.ico regardless
+         of these tags, and that request previously fell through to the SPA
+         handler and was answered with index.html, which suppressed the icon. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" sizes="any" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
   </head>
   <body>

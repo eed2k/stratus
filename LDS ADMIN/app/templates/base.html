@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>LDS STRATUS</title>
+{# Browser-tab icon. The SVG is what modern browsers use; the .ico is kept
+   because some browsers request /favicon.ico regardless of these tags, and a
+   panel with no icon looked like a different product in the tab strip. #}
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/x-icon" sizes="any" href="/static/favicon.ico">
+<link rel="apple-touch-icon" href="/static/favicon.svg">
 {#
   Critical loader styles, inlined on purpose.
 
@@ -42,7 +48,10 @@
 #page-loader{position:fixed;inset:0;z-index:9999;display:flex;
   flex-direction:column;align-items:center;justify-content:center;
   background:#ffffff;opacity:1;
-  animation:pl-auto 3.2s ease-in 1 forwards}
+  /* No-JS safety net only. With scripting on, app.js adds .is-done as soon as
+     the page is ready, which is normally well under a second. The duration is
+     long enough that the arc below is not cut off mid-fill. */
+  animation:pl-auto 13s ease-in 1 forwards}
 #page-loader.is-done{animation:none;opacity:0;pointer-events:none;
   transition:opacity .3s ease}
 @keyframes pl-auto{0%,70%{opacity:1}100%{opacity:0;visibility:hidden}}
@@ -57,7 +66,11 @@
   animation:pl-spin 1.4s linear infinite}
 #page-loader .pl-arc{fill:none;stroke:#1e3a5f;stroke-width:6;
   stroke-linecap:round;stroke-dasharray:289.03;stroke-dashoffset:289.03;
-  animation:pl-fill 2.4s ease-out 1 forwards}
+  /* 12s linear to 90%, which is exactly the main app's time floor
+     (min(90, elapsed/12000*90)). It was 2.4s ease-out, and that difference in
+     PACE was the reason the subdomain loaders still looked like a different
+     animation even after every color and size matched. */
+  animation:pl-fill 12s linear 1 forwards}
 #page-loader.is-done .pl-arc{animation:none;stroke-dashoffset:0}
 #page-loader .pl-pct{position:absolute;inset:0;display:flex;
   align-items:center;justify-content:center;

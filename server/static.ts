@@ -71,6 +71,18 @@ export function serveStatic(app: Express) {
   // Hidden paths, except the ACME challenge directory a certificate issuer needs.
   const HIDDEN_PATH = /^\/\.(?!well-known\/)/;
 
+  /**
+   * Icon requests must never be answered with index.html.
+   *
+   * Browsers ask for /favicon.ico whether or not the document links one, and the
+   * SPA catch-all below happily returned the HTML page with a 200. A browser
+   * handed HTML where it expected an image shows no tab icon at all, which is
+   * exactly the symptom that was reported. A real favicon.ico now ships in
+   * client/public so the static handler answers first; this stays as the
+   * guarantee that a missing file degrades to an honest 404 rather than to HTML.
+   */
+  const ICON_PATHS = /^\/(?:favicon\.ico|apple-touch-icon(?:-precomposed)?\.png)$/i;
+
   // Note: the X-Robots-Tag noindex header is set globally in server/index.ts so
   // it also covers API responses and shared dashboard links.
   app.use((req, res, next) => {
@@ -78,6 +90,17 @@ export function serveStatic(app: Express) {
     if (SOURCE_PREFIXES.test(p) || SOURCE_EXTENSIONS.test(p) || HIDDEN_PATH.test(p)) {
       res.status(404).type("text/plain").send("Not found");
       return;
+    }
+    next();
+  });
+
+  // Icon requests are allowed to reach the static handlers below, but must not
+  // reach the SPA catch-all. Registered after the static middleware further
+  // down would be too late, so the check is deferred with a flag on the request
+  // and enforced in the catch-all itself.
+  app.use((req, _res, next) => {
+    if (ICON_PATHS.test(req.path)) {
+      (req as unknown as { isIconRequest?: boolean }).isIconRequest = true;
     }
     next();
   });
@@ -116,7 +139,14 @@ export function serveStatic(app: Express) {
     dotfiles: "deny",
   }));
 
-  app.use("*", (_req, res) => {
+  app.use("*", (req, res) => {
+    // An icon that reached here does not exist on disk. Answer 404 rather than
+    // handing the browser an HTML document where it expected an image, which
+    // leaves the tab with no icon at all.
+    if ((req as unknown as { isIconRequest?: boolean }).isIconRequest) {
+      res.status(404).type("text/plain").send("Not found");
+      return;
+    }
     // Always send fresh index.html (no browser caching)
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");

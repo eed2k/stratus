@@ -81,6 +81,12 @@ export class HTTPAdapter extends BaseProtocolAdapter {
           headers["Authorization"] = `Bearer ${this.config.apiKey}`;
           break;
         case "blynk":
+          // Blynk takes the token in the query string; see buildEndpointUrl.
+          break;
+        case "openweathermap":
+          // Same: the key goes in the appid query parameter. Sending it as a
+          // bearer token as well would leak it to a service that has no use for
+          // it, and OpenWeatherMap rejects the request either way.
           break;
         default:
           headers["Authorization"] = `Bearer ${this.config.apiKey}`;
@@ -489,7 +495,28 @@ export class HTTPAdapter extends BaseProtocolAdapter {
         url += url.includes("?") ? "&" : "?";
         url += `api-key=${apiKeyId}&t=${Date.now()}`;
       }
-      
+
+      /**
+       * OpenWeatherMap authenticates with an `appid` query parameter, not a
+       * header, and it reports Kelvin unless `units` is given. Both are added
+       * here when absent, so a station configured with nothing but an endpoint
+       * and an API key works: without the key the service answers 401, and
+       * without `units=metric` the temperature arrives in Kelvin and would be
+       * stored as if it were Celsius.
+       *
+       * Anything the operator already put in the URL is left alone.
+       */
+      if (this.serviceType === "openweathermap") {
+        const parsed = new URL(url, "https://api.openweathermap.org");
+        if (this.config.apiKey && !parsed.searchParams.has("appid")) {
+          parsed.searchParams.set("appid", this.config.apiKey);
+        }
+        if (!parsed.searchParams.has("units")) {
+          parsed.searchParams.set("units", "metric");
+        }
+        url = parsed.toString();
+      }
+
       return url;
     }
 
@@ -516,6 +543,8 @@ export class HTTPAdapter extends BaseProtocolAdapter {
         return this.parseBlynkResponse(response);
       case "thingspeak":
         return this.parseThingSpeakResponse(response);
+      case "openweathermap":
+        return this.parseOpenWeatherMapResponse(response);
       default:
         return this.parseGenericResponse(response);
     }
@@ -750,6 +779,76 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       solarRadiation: feed.field7 ? parseFloat(feed.field7) : null,
       batteryVoltage: feed.field8 ? parseFloat(feed.field8) : null,
     };
+  }
+
+  /**
+   * OpenWeatherMap current-weather response.
+   *
+   * Shape: { main: { temp, humidity, pressure, grnd_level }, wind: { speed, deg,
+   * gust }, rain: { "1h" }, clouds: { all }, visibility }.
+   *
+   * This previously fell through to the generic parser, which got the
+   * temperature and humidity by accident and was wrong in two ways that mattered:
+   * `wind.deg` matched none of the generic direction aliases, so wind direction
+   * was silently dropped, and a response in Kelvin was stored as if it were
+   * Celsius, putting every reading near 295 degrees.
+   *
+   * Pressure prefers `grnd_level`, the pressure at the station, over `pressure`,
+   * which OpenWeatherMap reduces to sea level. Stratus treats pressure as a
+   * station reading everywhere else, and mixing the two makes a barometric trend
+   * meaningless.
+   */
+  private parseOpenWeatherMapResponse(data: any): Record<string, number | null> {
+    const main = data?.main ?? {};
+    const wind = data?.wind ?? {};
+    const rain = data?.rain ?? {};
+    const snow = data?.snow ?? {};
+
+    const n = (v: any): number | null => {
+      if (v === null || v === undefined) return null;
+      const num = typeof v === "number" ? v : parseFloat(v);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    /**
+     * Normalize temperature regardless of the `units` the endpoint was called
+     * with. buildEndpointUrl adds units=metric when the operator did not, but an
+     * endpoint that already carries units=standard or units=imperial is left as
+     * the operator wrote it, and a station must not silently record the wrong
+     * scale because of it. The ranges do not overlap for any temperature this
+     * planet produces: Kelvin is above 150, Fahrenheit above 60 is beyond the
+     * highest air temperature ever recorded in Celsius.
+     */
+    const toCelsius = (v: number | null): number | null => {
+      if (v === null) return null;
+      if (v > 150) return v - 273.15;
+      if (v > 60) return this.fahrenheitToCelsius(v);
+      return v;
+    };
+
+    const result: Record<string, number | null> = {
+      temperature: toCelsius(n(main.temp)),
+      humidity: n(main.humidity),
+      // grnd_level first: see the note above on station versus sea-level pressure.
+      pressure: n(main.grnd_level) ?? n(main.pressure),
+      windSpeed: n(wind.speed),
+      windDirection: n(wind.deg),
+      windGust: n(wind.gust),
+      // Rain is reported for the last hour, in mm. Snow is added because a
+      // station that reports only snow would otherwise show no precipitation.
+      rainfall: n(rain["1h"]) ?? n(rain["3h"]) ?? n(snow["1h"]) ?? n(snow["3h"]),
+      dewPoint: toCelsius(n(main.dew_point ?? data?.dew_point)),
+      cloudCover: n(data?.clouds?.all),
+      // Reported in meters; Stratus carries visibility in kilometers.
+      visibility: n(data?.visibility) === null ? null : (n(data.visibility) as number) / 1000,
+    };
+
+    // Drop the keys the service did not report, so a missing field stays missing
+    // rather than being written as a null that overwrites a good earlier value.
+    for (const key of Object.keys(result)) {
+      if (result[key] === null) delete result[key];
+    }
+    return result;
   }
 
   private parseGenericResponse(data: any): Record<string, number | null> {

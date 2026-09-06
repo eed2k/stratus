@@ -60,7 +60,22 @@ export async function initPostgresDatabase(): Promise<void> {
       connectionString,
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      /**
+       * How long a request waits for a free client before it is failed.
+       *
+       * This is a QUEUE timeout, not a network one: it expires when all `max`
+       * clients are busy, and pg then throws "timeout exceeded when trying to
+       * connect". Some reads on this deployment legitimately run for tens of
+       * seconds, so a handful of concurrent dashboard loads could exhaust the
+       * pool and the next request would be failed rather than queued. Callers
+       * turn that into a 500, and a shared dashboard reported it to the viewer
+       * as an expired share link.
+       *
+       * Waiting longer is the right trade here: the alternative is not a faster
+       * answer, it is no answer. Kept well under a browser's own patience so a
+       * genuinely stuck pool still surfaces as an error rather than hanging.
+       */
+      connectionTimeoutMillis: 25000,
       // SSL configuration for Vultr Managed DB
       ssl: connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
     });

@@ -108,10 +108,31 @@ class NwpForecast:
         output is hourly or 3-hourly, so interpolation would invent precision
         the model does not have. Anything further than 90 minutes away is
         treated as not covered rather than stretched to fit.
+
+        A `when` whose awareness does not match the series is reported as not
+        covered rather than compared. Subtracting a naive datetime from an aware
+        one raises TypeError, and this method is called once per variable per
+        lead hour from inside the engine, so that exception took down the whole
+        run: with the model background switched on, run_forecast died in
+        NwpForecast.at instead of producing a forecast. Guessing a zone for the
+        naive side would be worse than refusing, because a station is on local
+        time and a provider is on UTC, so a wrong guess silently shifts the
+        background by the station's offset.
+
+        Refusing is also exactly what the caller expects. forecasting.run_forecast
+        asks twice, first with the station's offset attached and then with the
+        naive local time, so whichever of the two matches the provider's own
+        convention answers and the other declines. An aware provider is served by
+        the first call and a naive one by the second.
         """
         if not self.points:
             return None
-        best = min(self.points,
+        want_aware = when.tzinfo is not None
+        comparable = [p for p in self.points
+                      if (p.valid_at.tzinfo is not None) == want_aware]
+        if not comparable:
+            return None
+        best = min(comparable,
                    key=lambda p: abs((p.valid_at - when).total_seconds()))
         if abs((best.valid_at - when).total_seconds()) > 90 * 60:
             return None

@@ -4,15 +4,19 @@ Version 2.1.0
 Developer: Lukas Esterhuizen
 Contact: esterhuizen2k@proton.me
 
+Stratus, all software forming part of Stratus, and all associated hardware
+designs are the property of METRON (PTY) LTD | Inteltronics. All rights
+reserved.
+
 A professional, multi-vendor web application for weather station management, data collection, and real-time monitoring. Stratus connects to Campbell Scientific dataloggers and a range of IoT/cloud weather platforms, then turns raw observations into rich meteorological, agricultural, aviation, fire-risk and wind-energy analytics.
 
 ---
 
 Station & Protocol Support
 
-This section is deliberately split into what is in production use and what is
-only a generic code path, because the difference matters when you are choosing
-how to connect a station.
+This section is deliberately split into what is running against real hardware
+today and what is implemented and mapped but not yet in service here, because the
+difference matters when you are choosing how to connect a station.
 
 In production use, exercised against real hardware:
 
@@ -23,21 +27,26 @@ In production use, exercised against real hardware:
 - Manual file import - TOA5 or CSV upload for bulk history
 - RIKA cloud (v2 API) - session login with farm/device discovery, polled on a schedule
 
-Implemented but not in production use here:
+Vendor-mapped, implemented but not in production use here:
 
-- Arduino IoT Cloud - OAuth2 client-credentials against Thing properties
+Each of these has its own response parser and field mapping in
+`server/protocols/httpAdapter.ts`, including the unit conversions the vendor's
+own units require. They are not bare REST endpoints.
+
+- Arduino IoT Cloud - OAuth2 client-credentials against Thing properties. Properties are matched by name onto temperature, humidity, pressure, wind speed and direction, gust, rainfall, solar radiation, UV, dew point, battery, soil temperature and moisture, PM2.5, PM10 and CO2
 - Stratus Logger - Metron's own datalogger board, reporting over LoRa or Sigfox. The LoRa uplink decoder and the generic MQTT/HTTP REST path exist for this board; the hardware design lives in `StratusLoggerV1[metron]/`
+- WeatherLink (Davis) - authenticated with an API key and secret, sensor blocks mapped per sensor, with Fahrenheit to Celsius, inches of mercury to hPa and miles per hour to metres per second applied
+- CampbellCloud - bearer token, Campbell field names (`AirTemp_C`, `RH`, `BP_mbar`, `WS_ms`, `WD`, `WS_max`, `Rain_mm`, `Solar_Wm2`, `BattV`) mapped to the canonical fields
+- ThingSpeak - channel feeds, `field1` through `field8` mapped in the conventional order
+- Blynk - token in the query string, virtual pins `V0` through `V5` mapped in order
+- OpenWeatherMap - key sent as `appid`, `units=metric` requested when the endpoint does not already specify it, station pressure (`grnd_level`) preferred over the sea-level value, wind direction taken from `wind.deg`, precipitation from the one or three hour rain or snow total, and temperature normalized whether the endpoint returns Celsius, Fahrenheit or Kelvin
 
-Generic endpoint support only, NOT validated integrations:
-
-- WeatherLink (Davis), Blynk, ThingSpeak and OpenWeatherMap are recognized by URL and given the right auth header, but there is no vendor-specific parser or field mapping for them. Treat them as "a REST endpoint you can point Stratus at", not as finished integrations
-- CampbellCloud / Konect multi-station discovery is **not implemented**; the code raises an explicit error telling you to use a direct PakBus connection
-
-A note on cellular and LoRaWAN: several connection types (`gsm`, `4g`, `lora`,
-`satellite`, `modbus`, `dnp3`) are accepted as labels and mapped onto the HTTP or
-LoRa transport, but there is no native PakBus-over-cellular or PakBus-over-LoRaWAN
-stack. A cellular site works by uploading to Dropbox or by posting over HTTP, not
-by Stratus dialing the logger.
+One gap, stated plainly rather than implied: bulk station **discovery**
+against Campbell Cloud is not implemented. `fetchCampbellStations` raises an
+explicit error telling you to use a direct PakBus connection. Collecting data
+from a Campbell Cloud endpoint you configure yourself does work, per the mapping
+above; it is only the "list every station on the account for me" step that is
+absent.
 
 ---
 
@@ -332,7 +341,10 @@ StratusLoggerV1[metron]/  Stratus Logger hardware design (KiCad): the in-house
                           datalogger board, LoRa/Sigfox uplink
 AS3935/             Lightning detector (Pi Zero W + AS3935) firmware
 AS3935handheld/     Handheld lightning detector hardware design (KiCad)
-RPiZero SD Card/    Boot-partition contents and installer for the detector
+RPiZero SD Card/    Detector boot partition: service, installer, config.txt with
+                    SPI enabled and the low-power options, cloud-init templates
+                    as *.example (the real files hold credentials and are
+                    gitignored), and FLASH_FROM_SCRATCH.md
 
 LDS ADMIN/          Lightning Alert Console (FastAPI, separate deployment)
   app/
@@ -343,12 +355,6 @@ LDS ADMIN/          Lightning Alert Console (FastAPI, separate deployment)
     charts.py       Vector SVG builders shared by the dashboard and the PDFs
     reports.py      Monthly report assembly
   tests/            pytest suite (runs on the workstation, not in the prod image)
-
-RPiZero SD Card/    Boot-partition contents for the detector
-  gwld1-deploy/     Detector service, installer and configuration
-  config.txt        SPI enabled, low-power options
-  *.example         cloud-init templates (real files hold credentials, gitignored)
-  FLASH_FROM_SCRATCH.md
 
 localhost-preview/  Standalone HTML previews for iterating on visualizations
                     without deploying
@@ -368,11 +374,32 @@ Tech Stack
 
 ---
 
+Ownership and Licensing
+
+Stratus, every part of the software in this repository, and all associated
+hardware designs are the property of **METRON (PTY) LTD | Inteltronics**. All
+rights reserved.
+
+This includes, without limitation:
+
+- The Stratus Weather Server web application, its API and its database schema
+- The nano-climate forecast service in `forecast/`
+- The Lightning Alert Console in `LDS ADMIN/` and the AS3935 detector firmware
+- The Stratus Logger datalogger board design in `StratusLoggerV1[metron]/`, the handheld detector design in `AS3935handheld/`, and the Beacon controller
+- All documentation, deployment tooling and configuration in this repository
+
+No part may be copied, distributed, modified or used to produce a derivative
+work without the written permission of METRON (PTY) LTD | Inteltronics.
+
+---
+
 Credits
 
-Developed by Lukas Esterhuizen (esterhuizen2k@proton.me)
+Developed by Lukas Esterhuizen (esterhuizen2k@proton.me) for
+METRON (PTY) LTD | Inteltronics.
 
 Campbell Scientific and PakBus are trademarks of Campbell Scientific, Inc. RIKA,
-Arduino, Vaisala, Xweather, Dropbox, MailerSend and other product names are
-trademarks of their respective owners. Naming a product here describes an
-interface Stratus can talk to; it does not imply any endorsement or partnership.
+Arduino, Davis WeatherLink, Blynk, ThingSpeak, OpenWeatherMap, Vaisala, Xweather,
+Dropbox, MailerSend and other product names are trademarks of their respective
+owners. Naming a product here describes an interface Stratus can talk to; it does
+not imply any endorsement or partnership.

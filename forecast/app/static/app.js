@@ -51,12 +51,13 @@ function dismissLoader() {
     }
   }
 
-  // Matches the CSS arc's 2.4s ease-out to 90%, so the digits and the arc do
-  // not tell two different stories.
+  // Matches the CSS arc's 12s linear climb to 90%, and that in turn is exactly
+  // the main app's time floor: min(90, elapsed / 12000 * 90). Keeping all three
+  // on the same rate is what makes this read as the same animation rather than
+  // a faster imitation of it.
   function tick() {
-    var linear = Math.min(1, (Date.now() - started) / 2400);
-    var eased = 1 - Math.pow(1 - linear, 3);
-    paint(Math.min(90, Math.round(eased * 90)));
+    var linear = Math.min(1, (Date.now() - started) / 12000);
+    paint(Math.min(90, Math.round(linear * 90)));
   }
 
   paint(0);
