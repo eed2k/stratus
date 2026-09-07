@@ -1,5 +1,5 @@
 {
-    "station_id": "GLENCORE WONDERKOP",
+    "station_id": "QUAGGASKLIP",
     "log_dir": "/home/gwld1/lightning_data",
     "stratus_enabled": false,
     "stratus_endpoint": "",
@@ -22,8 +22,8 @@
     "campbell_uart_tx_pin": 26,
     "campbell_uart_baud": 9600,
     "alert_webhook_enabled": true,
-    "alert_webhook_url": "https://adminpanel.stratusweather.co.za/gwld1/api/v1/lightning",
-    "alert_webhook_token": "633d91da79432b7f1d7f3293f7a3c74466979a40fd8680bb6b44dd826ccc520c",
+    "alert_webhook_url": "https://adminpanel.stratusweather.co.za/quaggasklip/api/v1/lightning",
+    "alert_webhook_token": "REPLACE_WITH_ALERT_WEBHOOK_TOKEN",
     "alert_webhook_timeout": 5,
     "alert_distance_km": 40,
     "alert_min_distance_km": 0,
@@ -41,5 +41,6 @@
     "antenna_check_enabled": true,
     "antenna_check_hour": 6,
     "cpu_temp_warn_c": 70,
-    "cpu_temp_crit_c": 78
+    "cpu_temp_crit_c": 78,
+    "_readme": "Template: fill in alert_webhook_token. The tenant slug in alert_webhook_url selects the client panel; the heartbeat and calibration endpoints are derived from it."
 }

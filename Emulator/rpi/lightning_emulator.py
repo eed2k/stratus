@@ -1,3 +1,14 @@
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Emulator
+#  Raspberry Pi host for the Thunder EMU Click, equivalent to the Nano
+#  firmware.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
+
    #!/usr/bin/env python3
 """AS3935 lightning emulator - Raspberry Pi Zero 2 W + Thunder EMU Click.
 

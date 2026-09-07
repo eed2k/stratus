@@ -1,5 +1,6 @@
 # ===========================================================================
 #  Stratus AS3935 Lightning Detection System
+#  Property of METRON (PTY) LTD | Inteltronics
 #  Developed by L.J. Esterhuizen, Inteltronics
 # ===========================================================================
 
@@ -8,7 +9,30 @@
 #  VERSION
 # ===========================================================================
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
+
+
+# ===========================================================================
+#  POWER
+# ===========================================================================
+#
+#  How long the main loop sleeps when there is nothing to do.
+#
+#  This unit runs on solar at a remote site, so an idle watt matters more than
+#  an idle millisecond. Everything the loop does between strikes is gated on its
+#  own interval - the shortest is the validation buffer at 30 s, then the
+#  heartbeats at 600 s, then the register check at 86400 s - so the tick only has
+#  to be short enough to keep those from drifting noticeably. One second is two
+#  orders of magnitude finer than the tightest of them.
+#
+#  A strike does NOT wait for this tick. The GPIO callback sets an event and the
+#  loop wakes on it at once, which is sooner than the 100 ms poll this replaced.
+#
+#  Raising it further keeps saving power, but the systemd watchdog is 120 s and
+#  the ping happens once per tick, so anything above about 60 s would start
+#  risking a spurious restart. One second leaves that entirely alone.
+
+IDLE_TICK_SECONDS = 1.0
 
 
 # ===========================================================================
@@ -24,6 +48,7 @@ import csv
 import os
 import signal
 import sys
+import threading
 from collections import deque
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -157,6 +182,13 @@ class Config:
         # ===========================================================
         #  Stratus Weather
         # ===========================================================
+        # Offline buffer cap. 4 MB is roughly 25,000 buffered payloads, which is
+        # far more storm than any single site produces between reconnects, while
+        # being small enough that it cannot threaten the card. On overflow the
+        # oldest records are dropped; see _trim_stratus_buffer for why.
+        self.STRATUS_BUFFER_MAX_BYTES = 4 * 1024 * 1024
+        self.STRATUS_BUFFER_KEEP_LINES = 5000
+
         self.STRATUS_ENABLED  = True
         self.STRATUS_ENDPOINT = ""   # Set via lightning_config.json (required)
         self.STRATUS_API_KEY  = ""   # Optional
@@ -783,6 +815,16 @@ class LightningDetector:
         self.config = config
         self._running = False
         self._interrupt_flag = False
+        # Set by the GPIO callback, waited on by the main loop.
+        #
+        # This is the difference between the process sleeping in the kernel and
+        # the process spinning. The loop used to poll _interrupt_flag every
+        # 100 ms, which woke the CPU ten times a second for the life of the
+        # installation to look at a boolean that is false almost always. On a
+        # solar-powered site that is the single largest avoidable draw in this
+        # program. Waiting on an event means the kernel wakes the process for a
+        # strike, immediately, and otherwise only on the idle tick below.
+        self._wake = threading.Event()
         self._last_heartbeat = 0.0
         self._last_panel_heartbeat = 0.0
         self._last_campbell_heartbeat = 0.0
@@ -872,6 +914,11 @@ class LightningDetector:
         "FREQ_DIV_RATIO":       (int, [16, 32, 64, 128]),
         "HEARTBEAT_INTERVAL":   (int, 10, 86400),
         "STRATUS_ENABLED":      (bool, None, None),
+        # Floor of 64 KB rather than 0: a cap small enough to discard records
+        # faster than they are written would make the buffer useless while
+        # looking configured.
+        "STRATUS_BUFFER_MAX_BYTES": (int, 65536, 268435456),
+        "STRATUS_BUFFER_KEEP_LINES": (int, 100, 1000000),
         "STRATUS_TIMEOUT":      (int, 1, 120),
         "STRATUS_RETRY_INTERVAL": (int, 10, 86400),
         "ALERT_WEBHOOK_ENABLED": (bool, None, None),
@@ -1270,7 +1317,22 @@ class LightningDetector:
             self.logger.warning("Calibration webhook failed: %s", e)
 
     def _stratus_buffer(self, data):
-        """Append a payload to the local JSONL buffer file (persistent handle)."""
+        """Append a payload to the local JSONL buffer file (persistent handle).
+
+        Bounded, because this file is the one thing here that could grow without
+        limit. The CSV logs are purged on every date rollover, but nothing purged
+        this: a site that loses its uplink during a storm season buffers every
+        strike and every reconnect probe indefinitely, and on a 16 GB card with a
+        read-only-when-full filesystem the failure is not "the buffer is large",
+        it is that logging, journald and the OS all stop being able to write.
+        That is a dead unit needing a site visit, caused by a queue for data that
+        was never that valuable once it was weeks old.
+
+        When the cap is reached the OLDEST records are dropped. A newer strike is
+        worth more than an older one to anybody reading this later, and the local
+        CSV remains the complete record either way - the buffer exists only to
+        replay into Stratus.
+        """
         try:
             if self._stratus_buffer_file is None or self._stratus_buffer_file.closed:
                 self._stratus_buffer_file = open(
@@ -1280,8 +1342,46 @@ class LightningDetector:
             record = json.dumps({"ts": ts, "data": data})
             self._stratus_buffer_file.write(record + "\n")
             self._stratus_buffer_file.flush()
+            self._trim_stratus_buffer()
         except OSError as e:
             self.logger.error("Buffer write failed: %s", e)
+
+    def _trim_stratus_buffer(self):
+        """Drop the oldest buffered records once the file exceeds its cap.
+
+        Checked by size rather than by counting lines, so the cost is one stat()
+        per append instead of a read of the whole file. The rewrite only happens
+        on the rare occasion the cap is actually crossed.
+        """
+        try:
+            size = self._stratus_buffer_path.stat().st_size
+        except OSError:
+            return
+        if size <= self.config.STRATUS_BUFFER_MAX_BYTES:
+            return
+
+        # Reopen for rewrite: the append handle must not be live while the file
+        # is being replaced underneath it.
+        if self._stratus_buffer_file is not None:
+            try:
+                self._stratus_buffer_file.close()
+            except OSError:
+                pass
+            self._stratus_buffer_file = None
+        try:
+            with open(self._stratus_buffer_path, "r") as f:
+                lines = f.readlines()
+            keep = lines[-self.config.STRATUS_BUFFER_KEEP_LINES:]
+            dropped = len(lines) - len(keep)
+            with open(self._stratus_buffer_path, "w") as f:
+                f.writelines(keep)
+            self.logger.warning(
+                "Stratus buffer exceeded %d bytes - dropped %d oldest record(s), "
+                "kept %d. The local CSV still holds the full record.",
+                self.config.STRATUS_BUFFER_MAX_BYTES, dropped, len(keep)
+            )
+        except OSError as e:
+            self.logger.error("Buffer trim failed: %s", e)
 
     def _stratus_retry(self):
         """Retry Stratus connection and flush buffered payloads."""
@@ -1399,6 +1499,10 @@ class LightningDetector:
             except RuntimeError:
                 pass
         self._interrupt_flag = True
+        # Wake the main loop now rather than letting it find the flag on its next
+        # poll. A strike is handled sooner than before, not later: the old loop
+        # could sit on a set flag for up to 100 ms.
+        self._wake.set()
 
     def _interference_check(self):
         """Detect RF-interference bursts by strike rate.
@@ -2001,7 +2105,16 @@ class LightningDetector:
 
                     self._consecutive_errors = 0
                     sd_notify("WATCHDOG=1")
-                    time.sleep(0.1)
+                    # Sleep in the kernel until a strike or the next idle tick,
+                    # rather than waking ten times a second to poll a flag.
+                    #
+                    # Every housekeeping call above is already gated on its own
+                    # interval - the shortest is the validation buffer at 30 s -
+                    # so a one second tick changes none of their behaviour. The
+                    # systemd watchdog is 120 s, so a ping per tick has sixty
+                    # times the headroom it needs.
+                    self._wake.wait(IDLE_TICK_SECONDS)
+                    self._wake.clear()
 
                 except Exception as e:
                     self._consecutive_errors += 1

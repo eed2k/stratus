@@ -1,3 +1,13 @@
+# =========================================================================
+#
+#  Stratus Lightning Beacon
+#  Lamp-state logic tests. Run on a workstation, not on the board.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
+
 """Exercise the beacon's logic without a Pi, a panel, or any GPIO.
 
 The parts worth proving: the strike identity is stable across polls and distinct

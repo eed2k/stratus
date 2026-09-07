@@ -1,4 +1,14 @@
 #!/bin/bash
+# =========================================================================
+#
+#  Stratus Wall Dashboard Kiosk
+#  BeagleBone installer: boots the board into a full-screen dashboard over
+#  HDMI.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 # =============================================================================
 # Stratus BeagleBone kiosk installer.
 #

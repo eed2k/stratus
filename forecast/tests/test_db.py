@@ -377,8 +377,11 @@ def test_inserts_are_batched_and_bounded(database, monkeypatch):
     import contextlib
 
     @contextlib.contextmanager
-    def spying_connect():
-        with real_connect() as inner:
+    def spying_connect(immediate: bool = False):
+        # Forwards `immediate` rather than swallowing it, so the spy exercises the
+        # same locking mode as the real call and this test cannot pass against a
+        # transaction the production path would never open.
+        with real_connect(immediate=immediate) as inner:
             yield Spy(inner)
 
     monkeypatch.setattr(database, "connect", spying_connect)

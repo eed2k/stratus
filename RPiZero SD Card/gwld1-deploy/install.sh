@@ -1,4 +1,13 @@
 #!/bin/bash
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Detection System
+#  Boot-partition installer, run once per instance by cloud-init.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 # Auto-deploy for GWLD1, triggered by cloud-init runcmd (once per instance-id).
 set -uo pipefail
 

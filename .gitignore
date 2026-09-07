@@ -204,3 +204,8 @@ cmdline.txt.bak.*
 # ── KiCad editor lock files (present only while a board is open) ──
 ~*.lck
 *.kicad_prl
+
+# Detector config holds the panel ingest token in plaintext.
+# Shipped as lightning_config.json.example; the real file is never committed.
+RPiZero SD Card/gwld1-deploy/lightning_config.json
+RPiZero SD Card/gwld1-deploy/*.bak-*

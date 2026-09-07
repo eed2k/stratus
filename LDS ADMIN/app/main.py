@@ -4,7 +4,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.responses import (HTMLResponse, RedirectResponse, FileResponse,
+                               PlainTextResponse)
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
@@ -71,6 +72,33 @@ if settings.SECURE_COOKIES:
     _CSP += "; upgrade-insecure-requests"
 
 
+#: The full refusal, matching the main Stratus app byte for byte so the estate
+#: presents one policy. `noindex` and `nofollow` are the substance; the rest close
+#: the ways a page can still surface without being indexed: a cached copy, a
+#: snippet quoted in results, an image lifted into image search, and an
+#: auto-translated mirror.
+NOINDEX = ("noindex, nofollow, noarchive, nosnippet, noimageindex, "
+           "notranslate")
+
+#: Served at /robots.txt. A crawler that honors it never fetches anything here,
+#: which is the cheapest of the three layers, though on its own it is the weakest:
+#: a disallowed URL can still be listed from an inbound link. It is the header
+#: above that makes that impossible.
+ROBOTS_TXT = """# Lightning Alert Console - private application.
+# Nothing here is ever to be indexed by any search engine.
+# Enforced in three layers: this file, a noindex meta tag in the page templates,
+# and an X-Robots-Tag: noindex header on every response (see security_headers).
+
+User-agent: *
+Disallow: /
+"""
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt():
+    return PlainTextResponse(ROBOTS_TXT, media_type="text/plain")
+
+
 @app.middleware("http")
 async def security_headers(request, call_next):
     resp = await call_next(request)
@@ -79,6 +107,15 @@ async def security_headers(request, call_next):
     resp.headers["Referrer-Policy"] = "no-referrer"
     resp.headers["Content-Security-Policy"] = _CSP
     resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    # Refused to search engines on every response, not just on the HTML pages.
+    #
+    # A meta tag only reaches a crawler that parses HTML, so it does nothing for
+    # the JSON data endpoints, the generated PDF reports or the chart images this
+    # panel serves. The header covers all of them, and it is the only one of the
+    # three mechanisms that does. This panel had none of the three: no header, no
+    # meta tag and no robots.txt, so adminpanel was the one Stratus surface a
+    # crawler was free to index.
+    resp.headers["X-Robots-Tag"] = NOINDEX
     resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     resp.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     resp.headers["X-Permitted-Cross-Domain-Policies"] = "none"

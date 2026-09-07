@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Detection System
+#  Power reduction: disables the radios, LEDs and clocks the unit does not
+#  need.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 # =============================================================================
 # GWLD1 Pi Zero W - low power optimization
 #

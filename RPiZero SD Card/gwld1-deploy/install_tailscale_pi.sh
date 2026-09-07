@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Detection System
+#  Optional remote-access setup, so a remote unit stays reachable.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 # =============================================================================
 # GWLD1 lightning detector - admin-only remote access over Tailscale
 #

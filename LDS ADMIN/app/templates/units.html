@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Detectors{% endblock %}
+{% block content %}
+<h1>Detectors</h1>
+
+{% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+{% if success %}<div class="success" role="status">{{ success }}</div>{% endif %}
+
+<p>
+  A detector files itself here on its first heartbeat and belongs to no client
+  until it is assigned. Until then it stays off every client panel, and no alert
+  is sent for it: an unclaimed unit has no recipient list to consult.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Detector</th>
+      <th>Site label</th>
+      <th>Last seen</th>
+      <th>Events</th>
+      <th>Belongs to</th>
+      <th>Assign to</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><code>{{ r.unit.station_id }}</code></td>
+      <td>{{ r.unit.site_label or '-' }}</td>
+      <td>{{ r.unit.last_seen.strftime('%Y-%m-%d %H:%M') if r.unit.last_seen else 'never' }}</td>
+      <td>{{ r.events }}</td>
+      <td>
+        {% if r.unassigned %}
+          <strong>unassigned</strong>
+        {% else %}
+          {{ r.owner.name }} <span class="muted">/{{ r.owner.slug }}/</span>
+        {% endif %}
+      </td>
+      <td>
+        <form method="post" action="{{ base }}/units/{{ r.unit.station_id }}/assign"
+              class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <select name="tenant_id_form" aria-label="Client panel for {{ r.unit.station_id }}">
+            <option value="">Choose a client&hellip;</option>
+            {% for c in clients %}
+            <option value="{{ c.id }}"
+              {% if not r.unassigned and r.owner and r.owner.id == c.id %}selected{% endif %}>
+              {{ c.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <button class="primary" type="submit">Assign</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if not rows %}
+    <tr><td colspan="6" class="center">
+      No detector has reported yet. A unit appears here on its first heartbeat.
+    </td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}

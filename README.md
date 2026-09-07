@@ -93,6 +93,37 @@ Fire risk:
 
 ---
 
+Nano-Climate Forecast
+
+A separate service at forecast.stratusweather.co.za. Pure-Python FastAPI with
+server-rendered SVG, no bundler, capped at 320 MB.
+
+The method is a station's own record CORRECTING a model background, which is why
+it is called nano-climate rather than a forecast feed. A mesoscale model knows a
+front arrives on Thursday; it does not know this mast sits in a hollow that pools
+cold air. The station record is the part that knows.
+
+- Model background - Vaisala Xweather, on by default for a new station with all nine engine variables. Nothing is fetched until a station has coordinates, so an unpositioned station cannot spend the access budget
+- Station history - harmonic climatology, damped anomaly persistence and an analog ensemble over a rolling 35-day window. Data older than that does not enter a forecast; the window is deliberate, so a season-old regime cannot dominate the current one
+- Learned site correction - `adaptive.py`. A decaying average per station, variable, provider, lead bucket and time-of-day bucket, updated from the station's own verified forecasts
+- Verification - MAE, bias, CRPS, rank histograms and reliability diagrams, scored against the station's own observations, with a method-version hash so a change of method is visible rather than averaged into the history
+
+On the learned correction, measured rather than claimed. Across eight months of
+Quaggasklip's record, over identical base hours with and without it, at lead
+1-24h: solar radiation error fell 17 percent, humidity 2 percent, pressure and
+temperature 1 percent each, wind direction unchanged, and wind speed and gust
+each rose about 2 percent. It only acts where an offset is a meaningful share of
+the error, which is why it declines to touch a variable whose error is mostly
+scatter. Rainfall is excluded outright: its error is intermittency, not offset,
+and shifting every hour by a learned millimetre invents drizzle on dry days.
+
+Backfilling is how a new station gets a skill history without waiting: forecasts
+are re-issued from past base hours using only the data that existed before each
+one, so they can be scored immediately. Issued oldest first, which makes a
+backfill with the correction enabled a walk-forward test rather than a claim.
+
+---
+
 Wind Analysis & Wind Energy
 
 - Wind Rose Charts - Direction-frequency distribution over 60 min, 24h, 48h periods
@@ -140,6 +171,36 @@ Admin console:
 - SMS alerts via Clickatell, with a master on/off switch. The gateway is platform infrastructure and is not exposed in client panels
 - Monthly PDF reports (WeasyPrint) with vector charts: CPU trend, distance histogram, energy bands, uptime gauge and storm activity
 - Event history with per-event delivery detail
+
+Detector provisioning:
+
+A detector files itself under the platform tenant on its first heartbeat and is
+invisible to every client panel until an admin assigns it on the platform
+console's Detectors page. That is deliberate rather than incidental: an unclaimed
+unit has no owning client, so there is no recipient list to consult and no alert
+is sent for it. Assigning a unit also re-files its strike history, heartbeat
+samples and calibration records, so a client is not handed a live detector whose
+past begins on the day of the handover.
+
+Who can see what:
+
+- Stratus Admin may enter any panel. The session is not pinned for them, so their effective tenant follows the URL
+- A client login is pinned to its own tenant. A mismatch between the cookie, the user record and the URL is treated as not-signed-in for that panel rather than an error that would confirm the panel exists
+- A client admin sees every login in their own panel and may add and remove them
+- An operator sees operator and viewer logins only, never administrators, and has no add or remove controls. Knowing which accounts hold admin rights is the useful half of an attack on them
+- A viewer sees no login list, matching how the panel already treats a read-only account elsewhere
+
+Creating a login sends nothing. There is no outbound mail path in this console at
+all, which a test enforces by asserting no mail library is importable anywhere in
+the package: an operator is created with a password the admin chooses and is told
+by whatever means the client prefers. Adding an SMS recipient likewise sends no
+confirmation message to that number.
+
+POPIA: a recipient's number is masked to its country prefix and last two digits
+before it reaches a log, because container logs are rotated to disk, swept into
+backups and read by platform staff who have no relationship with the client's
+staff. The full number stays in the message log the client is entitled to see on
+their own event page, scoped to their tenant.
 
 Storm activity display:
 
@@ -222,6 +283,14 @@ Security Features
 - Audit Logging - Security-event logging
 - Content Security Policy - The LDS console runs under `script-src 'self'` with no exceptions: chart bundles are vendored rather than pulled from a CDN, and there are no inline scripts
 - Secret Scanning - `python deploy/scan_secrets.py` checks every file git could commit (tracked plus non-ignored untracked) for credentials, and exits non-zero on a finding. Run it before pushing
+- Not Indexed, Anywhere - every surface refuses search engines on every response type, not only on its HTML. A meta tag reaches a crawler that parses markup; it does nothing for a JSON endpoint, a generated PDF, a chart image or a redirect. So `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate` is set by the server on all five surfaces, backed by a meta tag on the pages and a `robots.txt` on every host. Shared dashboard links are covered by the same header
+
+TLS is issued and renewed by Traefik alone, from its own ACME store. Nothing else
+on the host may hold a certificate for these names: a second ACME client cannot
+succeed, because Traefik owns ports 80 and 443, and every failed validation it
+makes counts against Let's Encrypt's per-hostname failure limit for the same
+names Traefik has to renew. A leftover certbot installation was doing exactly
+that and is now disabled and masked.
 
 Credentials are kept out of the repository by design. Anything holding a real
 secret is gitignored and shipped as a `.example` template instead: the detector's
@@ -326,6 +395,7 @@ scripts/            Dropbox auth and documentation generation
 forecast/           Nano-climate forecast service (separate deployment)
   app/              FastAPI + Jinja2, server-rendered SVG charts, no bundler
     engine.py       Blending, harmonics and the analog ensemble
+    adaptive.py     Learned per-site bias correction (see below)
     plain.py        Plain-language outlook (day cards and sentences)
     providers/      NWP adapters (Xweather only) and the per-variable opt-in
   tests/            pytest suite
@@ -387,6 +457,10 @@ This includes, without limitation:
 - The Lightning Alert Console in `LDS ADMIN/` and the AS3935 detector firmware
 - The Stratus Logger datalogger board design in `StratusLoggerV1[metron]/`, the handheld detector design in `AS3935handheld/`, and the Beacon controller
 - All documentation, deployment tooling and configuration in this repository
+
+Every hardware source file carries the same header naming METRON (PTY) LTD |
+Inteltronics as owner: the detector, the beacon, the emulator, the BeagleBone
+kiosk and their installers. The web estate is covered by this file.
 
 No part may be copied, distributed, modified or used to produce a derivative
 work without the written permission of METRON (PTY) LTD | Inteltronics.

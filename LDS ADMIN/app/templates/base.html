@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
+{# Private console: never to be indexed. The X-Robots-Tag header in main.py is
+   what actually enforces this across every response type; this tag is the layer
+   that a crawler reading only the document will see. #}
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
 <title>LDS STRATUS</title>
 {# Browser-tab icon. The SVG is what modern browsers use; the .ico is kept
    because some browsers request /favicon.ico regardless of these tags, and a
@@ -72,6 +76,11 @@
      animation even after every color and size matched. */
   animation:pl-fill 12s linear 1 forwards}
 #page-loader.is-done .pl-arc{animation:none;stroke-dashoffset:0}
+/* Handed to app.js, which drives the arc from the same number it prints in
+   the middle. Without this the keyframe and the digits animate
+   independently and disagree, which is what made a subdomain look unlike
+   the main dashboard. The keyframe above remains the no-JS path. */
+#page-loader.pl-js .pl-arc{animation:none}
 #page-loader .pl-pct{position:absolute;inset:0;display:flex;
   align-items:center;justify-content:center;
   font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:600;
@@ -150,12 +159,17 @@
       {% if platform_console %}
         <a href="/tenants">Clients</a>
         {#
-          Kept on purpose. A detector reporting in for the first time is filed
-          under the platform tenant and stays invisible to every client until
-          an admin assigns it. This page is the only place that assignment can
-          be made, so removing it would leave new units stranded.
+          A detector reporting in for the first time is filed under the platform
+          tenant and stays invisible to every client until an admin assigns it.
+          /units is where that assignment is made.
+
+          This used to point at /stations, which only edits a unit's site label
+          and coordinates - it has no way to change the owning client. So the one
+          step the label promised was the one step the page could not do, and a
+          new detector could never be handed to a client at all.
         #}
-        {% if user.role in ['admin','operator'] %}<a href="{{ base }}/stations">Unassigned Units</a>{% endif %}
+        {% if is_platform_admin %}<a href="/units">Detectors</a>{% endif %}
+        {% if user.role in ['admin','operator'] %}<a href="{{ base }}/stations">Site metadata</a>{% endif %}
         {% if user.role == 'admin' %}<a href="{{ base }}/users">Users</a>{% endif %}
         {% if user.role == 'admin' %}<a href="{{ base }}/settings">Settings</a>{% endif %}
       {% else %}

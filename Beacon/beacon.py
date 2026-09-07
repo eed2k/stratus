@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# =========================================================================
+#
+#  Stratus Lightning Beacon
+#  Pilot-light controller: drives the site warning lamps from the panel's
+#  alert state.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 """Lightning beacon: three 12 V indicator lamps driven from the admin panel.
 
 Runs on a Raspberry Pi Zero W or Zero 2 W with a relay HAT.

@@ -1,3 +1,13 @@
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Detection System
+#  Antenna tuning-capacitor sweep: finds the setting closest to 500 kHz.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
+
 """AS3935 antenna calibration scan (pigpio edge counting).
 
 Scans all 16 internal tuning-capacitor settings, measures the antenna LC

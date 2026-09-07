@@ -1077,13 +1077,43 @@ def settings_page(request: Request, user: User = Depends(require_admin),
                   alerts_enabled=get_alerts_enabled(db, tenant_id=tid))
 
 
-# -------------------- USERS (admin only) --------------------
+# -------------------- USERS --------------------
+#: Roles a non-admin is allowed to see in the user list.
+#:
+#: An operator may see who else can sign in beside them, which is a reasonable
+#: thing for a shift to know, but must not be shown the panel's administrators.
+#: Knowing which accounts hold admin rights is the useful half of an attack on
+#: them: it turns "guess a password for somebody" into "guess the password for
+#: this named person", and it exposes the client's internal hierarchy to every
+#: operator they hire.
+NON_ADMIN_VISIBLE_ROLES = ("operator", "viewer")
+
+
 @router.get("/users", response_class=HTMLResponse)
-def users_list(request: Request, user: User = Depends(require_admin),
+def users_list(request: Request, user: User = Depends(current_user),
                tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
-    # A client admin sees only their own panel's logins. Stratus Admin inside a
-    # tenant see that tenant's logins.
-    rows = scope(db.query(User), User, tid).order_by(User.email).all()
+    """Who can sign in to this panel.
+
+    Three different views of one table, and the differences are the point:
+
+      admin     every login in their own tenant, and the controls to add and
+                remove them. Stratus Admin inside a client panel sees that
+                client's logins, never another's - `scope` enforces it.
+      operator  operator and viewer logins only. No administrators, no controls.
+      viewer    nothing, matching how this panel already treats a read-only
+                account on the recipients and groups pages.
+
+    Only e-mail, role and active state are ever rendered; the password hash is
+    never passed to a template. See templates/users.html.
+    """
+    q = scope(db.query(User), User, tid)
+    if _is_viewer(user):
+        rows = []
+    elif user.role != "admin":
+        q = q.filter(User.role.in_(NON_ADMIN_VISIBLE_ROLES))
+        rows = q.order_by(User.email).all()
+    else:
+        rows = q.order_by(User.email).all()
     return render(request, "users.html", user=user, rows=rows)
 
 
@@ -1169,6 +1199,107 @@ def tenants_list(request: Request, user: User = Depends(require_platform_admin),
         })
     return render(request, "tenants.html", user=user, rows=rows,
                   platform_slug=settings.PLATFORM_TENANT_SLUG, error=None)
+
+
+# -------------------- DETECTOR UNITS (platform admin only) --------------------
+#
+# A detector files itself under the platform tenant on its first heartbeat and
+# stays there until somebody says which client owns it (see
+# routes/api.py::ingest_heartbeat). Several comments in this codebase referred to
+# an "Unassigned Units page for reassignment", but no such page or route existed,
+# so in practice a unit could never leave the platform tenant. That was not a
+# cosmetic gap: alert_worker treats an event whose tenant is unset as belonging to
+# a detector nobody has claimed and deliberately consults no recipient list, so an
+# unassigned detector could record strikes and would never alert anyone.
+
+def _unit_rows(db):
+    """Every detector with the client that owns it, unassigned ones first."""
+    platform_id = platform_tenant_id(db)
+    slugs = {t.id: t for t in db.query(Tenant).all()}
+    rows = []
+    for u in db.query(UnitStatus).order_by(UnitStatus.station_id).all():
+        owner = slugs.get(u.tenant_id)
+        rows.append({
+            "unit": u,
+            "owner": owner,
+            "unassigned": u.tenant_id is None or u.tenant_id == platform_id,
+            "events": db.query(func.count()).select_from(AlertEvent)
+                        .filter(AlertEvent.station_id == u.station_id)
+                        .scalar() or 0,
+        })
+    rows.sort(key=lambda r: (not r["unassigned"], r["unit"].station_id or ""))
+    return rows
+
+
+@router.get("/units", response_class=HTMLResponse)
+def units_list(request: Request, user: User = Depends(require_platform_admin),
+               db: Session = Depends(get_db)):
+    clients = (db.query(Tenant)
+                 .filter(Tenant.slug != settings.PLATFORM_TENANT_SLUG,
+                         Tenant.is_active == True)  # noqa: E712
+                 .order_by(Tenant.name).all())
+    return render(request, "units.html", user=user, rows=_unit_rows(db),
+                  clients=clients, error=None, success=None)
+
+
+@router.post("/units/{station_id}/assign")
+def unit_assign(request: Request, station_id: str, tenant_id_form: str = Form(""),
+                _: None = Depends(verify_csrf),
+                user: User = Depends(require_platform_admin),
+                db: Session = Depends(get_db)):
+    """Hand a detector to a client, and move its history with it.
+
+    The history matters as much as the assignment. A unit's past strikes,
+    heartbeat samples and calibration events were filed under whichever tenant
+    owned it at the time, which for a new unit is the platform tenant. Leaving
+    them there would give the client a panel that shows a live detector with no
+    past, and monthly reports that start from the day of the handover. Every row
+    for this station is therefore re-filed too.
+
+    Re-assigning to the platform tenant is allowed and is how a unit is taken back
+    off a client, for instance when hardware is moved between sites.
+    """
+    def _reload(error=None, success=None):
+        clients = (db.query(Tenant)
+                     .filter(Tenant.slug != settings.PLATFORM_TENANT_SLUG,
+                             Tenant.is_active == True)  # noqa: E712
+                     .order_by(Tenant.name).all())
+        return render(request, "units.html", user=user, rows=_unit_rows(db),
+                      clients=clients, error=error, success=success)
+
+    unit = db.get(UnitStatus, station_id)
+    if unit is None:
+        raise HTTPException(status_code=404, detail="Unknown detector")
+
+    raw = (tenant_id_form or "").strip()
+    if not raw:
+        return _reload(error="Choose a client panel for this detector.")
+    try:
+        target_id = int(raw)
+    except ValueError:
+        return _reload(error="That is not a valid client panel.")
+
+    target = db.get(Tenant, target_id)
+    if target is None or not target.is_active:
+        return _reload(error="That client panel does not exist or is inactive.")
+
+    unit.tenant_id = target.id
+    # Re-file the history. Keyed on station_id rather than on the old tenant, so a
+    # unit that has already moved once does not leave a trail behind.
+    moved = {}
+    for model in (AlertEvent, HeartbeatSample, CalibrationEvent):
+        moved[model.__name__] = (
+            db.query(model)
+              .filter(model.station_id == station_id)
+              .update({model.tenant_id: target.id}, synchronize_session=False))
+    db.commit()
+    log.info("detector %r assigned to tenant %r (history moved: %s)",
+             station_id, target.slug, moved)
+    return _reload(success=(
+        f"{station_id} now belongs to {target.name}. Its panel is at "
+        f"/{target.slug}/. Moved {moved.get('AlertEvent', 0)} event(s), "
+        f"{moved.get('HeartbeatSample', 0)} heartbeat sample(s) and "
+        f"{moved.get('CalibrationEvent', 0)} calibration record(s) with it."))
 
 
 @router.post("/tenants/create")

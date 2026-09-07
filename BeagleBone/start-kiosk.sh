@@ -1,4 +1,13 @@
 #!/bin/bash
+# =========================================================================
+#
+#  Stratus Wall Dashboard Kiosk
+#  BeagleBone kiosk launcher.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 # =============================================================================
 # Stratus kiosk launcher (runs inside an X session started by stratus-kiosk.service)
 #

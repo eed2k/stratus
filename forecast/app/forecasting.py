@@ -41,7 +41,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from . import engine
+from . import adaptive, engine
 from .db import Database, Station
 from .providers import registry
 
@@ -75,6 +75,10 @@ class Sufficiency:
     nwp_provider: str | None = None
     nwp_resolution_km: float | None = None
     nwp_variables: list[str] = field(default_factory=list)
+    #: How many learned site-correction cells were trusted enough to be applied
+    #: to this run. Zero on a station that has not been verified yet, which is
+    #: the honest answer: nothing has been learned about it so far.
+    learned_cells: int = 0
     notes: list[str] = field(default_factory=list)
 
 
@@ -168,10 +172,39 @@ def _to_naive_local(when: datetime, utc_offset_hours: float) -> datetime:
     return when.astimezone(tz).replace(tzinfo=None)
 
 
+def _covers_lead_window(background, base: datetime, horizon_hours: int,
+                        utc_offset_hours: float) -> bool:
+    """True when the model series reaches at least one of the run's lead hours.
+
+    Asked with both time conventions, matching how the engine queries the series
+    everywhere else: aware with the station's offset for a provider that stamps
+    in UTC, naive local for one that does not.
+
+    One covered hour is enough to be a real background. A series that clips the
+    end of a five day run still carries the front that matters; a series that
+    covers none of it is simply about a different week.
+    """
+    tz = timezone(timedelta(hours=utc_offset_hours))
+    for lead in range(1, horizon_hours + 1):
+        valid = base + timedelta(hours=lead)
+        if (background.at(valid.replace(tzinfo=tz)) is not None
+                or background.at(valid) is not None):
+            return True
+    return False
+
+
 def run_forecast(db: Database, station: Station, horizon_hours: int,
                  history_days: int = DEFAULT_HISTORY_DAYS,
-                 base_time: datetime | None = None) -> RunSummary:
+                 base_time: datetime | None = None,
+                 adaptive_correction: bool = True) -> RunSummary:
     """Produce and store one forecast run for one station.
+
+    `adaptive_correction` False issues the forecast without the learned site
+    correction and without folding the result back into it. That is what
+    measuring the correction is worth requires: a baseline pass over the same base
+    hours with the correction absent, against which a second pass can be
+    compared. It is not a debugging flag - a skill claim that cannot be reproduced
+    against an uncorrected baseline is not a skill claim.
 
     `base_time` defaults to the most recent hour that has observations, not to
     the wall clock. An operator uploading last month's export wants a forecast
@@ -290,6 +323,22 @@ def run_forecast(db: Database, station: Station, horizon_hours: int,
         background = registry.restrict_to_opted_in(
             registry.fetch_background(station.latitude, station.longitude,
                                       cfg, hours=horizon_hours + 6), cfg)
+        # A background that does not reach this run's lead window is not a
+        # background. Providers serve a forecast from the current hour forward,
+        # so a run launched from a base hour in the past - which is exactly what
+        # backfill_runs does to build a skill history - gets a series covering
+        # next week for a forecast about last March. Every lead hour then fails
+        # the nearest-point test and the run is station history in substance
+        # while being recorded as model-backed, which makes the verification
+        # history unable to tell the two methods apart.
+        if background is not None and not _covers_lead_window(
+                background, base, horizon_hours, station.utc_offset_hours):
+            suff.notes.append(
+                f"A {background.provider} background was fetched but it does "
+                f"not cover this run's period, so the run is station history "
+                f"only. This is expected for a backfilled run: a provider "
+                f"serves the current forecast, not an archive.")
+            background = None
         if background is not None:
             suff.nwp_provider = background.provider
             suff.nwp_resolution_km = background.resolution_km
@@ -331,6 +380,17 @@ def run_forecast(db: Database, station: Station, horizon_hours: int,
     # module's tuning constants to build the version hash, so a module-level
     # import in both directions would be a cycle.
     from . import verification
+
+    # The learned site correction, loaded once for the whole run.
+    #
+    # Keyed on the provider this run actually used, so a model-backed run is
+    # corrected by what model-backed runs got wrong here and a history-only run
+    # by what history-only runs got wrong. The two have unrelated offsets and
+    # sharing one number between them would make both worse.
+    run_provider = background.provider if background else ""
+    bias_model = (adaptive.load(db, station.id) if adaptive_correction
+                  else adaptive.BiasModel(station_id=station.id))
+    suff.learned_cells = len(bias_model.summary())
 
     run_id = db.create_run(
         station.id, base, horizon_hours,
@@ -397,8 +457,35 @@ def run_forecast(db: Database, station: Station, horizon_hours: int,
                 # Nothing to say beyond "unchanged".
                 value = last_obs
 
+            # The learned site correction.
+            #
+            # Applied here, to the blended value, rather than to the model
+            # background alone: the measured offset is present in a
+            # history-only run too, so it is a property of the whole pipeline at
+            # this site and not of the provider. Applied AFTER the blend and
+            # BEFORE the percentiles and the ensemble are derived, so all three
+            # describe the same forecast.
+            #
+            # It is deliberately not damped with lead time the way the
+            # instantaneous base-hour bias is. That term is a transient - "it is
+            # two degrees warmer than the model says right now" - and should fade.
+            # This one is a standing difference between the grid cell and the
+            # mast, and it does not fade; the cell is keyed by lead bucket so the
+            # size can differ per lead without being decayed toward zero.
+            value, bias_applied = bias_model.apply(
+                variable, run_provider, float(lead), valid_at, value)
+
             p10 = engine.clip_to_physical_range(variable, fp.p10)
             p90 = engine.clip_to_physical_range(variable, fp.p90)
+            if bias_applied:
+                # Shift the interval with the value. Leaving it put would move
+                # the forecast out of its own confidence band.
+                if p10 is not None:
+                    p10 = engine.clip_to_physical_range(variable,
+                                                        p10 + bias_applied)
+                if p90 is not None:
+                    p90 = engine.clip_to_physical_range(variable,
+                                                        p90 + bias_applied)
 
             # Baselines, recorded now so the later comparison is not
             # retrospective.
@@ -426,7 +513,7 @@ def run_forecast(db: Database, station: Station, horizon_hours: int,
 
             rows.append((valid_at, float(lead), variable, value, p10, p90,
                          persistence, climatology_baseline, fp.sources,
-                         members))
+                         members, bias_applied))
             produced += 1
 
         if produced:
@@ -450,6 +537,24 @@ def run_forecast(db: Database, station: Station, horizon_hours: int,
             f"{suff.history_days:.0f} days of history leans almost entirely on "
             f"the daily cycle. Upload a longer record for the ensemble to "
             f"contribute.")
+
+    # Close the loop.
+    #
+    # Every hour this run just wrote is unverifiable for now, but hours from
+    # earlier runs have had their observations arrive since, and this is the
+    # natural moment to fold them in: it costs one indexed query, it keeps the
+    # learned bias current without a scheduler, and it means the correction
+    # improves on exactly the cadence that new ground truth arrives.
+    #
+    # Wrapped because a forecast that was produced correctly must not be lost to
+    # a failure in the part that learns from it.
+    if adaptive_correction:
+        try:
+            adaptive.update_from_verified(db, station.id)
+        except Exception as exc:                              # pragma: no cover
+            summary.warnings.append(
+                f"The forecast was produced but the site correction could not "
+                f"be updated from it: {type(exc).__name__}: {exc}")
     return summary
 
 
@@ -470,7 +575,8 @@ def run_all_horizons(db: Database, station: Station,
 
 def backfill_runs(db: Database, station: Station, horizon_hours: int,
                   step_hours: int = 24, max_runs: int = 40,
-                  history_days: int = DEFAULT_HISTORY_DAYS) -> list[RunSummary]:
+                  history_days: int = DEFAULT_HISTORY_DAYS,
+                  adaptive_correction: bool = True) -> list[RunSummary]:
     """Issue forecasts from past base hours so they can be scored immediately.
 
     Without this, a newly uploaded station has nothing to verify: every forecast
@@ -484,6 +590,13 @@ def backfill_runs(db: Database, station: Station, horizon_hours: int,
     the 3rd cannot see the 4th. Anything else would be scoring the model against
     data it had already been shown, which always looks excellent and means
     nothing.
+
+    Base hours are issued oldest first, which makes a backfill with
+    `adaptive_correction` on a walk-forward test of the learned correction: each
+    run is corrected using only what the runs before it had already been scored
+    on. Running it newest first would let a run be corrected by a bias learned
+    from its own future, and the result would be a number that cannot be
+    reproduced in service.
     """
     span_start, span_end = db.observation_span(station.id)
     if span_start is None:
@@ -514,7 +627,8 @@ def backfill_runs(db: Database, station: Station, horizon_hours: int,
         try:
             out.append(run_forecast(db, station, horizon_hours,
                                     history_days=history_days,
-                                    base_time=base))
+                                    base_time=base,
+                                    adaptive_correction=adaptive_correction))
         except NotEnoughData:
             continue
     return out

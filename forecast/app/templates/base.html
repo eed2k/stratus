@@ -57,6 +57,11 @@
      animation even after every color and size matched. */
   animation:pl-fill 12s linear 1 forwards}
 #page-loader.is-done .pl-arc{animation:none;stroke-dashoffset:0}
+/* Handed to app.js, which drives the arc from the same number it prints in
+   the middle. Without this the keyframe and the digits animate
+   independently and disagree, which is what made a subdomain look unlike
+   the main dashboard. The keyframe above remains the no-JS path. */
+#page-loader.pl-js .pl-arc{animation:none}
 #page-loader .pl-pct{position:absolute;inset:0;display:flex;
   align-items:center;justify-content:center;
   font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:600;

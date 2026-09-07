@@ -43,7 +43,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import (HTMLResponse, RedirectResponse, JSONResponse,
-                               FileResponse)
+                               FileResponse, PlainTextResponse)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -131,6 +131,30 @@ app = FastAPI(title="Stratus nano-climate forecast", docs_url=None,
               redoc_url=None, openapi_url=None, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")),
           name="static")
+
+
+#: Matching the main Stratus app byte for byte, so the estate presents one
+#: policy. noindex and nofollow are the substance; the rest close the ways a page
+#: can surface without being indexed: a cached copy, a quoted snippet, an image
+#: lifted into image search, an auto-translated mirror.
+NOINDEX = ("noindex, nofollow, noarchive, nosnippet, noimageindex, "
+           "notranslate")
+
+ROBOTS_TXT = """# Stratus nano-climate forecast - private application.
+# Nothing here is ever to be indexed by any search engine.
+# Enforced in three layers: this file, a noindex meta tag in the page templates,
+# and an X-Robots-Tag: noindex header on every response (see security_headers).
+
+User-agent: *
+Disallow: /
+"""
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt():
+    """Answered without a session: a crawler has none, and a 303 to the login
+    page tells it nothing about whether it may crawl."""
+    return PlainTextResponse(ROBOTS_TXT, media_type="text/plain")
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -227,6 +251,11 @@ async def security_headers(request: Request, call_next):
     resp.headers["Content-Security-Policy"] = _CSP
     resp.headers["Permissions-Policy"] = (
         "geolocation=(), microphone=(), camera=()")
+    # The pages already carry a noindex meta tag, but a tag is only read by a
+    # crawler that parses HTML. This service also serves a stylesheet, a script
+    # and server-rendered SVG, and the header is the only mechanism that refuses
+    # those too.
+    resp.headers["X-Robots-Tag"] = NOINDEX
     resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     resp.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     resp.headers["X-Permitted-Cross-Domain-Policies"] = "none"

@@ -156,7 +156,12 @@ def _dispatch(event_id: int, payload: Dict[str, Any]):
                 row.status = "failed"
                 row.error = str(e)[:1000]
                 event.messages_failed += 1
-                log.warning("SMS send failed (-> %s): %s", r.phone, e)
+                # Masked: the full number is personal information and a rotated,
+                # backed-up log read by platform staff is the wrong place to keep
+                # a copy of a client's contact list. The recipient id identifies
+                # the row exactly for anyone entitled to look it up.
+                log.warning("SMS send failed (recipient=%s -> %s): %s",
+                            r.id, sms_gateway.mask_number(r.phone), e)
         stage_label = (f"stage '{stage.name}' (<={stage.distance_km} km)"
                        if stage is not None else "group thresholds")
         if not alerts_on:

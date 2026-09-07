@@ -66,3 +66,29 @@ def send_sms(to_number: str, body: str) -> Tuple[str, str]:
         err = m.get("error") or m.get("errorDescription") or "rejected"
         raise RuntimeError(f"SMS gateway rejected the message: {err}")
     return "queued", msg_id
+
+
+def mask_number(to_number: str) -> str:
+    """A phone number reduced to what a log line legitimately needs.
+
+    A recipient's mobile number is personal information under POPIA, and a log is
+    the wrong place for it: container logs are rotated to disk, swept into backups,
+    and read by platform staff who have no relationship with the client's staff.
+    Keeping the full number there quietly turns an operational log into a copy of
+    the client's contact list, retained for as long as the logs are.
+
+    What a diagnosis actually needs is which recipient of several failed, not who
+    they are, so the country prefix and the last two digits are enough to tell two
+    rows apart. `+27821234567` becomes `+27*****67`.
+
+    Not used for the message log table: that row is the delivery record the client
+    is entitled to see in full on their own event page, and it is scoped to their
+    tenant.
+    """
+    n = (to_number or "").strip()
+    if not n:
+        return "(none)"
+    keep_head = 3 if n.startswith("+") else 2
+    if len(n) <= keep_head + 2:
+        return "*" * len(n)
+    return f"{n[:keep_head]}{'*' * (len(n) - keep_head - 2)}{n[-2:]}"

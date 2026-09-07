@@ -1,4 +1,13 @@
 #!/bin/bash
+# =========================================================================
+#
+#  Stratus Wall Dashboard Kiosk
+#  BeagleBone wifi provisioning.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 # =============================================================================
 # Connect a BeagleBone Black to Wi-Fi via a USB dongle.
 #

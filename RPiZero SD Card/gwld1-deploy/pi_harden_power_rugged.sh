@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Detection System
+#  Field hardening: read-mostly filesystem, watchdog and power settings for
+#  an unattended solar site.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 # =============================================================================
 # GWLD1 Pi Zero W - security hardening + power optimization + ruggedness
 # Run on the Pi:   sudo bash pi_harden_power_rugged.sh

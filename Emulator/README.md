@@ -151,16 +151,49 @@ The Nano's I2C pins are fixed: `A4 = SDA`, `A5 = SCL`.
 | _not connected_ | PWM | Click's own MID button, deliberately unused |
 | _not connected_ | INT | Click's own FAR button, deliberately unused |
 
-Push buttons, each wired from the pin to **GND** (the firmware enables the
-internal pull-ups, so no external resistors are needed):
+#### Push buttons: exact wiring
 
-| Nano | Button | Fires |
-|---|---|---|
-| D2 | CLOSE | 3 bursts, strongest, reads as a nearby strike |
-| D3 | MID | 2 bursts |
-| D4 | FAR | 1 burst, weakest, reads as a distant strike |
-| D5 | STORM | scripted approaching storm: far to close, then receding |
-| D13 | on-board LED | activity indicator |
+Four momentary normally-open push buttons. Each one has **two legs that matter**:
+one to a Nano digital pin, the other to **GND**. Nothing else. No resistors, no
+`5V`, no `VCC` - the firmware calls `pinMode(pin, INPUT_PULLUP)`, so the Nano's own
+internal pull-up holds the pin at 5 V and pressing the button pulls it to 0 V.
+
+```
+                    Nano                         button          Nano
+                 +--------+                     +-------+
+                 |     D2 |---------------------| o   o |----+
+                 |        |                     +-------+    |
+                 |     D3 |---------------------| o   o |----+
+                 |        |                     +-------+    |
+                 |     D4 |---------------------| o   o |----+
+                 |        |                     +-------+    |
+                 |     D5 |---------------------| o   o |----+
+                 |        |                                  |
+                 |    GND |----------------------------------+
+                 +--------+                          one shared ground rail
+```
+
+| Nano pin | Button leg A | Button leg B | Fires |
+|---|---|---|---|
+| D2 | to D2 | to GND | CLOSE - 3 bursts, strongest, reads as a nearby strike |
+| D3 | to D3 | to GND | MID - 2 bursts |
+| D4 | to D4 | to GND | FAR - 1 burst, weakest, reads as a distant strike |
+| D5 | to D5 | to GND | STORM - scripted storm, far to close then receding |
+
+All four GND legs go to the **same** Nano `GND` pin, which is also the ground
+shared with the Click. On a breadboard that is one ground rail with five wires into
+it: four button legs plus the Click's `GND`.
+
+A 4-pin tactile switch is the same thing twice: legs 1 and 2 are one contact, legs
+3 and 4 are the other. Use one leg from each pair, diagonally opposite, and the
+orientation cannot be wrong.
+
+Nothing is wired to the Nano's `D13`. That is the **on-board** LED, driven in
+firmware as an activity indicator; it needs no external part.
+
+**Do not wire buttons to the Click's `AN`, `PWM` or `INT` pads.** Those are the
+Click's own three buttons, and they are inputs expecting a host to poll them. The
+Click cannot emit a burst from them; see the note at the top of this file.
 
 ### Voltage: check this before powering up
 
@@ -175,6 +208,38 @@ Check the board for a `VCC SEL` jumper or a "3.3 V / 5 V" marking:
 - **3.3 V only** - power `VCC` from the Nano's `3V3` pin and put a bidirectional
   I2C level shifter on SDA and SCL, or use a 3.3 V board (Nano 33 IoT, Nano
   Every at 3.3 V, or a Pi) instead.
+
+The same sketch builds unchanged on either of those boards. `Wire.setWireTimeout()`
+exists only in the classic AVR core, not in the SAMD core the Nano 33 IoT uses nor
+the megaavr core the Nano Every uses, so the firmware compiles that one call out by
+architecture and prints a note on the serial line saying the I2C timeout is not
+armed. Nothing else differs and the pin map is identical.
+
+Both of these were compiled and are known to build:
+
+```bash
+arduino-cli compile --fqbn arduino:avr:nano         arduino/lightning_emulator
+# 6438 bytes flash (20%), 558 bytes RAM (27%), no warnings from the sketch
+
+arduino-cli compile --fqbn arduino:samd:nano_33_iot arduino/lightning_emulator
+# 15744 bytes flash (6%), 4204 bytes RAM (12%)
+```
+
+Nano Every (`arduino:megaavr:nona4809`) should build for the same reason the
+Nano 33 IoT does, but that core is not installed here so it has not been
+compiled and is not claimed.
+
+On an AVR core older than 1.8.1, which predates the timeout API and cannot be
+detected from a macro, build with `-DEMU_NO_I2C_TIMEOUT` or update the core.
+
+Sources: the Arduino AVR core's
+[Wire.h](https://github.com/arduino/ArduinoCore-avr/blob/master/libraries/Wire/src/Wire.h)
+declares `setWireTimeout` and publishes no feature macro for it, and Arduino forum
+threads confirm it is missing on
+[Nano Every / megaavr](https://forum.arduino.cc/t/no-wire-setwiretimeout-on-nano-every/1250383)
+and was
+[added to the AVR branch only](https://forum.arduino.cc/t/wire-setwiretimeout-does-not-exist-for-arduino-due/1037030).
+Content was rephrased for compliance with licensing restrictions.
 
 Driving 5 V into a 3.3 V-only I2C input can damage the DAC. If in doubt, the
 3.3 V wiring is safe on both.

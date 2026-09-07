@@ -6,8 +6,67 @@ copies everything to /home/gwld1, installs the systemd service and applies the
 hardening script.
 
 
+HARDWARE ON THIS UNIT
+---------------------
+Raspberry Pi Zero W on a Pi 2 Click Shield (MIKROE-1879), two mikroBUS sockets:
+
+  socket 1   AS3935 lightning sensor. SPI, interrupt on BCM 17 (irq_pin).
+  socket 2   Terminal 2 Click (MIKROE-4951). Serial out to the Campbell logger.
+
+Terminal 2 Click is PASSIVE. No transceiver, no logic - it mirrors the sixteen
+mikroBUS pins of its socket onto two nine-position screw terminals. The label
+beside a terminal names the mikroBUS pin, not the Raspberry Pi GPIO behind it.
+
+
+DO NOT WIRE THE CAMPBELL LOGGER TO THE TERMINAL MARKED "TX"
+-----------------------------------------------------------
+It is the obvious thing to do and it is wrong here, for two separate reasons:
+
+  1. mikroBUS TX goes to the Pi's hardware UART0 TXD, BCM 14. On this unit that
+     is the SERIAL CONSOLE: config.txt sets enable_uart=1 and keeps BCM 14/15 as
+     the recovery path for a site with no display. Wiring a logger there does
+     not merely fail to deliver strikes, it feeds kernel messages and a login
+     prompt into the logger's serial port.
+
+  2. The Campbell output is not the hardware UART. It is a bit-banged UART
+     produced by pigpio's wave_add_serial on campbell_uart_tx_pin, BCM 26 by
+     default, chosen exactly so the recovery console stays usable.
+
+The correct terminal is whichever one carries BCM 26. Which mikroBUS pin that is
+depends on the shield's routing, so identify it on the bench or on site instead
+of assuming:
+
+    sudo systemctl stop lightning-detector
+    python3 campbell_pin_probe.py --toggle     # find and label the terminal
+    python3 campbell_pin_probe.py --send       # send a real test record
+    sudo systemctl start lightning-detector
+
+Stop the service first. pigpio will let two writers drive one GPIO and the
+result is a corrupted waveform that looks exactly like a wiring fault.
+
+Ground the logger and the Pi together. It is the most common omission on a
+first install and it makes every other symptom misleading.
+
+Note that campbell_uart_enabled is false in lightning_config.json, so the
+service does not drive this pin until it is switched on.
+
+
 WHAT CHANGED IN THIS REVISION
 -----------------------------
+0. Re-tenanted to Quaggasklip. station_id is QUAGGASKLIP and the webhook is
+
+     https://adminpanel.stratusweather.co.za/quaggasklip/api/v1/lightning
+
+   Only the tenant slug in the path changed. The ingest token is a single
+   server-wide value and the panel resolves the client from the URL, so
+   re-tenanting a detector is a URL change and nothing else. The previous file
+   is kept alongside as lightning_config.json.bak-gwld1.
+
+   A detector files itself under the platform tenant on its first heartbeat and
+   is invisible to the client panel until an admin assigns it, on the platform
+   console's Detectors page. Until it is assigned no alert is sent for it, by
+   design: an unclaimed unit has no recipient list to consult.
+
 1. alert_webhook_url now points at the live panel. The previous value,
    https://gwld1-admin.dynv6.net/..., no longer resolves, which is why no
    heartbeat or strike ever reached the panel:
@@ -28,6 +87,28 @@ WHAT CHANGED IN THIS REVISION
 
 5. .installed marker deleted and the instance-id bumped, so this bundle
    actually deploys on the next boot. See below - both are required.
+
+6. Power: the main loop no longer polls. It used to wake ten times a second,
+   for the life of the installation, to look at a flag that is false almost
+   always. It now sleeps in the kernel on an event the GPIO callback sets, with
+   a one second idle tick (IDLE_TICK_SECONDS). A strike is handled SOONER than
+   before, because the event wakes the loop at once instead of it waiting up to
+   100 ms for the next poll. Everything the loop does between strikes is already
+   gated on its own interval - the shortest is the validation buffer at 30 s - so
+   a one second tick changes none of their behaviour, and the systemd watchdog is
+   120 s so the per-tick ping has ample headroom.
+
+7. The offline Stratus buffer is now bounded (4 MB, oldest records dropped).
+   It was the one file here that could grow without limit: the CSV logs are
+   purged on every date rollover, nothing purged the buffer. A site that loses
+   its uplink for a season would eventually fill the card, and a full card does
+   not mean "the buffer is large", it means logging, journald and the OS all stop
+   being able to write - a dead unit needing a site visit. The local CSV remains
+   the complete record either way; the buffer only exists to replay into Stratus.
+
+8. campbell_pin_probe.py added. Identifies which Terminal 2 screw terminal
+   carries the bit-banged Campbell TX line, and sends a test record in the
+   detector's own wire format. See the hardware warning above.
 
 
 HOW TO APPLY THIS BUNDLE

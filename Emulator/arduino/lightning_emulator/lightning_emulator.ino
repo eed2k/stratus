@@ -1,3 +1,14 @@
+// =========================================================================
+//
+//  Stratus AS3935 Lightning Emulator
+//  Arduino Nano host for the Thunder EMU Click: injects synthetic strikes for
+//  bench testing.
+//
+//  Property of METRON (PTY) LTD | Inteltronics
+//  Developed by L.J. Esterhuizen, Inteltronics
+//
+// =========================================================================
+
 /*
  * AS3935 lightning emulator - Arduino Nano + MikroElektronika Thunder EMU Click.
  *
@@ -74,10 +85,71 @@ static const unsigned long RETRIGGER_LOCKOUT_MS = 400;
 // I2C timeout. Bounds a transfer if SDA is held low.
 static const uint32_t I2C_TIMEOUT_US = 3000;
 
+/* Whether this core can arm that timeout.
+ *
+ * setWireTimeout was added to the CLASSIC AVR Wire library only. It is absent
+ * from megaavr and from SAMD, so calling it unguarded is a compile error
+ * ("class TwoWire has no member named setWireTimeout") on two of the three
+ * boards this rig is documented to run on:
+ *
+ *   - Nano 33 IoT   (SAMD21,   ARDUINO_ARCH_SAMD)
+ *   - Nano Every    (ATmega4809, ARDUINO_ARCH_MEGAAVR)
+ *
+ * Both are named in the README as the way to avoid level-shifting a 3.3 V
+ * Click, and neither would build before this guard.
+ *
+ * Detected by architecture rather than by a feature macro because the AVR Wire
+ * library does not publish one: its header defines WIRE_HAS_END and nothing for
+ * the timeout API, so there is nothing to test for. ARDUINO_ARCH_AVR is
+ * therefore the honest proxy - classic AVR has it, the others do not.
+ *
+ * An AVR core older than 1.8.1 predates the API and cannot be distinguished by
+ * any macro the core defines, so it is handled by hand: build with
+ * -DEMU_NO_I2C_TIMEOUT, or update the core, which is the better answer.
+ *
+ * Losing the timeout is a worse failure mode rather than a broken build: a bus
+ * held low hangs the sketch instead of failing the write. dacWrite still reports
+ * a missing ACK for every other fault. setup() says which build you got, because
+ * "it hangs" and "it prints DAC DID NOT ACK" are very different things to debug.
+ */
+#if defined(ARDUINO_ARCH_AVR) && !defined(EMU_NO_I2C_TIMEOUT)
+  #define EMU_I2C_TIMEOUT_ARMED 1
+#else
+  #define EMU_I2C_TIMEOUT_ARMED 0
+#endif
+
 // Vendor DAC profile: 20 samples, 12-bit, decaying.
 static const uint16_t THUNDER_PROFILE[20] = {
   1030, 730, 520, 370, 270, 200, 150, 110, 90, 70,
   60, 50, 45, 43, 40, 37, 35, 33, 32, 31
+};
+
+/* Button debounce state.
+ *
+ * Declared up here, ahead of the first function in the sketch, because it has to
+ * be. The Arduino build generates a prototype for every function and inserts the
+ * whole block at the line of the FIRST function definition, so any type used in a
+ * signature below that line does not exist yet when its own prototype is read.
+ * With this struct further down, next to the code that uses it, the sketch failed
+ * with "'Button' was not declared in this scope" pointing at a definition that is
+ * plainly right there - the prototype the build inserted is what could not see it.
+ *
+ * Keep type definitions above dacWrite, which is the first function in this file.
+ */
+struct Button {
+  uint8_t pin;
+  uint8_t stable;                          // last debounced level
+  bool timing;                             // a level change is being timed
+  unsigned long changedAt;                 // when the raw level moved
+  bool everFired;                          // has fired at least once
+  unsigned long firedAt;                   // when it last fired
+};
+
+static Button buttons[4] = {
+  { PIN_BTN_CLOSE, HIGH, false, 0, false, 0 },
+  { PIN_BTN_MID,   HIGH, false, 0, false, 0 },
+  { PIN_BTN_FAR,   HIGH, false, 0, false, 0 },
+  { PIN_BTN_STORM, HIGH, false, 0, false, 0 },
 };
 
 // ---------------------------------------------------------------------------
@@ -238,22 +310,6 @@ static void stormSequence() {
 // Buttons
 // ---------------------------------------------------------------------------
 
-struct Button {
-  uint8_t pin;
-  uint8_t stable;                          // last debounced level
-  bool timing;                             // a level change is being timed
-  unsigned long changedAt;                 // when the raw level moved
-  bool everFired;                          // has fired at least once
-  unsigned long firedAt;                   // when it last fired
-};
-
-static Button buttons[4] = {
-  { PIN_BTN_CLOSE, HIGH, false, 0, false, 0 },
-  { PIN_BTN_MID,   HIGH, false, 0, false, 0 },
-  { PIN_BTN_FAR,   HIGH, false, 0, false, 0 },
-  { PIN_BTN_STORM, HIGH, false, 0, false, 0 },
-};
-
 /* True once per press: falling edge, debounced, past the lockout.
    `timing` marks an in-progress debounce; `everFired` exempts the first
    press from the lockout comparison. */
@@ -299,7 +355,10 @@ void setup() {
 
   Wire.begin();
   Wire.setClock(100000);
+
+#if EMU_I2C_TIMEOUT_ARMED
   Wire.setWireTimeout(I2C_TIMEOUT_US, true);   // true: reset the peripheral
+#endif
 
   delay(50);
 
@@ -316,6 +375,10 @@ void setup() {
     Serial.println(F("  SDA on A4, SCL on A5, common GND, power present."));
     Serial.println(F("  A 3.3 V-only Click needs 3V3 and level-shifted I2C."));
   }
+#if !EMU_I2C_TIMEOUT_ARMED
+  Serial.println(F("Note: this core has no I2C timeout. A bus held low will"));
+  Serial.println(F("  hang the sketch rather than report a failed write."));
+#endif
 
   Serial.println();
   Serial.println(F("Buttons to GND:"));

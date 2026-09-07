@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# =========================================================================
+#
+#  Stratus Lightning Beacon
+#  Installer: service unit, user and GPIO permissions.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 #
 # Install the Stratus beacon on a Raspberry Pi Zero W / Zero 2 W.
 #

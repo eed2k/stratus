@@ -171,11 +171,49 @@ CREATE TABLE IF NOT EXISTS forecast_points (
     -- variables is roughly 16k numbers, which SQLite stores comfortably.
     members      TEXT    NOT NULL DEFAULT '[]',
     sources_json TEXT    NOT NULL DEFAULT '{}',
+    -- The learned site correction that was added to `value`, so the raw
+    -- uncorrected forecast is recoverable as value - bias_applied.
+    --
+    -- Stored rather than recomputed because the adaptive learner MUST train on
+    -- the raw value. Training on a corrected value would fold each correction
+    -- into the next one and the offset would compound away from reality. It also
+    -- makes the correction auditable: verification can score the forecast both
+    -- with and without it and show what the learning is actually worth.
+    bias_applied REAL    NOT NULL DEFAULT 0.0,
     PRIMARY KEY (run_id, variable, valid_at)
 ) WITHOUT ROWID;
 
 CREATE INDEX IF NOT EXISTS idx_fp_lookup
     ON forecast_points (variable, valid_at);
+
+-- Learned per-site bias, one row per (variable, provider, lead, hour) cell.
+-- See adaptive.py for what the key means and why it is shaped this way.
+CREATE TABLE IF NOT EXISTS bias_state (
+    station_id  INTEGER NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
+    variable    TEXT    NOT NULL,
+    -- '' for a station-history-only run. A model-backed run and a history-only
+    -- run have unrelated systematic errors and must not share a cell.
+    provider    TEXT    NOT NULL DEFAULT '',
+    lead_bucket TEXT    NOT NULL,
+    hour_bucket TEXT    NOT NULL,
+    bias        REAL    NOT NULL DEFAULT 0.0,
+    -- Typical error size for this cell, tracked alongside the offset because the
+    -- two together decide whether correcting is worth doing at all. A cell whose
+    -- error is mostly scatter is left alone; see adaptive.MIN_OFFSET_SHARE.
+    mae         REAL    NOT NULL DEFAULT 0.0,
+    samples     INTEGER NOT NULL DEFAULT 0,
+    updated_at  TEXT    NOT NULL DEFAULT '',
+    PRIMARY KEY (station_id, variable, provider, lead_bucket, hour_bucket)
+) WITHOUT ROWID;
+
+-- How far the learner has consumed, per station, so a second pass does not fold
+-- the same observation in twice and drive the average with duplicates.
+CREATE TABLE IF NOT EXISTS bias_progress (
+    station_id     INTEGER PRIMARY KEY REFERENCES stations(id)
+                       ON DELETE CASCADE,
+    last_run_id    INTEGER NOT NULL DEFAULT 0,
+    updated_at     TEXT    NOT NULL DEFAULT ''
+) WITHOUT ROWID;
 
 -- One Dropbox folder watched per station, so a logger that keeps appending to
 -- the same .dat feeds the forecast without anyone uploading by hand.
@@ -301,12 +339,43 @@ class Database:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._init()
 
+    #: How long a statement waits for a lock before giving up, in milliseconds.
+    #: Two writers is the normal state of this service: the Dropbox poller
+    #: ingests on a timer while a forecast run writes its points.
+    BUSY_TIMEOUT_MS = 30_000
+
     @contextmanager
-    def connect(self):
-        conn = sqlite3.connect(str(self.path), timeout=30,
-                               detect_types=0)
+    def connect(self, immediate: bool = False):
+        """A connection with the busy timeout that actually applies.
+
+        `immediate` takes the write lock when the transaction opens, and every
+        method that writes must pass it. This is not a tuning knob, it is the
+        difference between waiting and failing:
+
+        Python's sqlite3 opens a DEFERRED transaction, which acquires no lock
+        until the first statement needs one. A deferred transaction that has
+        already read and then tries to write must UPGRADE its lock, and SQLite
+        refuses to wait on an upgrade - it returns SQLITE_BUSY at once, because
+        blocking there could hand the transaction a different snapshot than the
+        one it already read from. The busy timeout is simply not consulted. So a
+        30 second timeout was configured and a concurrent write still failed
+        instantly with "database is locked", which is exactly what happened: a
+        forecast run collided with the Dropbox poller and died in create_run.
+
+        BEGIN IMMEDIATE takes the lock before reading anything, so there is no
+        upgrade, and the timeout is honored. Reads stay deferred, so WAL still
+        lets any number of readers run alongside the one writer.
+        """
+        conn = sqlite3.connect(
+            str(self.path), timeout=self.BUSY_TIMEOUT_MS / 1000.0,
+            detect_types=0,
+            isolation_level="IMMEDIATE" if immediate else "")
         conn.row_factory = sqlite3.Row
         try:
+            # Belt and braces with the connect() timeout above: that one governs
+            # the driver's retry loop, this one governs SQLite's own, and a
+            # statement issued outside a transaction only sees the pragma.
+            conn.execute(f"PRAGMA busy_timeout = {self.BUSY_TIMEOUT_MS}")
             conn.execute("PRAGMA foreign_keys = ON")
             yield conn
             conn.commit()
@@ -317,7 +386,7 @@ class Database:
             conn.close()
 
     def _init(self) -> None:
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.executescript(SCHEMA)
             self._migrate(c)
 
@@ -369,6 +438,10 @@ class Database:
                 # never gain the column and every insert would fail. Found by
                 # the fresh-versus-upgraded schema test.
                 ("sources_json", "TEXT NOT NULL DEFAULT '{}'"),
+                # Defaults to zero, which is exactly right for every point
+                # written before the adaptive correction existed: none of them
+                # were corrected, so raw equals stored.
+                ("bias_applied", "REAL NOT NULL DEFAULT 0.0"),
             ],
             "forecast_runs": [
                 ("resolution_km", "REAL"),
@@ -377,6 +450,14 @@ class Database:
                 # change of method is visible in the verification history rather
                 # than silently averaged together with the old one.
                 ("method_version", "TEXT NOT NULL DEFAULT ''"),
+            ],
+            "bias_state": [
+                # Added after the first version of the learner shipped without it.
+                # A cell upgraded from that version starts with mae 0, which makes
+                # worth_correcting decline until the magnitude has been relearned:
+                # the safe direction, since the version without it is the one that
+                # corrected when it should not have.
+                ("mae", "REAL NOT NULL DEFAULT 0.0"),
             ],
         }
         for table, columns in wanted.items():
@@ -396,7 +477,7 @@ class Database:
 
     def upsert_station(self, slug: str, name: str,
                        logger_model: str = "") -> int:
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             row = c.execute("SELECT id FROM stations WHERE slug = ?",
                             (slug,)).fetchone()
             if row:
@@ -458,7 +539,7 @@ class Database:
                                 longitude: float | None,
                                 elevation_m: float | None,
                                 utc_offset_hours: float | None = None) -> None:
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             if utc_offset_hours is None:
                 c.execute(
                     "UPDATE stations SET latitude = ?, longitude = ?, "
@@ -474,7 +555,7 @@ class Database:
     def update_station_nwp(self, station_id: int, enabled: bool,
                            providers: list[str],
                            variables: list[str]) -> None:
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.execute(
                 "UPDATE stations SET nwp_enabled = ?, nwp_providers = ?, "
                 "nwp_variables = ? WHERE id = ?",
@@ -483,7 +564,7 @@ class Database:
 
     def delete_station(self, station_id: int) -> None:
         # Cascades to uploads, observations, runs and points.
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.execute("DELETE FROM stations WHERE id = ?", (station_id,))
 
     # -- uploads and observations -----------------------------------------
@@ -498,7 +579,7 @@ class Database:
                       rows_kept: int, rows_skipped: int,
                       first_ts: datetime | None, last_ts: datetime | None,
                       report: dict) -> int:
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             cur = c.execute(
                 "INSERT OR IGNORE INTO uploads (station_id, filename, sha256, "
                 "uploaded_at, rows_kept, rows_skipped, first_ts, last_ts, "
@@ -537,7 +618,7 @@ class Database:
                "VALUES (?, ?, ?, ?)")
         written = 0
         batch: list[tuple] = []
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             for obs in observations:
                 stamp = to_db(obs.observed_at)
                 for variable, value in obs.values.items():
@@ -638,7 +719,7 @@ class Database:
 
         placeholders = ", ".join("?" for _ in range(len(columns) + 1))
         assignments = ", ".join(f"{c} = excluded.{c}" for c in columns)
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.execute(
                 f"INSERT INTO sector_config (station_id, {', '.join(columns)}) "
                 f"VALUES ({placeholders}) "
@@ -664,7 +745,7 @@ class Database:
         rows = [(station_id, to_db(v), float(w), s) for v, w, s in entries]
         if not rows:
             return 0
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.executemany(
                 "INSERT OR REPLACE INTO provider_clear_sky "
                 "(station_id, valid_at, wm2, source) VALUES (?, ?, ?, ?)",
@@ -788,6 +869,87 @@ class Database:
             return None
         return from_db(r["observed_at"]), float(r["value"])
 
+    # -- learned site bias ------------------------------------------------
+
+    def load_bias_rows(self, station_id: int) -> list[sqlite3.Row]:
+        """Every learned bias cell for a station. See adaptive.BiasModel."""
+        with self.connect() as c:
+            return list(c.execute(
+                "SELECT variable, provider, lead_bucket, hour_bucket, bias, "
+                "mae, samples FROM bias_state WHERE station_id = ?",
+                (station_id,)))
+
+    def save_bias_rows(self, rows) -> int:
+        """Write learned cells back, replacing what was there.
+
+        Replace rather than accumulate: the model in memory was loaded from these
+        same rows and already carries their history in its decaying average, so
+        adding to them would count every past observation twice.
+        """
+        rows = list(rows)
+        if not rows:
+            return 0
+        stamp = to_db(datetime.now())
+        with self.connect(immediate=True) as c:
+            c.executemany(
+                "INSERT OR REPLACE INTO bias_state (station_id, variable, "
+                "provider, lead_bucket, hour_bucket, bias, mae, samples, "
+                "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [(*r, stamp) for r in rows])
+        return len(rows)
+
+    def bias_progress(self, station_id: int) -> int:
+        """The highest run id the learner has already consumed."""
+        with self.connect() as c:
+            r = c.execute("SELECT last_run_id FROM bias_progress "
+                          "WHERE station_id = ?", (station_id,)).fetchone()
+        return int(r["last_run_id"]) if r else 0
+
+    def set_bias_progress(self, station_id: int, last_run_id: int) -> None:
+        with self.connect(immediate=True) as c:
+            c.execute(
+                "INSERT OR REPLACE INTO bias_progress (station_id, "
+                "last_run_id, updated_at) VALUES (?, ?, ?)",
+                (station_id, int(last_run_id), to_db(datetime.now())))
+
+    def reset_bias(self, station_id: int) -> None:
+        """Forget everything learned for a station.
+
+        Needed after a sensor is recalibrated or replaced: the offset learned
+        against the old sensor is then a description of hardware that is no
+        longer installed, and continuing to apply it would carry a retired
+        instrument's error forward indefinitely.
+        """
+        with self.connect(immediate=True) as c:
+            c.execute("DELETE FROM bias_state WHERE station_id = ?", (station_id,))
+            c.execute("DELETE FROM bias_progress WHERE station_id = ?", (station_id,))
+
+    def verified_points(self, station_id: int, after_run_id: int = 0):
+        """Forecast hours that now have a matching observation, oldest run first.
+
+        `raw` is the forecast as the engine produced it, with any learned
+        correction removed, because that is the only value the learner may train
+        on. Training on the corrected value would fold each correction into the
+        next and the offset would compound.
+
+        Ordered by run id so a partial pass can be resumed from where it stopped.
+        """
+        with self.connect() as c:
+            return list(c.execute(
+                "SELECT fr.id AS run_id, fr.provider AS provider, "
+                "       fp.variable AS variable, fp.lead_hours AS lead_hours, "
+                "       fp.valid_at AS valid_at, "
+                "       fp.value - fp.bias_applied AS raw, "
+                "       o.value AS observed "
+                "FROM forecast_points fp "
+                "JOIN forecast_runs fr ON fr.id = fp.run_id "
+                "JOIN observations o ON o.station_id = fr.station_id "
+                "                   AND o.variable = fp.variable "
+                "                   AND o.observed_at = fp.valid_at "
+                "WHERE fr.station_id = ? AND fr.id > ? "
+                "  AND fp.value IS NOT NULL "
+                "ORDER BY fr.id, fp.valid_at", (station_id, after_run_id)))
+
     # -- forecast runs ----------------------------------------------------
 
     def create_run(self, station_id: int, base_time: datetime,
@@ -800,7 +962,7 @@ class Database:
         recompute, and keeping both would double-count that base time in the
         verification statistics.
         """
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.execute(
                 "DELETE FROM forecast_runs WHERE station_id = ? "
                 "AND base_time = ? AND horizon_hours = ?",
@@ -817,16 +979,18 @@ class Database:
 
     def insert_points(self, run_id: int, points) -> int:
         """`points` are (valid_at, lead_hours, variable, value, p10, p90,
-        persistence, climatology, sources, members).
+        persistence, climatology, sources, members, bias_applied).
 
-        `members` is optional for callers written before the ensemble was
-        stored; it defaults to an empty list.
+        `members` and `bias_applied` are optional for callers written before the
+        ensemble and the adaptive correction were stored; they default to an
+        empty list and to zero.
         """
         rows = []
         for point in points:
             (valid_at, lead, variable, value, p10, p90,
              persistence, climatology, sources) = point[:9]
             members = point[9] if len(point) > 9 else None
+            bias_applied = point[10] if len(point) > 10 else 0.0
             clean = []
             for m in (members or ()):
                 try:
@@ -837,15 +1001,16 @@ class Database:
                     clean.append(round(f, 4))
             rows.append((run_id, to_db(valid_at), float(lead), variable,
                          value, p10, p90, persistence, climatology,
-                         json.dumps(clean), json.dumps(sources or {})))
+                         json.dumps(clean), json.dumps(sources or {}),
+                         float(bias_applied or 0.0)))
         if not rows:
             return 0
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.executemany(
                 "INSERT OR REPLACE INTO forecast_points (run_id, valid_at, "
                 "lead_hours, variable, value, p10, p90, persistence, "
-                "climatology, members, sources_json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+                "climatology, members, sources_json, bias_applied) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
         return len(rows)
 
     @staticmethod
@@ -948,7 +1113,7 @@ class Database:
                               file_pattern: str, enabled: bool,
                               interval_secs: int,
                               auto_forecast: bool) -> None:
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.execute(
                 "INSERT INTO dropbox_sources (station_id, folder_path, "
                 "file_pattern, enabled, interval_secs, auto_forecast) "
@@ -973,7 +1138,7 @@ class Database:
 
     def record_dropbox_poll(self, station_id: int, status: str, error: str,
                             files_seen: int, rows_added: int) -> None:
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.execute(
                 "UPDATE dropbox_sources SET last_polled_at = ?, "
                 "last_status = ?, last_error = ?, files_seen = ?, "
@@ -991,7 +1156,7 @@ class Database:
     def record_dropbox_file(self, station_id: int, path_lower: str, rev: str,
                             content_hash: str, size_bytes: int,
                             rows_kept: int) -> None:
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             c.execute(
                 "INSERT OR REPLACE INTO dropbox_seen (station_id, path_lower, "
                 "rev, content_hash, size_bytes, ingested_at, rows_kept) "
@@ -1008,7 +1173,7 @@ class Database:
     def prune_orphan_runs(self, station_id: int) -> int:
         """Drop runs whose points can never be scored because the base time is
         newer than every observation we hold. Housekeeping only."""
-        with self.connect() as c:
+        with self.connect(immediate=True) as c:
             cur = c.execute(
                 "DELETE FROM forecast_runs WHERE station_id = ? AND id NOT IN "
                 "(SELECT DISTINCT run_id FROM forecast_points)",

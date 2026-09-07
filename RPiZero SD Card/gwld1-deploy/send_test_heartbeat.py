@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Detection System
+#  Sends one heartbeat on demand instead of waiting for the scheduled one.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 """Send one heartbeat to the admin panel now, and show exactly what happened.
 
 The detector only posts a panel heartbeat every HEARTBEAT_WEBHOOK_INTERVAL
