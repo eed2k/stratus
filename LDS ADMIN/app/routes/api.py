@@ -48,10 +48,18 @@ class CalibrationPayload(BaseModel):
     tune_cap_after: int | None = None
 
 
-def verify_token(x_auth_token: str = Header(default="")):
-    if not settings.ALERT_WEBHOOK_TOKEN:
-        return  # token not set on server -> open ingest (dev only)
-    if not hmac.compare_digest(str(x_auth_token), str(settings.ALERT_WEBHOOK_TOKEN)):
+def verify_token(request: Request, x_auth_token: str = Header(default="")):
+    # Per-tenant credential isolation: the token accepted depends on which
+    # client's URL the request arrived on. A detector posting to /quaggasklip/
+    # must present the quaggasklip token; the Glencore token is rejected there,
+    # and vice versa. Tenants without a per-tenant token fall back to the global
+    # ALERT_WEBHOOK_TOKEN, so existing single-token setups are unchanged.
+    from ..tenancy import url_tenant
+    slug = (url_tenant(request) or {}).get("slug")
+    expected = settings.ingest_token_for(slug)
+    if not expected:
+        return  # no token set anywhere -> open ingest (dev only)
+    if not hmac.compare_digest(str(x_auth_token), str(expected)):
         raise HTTPException(401, "Invalid X-Auth-Token")
 
 

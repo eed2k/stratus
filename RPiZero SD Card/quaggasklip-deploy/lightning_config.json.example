@@ -1,6 +1,6 @@
 {
-    "station_id": "GLENCORE WONDERKOP",
-    "log_dir": "/home/gwld1/lightning_data",
+    "station_id": "QUAGGASKLIP",
+    "log_dir": "/home/quaggasklip/lightning_data",
     "stratus_enabled": false,
     "stratus_endpoint": "",
     "stratus_api_key": "",
@@ -16,13 +16,14 @@
     "campbell_heartbeat_interval": 600,
     "register_check_interval": 86400,
     "irq_pin": 17,
-    "pulse_mirror_enabled": false,
+    "pulse_mirror_enabled": true,
     "pulse_mirror_pin": 19,
-    "campbell_uart_enabled": false,
+    "pulse_mirror_width_ms": 50,
+    "campbell_uart_enabled": true,
     "campbell_uart_tx_pin": 26,
     "campbell_uart_baud": 9600,
     "alert_webhook_enabled": true,
-    "alert_webhook_url": "https://adminpanel.stratusweather.co.za/gwld1/api/v1/lightning",
+    "alert_webhook_url": "https://adminpanel.stratusweather.co.za/quaggasklip/api/v1/lightning",
     "alert_webhook_token": "REPLACE_WITH_ALERT_WEBHOOK_TOKEN",
     "alert_webhook_timeout": 5,
     "alert_distance_km": 40,
@@ -42,5 +43,5 @@
     "antenna_check_hour": 6,
     "cpu_temp_warn_c": 70,
     "cpu_temp_crit_c": 78,
-    "_readme": "Glencore Wonderkop template. AS3935 only, no Campbell. Fill in alert_webhook_token with the gwld1 tenant token. The tenant slug in alert_webhook_url selects the client panel."
+    "_readme": "Template: fill in alert_webhook_token. The tenant slug in alert_webhook_url selects the client panel; the heartbeat and calibration endpoints are derived from it."
 }

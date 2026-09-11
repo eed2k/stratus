@@ -1,0 +1,277 @@
+'=============================================================================
+'
+'  Stratus AS3935 Lightning Detection System
+'  CR300 receiver: logs the ASCII serial records sent by the Pi Zero detector.
+'
+'  Property of METRON (PTY) LTD | Inteltronics
+'  Developed by L.J. Esterhuizen, Inteltronics
+'
+'=============================================================================
+' Site: QUAGGASKLIP
+'
+' WHAT THE PI SENDS   9600 baud, 8 data bits, no parity, 1 stop bit, 3.3 V TTL
+'
+'   L,<distance_km>,<energy>     one record per forwarded strike
+'   H,<cpu_temp_c>,<rssi_dbm>    status, every campbell_heartbeat_interval
+'                                (600 s in lightning_config.json)
+'
+' Both records end with a real CR LF. distance_km is -1 when the AS3935 reports
+' a strike it cannot range, so -1 is never treated as a "closest strike".
+'
+' The status record is what makes a dead detector visible. A quiet sky and a
+' crashed Pi both produce zero L records, so without H there is nothing to tell
+' them apart. This program therefore captures whole lines and dispatches on the
+' first character, rather than filtering the serial input on a BeginWord of "L".
+'
+' WIRING
+'
+'   Pi BCM 26   (40 pin header, physical pin 37)  ->  CR300  C2
+'   Pi GND      (40 pin header, physical pin 39)  ->  CR300  G
+'
+' Ground is not optional. Without a shared reference the receiver samples noise
+' instead of data, and the symptom is ParseErrorCount climbing steadily while
+' everything else looks healthy.
+'
+' No level shifter is needed. Campbell specifies C1 and C2 as 3.3 V input (they
+' output 5.0 V, but that is irrelevant here since the logger only receives),
+' with an input tolerance of -10 V to +15 V. The Pi drives 3.3 V, which is
+' exactly the specified level. P_SW is likewise 3.3 V, tolerant to +/-17 V.
+'
+' Do NOT wire the mikroBUS TX pin of the Terminal 2 Click. On this build that
+' pin is BCM 14, the Linux serial console (enable_uart=1). The detector
+' deliberately bit-bangs its output on BCM 26 with pigpio instead, so the
+' console stays available for field debugging.
+'
+' BCM 26 was chosen as an accessible pin on the lower header. It is NOT a
+' mikroBUS signal, so if you would rather land the wire on the Terminal 2 Click
+' screw terminals, confirm which terminal actually carries BCM 26 first:
+'
+'   python3 /home/gwld1/campbell_pin_probe.py --toggle
+'
+' and follow it with a meter. Do not assume a mapping.
+'
+' ENABLE THE PI SIDE FIRST, or this program will log nothing at all:
+'
+'   lightning_config.json   ->   "campbell_uart_enabled": true
+'   sudo systemctl restart lightning-detector
+'
+' PULSE INPUT, second wire, enabled on this unit
+'
+'   Pi BCM 19   (40 pin header, physical pin 35)  ->  CR300  P_SW
+'
+' The detector mirrors every confirmed strike as one 50 ms pulse on BCM 19, set
+' by "pulse_mirror_enabled" and "pulse_mirror_width_ms" in lightning_config.json.
+' 50 ms is far above any switch-closure debounce and still allows 10 strikes per
+' second, well beyond anything this unit forwards.
+'
+' This is a deliberately independent count. It is driven straight off the strike
+' handler, so it does not depend on the serial line, the network, or the panel.
+' PulseCountTotal and StrikeCount should track each other closely, and the two
+' diverging is a real signal rather than a nuisance:
+'
+'   pulses >  serial   the serial line or its wiring is dropping records, or the
+'                      interference guard is muting strikes, which it does while
+'                      still emitting the pulse
+'   serial >  pulses   the pulse wire, the P_SW terminal or its ground is at
+'                      fault, since the serial path proved the strike was real
+'
+' Both counts come from the same confirmed lightning interrupts. Disturber and
+' noise interrupts never produce a pulse.
+'=============================================================================
+
+'--- Scan timing -------------------------------------------------------------
+' Liveness is counted in scans rather than read from the clock, so it survives
+' a time set from the WiFi connection. Deriving the divisor from SCAN_MS keeps
+' that arithmetic correct if the scan rate is ever changed.
+Const SCAN_MS = 200
+Const SCANS_PER_MIN = 60000 / SCAN_MS
+
+' How long without any record before the detector is declared offline. The Pi
+' sends status every 10 minutes, so 25 covers two missed records plus margin.
+' Deliberately shorter than the admin panel's own 130 minute threshold: the
+' logger is the local, independent witness.
+Const OFFLINE_AFTER_MIN = 25
+
+'--- Lightning, from L records ----------------------------------------------
+Public LastDistanceKm As Float
+Public LastEnergy As Long
+Public StrikeCount As Long
+Public StrikesToday As Long
+Public ClosestTodayKm As Float
+Public MaxEnergyToday As Long
+Public PulseCountScan As Float
+Public PulseCountTotal As Float
+
+'--- Detector health, from H records ----------------------------------------
+Public PiCpuTempC As Float
+Public PiRssiDbm As Float
+Public StatusCount As Long
+Public MinutesSinceRecord As Float
+Public DetectorOnline As Boolean
+
+' Pulse count minus serial count. Expected to sit at or near zero. Drifting
+' positive means the serial path is losing records or the interference guard is
+' muting them; drifting negative means the pulse wire or P_SW is at fault. See
+' the PULSE INPUT note in the header.
+Public CountMismatch As Float
+
+'--- Parsing ---------------------------------------------------------------
+Public LastRecord As String * 48
+Public RecordType As String * 2
+Public BytesReturned As Float
+Public Parsed(3) As Float
+Public ParseErrorCount As Long
+
+Dim RecordOK As Boolean
+Dim ScansSinceRecord As Long
+
+'=============================================================================
+' DATA TABLES
+'
+' Every table is called on every scan. DataInterval decides when a row is
+' actually written. This matters: output processing such as Totalize and
+' Maximum accumulates once per CallTable, so gating CallTable behind IfTime
+' would leave the daily aggregates built from a single sample per day.
+' LightningEvents is the exception, being event driven with no DataInterval,
+' so it is called only when a strike record parses.
+'=============================================================================
+
+' One row per strike. Nothing is averaged away.
+DataTable (LightningEvents, True, -1)
+  Sample (1, LastDistanceKm, FP2)
+  Sample (1, LastEnergy, Long)
+  Sample (1, PulseCountTotal, FP2)
+  Sample (1, LastRecord, String)
+EndTable
+
+' Detector health, once a minute.
+DataTable (LightningHealth, True, -1)
+  DataInterval (0, 1, Min, 10)
+  Sample (1, DetectorOnline, Boolean)
+  Sample (1, MinutesSinceRecord, FP2)
+  Sample (1, PiCpuTempC, FP2)
+  Sample (1, PiRssiDbm, FP2)
+  Sample (1, StrikeCount, Long)
+  Sample (1, StatusCount, Long)
+  Sample (1, ParseErrorCount, Long)
+  Sample (1, PulseCountTotal, FP2)
+  Sample (1, CountMismatch, FP2)
+EndTable
+
+' Daily summary, the same figures the monthly report quotes. Today's values are
+' tracked in their own variables and reset at midnight, so a day with no
+' strikes reports NAN and zero rather than carrying yesterday's numbers
+' forward.
+DataTable (LightningDaily, True, -1)
+  DataInterval (0, 1, Day, 10)
+  Sample (1, StrikesToday, Long)
+  Sample (1, ClosestTodayKm, FP2)
+  Sample (1, MaxEnergyToday, Long)
+  Totalize (1, PulseCountScan, FP2, False)
+EndTable
+
+'=============================================================================
+' PROGRAM
+'=============================================================================
+
+BeginProg
+  ClosestTodayKm = NAN
+  MaxEnergyToday = 0
+  StrikesToday = 0
+  DetectorOnline = False
+  ScansSinceRecord = 0
+
+  ' Receive only, ASCII, 8N1. A 256 byte buffer holds roughly a dozen records,
+  ' which absorbs a strike burst arriving faster than the scan drains it.
+  SerialOpen (ComC2_Rx, 9600, 0, 0, 256)
+  SerialFlush (ComC2_Rx)
+
+  Scan (SCAN_MS, mSec, 0, 0)
+
+    '--- Pulse input, one 50 ms pulse per confirmed strike -----------------
+    ' PConfig 2 = switch closure up to 150 Hz, POption 0 = counts. This is the
+    ' independent strike count, see the PULSE INPUT note in the header.
+    PulseCount (PulseCountScan, 1, P_SW, 2, 0, 1, 0)
+    PulseCountTotal = PulseCountTotal + PulseCountScan
+
+    '--- Serial records ---------------------------------------------------
+    ' BeginWord 0 captures the whole line including its leading letter, so one
+    ' call handles both record types. EndWord 3338 is &H0D0A, that is CR LF.
+    ' Option 10 takes the OLDEST buffered record and leaves the destination
+    ' untouched when nothing arrived, which drains a burst in order. Option 01
+    ' would take only the newest record and discard the rest of the burst.
+    SerialInRecord (ComC2_Rx, LastRecord, 0, 0, 3338, BytesReturned, 10)
+
+    If BytesReturned > 0 Then
+      RecordType = Left (LastRecord, 1)
+      ' Field 1 is the leading letter and parses as NAN. Fields 2 and 3 carry
+      ' the values.
+      SplitStr (Parsed, LastRecord, ",", 3, 0)
+      RecordOK = False
+
+      ' x = x is false only for NAN, which is how a failed parse is caught.
+      If Parsed(2) = Parsed(2) AND Parsed(3) = Parsed(3) Then
+
+        If RecordType = "L" Then
+          LastDistanceKm = Parsed(2)
+          LastEnergy = Parsed(3)
+          StrikeCount = StrikeCount + 1
+          StrikesToday = StrikesToday + 1
+
+          If LastEnergy > MaxEnergyToday Then MaxEnergyToday = LastEnergy
+
+          ' -1 means the strike could not be ranged, so it is not a candidate
+          ' for the closest approach of the day.
+          If LastDistanceKm >= 0 Then
+            If ClosestTodayKm <> ClosestTodayKm Then
+              ClosestTodayKm = LastDistanceKm
+            ElseIf LastDistanceKm < ClosestTodayKm Then
+              ClosestTodayKm = LastDistanceKm
+            EndIf
+          EndIf
+
+          RecordOK = True
+          CallTable LightningEvents
+        EndIf
+
+        If RecordType = "H" Then
+          PiCpuTempC = Parsed(2)
+          PiRssiDbm = Parsed(3)
+          StatusCount = StatusCount + 1
+          RecordOK = True
+        EndIf
+
+      EndIf
+
+      If RecordOK Then
+        ' Any valid record proves the detector is alive, strike or status.
+        ScansSinceRecord = 0
+        DetectorOnline = True
+      Else
+        ParseErrorCount = ParseErrorCount + 1
+      EndIf
+    EndIf
+
+    '--- Liveness ---------------------------------------------------------
+    ScansSinceRecord = ScansSinceRecord + 1
+    MinutesSinceRecord = ScansSinceRecord / SCANS_PER_MIN
+    If MinutesSinceRecord > OFFLINE_AFTER_MIN Then
+      DetectorOnline = False
+    EndIf
+
+    '--- Cross-check the two independent strike paths ----------------------
+    CountMismatch = PulseCountTotal - StrikeCount
+
+    '--- Output -----------------------------------------------------------
+    CallTable LightningHealth
+    CallTable LightningDaily
+
+    ' Reset today's figures after the daily row has been written above.
+    If IfTime (0, 1, Day) Then
+      StrikesToday = 0
+      ClosestTodayKm = NAN
+      MaxEnergyToday = 0
+    EndIf
+
+  NextScan
+EndProg

@@ -1,0 +1,80 @@
+'===============================================================================
+' AS3935 LIGHTNING DETECTION UNIT
+'===============================================================================
+'CR300 WiFi program for lightning detector integration
+'Pi wiring (recommended for CR300):
+'  GPIO 26 (UART TX)  -> C2  (CR300 RX)
+'  GPIO 19 (IRQ mirror)-> P_SW
+'  GND                -> G
+'
+'Serial format from Pi:
+'  L,<distance_km>,<energy>\r\n
+'
+Public LastLightningDistanceKm As Float
+Public LastLightningEnergy As Long
+Public LastSerialRecord As String * 40
+Public SerialBytesReturned As Float
+Public PulseCountScan As Float
+Public PulseCountTotal As Float
+Public ParsedNumeric(3) As Float
+Public LightningRecordCount As Long
+Public ParseErrorCount As Long
+
+Dim SerialParsedOK As Boolean
+
+DataTable (LightningEvents, True, -1)
+  Sample (1, LastLightningDistanceKm, FP2)
+  Sample (1, LastLightningEnergy, Long)
+  Sample (1, PulseCountTotal, FP2)
+  Sample (1, LastSerialRecord, String)
+EndTable
+
+DataTable (LightningHealth, True, -1)
+  DataInterval (0, 1, Min, 10)
+  Sample (1, PulseCountScan, FP2)
+  Sample (1, PulseCountTotal, FP2)
+  Sample (1, LightningRecordCount, Long)
+  Sample (1, ParseErrorCount, Long)
+  Sample (1, LastLightningDistanceKm, FP2)
+  Sample (1, LastLightningEnergy, Long)
+EndTable
+
+BeginProg
+  'Open receive-only serial on C2. 9600, 8N1 ASCII.
+  SerialOpen(ComC2_Rx, 9600, 0, 0, 128)
+  SerialFlush(ComC2_Rx)
+
+  Scan(200, mSec, 0, 0)
+    'Count mirrored IRQ pulses from Pi on P_SW.
+    'PConfig 2 = switch closure (up to 150 Hz), POption 0 = counts.
+    PulseCount(PulseCountScan, 1, P_SW, 2, 0, 1, 0)
+    PulseCountTotal = PulseCountTotal + PulseCountScan
+
+    'Read oldest complete "L,...\r\n" record from buffer.
+    SerialInRecord(ComC2_Rx, LastSerialRecord, 76, 0, 3338, SerialBytesReturned, 10)
+
+    If SerialBytesReturned > 0 Then
+      'Payload captured excludes BeginWord/EndWord, e.g. ",15,84230"
+      'LastSerialRecord holds ",distance,energy" (BeginWord 'L' is stripped)
+      'So index 1 = empty, index 2 = distance, index 3 = energy
+      SplitStr(ParsedNumeric, LastSerialRecord, ",", 3, 0)
+
+      SerialParsedOK = False
+      If ParsedNumeric(2) = ParsedNumeric(2) And ParsedNumeric(3) = ParsedNumeric(3) Then
+        LastLightningDistanceKm = ParsedNumeric(2)
+        LastLightningEnergy = ParsedNumeric(3)
+        LightningRecordCount = LightningRecordCount + 1
+        SerialParsedOK = True
+        CallTable LightningEvents
+      EndIf
+
+      If Not SerialParsedOK Then
+        ParseErrorCount = ParseErrorCount + 1
+      EndIf
+    EndIf
+
+    If IfTime(0, 1, Min) Then
+      CallTable LightningHealth
+    EndIf
+  NextScan
+EndProg

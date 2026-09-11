@@ -273,7 +273,7 @@ class Config:
         # ===========================================================
         #  Data Logging
         # ===========================================================
-        self.LOG_DIR         = "/home/gwld1/lightning_data"
+        self.LOG_DIR         = "/home/quaggasklip/lightning_data"
         self.LOG_LEVEL       = logging.INFO
         self.LOG_RETENTION_DAYS = 90
 
@@ -290,7 +290,7 @@ class Config:
         # ===========================================================
         #  Config File
         # ===========================================================
-        self.CONFIG_FILE     = "/home/gwld1/lightning_config.json"
+        self.CONFIG_FILE     = "/home/quaggasklip/lightning_config.json"
 
 
 # ===========================================================================

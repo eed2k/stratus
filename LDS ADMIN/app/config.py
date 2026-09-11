@@ -1,9 +1,14 @@
+import os
+import re
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     APP_SECRET_KEY: str = "dev-only-change-me"
     DATABASE_URL: str = "sqlite:///./data/panel.db"
+    # Global ingest token. Used for the platform panel and for any tenant that
+    # does not have its own per-tenant token set (see ingest_token_for).
     ALERT_WEBHOOK_TOKEN: str = ""
 
     # Detector unit liveness. The Pi heartbeats hourly; we allow one missed
@@ -55,6 +60,29 @@ class Settings(BaseSettings):
     def sms_dlr_token(self) -> str:
         """The delivery-receipt shared secret, preferring the current name."""
         return self.SMS_GATEWAY_DLR_TOKEN or self.CLICKATELL_DLR_TOKEN
+
+    def ingest_token_for(self, slug: str | None) -> str:
+        """The ingest token accepted for a tenant's /<slug>/api/v1 URLs.
+
+        Detectors are credential-isolated per tenant. A tenant-specific token is
+        read from the environment variable ALERT_WEBHOOK_TOKEN_<SLUG>, where
+        <SLUG> is the slug upper-cased with every non-alphanumeric character
+        folded to an underscore, e.g. ALERT_WEBHOOK_TOKEN_QUAGGASKLIP. When that
+        variable is set it is the ONLY token accepted for that tenant, so one
+        detector's leaked token cannot be replayed against another client's
+        path.
+
+        When no per-tenant token is set for the slug (or the request is not
+        tenant-scoped, e.g. the platform panel), the global ALERT_WEBHOOK_TOKEN
+        applies. This preserves the existing single-token behavior for every
+        tenant that has not been given its own token.
+        """
+        if slug:
+            key = "ALERT_WEBHOOK_TOKEN_" + re.sub(r"[^A-Z0-9]", "_", slug.upper())
+            val = (os.environ.get(key) or "").strip()
+            if val:
+                return val
+        return self.ALERT_WEBHOOK_TOKEN or ""
 
     # Site name used in SMS alerts. Set SITE_NAME in the environment per
     # deployment; falls back to the station_id reported by the detector.

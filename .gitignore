@@ -78,10 +78,16 @@ docker-compose.override.yml
 !demo/
 !demo/*.dat
 
-# ── CRBasic programs (keep in examples/crbasic/ only) ──
+# ── CRBasic programs ──
+# A .CR300 file is the source of a logger program, not a build artifact, so the
+# site programs below are tracked. The broad ignore stays in place to keep
+# scratch copies and files pulled off a logger out of the repo.
 *.CR300
 *.CRB
 *.cr300
+!examples/crbasic/*.CR300
+!Quaggasklip/campbell/*.CR300
+!Lightning Detector/campbell_log/*.CR300
 
 # ── Archives / build bundles ──
 *.tar.gz
@@ -209,3 +215,11 @@ cmdline.txt.bak.*
 # Shipped as lightning_config.json.example; the real file is never committed.
 RPiZero SD Card/gwld1-deploy/lightning_config.json
 RPiZero SD Card/gwld1-deploy/*.bak-*
+# Same for the Quaggasklip bundle: the live config carries the real ingest
+# token, so only its .example template is committed.
+RPiZero SD Card/quaggasklip-deploy/lightning_config.json
+RPiZero SD Card/quaggasklip-deploy/*.bak-*
+
+# ESP32 beacon local secrets (WiFi password + panel token). Never commit.
+arduino_secrets.h
+Beacon/esp32/**/arduino_secrets.h
