@@ -63,10 +63,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <div className="w-4 h-4 rounded-full bg-white"></div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-foreground">
                 Stratus
               </h1>
-              <p className="text-sm text-gray-600">Weather Station Server</p>
+              <p className="text-sm text-foreground">Weather Station Server</p>
             </div>
           </div>
         </div>
@@ -74,10 +74,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         {/* Login Card */}
         <Card className="shadow-xl border border-gray-200 bg-white">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl text-center text-gray-900">
+            <CardTitle className="text-2xl text-center text-foreground">
               Welcome Back
             </CardTitle>
-            <CardDescription className="text-center text-gray-600">
+            <CardDescription className="text-center text-foreground">
               Sign in to access your weather dashboard
             </CardDescription>
           </CardHeader>
@@ -128,12 +128,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">Email</Label>
+                <Label htmlFor="email" className="text-foreground">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="you@example.com"
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  className="bg-white border-gray-300 text-foreground placeholder:text-gray-400"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
@@ -141,12 +141,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">Password</Label>
+                <Label htmlFor="password" className="text-foreground">Password</Label>
                 <Input
                   id="password"
                   type="password"
                   placeholder="Enter your password"
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  className="bg-white border-gray-300 text-foreground placeholder:text-gray-400"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
@@ -175,7 +175,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         </Card>
 
         {/* Info Text */}
-        <div className="text-center text-sm text-gray-500 space-y-2">
+        <div className="text-center text-sm text-foreground space-y-2">
           <p>
             <strong>Clients:</strong> Can view data from assigned stations only.
           </p>
@@ -186,8 +186,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Footer */}
         <div className="text-center space-y-1">
-          <p className="text-xs text-gray-600">
-            Stratus Weather Server v2.1.0
+          <p className="text-xs text-foreground">
+            Stratus Weather Station Server V2.2.1 [2026]
           </p>
         </div>
       </div>

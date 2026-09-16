@@ -17,6 +17,7 @@ import {
   reloadCalibrationCache,
   type RainfallType,
 } from "./calibrationCache";
+import { DEFAULT_TIP_FACTOR } from "../config/stationRainfallConfig";
 
 const router = Router();
 
@@ -84,7 +85,11 @@ router.put("/:stationId", async (req: Request, res: Response) => {
     const saved = await upsertCalibration(id, {
       rainfallType,
       rainfallOffset: num(body.rainfallOffset, 0),
-      tipFactor: num(body.tipFactor, 0.2),
+      // 0.1 mm/tip matches DEFAULT_TIP_FACTOR, the `tip_factor` column default
+      // and the client. This used to default to 0.2 while everything else used
+      // 0.1, so saving the calibration form without touching this field
+      // silently doubled tip_count stations.
+      tipFactor: num(body.tipFactor, DEFAULT_TIP_FACTOR),
       dailyResetHour: clampInt(body.dailyResetHour, 0, 23, 0),
       scalingMultiplier: num(body.scalingMultiplier, 1),
       sourceField: body.sourceField === "" ? null : (body.sourceField ?? null),

@@ -1,6 +1,6 @@
 Stratus Weather Server
 
-Version 2.1.0
+Version 2.2.1
 Developer: Lukas Esterhuizen
 Contact: esterhuizen2k@proton.me
 
@@ -25,7 +25,17 @@ In production use, exercised against real hardware:
 - Dropbox sync - watches a folder and ingests a logger export whenever it changes. This is how the cellular sites actually deliver data: the logger writes to Dropbox and Stratus reads it. Read-only; Stratus never writes to your Dropbox
 - HTTP POST ingest - the station pushes readings to a per-station endpoint
 - Manual file import - TOA5 or CSV upload for bulk history
-- RIKA cloud (v2 API) - session login with farm/device discovery, polled on a schedule
+- RIKA cloud (v2 API) - session login with farm/device discovery, polled every 30 minutes to match the vendor's own update rate
+
+On the RIKA poll specifically: the device endpoint is intermittently slow, and a
+half-hourly poll means a single slow response used to cost a full half-hour of
+data. Transient faults (timeouts, connection resets, transient DNS, and the busy
+gateway statuses 429/502/503/504) are now retried three times with backoff inside
+a budget that cannot overlap the next poll. Conditions that would fail identically
+on a retry, such as bad credentials, are surfaced immediately instead. A
+successful read also clears the last-error line on the settings panel, which
+previously persisted through every later healthy poll because it was only ever
+cleared when a station reconnected.
 
 Vendor-mapped, implemented but not in production use here:
 
@@ -61,6 +71,30 @@ Real-Time Monitoring Dashboard
 - Alarms - Configurable threshold alarms with optional email notifications
 - Quick Time Ranges - 1h, 6h, 12h, 24h, 48h, and 7d views
 - Interactive Charts - Temperature, humidity, pressure, solar radiation, and rainfall history
+
+Navigation:
+
+The sidebar is text only, with no icons, and every section is permanently
+expanded: no disclosure arrows and nothing to collapse. Every destination stays
+visible in the same place on every visit, so the menu can be navigated from
+memory rather than by opening things to look inside. Indentation carries the
+grouping.
+
+Order runs from live monitoring, through what you produce from the data, to
+configuration:
+
+1. Active Stations (the landing page, and where every session starts)
+2. AS3935 - admin panel, lightning demo, information centre
+3. Forecast - overview, dashboard, accuracy
+4. Data and Reports - historical export, report generation, report scheduling
+5. Settings - station setup, user management, alerts, system settings
+6. About Stratus
+
+Chart styling is shared across the estate. The lightning console is Python with
+no bundler, but it vendors the same chart library and mirrors the Stratus
+conventions (dashed grid at low opacity, no tick marks, no axis lines, matching
+stroke weights and the same palette from `shared/chartColors.ts`), so moving
+between the two consoles does not feel like moving between two products.
 
 ---
 
@@ -237,6 +271,36 @@ Reports & Data Export
 - Stratus Digest - Optional scheduled plain-text/HTML digest email (station status, alarms, temperature, rainfall, wind)
 - Data Completeness - Coverage metrics highlighting gaps in the record
 
+How a PDF report is laid out:
+
+Page one is ordered so the document identifies itself before it presents any
+figures, and so a reader who only wants the numbers never has to page past the
+artwork to reach them.
+
+1. Title: `<Station> Weather Data Report | <period>`
+2. Site details, one fact per line and no bullets: location, coordinates, elevation in metres AMSL, and the reporting period as absolute dates
+3. Two views of the site side by side, each half the text width, both pinned at the station: a close satellite frame for mast surroundings and exposure, and a wider street map for roads and nearby settlements
+4. The min / average / maximum / total statistics table
+
+The period appears twice on purpose. The title carries the relative wording
+("Last 30 days"), which is what an operator asks for but which stops being true
+once the PDF is filed; the details block carries the absolute dates that keep an
+archived report self-describing.
+
+The map pin is placed from fractional Web Mercator tile coordinates, so it lands
+on the mast rather than at the centre of the fetched tile block. Both frames come
+from the same Esri host, which means one egress rule and one tile scheme. Imagery
+is never load-bearing: if the tiles cannot be fetched the table simply moves up
+the page, because a report missing its site photograph is still a usable report.
+
+There is no heading above the statistics table. It used to repeat the station name
+and period already given in the title, and the table's own column headers say what
+the columns are. A table continuing onto another page is still marked, so a reader
+landing mid-table knows what they are looking at.
+
+Report text is plain regular Arial throughout, in black. No grey, no bold, and no
+em or en dashes anywhere in the output.
+
 ---
 
 Calibration & Compliance
@@ -245,6 +309,37 @@ Calibration & Compliance
 - Per-Station Rainfall Offsets - Suppress phantom rain from cumulative counters that pre-date integration
 - Compliance Tracking - Data quality flags and certifications
 - Audit Logging - Comprehensive logging of security-relevant events
+
+Rainfall interpretation, and why it is configured rather than guessed:
+
+CRBasic programs and cloud vendors record rain in incompatible ways, and the same
+number means different things depending on which. A per-interval field holds the
+rain for that scan and must be summed. A cumulative counter holds a running depth
+and must be differenced. Reading one as the other does not fail loudly; it
+silently returns a plausible but wrong total.
+
+So each station carries an explicit `rainfall_type` in `station_calibration`,
+maintained from the admin calibration page, and every totalling path reads it:
+
+- `incremental` - sum the values
+- `cumulative_yearly` / `cumulative_lifetime` - sum the positive steps, rejecting counter resets and single-sample glitches larger than any real interval of rain
+- `tip_count` - multiply raw tips by the station's `tipFactor`
+
+`auto` remains only as a fallback heuristic for a station nobody has configured,
+and it is genuinely unreliable on a fast logger: a one-minute per-interval field
+that returns to zero between showers looks enough like a counter to be misread.
+Measured on Quaggasklip over 30 days, the heuristic reported 14.5 mm where the
+configured incremental reading gives 26.3 mm, which is what a direct SQL sum of
+the field confirms. Configure the station.
+
+Because that lookup is synchronous against an in-memory snapshot, an empty
+snapshot is indistinguishable from "no calibration" at the call site. Report
+rendering therefore awaits the snapshot load before totalling anything, so a
+report generated moments after a restart cannot quietly take the fallback path.
+
+Field totals are computed server-side with SQL over the full range, never from the
+decimated series a chart is drawn from. Decimation drops records, and for an
+accumulating quantity a dropped record is dropped rain.
 
 ---
 

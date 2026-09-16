@@ -50,7 +50,7 @@ from . import thermo
 # The product of two factors: about 0.45 of global shortwave energy falls in the
 # 400-700 nm photosynthetic waveband, and that waveband carries about 4.57
 # micromoles per joule. Their product is close to 2.02. Both vary with sky
-# condition, so this is an assumption and is labeled as one wherever a DLI is
+# condition, so this is an assumption and is labelled as one wherever a DLI is
 # reported. McCree (1972) for the photon energy, Monteith and Unsworth for the
 # waveband fraction.
 PAR_MICROMOL_PER_JOULE = 2.02

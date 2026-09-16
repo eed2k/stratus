@@ -133,8 +133,10 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
         <div className="text-center">
           <p className="text-muted-foreground">Loading stations...</p>
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map(i => (
+        {/* Same column count as the loaded grid, so the layout does not jump
+            when the stations arrive. */}
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4].map(i => (
             <Card key={i} className="animate-pulse">
               <CardHeader>
                 <Skeleton className="h-6 w-3/4" />
@@ -186,11 +188,21 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
     <div className="min-h-screen bg-white">
       <div className="container mx-auto p-4 sm:p-6 pt-2 sm:pt-3 space-y-3 sm:space-y-4">
         {/* Station Cards */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {/*
+          Four cards per row on a large screen. Going from three columns to four
+          makes each card 75% of its previous width, which is the arithmetic
+          consequence of fitting a fourth one in the same container; a literal
+          65% would leave a visible gap at the end of every row.
+
+          `items-stretch` plus `h-full` on the card keeps every block in a row the
+          same height even when one station has a longer name or location that
+          wraps to a second line.
+        */}
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-stretch">
           {accessibleStations.map(station => (
             <Card 
               key={station.id} 
-              className="group cursor-pointer transition-all border border-border rounded-none shadow-none hover:shadow-md active:scale-[0.98]"
+              className="group flex h-full flex-col cursor-pointer transition-all border border-border rounded-none shadow-none hover:shadow-md active:scale-[0.98]"
               onClick={() => onSelectStation(station.id)}
             >
               {/* Station Image */}
@@ -220,9 +232,8 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                       <span className="truncate">{station.name}</span>
                     </CardTitle>
                     {station.location && (
-                      <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
-                        <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{station.location}</span>
+                      <CardDescription className="text-xs sm:text-sm">
+                        <span className="truncate">Location: {station.location}</span>
                       </CardDescription>
                     )}
                     {(station.latitude !== null && station.longitude !== null) && (
@@ -242,10 +253,13 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                 </div>
               </CardHeader>
               
-              <CardContent className="space-y-3 px-3 pb-3">
+              {/* flex-1 with the button pinned to the end keeps every "View
+                  Dashboard" on the same baseline across a row, whatever the
+                  metadata above it does. */}
+              <CardContent className="flex flex-1 flex-col justify-end space-y-3 px-3 pb-3">
 
                 {/* Stats Footer */}
-                <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t">
+                <div className="flex flex-wrap items-center justify-between gap-1 text-xs sm:text-sm pt-2 border-t">
                   {station.name?.toUpperCase().includes('MPPT TEST') ? (
                     <div>
                       <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50 text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
@@ -255,27 +269,33 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                   ) : formatLastSync(station.lastSyncTime) ? (
                     <>
                       <div>
-                        <Badge variant="outline" className="border-black text-black bg-transparent text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                          {formatTimeSince(station.lastSyncTime)} &middot; {formatLastSync(station.lastSyncTime)}
-                        </Badge>
+                        {/* No outline: the sync time is a plain reading, not a
+                            status chip, and a border around it competed with the
+                            card's own edge. */}
+                        <span className="text-black text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                          Last Synced: {formatTimeSince(station.lastSyncTime)} &middot; {formatLastSync(station.lastSyncTime)}
+                        </span>
                       </div>
 
                     </>
                   ) : station.lastReading?.timestamp ? (
                     <div>
-                      <Badge variant="outline" className="border-black text-black bg-transparent text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                        {formatTimeSince(new Date(station.lastReading.timestamp).toISOString())} &middot; {formatLastSync(new Date(station.lastReading.timestamp).toISOString())}
-                      </Badge>
+                      <span className="text-black text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                        Last Synced: {formatTimeSince(new Date(station.lastReading.timestamp).toISOString())} &middot; {formatLastSync(new Date(station.lastReading.timestamp).toISOString())}
+                      </span>
                     </div>
                   ) : null}
                 </div>
 
-                {/* View Button */}
+                {/* Full width with the label centred: the whole card is already
+                    clickable, so the button reads as the card's action rather than
+                    as one control sitting inside it. */}
                 <Button 
-                  className="w-full group-hover:bg-primary transition-colors" 
+                  className="w-full justify-center group-hover:bg-primary transition-colors" 
                   variant="outline"
+                  size="sm"
                 >
-                  View Dashboard
+                  View Station Dashboard
                   <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
                 </Button>
               </CardContent>

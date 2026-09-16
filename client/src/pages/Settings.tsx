@@ -660,9 +660,7 @@ export default function Settings() {
                       value={dropboxRefreshToken}
                       onChange={(e) => setDropboxRefreshToken(e.target.value)}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Refresh tokens allow Stratus to maintain access without re-authentication.
-                    </p>
+
                   </div>
                   
                   <Button onClick={handleSaveDropboxCredentials} disabled={isSavingCredentials}>
@@ -681,7 +679,7 @@ export default function Settings() {
                       {isLoadingFiles ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Click a file to preview its contents and check if it has recent data.</p>
+
                   <div className="max-h-64 overflow-y-auto rounded-md border p-2 text-sm">
                     {dropboxFiles && dropboxFiles.length > 0 ? (
                       (() => {
@@ -864,7 +862,7 @@ export default function Settings() {
                               {config.enabled ? (
                                 <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">Active</span>
                               ) : (
-                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">Disabled</span>
+                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-foreground dark:text-gray-400 px-2 py-0.5 rounded">Disabled</span>
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -940,9 +938,6 @@ export default function Settings() {
                         onChange={(e) => setNewConfigFolder(e.target.value)}
                         placeholder="/YOUR_STATION_FOLDER"
                       />
-                      <p className="text-[10px] text-muted-foreground">
-                        The Dropbox folder containing .dat files (check the file browser above)
-                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newConfigStation" className="text-xs">Link to Station</Label>
@@ -957,9 +952,6 @@ export default function Settings() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-[10px] text-muted-foreground">
-                        Which station should receive the imported data
-                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newConfigPattern" className="text-xs">File Pattern (optional)</Label>
@@ -1035,11 +1027,6 @@ export default function Settings() {
                       onStatusChanged={() => refetchProtocolStatuses()}
                     />
                   ))}
-                  <p className="text-[11px] text-muted-foreground">
-                    Diagnose runs a live probe of the RikaCloud login, farm discovery, device read, sensor mapping
-                    and reading freshness without disturbing the poller. Credentials can be corrected here and the
-                    station reconnects immediately, so a lost login no longer needs a code change.
-                  </p>
                 </div>
               );
             })()}
@@ -1085,7 +1072,7 @@ export default function Settings() {
                 className="bg-muted cursor-not-allowed"
                 data-testid="input-settings-email" 
               />
-              <p className="text-xs text-muted-foreground">Email address cannot be changed as it is used for authentication.</p>
+
             </div>
             <Button data-testid="button-save-profile" onClick={handleSaveProfile} disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

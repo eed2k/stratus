@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { CurrentConditions } from "@/components/dashboard/CurrentConditions";
 import { DashboardLoadingOverlay } from "@/components/DashboardLoadingOverlay";
-import { rainfallTotalFromRecords, isCumulativeType, type RainfallType } from "@shared/utils/rainfall";
+import { rainfallTotalFromRecords, isCumulativeType, DEFAULT_TIP_FACTOR, type RainfallType } from "@shared/utils/rainfall";
 import { WindCompass } from "@/components/dashboard/WindCompass";
 // WindPowerCard replaced with inline Card layout
 import { StatisticsCard } from "@/components/dashboard/StatisticsCard";
@@ -172,7 +172,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       const date = new Date(dateKey + 'T12:00:00');
       const label = date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
 
-      // Rainfall: per-day total. Behavior depends on logger type.
+      // Rainfall: per-day total. Behaviour depends on logger type.
       const rainfallVals = dayData.map(d => d.rainfall).filter((v): v is number => v != null);
       let dayRain = 0;
       if (rainfallVals.length > 0) {
@@ -810,13 +810,35 @@ function SharedDashboardContent() {
     queryKey: ['rainfall-config', shareToken],
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}/rainfall-config`, { headers: shareHeaders });
-      if (!res.ok) return { type: 'auto', offset: 0, tipFactor: 0.2, configured: false };
+      if (!res.ok) return { type: 'auto', offset: 0, tipFactor: DEFAULT_TIP_FACTOR, configured: false };
       return res.json();
     },
     enabled: !!shareToken,
     staleTime: 60 * 60 * 1000,
   });
   const rainfallType = rainfallConfig?.type ?? 'auto';
+
+  // Rainfall period totals aggregated server-side over every stored reading.
+  // The chart datasets are decimated, and decimation drops records, which
+  // deletes rain outright because rainfall is an accumulating quantity.
+  const { data: rainfallTotals } = useQuery<{
+    last24h: number;
+    yesterday: number;
+    thisWeek: number;
+    thisMonth: number;
+    mode: string;
+    readings: number;
+    reference: string;
+  }>({
+    queryKey: ['rainfall-totals', shareToken],
+    queryFn: async () => {
+      const res = await fetch(`/api/shares/${shareToken}/data/rainfall-totals`, { headers: shareHeaders });
+      if (!res.ok) throw new Error('rainfall totals unavailable');
+      return res.json();
+    },
+    enabled: !!shareToken,
+    staleTime: 5 * 60 * 1000,
+  });
   const sortedHistoricalData = useMemo(() => {
     if (historicalData.length === 0) return [];
     return [...historicalData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -845,7 +867,7 @@ function SharedDashboardContent() {
 
     const hasData = (field: keyof WeatherData, allowZero = false) => {
       // If parameter was disabled in config, hide it. Parameters added to the
-      // catalog after a config was saved stay visible (LATE_ADDED_PARAMETERS).
+      // catalogue after a config was saved stay visible (LATE_ADDED_PARAMETERS).
       if (toggleableFields.has(field) && !isParameterEnabled(field, ep)) {
         return false;
       }
@@ -1047,7 +1069,7 @@ function SharedDashboardContent() {
    * is authoritative; 'auto' leaves detection to the shared helper.
    */
   const effectiveRainfallType: RainfallType = rainfallConfig?.type ?? 'auto';
-  const rainfallTipFactor = rainfallConfig?.tipFactor ?? 0.2;
+  const rainfallTipFactor = rainfallConfig?.tipFactor ?? DEFAULT_TIP_FACTOR;
 
   // Rainfall over the last 24h, via the one canonical implementation.
   const { effectiveRainfall } = useMemo(() => {
@@ -1060,12 +1082,18 @@ function SharedDashboardContent() {
       // nothing instead of something wrong.
       return { accumulatedRainfall: 0, isRainfallStale: true, effectiveRainfall: 0 };
     }
-    const total = rainfallTotalFromRecords(last24h, effectiveRainfallType, rainfallTipFactor);
+    // Prefer the server total, which sums every stored reading. `dataSource`
+    // has been decimated for charting, so summing it loses rain.
+    const total = rainfallTotals
+      ? rainfallTotals.last24h
+      : rainfallTotalFromRecords(last24h, effectiveRainfallType, rainfallTipFactor);
     return { accumulatedRainfall: total, isRainfallStale: total < 0.05, effectiveRainfall: total };
-  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallTipFactor]);
+  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallTipFactor, rainfallTotals]);
 
-  // Rainfall totals over standard reporting periods (24h / yesterday / this week / this month)
-  const rainfallPeriods = useMemo(() => {
+  // Rainfall totals over standard reporting periods (24h / yesterday / this week / this month).
+  // Server-aggregated when available; the local sum below is a degraded fallback
+  // that can only see the decimated chart records.
+  const rainfallPeriodsLocal = useMemo(() => {
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     const sumWindow = (startMs: number, endMs: number) => {
       const window = dataSource.filter(d => {
@@ -1085,6 +1113,8 @@ function SharedDashboardContent() {
       thisMonth: sumWindow(now - 30 * 24 * 60 * 60 * 1000, now),
     };
   }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallTipFactor]);
+
+  const rainfallPeriods = rainfallTotals ?? rainfallPeriodsLocal;
 
   // Daily ETo vs Rainfall over the last 30 days (fixed window).
   // Always uses sortedStatsData (always-30-day query) so this chart is NOT
@@ -2755,7 +2785,7 @@ function SharedDashboardContent() {
           {(() => {
             /**
              * Hidden for cumulative-counter stations (e.g. RIKA reports a
-             * lifetime millimeter counter), where a yearly aggregate is not a
+             * lifetime millimetre counter), where a yearly aggregate is not a
              * trustworthy rainfall depth. The shared station payload does not
              * expose connectionType, so we key off the configured rainfall
              * type instead - which is the authoritative signal anyway.
@@ -2999,7 +3029,7 @@ function SharedDashboardContent() {
               return ts.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
             })()}
           </p>
-          <p className="text-xs text-black/70">Powered by Stratus Weather Server V2.1.0 [2026]</p>
+          <p className="text-xs text-black/70">Powered by Stratus Weather Station Server V2.2.1 [2026]</p>
           <p className="text-xs text-black/70 max-w-3xl mx-auto px-4">
             Data is provided for informational and reference purposes only. Readings may contain
             inaccuracies due to sensor calibration, environmental conditions, or transmission gaps,

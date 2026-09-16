@@ -131,7 +131,7 @@ export function LightningCard({ lightningDistance, lightningCount, lightningEner
           L.marker([latitude! + labelLatOffset, longitude], {
             icon: L.divIcon({
               className: "",
-              html: `<span style="font-size:${isMajor ? '11' : '9'}px;font-weight:${isMajor ? '700' : '500'};color:#1e293b;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff,1px 1px 0 #fff;">${km} km</span>`,
+              html: `<span style="font-size:${isMajor ? '11' : '9'}px;font-weight:${isMajor ? '700' : '500'};color:#000000;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff,1px 1px 0 #fff;">${km} km</span>`,
               iconSize: [40, 14],
               iconAnchor: [20, 7],
             }),

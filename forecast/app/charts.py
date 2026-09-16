@@ -343,7 +343,7 @@ def wind_rose(sectors, width: int = 420, height: int = 420,
         parts.append(f'<text x="{cx:.1f}" y="14" font-size="12" '
                      f'text-anchor="middle" fill="{NAVY}">{_esc(title)}</text>')
 
-    # Range rings, labeled in percent so the petal lengths are readable.
+    # Range rings, labelled in percent so the petal lengths are readable.
     for frac in (0.25, 0.5, 0.75, 1.0):
         parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" '
                      f'r="{radius * frac:.1f}" fill="none" stroke="{LINE}" '

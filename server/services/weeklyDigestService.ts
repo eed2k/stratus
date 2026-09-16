@@ -53,6 +53,16 @@ function isDigestWeekday(at: Date = new Date()): boolean {
 const STALENESS_THRESHOLD_MS = parseInt(process.env.STALENESS_THRESHOLD || '7200000', 10);
 
 // Directories the backup scripts write to. First existing one wins.
+//
+// REQUIRES A BIND MOUNT. These are HOST paths, and this code runs inside the
+// stratus-app container, so without an explicit mount `fs.existsSync` returns
+// false for both and the digest reports "Last backup: none found" while cron has
+// been writing every six hours the whole time. That is exactly what happened:
+// 429 backup files totalling 3 GB existed on the host and the email said none.
+//
+// docker-compose.yml mounts /opt/stratus/backups read-only at the same path. If
+// that mount is removed, this silently goes blind again rather than failing, so
+// treat a "none found" report as a mount problem before a cron problem.
 const BACKUP_DIRS = ['/root/stratus/backups', '/opt/stratus/backups'];
 
 let scheduledTask: cron.ScheduledTask | null = null;
@@ -561,7 +571,7 @@ export async function initWeeklyDigest(): Promise<void> {
   await ensureDbWired();
 
   scheduledTask = cron.schedule(DIGEST_CRON, () => {
-    // Second line of defense on the weekday rule: DIGEST_CRON is
+    // Second line of defence on the weekday rule: DIGEST_CRON is
     // operator-supplied, so a value of "0 8 * * *" would otherwise quietly
     // reinstate Saturday and Sunday mail.
     if (!isDigestWeekday()) {

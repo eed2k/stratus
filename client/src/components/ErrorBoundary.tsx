@@ -54,10 +54,13 @@ export class ErrorBoundary extends Component<Props, State> {
               </p>
               {this.state.errorInfo && (
                 <details className="mt-4">
-                  <summary className="cursor-pointer text-slate-400 hover:text-slate-300">
+                  {/* White, not a muted slate: this screen sits on bg-slate-900
+                      and low-contrast grey on dark was the hardest text in the
+                      app to read, on the one screen that has to be readable. */}
+                  <summary className="cursor-pointer text-white hover:underline">
                     Stack trace
                   </summary>
-                  <pre className="mt-2 text-xs text-slate-500 overflow-auto max-h-64">
+                  <pre className="mt-2 text-xs text-white overflow-auto max-h-64">
                     {this.state.errorInfo.componentStack}
                   </pre>
                 </details>

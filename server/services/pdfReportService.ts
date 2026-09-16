@@ -25,16 +25,22 @@
 import PDFDocument from "pdfkit";
 import SVGtoPDF from "svg-to-pdfkit";
 import * as pg from "../db-postgres";
-// formatSiteLine lives in reportSchedulerService so the PDF header and the email
-// body word the site geometry identically. It is defined there rather than here
-// because pdfReportService already depends on that module, whereas the reverse
-// direction is only ever a lazy dynamic import - declaring it here and importing
-// it back would turn that into a static circular dependency.
-import { gatherStationData, formatSiteLine, REPORT_FIELDS, type FieldStat } from "./reportSchedulerService";
+// gatherStationData and REPORT_FIELDS live in reportSchedulerService, which this
+// module already depends on; the reverse direction is only ever a lazy dynamic
+// import, so declaring them here and importing them back would turn that into a
+// static circular dependency.
+//
+// formatSiteLine used to be imported here too, to word the site geometry the same
+// way as the email body. The PDF header now lists location, coordinates,
+// elevation and dates on separate lines instead of running them together, so it
+// no longer shares that wording. It is still exported for the email body.
+import { gatherStationData, REPORT_FIELDS, type FieldStat } from "./reportSchedulerService";
 // Rainfall shape (counter vs per-interval) for the readings table, read from the
 // same calibration source the yearly/monthly aggregation endpoints use so the
 // table can never disagree with the totals elsewhere in the report.
 import { getRainfallConfig, DEFAULT_TIP_FACTOR } from "../config/stationRainfallConfig";
+import { ensureCalibrationCache } from "./calibrationCache";
+import { RAINFALL_FIELD_ALIASES } from "../config/rainfallFields";
 
 const REPORTS_TZ = process.env.REPORTS_TZ || "Africa/Johannesburg";
 
@@ -117,7 +123,9 @@ function dirBin(deg: number): number {
 
 const ALIASES = {
   temp:  ["temperature", "AirTC_Avg", "AirTemp", "Temp_Avg", "AirTemp_Avg", "AirTC", "Temp_C", "Temperature"],
-  rain:  ["Rain_mm_Tot", "Rain_Tot", "Precip_Tot", "Rain_1_Tot", "Rain_Tot_1", "rainfall", "Rain_mm", "Precip", "Rain", "Rainfall"],
+  // Shared list, so a PDF cannot recognise a different set of rainfall field
+  // names than the dashboard does. See server/config/rainfallFields.ts.
+  rain:  [...RAINFALL_FIELD_ALIASES],
   wind:  ["windSpeed", "WS_ms_Avg", "WindSpeed", "Wind_Spd_S_WVT", "WindSpeed_Avg", "WS_ms", "WS_Avg", "WS_ms_S_WVT", "WSpd_1_Avg", "WSpd_Avg"],
   gust:  ["windGust", "WS_ms_Max", "Wind_Spd_Max", "WindSpeed_Max", "WS_Max", "Wind_Gust", "WSpd_1_Max", "WSpd_Max"],
   windDir: ["windDirection", "WindDir", "WindDir_D1_WVT", "WindDir_Avg", "WindDirection"],
@@ -279,7 +287,7 @@ function buildWindRoseSVG(records: RawRecord[], label: string, size = 320): stri
   // Guide circles
   [0.25, 0.5, 0.75, 1].forEach((ratio) => {
     s += `<circle cx="${ctr}" cy="${ctr}" r="${mxR * ratio}" fill="none" stroke="#e5e7eb" stroke-width="1"/>`;
-    s += `<text x="${ctr + 5}" y="${ctr - mxR * ratio + 12}" font-size="10" fill="#999" font-family="Helvetica">${Math.round(ratio * 100)}%</text>`;
+    s += `<text x="${ctr + 5}" y="${ctr - mxR * ratio + 12}" font-size="10" fill="#000000" font-family="Helvetica">${Math.round(ratio * 100)}%</text>`;
   });
 
   // Direction labels
@@ -305,8 +313,8 @@ function buildWindRoseSVG(records: RawRecord[], label: string, size = 320): stri
 
   // Stats line
   const statsY = titleH + sz + 14;
-  s += `<text x="${ctr - 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Helvetica">Dominant: ${dominantDir} (${dominantPct}%)</text>`;
-  s += `<text x="${ctr + 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Helvetica">Calm: ${calmPct}%</text>`;
+  s += `<text x="${ctr - 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#000000" font-family="Helvetica">Dominant: ${dominantDir} (${dominantPct}%)</text>`;
+  s += `<text x="${ctr + 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#000000" font-family="Helvetica">Calm: ${calmPct}%</text>`;
 
   // Legend
   const legendY = statsY + 16;
@@ -322,7 +330,7 @@ function buildWindRoseSVG(records: RawRecord[], label: string, size = 320): stri
     const range = cls.label.match(/\(([^)]+)\)/)?.[1] || "";
     s += `<rect x="${lx}" y="${ly - 5}" width="10" height="10" rx="2" fill="${cls.color}"/>`;
     // Ranges contain < and >, so they must be escaped before hitting the parser.
-    s += `<text x="${lx + 14}" y="${ly + 4}" font-size="8" fill="#666" font-family="Helvetica">${escapeXml(`${shortLabel} ${range} m/s`)}</text>`;
+    s += `<text x="${lx + 14}" y="${ly + 4}" font-size="8" fill="#000000" font-family="Helvetica">${escapeXml(`${shortLabel} ${range} m/s`)}</text>`;
   });
 
   s += "</svg>";
@@ -362,7 +370,7 @@ function buildWindScatterSVG(records: RawRecord[], label: string, sz = 320): str
     const r = ((ringStep * i) / maxSpeed) * mxR;
     const dash = i === 4 ? "" : ` stroke-dasharray="3 3"`;
     s += `<circle cx="${ctr}" cy="${ctr}" r="${r.toFixed(1)}" fill="none" stroke="#e5e7eb" stroke-width="1"${dash}/>`;
-    s += `<text x="${ctr + 5}" y="${(ctr - r + 11).toFixed(1)}" font-size="9" fill="#999" font-family="Helvetica">${(ringStep * i).toFixed(1)} m/s</text>`;
+    s += `<text x="${ctr + 5}" y="${(ctr - r + 11).toFixed(1)}" font-size="9" fill="#000000" font-family="Helvetica">${(ringStep * i).toFixed(1)} m/s</text>`;
   }
 
   WIND_DIRECTIONS.forEach((d, i) => {
@@ -385,7 +393,7 @@ function buildWindScatterSVG(records: RawRecord[], label: string, sz = 320): str
   const speeds = points.map((p) => p.speed);
   const avg = speeds.length ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
   const statsY = titleH + sz + 14;
-  s += `<text x="${ctr}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Helvetica">Avg ${avg.toFixed(1)} m/s | Max ${(speeds.length ? Math.max(...speeds) : 0).toFixed(1)} m/s | ${points.length} points</text>`;
+  s += `<text x="${ctr}" y="${statsY}" text-anchor="middle" font-size="10" fill="#000000" font-family="Helvetica">Avg ${avg.toFixed(1)} m/s | Max ${(speeds.length ? Math.max(...speeds) : 0).toFixed(1)} m/s | ${points.length} points</text>`;
 
   const legendY = statsY + 16;
   const legendCols = 3;
@@ -398,7 +406,7 @@ function buildWindScatterSVG(records: RawRecord[], label: string, sz = 320): str
     const ly = legendY + row * 16;
     const range = cls.label.match(/\(([^)]+)\)/)?.[1] || "";
     s += `<circle cx="${lx + 5}" cy="${ly - 1}" r="4.5" fill="${cls.color}"/>`;
-    s += `<text x="${lx + 14}" y="${ly + 4}" font-size="8" fill="#666" font-family="Helvetica">${escapeXml(`${shortLabels[i]} ${range} m/s`)}</text>`;
+    s += `<text x="${lx + 14}" y="${ly + 4}" font-size="8" fill="#000000" font-family="Helvetica">${escapeXml(`${shortLabels[i]} ${range} m/s`)}</text>`;
   });
 
   s += "</svg>";
@@ -415,8 +423,20 @@ function buildWindScatterSVG(records: RawRecord[], label: string, sz = 320): str
 // graphs stay sharp at any zoom level and when printed.
 // ─────────────────────────────────────────────────────────────────────
 
-const INK = "#0f172a";
-const MUTED = "#64748b";
+/**
+ * Text colours. Both are pure black on purpose.
+ *
+ * There is no grey text in a Stratus report. A report is read printed, often
+ * photocopied, and often by someone checking a number against a logger file, so
+ * every character has to carry full contrast. MUTED is kept as a separate name
+ * because it still marks the places that are secondary INFORMATION (units, the
+ * site geometry caption, the footer) even though they are no longer a lighter
+ * colour, and collapsing the two names would lose that distinction.
+ *
+ * RULE and GRID stay light: they are hairlines and table borders, not text.
+ */
+const INK = "#000000";
+const MUTED = "#000000";
 const RULE = "#cbd5e1";
 const GRID = "#eef2f7";
 
@@ -807,6 +827,23 @@ function decimalsFor(key: string, unit: string): number {
  */
 export async function buildSchedulePdfBuffer(input: BuildPdfInput): Promise<Buffer> {
   try {
+    /**
+     * Make sure the station calibration snapshot is loaded before any rainfall is
+     * totalled.
+     *
+     * getRainfallConfig reads that snapshot synchronously, and returns null when
+     * it is empty. Null does not mean "no calibration": it sends
+     * intervalRainSeries down its legacy auto-detect heuristic, which can read a
+     * per-interval field as a cumulative counter and report a materially
+     * different depth. Measured on Quaggasklip over 30 days: 14.5 mm from the
+     * heuristic against 26.3 mm from the configured incremental reading.
+     *
+     * routes.ts warms the cache at boot, but does so without awaiting it, so a
+     * report generated in the first moments after a restart could silently take
+     * the fallback. Awaiting here is idempotent (the underlying load runs once)
+     * and removes that window entirely.
+     */
+    await ensureCalibrationCache();
     return await renderPdf(input);
   } catch (err: any) {
     console.error("[pdfReport] render failed:", err);
@@ -912,41 +949,84 @@ async function renderStationSection(
   const stats = stationInfo.stats;
 
   /**
-   * Station heading: one plain line, nothing more.
+   * Report title: what this document is, and over what window.
    *
-   * The prose narrative and the old four-column Summary listing that used to sit
-   * here were removed at the operator's request. A reader still needs to know
-   * which station and which period they are looking at, so that single line
-   * stays; everything quantitative now lives in the min/avg/max table that
-   * follows the graphs.
+   * "Weather Data Report" names the document rather than just the station, so a
+   * filed PDF is identifiable from its first line alone. The period follows it
+   * because it is the other half of the document's identity.
    */
   const w = usableWidth(doc);
-  const subParts = [stationName];
-  if (meta.location) subParts.push(meta.location);
-  subParts.push(periodLabel);
   doc.fillColor(NAVY).font(FONT_REGULAR).fontSize(TYPE.heading)
-    .text(pdfSafe(subParts.join(" | ")), { width: w });
+    .text(pdfSafe(`${stationName} Weather Data Report | ${periodLabel}`), { width: w });
 
   /**
-   * Site geometry on its own caption line under the heading.
+   * Site details, one per line, as a plain labelled list.
    *
-   * Latitude, longitude and altitude are what let a reader reproduce the
-   * derived figures in this report - reference ETo in particular is a function
-   * of site latitude and altitude - so they belong on the page next to the
-   * numbers they govern. Kept as flowed text (no x,y) so it can never overlap
-   * the heading above or the table below.
+   * Stacked rather than run together on a single line, and deliberately without
+   * bullets: these are four facts about one place, not a sequence of steps, and
+   * a reader scanning for the elevation should find it in a fixed position every
+   * time. Latitude, longitude and altitude also let a reader reproduce the
+   * derived figures further down - reference ETo is a function of site latitude
+   * and altitude - so they belong next to the numbers they govern.
    *
-   * Omitted entirely when the station has no coordinates recorded, rather than
-   * printing a placeholder.
+   * The period is printed twice on the page by design: the title carries the
+   * relative wording ("Last 30 days"), which stops being true once the PDF is
+   * filed, and this line carries the absolute dates that keep an archived report
+   * self-describing.
+   *
+   * Rows with nothing recorded are dropped rather than printed as a placeholder.
    */
-  const siteLine = formatSiteLine(meta);
-  if (siteLine) {
-    doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(TYPE.caption)
-      .text(pdfSafe(siteLine), { width: w });
-    doc.fillColor(INK);
+  const detailRows: Array<[string, string]> = [];
+  if (meta.location) detailRows.push(["Location", meta.location]);
+
+  const lat = typeof meta.latitude === "number" ? meta.latitude : null;
+  const lon = typeof meta.longitude === "number" ? meta.longitude : null;
+  const hasCoords = lat !== null && lon !== null && Number.isFinite(lat) && Number.isFinite(lon);
+  if (hasCoords) {
+    detailRows.push([
+      "Coordinates",
+      `${Math.abs(lat!).toFixed(5)} ${lat! >= 0 ? "N" : "S"}, ${Math.abs(lon!).toFixed(5)} ${lon! >= 0 ? "E" : "W"}`,
+    ]);
   }
 
-  doc.moveDown(0.5);
+  const alt = typeof meta.altitude === "number" ? meta.altitude : null;
+  if (alt !== null && Number.isFinite(alt)) {
+    detailRows.push(["Elevation", `${Math.round(alt)} m AMSL`]);
+  }
+
+  detailRows.push(["Reporting period", formatDateRange(startMs, endMs)]);
+
+  doc.moveDown(0.35);
+  doc.fillColor(INK).font(FONT_REGULAR).fontSize(TYPE.body);
+  for (const [label, value] of detailRows) {
+    // All one weight and all black: the report is deliberately plain regular
+    // Arial with no bold and no grey anywhere, so the "Label: value" shape and
+    // the fixed line order are what carry the structure.
+    doc.text(pdfSafe(`${label}: ${value}`), { width: w });
+  }
+
+  doc.moveDown(0.6);
+
+  /**
+   * Two views of the site side by side: satellite on the left, street map on the
+   * right, each half the text width, both pinned at the station.
+   *
+   * Two complementary views answer two different questions. The satellite frame
+   * shows the immediate surroundings of the mast, which is what governs exposure
+   * and therefore how the wind and radiation figures should be read. The street
+   * map is drawn further out and shows which roads and settlements the site sits
+   * among, which is what someone who has never been there needs for context.
+   *
+   * Page one therefore reads top to bottom as: what this report is, where the
+   * station is, what that place looks like, then the figures. The wind roses and
+   * the remaining graphs start on the next page.
+   *
+   * Skipped silently when the station has no coordinates or when the tiles
+   * cannot be fetched, in which case the table simply moves up the page.
+   */
+  if (hasCoords) {
+    await drawSiteMaps(doc, lat!, lon!, w);
+  }
 
   /**
    * Statistics table first, vector artwork after it.
@@ -1197,7 +1277,7 @@ function meanDirection(values: Array<number | null>): number | null {
  * Convert the stored rainfall channel into per-reading INTERVAL rainfall.
  *
  * Stations disagree on what the field means. RIKA (and any counter-style gauge)
- * reports millimeters since commissioning, so the raw column climbs forever;
+ * reports millimetres since commissioning, so the raw column climbs forever;
  * summing it would invent meters of rain. Incremental loggers already report
  * per-interval totals. The station's calibration row decides which, and 'auto'
  * falls back to detecting a monotonic series.
@@ -1317,7 +1397,14 @@ function renderStatsTableUnsafe(
   // start a clean page rather than splitting the header off its first rows.
   if (doc.y + 130 > bottomLimit(doc)) doc.addPage();
 
-  sectionHeading(doc, `${stationName} Statistics for ${periodLabel}`);
+  /**
+   * No heading above this table.
+   *
+   * It used to print "<Station> Statistics for <period>", which repeated the two
+   * facts already in the report title at the top of page one. The table's own
+   * column headers say what the columns are, so the heading was pure
+   * restatement and the operator asked for it gone.
+   */
 
   if (raw.length === 0) {
     doc.fillColor(MUTED).font(FONT_OBLIQUE).fontSize(TYPE.body)
@@ -1469,7 +1556,11 @@ function renderStatsTableUnsafe(
   const writeRow = (r: StatRow, zebra: boolean): void => {
     if (doc.y + rowH > bottomLimit(doc)) {
       doc.addPage();
-      sectionHeading(doc, `${stationName} Statistics continued`);
+      // Kept, unlike the heading that used to sit above the first page of this table:
+  // a reader landing mid-table needs to know what they are looking at. The
+  // station name and period are dropped from it because the report title on page
+  // one already carries both.
+  sectionHeading(doc, "Statistics continued");
       drawHeader();
     }
     const y = doc.y;
@@ -1531,6 +1622,26 @@ function embedSvg(doc: any, svg: string, opts: { x: number; y: number; width: nu
   }
 }
 
+/**
+ * Absolute "from date to date" wording for the report header.
+ *
+ * formatPeriod gives the relative label ("Last 30 days"), which is what the
+ * operator asked for in the title but which stops being true the moment the PDF
+ * is filed. This gives the dates that make an archived report self-describing.
+ * Evaluated in REPORTS_TZ so these dates agree with the day boundaries used for
+ * every daily figure in the report.
+ */
+function formatDateRange(startMs: number, endMs: number): string {
+  const fmt = (ms: number): string =>
+    new Date(ms).toLocaleDateString("en-ZA", {
+      timeZone: REPORTS_TZ,
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  return `${fmt(startMs)} to ${fmt(endMs)}`;
+}
+
 function formatPeriod(startMs: number, endMs: number): string {
   const days = Math.round((endMs - startMs) / (24 * 3600 * 1000));
   if (days <= 1) return "Last 24 hours";
@@ -1560,4 +1671,267 @@ function renderErrorPdf(input: BuildPdfInput, message: string): Promise<Buffer> 
       reject(e);
     }
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  Satellite imagery for the station location
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Esri World Imagery, the same basemap the dashboard map uses.
+ *
+ * Deliberately NOT raw tile.openstreetmap.org: their usage policy forbids
+ * production use and returns 403 for flagged referrers. Esri World Imagery
+ * permits embedding and is already the default satellite layer in
+ * client/src/components/dashboard/StationMap.tsx, so the report and the
+ * dashboard show the same picture of a site.
+ */
+/**
+ * Street map tiles from the same Esri host as the imagery.
+ *
+ * Deliberately the same provider rather than mixing in OpenStreetMap: one host
+ * means one egress rule to whitelist, an identical tile scheme, and no usage
+ * policy to honour for an automated report.
+ */
+const STREET_TILE_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile";
+
+/** Marker colour, matching CHART_COLORS.temperature so the report stays on palette. */
+const MAP_PIN_COLOUR = "#ef4444";
+
+const SAT_TILE_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile";
+
+/**
+ * Fractional Web Mercator tile coordinates, NOT rounded to a tile index.
+ *
+ * The fractional part is what locates the station inside its tile, and that is
+ * what the map pin needs. The previous code floored these to a tile index and
+ * then drew its crosshair at the dead centre of the fetched block, which is only
+ * the station's actual position when the station happens to sit exactly on a
+ * tile boundary. Keeping the fraction is what lets the pin land on the mast.
+ */
+function tileCoordF(lat: number, lon: number, zoom: number): { x: number; y: number } {
+  const n = Math.pow(2, zoom);
+  const latRad = (lat * Math.PI) / 180;
+  return {
+    x: ((lon + 180) / 360) * n,
+    y: ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
+  };
+}
+
+/** One fetched map tile and where it belongs in the grid. */
+interface MapTile { col: number; row: number; buf: Buffer }
+
+/**
+ * Fetch a square grid of tiles around a coordinate.
+ *
+ * Tiles are placed side by side rather than composited, which avoids pulling in
+ * an image library on a host that is already tight on memory. pdfkit scales each
+ * tile as it is drawn.
+ *
+ * Returns null when too much of the grid is missing, because a grid with holes
+ * in it looks broken. One missing tile is tolerated.
+ */
+async function fetchMapTiles(
+  baseUrl: string,
+  lat: number,
+  lon: number,
+  zoom: number,
+  cols: number,
+  rows: number,
+): Promise<{ tiles: MapTile[]; x0: number; y0: number } | null> {
+  // Round rather than floor so the station lands near the middle of the block:
+  // flooring with an even tile count pushes it into the far half.
+  const f = tileCoordF(lat, lon, zoom);
+  const x0 = Math.round(f.x - cols / 2);
+  const y0 = Math.round(f.y - rows / 2);
+
+  const tiles: MapTile[] = [];
+  try {
+    const axios = (await import("axios")).default;
+    const jobs: Array<Promise<void>> = [];
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const url = `${baseUrl}/${zoom}/${y0 + r}/${x0 + c}`;
+        jobs.push(
+          axios
+            .get(url, { responseType: "arraybuffer", timeout: 8000 })
+            .then((res: any) => {
+              tiles.push({ col: c, row: r, buf: Buffer.from(res.data) });
+            })
+            .catch(() => { /* one missing tile must not fail the report */ }),
+        );
+      }
+    }
+    await Promise.all(jobs);
+  } catch {
+    return null;
+  }
+
+  if (tiles.length < cols * rows - 1) return null;
+  return { tiles, x0, y0 };
+}
+
+/**
+ * Draw a map pin whose point sits exactly on (px, py).
+ *
+ * Filled shape with a white outline and a white centre, so it stays legible over
+ * both dark satellite imagery and the pale street map without needing to know
+ * which one is underneath.
+ */
+function drawMapPin(doc: any, px: number, py: number, colour: string): void {
+  const r = 4.2;
+  const cx = px;
+  const cy = py - r * 2;
+
+  doc.save();
+  // Stem: a triangle from the head down to the point on the coordinate.
+  doc.moveTo(cx - r * 0.62, cy + r * 0.6)
+    .lineTo(cx + r * 0.62, cy + r * 0.6)
+    .lineTo(cx, py)
+    .closePath()
+    .fillColor(colour).fill();
+  doc.circle(cx, cy, r).fillColor(colour).fill();
+  doc.circle(cx, cy, r).lineWidth(1).strokeColor("#ffffff").stroke();
+  doc.circle(cx, cy, r * 0.36).fillColor("#ffffff").fill();
+  doc.restore();
+}
+
+/**
+ * Place an already-fetched tile grid into a box and pin the station on it.
+ */
+function drawTileBlock(
+  doc: any,
+  fetched: { tiles: MapTile[]; x0: number; y0: number },
+  lat: number,
+  lon: number,
+  zoom: number,
+  cols: number,
+  rows: number,
+  boxX: number,
+  boxY: number,
+  boxWidth: number,
+): number {
+  const tileW = boxWidth / cols;
+  const tileH = tileW; // tiles are square
+  const boxHeight = tileH * rows;
+
+  for (const t of fetched.tiles) {
+    doc.image(t.buf, boxX + t.col * tileW, boxY + t.row * tileH, {
+      width: tileW,
+      height: tileH,
+    });
+  }
+
+  // Hairline border so the imagery reads as a figure rather than bleeding into
+  // the page.
+  doc.save();
+  doc.rect(boxX, boxY, boxWidth, boxHeight)
+    .strokeColor(RULE).lineWidth(0.5).stroke();
+  doc.restore();
+
+  // Pin at the true station position within the block, not at the block centre.
+  const f = tileCoordF(lat, lon, zoom);
+  const px = boxX + (f.x - fetched.x0) * tileW;
+  const py = boxY + (f.y - fetched.y0) * tileH;
+  drawMapPin(doc, px, py, MAP_PIN_COLOUR);
+
+  return boxHeight;
+}
+
+/**
+ * Draw the satellite and street views side by side, each half the text width.
+ *
+ * The two are fetched in parallel and drawn only after both have resolved, so a
+ * partial failure cannot leave a half-drawn block of tiles on the page. If only
+ * one of the two comes back it is drawn in its own slot at the same half width,
+ * which keeps the page geometry stable, and the caption then names only the
+ * source that actually rendered.
+ *
+ * Returns the height consumed, or 0 when nothing could be drawn. Every failure
+ * path returns 0 quietly: a report missing its site imagery is still a usable
+ * report, whereas one that throws is not. Network egress is not guaranteed from
+ * the container, so this must never be load-bearing.
+ */
+async function drawSiteMaps(
+  doc: any,
+  lat: number,
+  lon: number,
+  boxWidth: number,
+): Promise<number> {
+  const GAP = 12;
+  const halfWidth = (boxWidth - GAP) / 2;
+  // 2x2 keeps each half-width view square. Satellite is drawn close in to show
+  // the mast surroundings; the street map is pulled back to show which roads and
+  // settlements the site sits among.
+  const COLS = 2;
+  const ROWS = 2;
+  const SAT_ZOOM = 15;
+  const STREET_ZOOM = 12;
+
+  let sat: Awaited<ReturnType<typeof fetchMapTiles>> = null;
+  let street: Awaited<ReturnType<typeof fetchMapTiles>> = null;
+  try {
+    [sat, street] = await Promise.all([
+      fetchMapTiles(SAT_TILE_URL, lat, lon, SAT_ZOOM, COLS, ROWS),
+      fetchMapTiles(STREET_TILE_URL, lat, lon, STREET_ZOOM, COLS, ROWS),
+    ]);
+  } catch {
+    return 0;
+  }
+
+  if (!sat && !street) return 0;
+
+  // Keep the pair with the details they illustrate rather than splitting them
+  // across a page break.
+  const projectedHeight = halfWidth + 22;
+  if (doc.y + projectedHeight > bottomLimit(doc)) doc.addPage();
+
+  const leftX = doc.page.margins.left;
+  const rightX = leftX + halfWidth + GAP;
+  const topY = doc.y;
+  let height = 0;
+
+  try {
+    if (sat) {
+      height = Math.max(
+        height,
+        drawTileBlock(doc, sat, lat, lon, SAT_ZOOM, COLS, ROWS, leftX, topY, halfWidth),
+      );
+    }
+    if (street) {
+      height = Math.max(
+        height,
+        drawTileBlock(doc, street, lat, lon, STREET_ZOOM, COLS, ROWS, rightX, topY, halfWidth),
+      );
+    }
+  } catch {
+    return 0;
+  }
+
+  // Label each view under its own frame so a reader can tell them apart, then
+  // credit the imagery once beneath the pair.
+  doc.fillColor(INK).font(FONT_REGULAR).fontSize(TYPE.caption);
+  const labelY = topY + height + 3;
+  if (sat) {
+    doc.text(pdfSafe(`Satellite view (zoom ${SAT_ZOOM})`), leftX, labelY, { width: halfWidth });
+  }
+  if (street) {
+    doc.text(pdfSafe(`Street map (zoom ${STREET_ZOOM})`), rightX, labelY, { width: halfWidth });
+  }
+
+  doc.y = labelY + 11;
+  const sources: string[] = [];
+  if (sat) sources.push("Esri World Imagery");
+  if (street) sources.push("Esri World Street Map");
+  doc.text(
+    pdfSafe(`Pin marks the station position. Imagery: ${sources.join(" and ")}.`),
+    leftX,
+    doc.y,
+    { width: boxWidth },
+  );
+  doc.moveDown(0.6);
+
+  return height;
 }

@@ -6,14 +6,14 @@
  *
  * Rain is the one field where different station families disagree about what a
  * reading MEANS, and getting it wrong is not a rounding error - it either
- * invents hundreds of millimeters of rain or reports a dry month during a storm.
+ * invents hundreds of millimetres of rain or reports a dry month during a storm.
  *
  * Two shapes exist in the wild:
  *
  *   incremental / tip_count  each reading is the rain that fell during that
  *                            logging interval, so a period total is the SUM.
  *   cumulative_*             each reading is a running counter (RIKA reports
- *                            millimeters since the device was commissioned), so
+ *                            millimetres since the device was commissioned), so
  *                            a period total is the sum of POSITIVE DELTAS.
  *
  * Summing a cumulative counter is the classic failure: 24 hourly readings of a
@@ -48,6 +48,18 @@ const MAX_STEP_MM = 60;
 
 /** Largest believable single incremental reading, in mm. */
 const MAX_INCREMENT_MM = 100;
+
+/**
+ * Default mm per tip for tipping-bucket gauges.
+ *
+ * Must stay in step with `DEFAULT_TIP_FACTOR` in
+ * server/config/stationRainfallConfig.ts and the `tip_factor` column default in
+ * server/services/calibrationCache.ts. These three disagreed previously (0.1 in
+ * the server config and the DB, 0.2 in the write path and the client), so an
+ * uncalibrated tip_count station reported double or half depending on which
+ * default happened to apply.
+ */
+export const DEFAULT_TIP_FACTOR = 0.1;
 
 /**
  * Decide whether a series looks like a running counter.
@@ -91,7 +103,7 @@ export function isCumulativeType(type: RainfallType): boolean {
 export function rainfallTotal(
   values: number[],
   type: RainfallType = "auto",
-  tipFactor = 0.2,
+  tipFactor = DEFAULT_TIP_FACTOR,
 ): number {
   if (values.length === 0) return 0;
 
@@ -110,7 +122,7 @@ export function rainfallTotal(
     for (const v of values) {
       if (v > 0 && v <= MAX_INCREMENT_MM) total += v;
     }
-    if (type === "tip_count") total *= tipFactor > 0 ? tipFactor : 0.2;
+    if (type === "tip_count") total *= tipFactor > 0 ? tipFactor : DEFAULT_TIP_FACTOR;
   }
 
   return Math.round(total * 100) / 100;
@@ -122,7 +134,7 @@ export function rainfallTotal(
  */
 export function rainfallTotalFromRecords<
   T extends { timestamp: string | number | Date; rainfall?: number | string | null },
->(records: T[], type: RainfallType = "auto", tipFactor = 0.2): number {
+>(records: T[], type: RainfallType = "auto", tipFactor = DEFAULT_TIP_FACTOR): number {
   const values = [...records]
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
     .map((r) => {
@@ -134,4 +146,68 @@ export function rainfallTotalFromRecords<
     .filter((v): v is number => v !== null);
 
   return rainfallTotal(values, type, tipFactor);
+}
+
+/**
+ * Every field name a logger might use for rainfall, most trusted first.
+ *
+ * ONE list, because there were six and they disagreed. The Campbell parser knew
+ * `Rain_2_Tot` and `Rain_Tot_Tot`; the aggregation, scheduled-report and PDF
+ * paths did not; and the SQLite read path knew only three names in total. A
+ * station that logged into a name one path recognised and another did not would
+ * be ingested correctly and then report zero rain, silently, with no error
+ * anywhere. The SAWS Testbed writes `Rain_2_Tot` and only escapes this because
+ * it happens to also write `Rain_1_Tot`.
+ *
+ * `rainfall` leads because it is the normalised value written at ingest, which is
+ * what the per-record read path has always preferred. The raw logger names follow
+ * as fallbacks for rows written before normalisation, or by a path that stored
+ * the logger's own column name untouched.
+ *
+ * MIRRORED IN server/config/rainfallFields.ts, which is the copy the server
+ * actually uses. The server build sets rootDir=./server and excludes shared/, so
+ * the two cannot import from each other; the duplication follows the same
+ * convention this codebase already uses for chartColors and the ETo formula.
+ * Change both together.
+ */
+export const RAINFALL_FIELD_ALIASES = [
+  "rainfall",
+  "Rain_mm_Tot",
+  "Rain_Tot",
+  "Rain_1_Tot",
+  "Rain_2_Tot",
+  "Rain_Tot_1",
+  "Rain_Tot_Tot",
+  "Precip_Tot",
+  "Rain_mm",
+  "Precip",
+  "Rain",
+  "Rainfall",
+] as const;
+
+/**
+ * Read the rainfall value out of a raw logger record, honouring alias order.
+ * Returns null when no alias carries a finite number.
+ */
+export function pickRainfall(data: Record<string, any> | null | undefined): number | null {
+  if (!data) return null;
+  for (const key of RAINFALL_FIELD_ALIASES) {
+    const v = data[key];
+    if (v === null || v === undefined || v === "") continue;
+    const n = typeof v === "string" ? parseFloat(v) : v;
+    if (typeof n === "number" && Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+/**
+ * SQL expression yielding the rainfall value from a JSONB `data` column, using
+ * the same alias order as `pickRainfall`.
+ *
+ * `column` is the JSONB column name and is NOT interpolated from user input by
+ * any caller; the alias names are compile-time constants from this module.
+ */
+export function rainfallSqlCoalesce(column = "data"): string {
+  const parts = RAINFALL_FIELD_ALIASES.map((f) => `${column}->>'${f}'`);
+  return `COALESCE(${parts.join(", ")})`;
 }

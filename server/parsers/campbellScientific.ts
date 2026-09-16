@@ -6,6 +6,8 @@
  * Supports TOA5 (ASCII Table) and TOB1 (Binary) formats
  */
 
+import { RAINFALL_FIELD_ALIASES } from "../config/rainfallFields";
+
 export interface ParsedRecord {
   timestamp: Date;
   recordNumber: number;
@@ -335,7 +337,10 @@ export function mapToWeatherData(record: ParsedRecord, units?: string[], headers
     windSpeedMin: ["WSpd_1_Min", "WSpd_Min", "WS_ms_Min", "WindSpeed_Min", "WSpd_2_Min"],
     solarRadiation: ["SlrW", "SR_Avg", "Solar_W", "Radiation", "SlrkW", "Solar_Rad_Avg", "SolarRad_Avg", "SlrW_Avg", "Solar_Rad", "SR_W", "Sol_Rad_Avg"],
     solarMJTotal: ["SlrMJ_Tot", "SlrMJ", "Solar_MJ_Tot", "SolarMJ_Tot"],
-    rainfall: ["Rain_mm", "Rain_Tot", "Precip", "Rain_mm_Tot", "Rain_Tot_Tot", "Rainfall", "Precip_Tot", "Rain_1_Tot", "Rain_Tot_1", "Rain_2_Tot"],
+    // Shared list. This parser knew Rain_2_Tot and Rain_Tot_Tot while every path
+    // that TOTALS rainfall did not, so a logger using either name was ingested
+    // correctly and then reported as no rain at all.
+    rainfall: [...RAINFALL_FIELD_ALIASES],
     dewPoint: ["DewPt", "DewPoint", "Dew_C", "DewPoint_Avg", "DewPt_Avg", "DewPointTemp_Avg", "DewPointTemp"],
     soilTemperature: ["SoilTC", "Soil_Temp", "T_Soil", "SoilTemp_Avg", "SoilTC_Avg"],
     soilMoisture: ["VWC", "Soil_VWC", "VWC_Avg", "SoilMoist_Avg", "Soil_Moisture"],

@@ -12,7 +12,7 @@ import { Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import type { WeatherData } from "@shared/schema";
 import { CHART_COLORS } from "@shared/chartColors";
-import { rainfallTotalFromRecords, type RainfallType } from "@shared/utils/rainfall";
+import { rainfallTotalFromRecords, DEFAULT_TIP_FACTOR, type RainfallType } from "@shared/utils/rainfall";
 import { DashboardLoadingOverlay } from "@/components/DashboardLoadingOverlay";
 import {
   calculateDewPoint,
@@ -217,7 +217,7 @@ function PrimaryTile({ label, value, sub, valueColor }: PrimaryTileProps) {
   );
 }
 
-/** One labeled field in the station info block. Sized to match the metric
+/** One labelled field in the station info block. Sized to match the metric
  *  tiles: a navy bold label above a value, both at TILE_TEXT_SIZE. valueColor
  *  is used for the color-coded Status and Battery readings. */
 function InfoField({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
@@ -412,13 +412,27 @@ export default function CompactDashboard() {
     queryKey: ["compact-rainfall-config", shareToken],
     queryFn: async () => {
       const res = await fetch(`/api/shares/${shareToken}/rainfall-config`, { headers: shareHeaders });
-      if (!res.ok) return { type: "auto", tipFactor: 0.2 };
+      if (!res.ok) return { type: "auto", tipFactor: DEFAULT_TIP_FACTOR };
       return res.json();
     },
     enabled: !!shareToken && !requiresPassword,
   });
   const rainfallType: RainfallType = rainfallConfig?.type ?? "auto";
-  const rainfallTipFactor = rainfallConfig?.tipFactor ?? 0.2;
+  const rainfallTipFactor = rainfallConfig?.tipFactor ?? DEFAULT_TIP_FACTOR;
+
+  // 24h rainfall aggregated server-side across every stored reading. The
+  // `recentData` series is decimated for the sparklines, and decimation drops
+  // records, which deletes rain outright rather than just lowering resolution.
+  const { data: rainfallTotals } = useQuery<{ last24h: number }>({
+    queryKey: ["compact-rainfall-totals", shareToken],
+    queryFn: async () => {
+      const res = await fetch(`/api/shares/${shareToken}/data/rainfall-totals`, { headers: shareHeaders });
+      if (!res.ok) throw new Error("rainfall totals unavailable");
+      return res.json();
+    },
+    enabled: !!shareToken && !requiresPassword,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Latest reading (live sync data) - refreshes with station sync
   const { data: latest, isSuccess: latestReady } = useQuery<SharedReading>({
@@ -549,12 +563,17 @@ export default function CompactDashboard() {
    *
    * Deliberately NOT `latest.rainfall`: RIKA stations report a cumulative
    * counter (mm since commissioning), so the latest raw reading is a lifetime
-   * total and displaying it as "Rain (24h)" showed hundreds of millimeters on a
-   * dry day. `recentData` is the same 24-hour window the charts use.
+   * total and displaying it as "Rain (24h)" showed hundreds of millimetres on a
+   * dry day.
+   *
+   * Prefers the server-side total over `recentData`, which is decimated for the
+   * charts and therefore under-reports rain.
    */
   const rain24h = useMemo(
-    () => rainfallTotalFromRecords(recentData, rainfallType, rainfallTipFactor),
-    [recentData, rainfallType, rainfallTipFactor],
+    () => rainfallTotals
+      ? rainfallTotals.last24h
+      : rainfallTotalFromRecords(recentData, rainfallType, rainfallTipFactor),
+    [recentData, rainfallType, rainfallTipFactor, rainfallTotals],
   );
   const batteryVoltage = num(latest?.batteryVoltage);
   /**

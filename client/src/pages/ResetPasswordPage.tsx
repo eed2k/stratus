@@ -97,8 +97,8 @@ export function ResetPasswordPage() {
                 <div className="w-4 h-4 rounded-full bg-white"></div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-                <p className="text-sm text-gray-600">Weather Station Server</p>
+                <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+                <p className="text-sm text-foreground">Weather Station Server</p>
               </div>
             </div>
           </div>
@@ -106,7 +106,7 @@ export function ResetPasswordPage() {
           <Card className="shadow-xl border border-gray-200 bg-white">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-600">Validating reset link...</p>
+              <p className="text-foreground">Validating reset link...</p>
             </CardContent>
           </Card>
         </div>
@@ -125,8 +125,8 @@ export function ResetPasswordPage() {
                 <div className="w-4 h-4 rounded-full bg-white"></div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-                <p className="text-sm text-gray-600">Weather Station Server</p>
+                <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+                <p className="text-sm text-foreground">Weather Station Server</p>
               </div>
             </div>
           </div>
@@ -138,15 +138,15 @@ export function ResetPasswordPage() {
                   <span className="text-2xl text-red-600 font-bold">✗</span>
                 </div>
               </div>
-              <CardTitle className="text-2xl text-center text-gray-900">
+              <CardTitle className="text-2xl text-center text-foreground">
                 Invalid Reset Link
               </CardTitle>
-              <CardDescription className="text-center text-gray-600">
+              <CardDescription className="text-center text-foreground">
                 This password reset link is invalid or has expired.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-foreground text-center">
                 Password reset links expire after 1 hour for security reasons. Please request a new link.
               </p>
               <Button 
@@ -180,8 +180,8 @@ export function ResetPasswordPage() {
                 <div className="w-4 h-4 rounded-full bg-white"></div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-                <p className="text-sm text-gray-600">Weather Station Server</p>
+                <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+                <p className="text-sm text-foreground">Weather Station Server</p>
               </div>
             </div>
           </div>
@@ -193,10 +193,10 @@ export function ResetPasswordPage() {
                   <span className="text-2xl text-green-600">✓</span>
                 </div>
               </div>
-              <CardTitle className="text-2xl text-center text-gray-900">
+              <CardTitle className="text-2xl text-center text-foreground">
                 Password Reset Successfully
               </CardTitle>
-              <CardDescription className="text-center text-gray-600">
+              <CardDescription className="text-center text-foreground">
                 Your password has been changed. You can now log in with your new password.
               </CardDescription>
             </CardHeader>
@@ -224,18 +224,18 @@ export function ResetPasswordPage() {
               <div className="w-4 h-4 rounded-full bg-white"></div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-              <p className="text-sm text-gray-600">Weather Station Server</p>
+              <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+              <p className="text-sm text-foreground">Weather Station Server</p>
             </div>
           </div>
         </div>
 
         <Card className="shadow-xl border border-gray-200 bg-white">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl text-center text-gray-900">
+            <CardTitle className="text-2xl text-center text-foreground">
               Reset Your Password
             </CardTitle>
-            <CardDescription className="text-center text-gray-600">
+            <CardDescription className="text-center text-foreground">
               {userEmail ? `Enter a new password for ${userEmail}` : 'Enter your new password below'}
             </CardDescription>
           </CardHeader>
@@ -248,27 +248,27 @@ export function ResetPasswordPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">New Password</Label>
+                <Label htmlFor="password" className="text-foreground">New Password</Label>
                 <Input
                   id="password"
                   type="password"
                   placeholder="Enter new password"
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  className="bg-white border-gray-300 text-foreground placeholder:text-gray-400"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
                 />
-                <p className="text-xs text-gray-500">Must be at least 8 characters</p>
+                <p className="text-xs text-foreground">Must be at least 8 characters</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-gray-700">Confirm Password</Label>
+                <Label htmlFor="confirmPassword" className="text-foreground">Confirm Password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   placeholder="Confirm new password"
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  className="bg-white border-gray-300 text-foreground placeholder:text-gray-400"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

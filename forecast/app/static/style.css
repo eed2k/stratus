@@ -13,7 +13,7 @@
   --white:       #ffffff;
   --line:        #b9c2cf;
   --line-dark:   #8c98a8;
-  --muted:       #5b6875;
+  --muted:       #000000;
   --desktop:     #e7ebf0;
   --good:        #1f7a4d;
   --bad:         #c0392b;
@@ -34,7 +34,7 @@ html, body {
 }
 
 code {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: Arial, Helvetica, sans-serif;
   font-size: .92em;
   background: var(--navy-soft);
   border: 1px solid var(--line);
@@ -473,11 +473,11 @@ ul.plain li { margin: 2px 0; }
   font-size: 30px;
   line-height: 1.1;
   font-weight: 700;
-  color: #111827;
+  color: #000000;
 }
 .auth-brand-sub {
   font-size: 14px;
-  color: #4b5563;
+  color: #000000;
 }
 .auth-card {
   background: #ffffff;
@@ -493,11 +493,11 @@ ul.plain li { margin: 2px 0; }
 .auth-title {
   font-size: 24px;
   font-weight: 600;
-  color: #111827;
+  color: #000000;
 }
 .auth-desc {
   font-size: 14px;
-  color: #4b5563;
+  color: #000000;
   margin-top: 4px;
 }
 .auth-error {
@@ -513,7 +513,7 @@ ul.plain li { margin: 2px 0; }
 .auth-field { display: flex; flex-direction: column; gap: 6px; }
 .auth-field label {
   font-size: 14px;
-  color: #374151;
+  color: #000000;
   font-weight: 400;
   margin: 0;
 }
@@ -524,7 +524,7 @@ ul.plain li { margin: 2px 0; }
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #ffffff;
-  color: #111827;
+  color: #000000;
   font-size: 14px;
   font-family: inherit;
   margin: 0;
@@ -551,7 +551,7 @@ ul.plain li { margin: 2px 0; }
 .auth-foot {
   text-align: center;
   font-size: 12px;
-  color: #6b7280;
+  color: #000000;
 }
 
 /* ---- Boxed links -----------------------------------------------------------

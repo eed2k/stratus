@@ -280,7 +280,7 @@ function ScheduleForm({
             <Select value={form.frequency} onValueChange={(v) => set("frequency", v as Frequency)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {/* "Daily" is Mon-Fri, not all seven days. Labeled so the form
+                {/* "Daily" is Mon-Fri, not all seven days. Labelled so the form
                     does not promise a Saturday send that never happens. Choose
                     Weekly with Saturday or Sunday for a weekend report. */}
                 <SelectItem value="daily">Daily (Mon-Fri)</SelectItem>
@@ -478,13 +478,13 @@ function ScheduleRow({
               <Badge variant="outline">{freqLabel()}</Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Stations: <span className="text-slate-700">{stationNames || "(none)"}</span>
+              Stations: <span className="text-foreground">{stationNames || "(none)"}</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              Recipients: <span className="text-slate-700">{s.recipients.join(", ") || "(none)"}</span>
+              Recipients: <span className="text-foreground">{s.recipients.join(", ") || "(none)"}</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              Fields: <span className="text-slate-700">{s.fields.length} selected</span>
+              Fields: <span className="text-foreground">{s.fields.length} selected</span>
             </p>
             {s.lastRunAt && (
               <p className="text-xs text-muted-foreground mt-1">
@@ -493,7 +493,7 @@ function ScheduleRow({
             )}
             {s.enabled && s.nextRunAt && (
               <p className="text-xs text-muted-foreground">
-                Next run: <span className="text-slate-700">{new Date(s.nextRunAt).toLocaleString("en-ZA")}</span>
+                Next run: <span className="text-foreground">{new Date(s.nextRunAt).toLocaleString("en-ZA")}</span>
               </p>
             )}
             {msg && (

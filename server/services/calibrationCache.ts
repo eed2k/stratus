@@ -81,7 +81,7 @@ export async function ensureCalibrationCache(): Promise<void> {
       await query(CREATE_SQL);
       await reloadCalibrationCache();
       // Seed the historical RIKA R25021205 (station #2) offset if no
-      // explicit row exists - preserves legacy behavior for callers
+      // explicit row exists - preserves legacy behaviour for callers
       // upgrading from the hard-coded config.
       if (!cache.has(2)) {
         try {
@@ -149,7 +149,10 @@ export async function upsertCalibration(
     stationId,
     rainfallType: patch.rainfallType ?? existing?.rainfallType ?? "auto",
     rainfallOffset: patch.rainfallOffset ?? existing?.rainfallOffset ?? 0,
-    tipFactor: patch.tipFactor ?? existing?.tipFactor ?? 0.2,
+    // 0.1 matches the `tip_factor` column default in CREATE_SQL above and
+    // DEFAULT_TIP_FACTOR; it must not be 0.2 here or an upsert that omits the
+    // field rewrites the row with a different gauge constant.
+    tipFactor: patch.tipFactor ?? existing?.tipFactor ?? 0.1,
     dailyResetHour: patch.dailyResetHour ?? existing?.dailyResetHour ?? 0,
     scalingMultiplier: patch.scalingMultiplier ?? existing?.scalingMultiplier ?? 1,
     sourceField: patch.sourceField !== undefined ? patch.sourceField : existing?.sourceField ?? null,

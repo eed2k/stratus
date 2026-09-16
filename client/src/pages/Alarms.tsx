@@ -397,9 +397,7 @@ export default function Alarms() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Triggers when the station has not sent any data within this timeframe
-                </p>
+
               </div>
               ) : formData.condition === "no_charge" ? (
               <div className="space-y-2">

@@ -32,7 +32,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-# Rainfall in millimeters over a day. Below the first figure a tipping bucket
+# Rainfall in millimetres over a day. Below the first figure a tipping bucket
 # has effectively recorded nothing, so calling it "rain" would be misleading.
 RAIN_TRACE_MM = 0.2
 RAIN_LIGHT_MM = 2.0

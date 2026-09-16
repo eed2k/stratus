@@ -131,7 +131,7 @@ def circular_mean(degrees):
     x = sum(math.cos(math.radians(d)) for d in vals)
     y = sum(math.sin(math.radians(d)) for d in vals)
     if abs(x) < 1e-12 and abs(y) < 1e-12:
-        return None                       # directions canceled out entirely
+        return None                       # directions cancelled out entirely
     return math.degrees(math.atan2(y, x)) % 360.0
 
 

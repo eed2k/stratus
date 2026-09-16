@@ -160,7 +160,7 @@ async function prepareUplinkPayload(
     tableName: 'datalogger', warnings,
   });
 
-  // Native Stratus body keeps its existing behavior exactly.
+  // Native Stratus body keeps its existing behaviour exactly.
   if (uplink.format === 'stratus') {
     const data = body?.data;
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -1944,6 +1944,33 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/stations/:stationId/data/rainfall-totals
+  // Totals for the dashboard period cards (24h / yesterday / 7d / 30d).
+  //
+  // These MUST come from the database rather than from the client summing the
+  // records returned by /data: that endpoint decimates its response by dropping
+  // records, which is harmless for instantaneous fields but silently deletes
+  // rain, because an accumulating quantity only exists in the record that
+  // carries it. See getRainfallPeriodTotals for the full explanation.
+  app.get("/api/stations/:stationId/data/rainfall-totals", optionalAuth, async (req, res) => {
+    try {
+      const { value: stationId, error } = parseIntSafe(req.params.stationId, 'stationId');
+      if (error || stationId === null) {
+        return res.status(400).json({ message: error });
+      }
+
+      const { getRainfallPeriodTotals } = await import('./services/rainfallAggregation');
+      const reference = typeof req.query.reference === 'string' ? new Date(req.query.reference) : undefined;
+      const totals = await getRainfallPeriodTotals(stationId, {
+        reference: reference && !isNaN(reference.getTime()) ? reference : undefined,
+      });
+      return res.json(totals);
+    } catch (error) {
+      console.error("Error fetching rainfall period totals:", error);
+      return res.status(500).json({ message: "Failed to fetch rainfall data" });
+    }
+  });
+
   // GET /api/stations/:stationId/rainfall-config
   // Exposes the station's rainfall configuration (type, offset, tz) so the
   // client can pick the correct local aggregation (SUM vs delta) for daily
@@ -2010,16 +2037,27 @@ export async function registerRoutes(
         return res.status(400).json({ message: "startTime and endTime are required" });
       }
 
+      const maxPoints = limit ? parseInt(limit as string) : 500;
+
+      // Pass the row budget down so Postgres samples evenly across the WHOLE
+      // range. Without it the query fell back to a 10000-row cap on a
+      // newest-first ordering, which truncated the window instead of thinning
+      // it, so a 30-day request on a 1-minute station returned 7 days.
       let data = await storage.getWeatherDataRange(
         stationId,
         new Date(startTime as string),
-        new Date(endTime as string)
+        new Date(endTime as string),
+        undefined,
+        Number.isFinite(maxPoints) && maxPoints > 0 ? maxPoints : 500
       );
 
       const rawCount = data.length;
-      // Server-side downsampling: if >maxPoints records, thin to evenly-spaced points
-      // This prevents huge payloads while still providing sufficient chart resolution
-      const maxPoints = limit ? parseInt(limit as string) : 500;
+      // Safety net only: the database sampling above should already have brought
+      // the row count within budget.
+      //
+      // NOTE: this thins by DROPPING records, so it must never be the source of
+      // an accumulating total such as rainfall. Period rainfall totals are
+      // aggregated separately in SQL, see /data/rainfall-totals.
       if (data.length > maxPoints) {
         const step = data.length / maxPoints;
         const sampled: typeof data = [];
@@ -3342,7 +3380,7 @@ export async function registerRoutes(
   'use strict';
   
   const StratusWidget = {
-    version: '2.1.0',
+    version: '2.2.1',
     
     styles: \`
       .stratus-widget {

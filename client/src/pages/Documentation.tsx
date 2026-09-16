@@ -16,7 +16,7 @@ export default function Documentation() {
             <div className="grid gap-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Version</span>
-                <span className="font-medium">2.1.0</span>
+                <span className="font-medium">2.2.1</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Developer</span>

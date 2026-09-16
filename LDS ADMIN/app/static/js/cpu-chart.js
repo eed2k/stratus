@@ -22,12 +22,18 @@
 
   // Matches the server-side palette in app/charts.py and style.css so the
   // interactive chart and the printed report look like the same product.
-  var COLOR_TEMP = "#c0392b";   // red
-  var COLOR_LOAD = "#2c7fb8";   // blue, same as the load line in charts.py
+  /* Matched to Stratus so a reader moving between the two consoles sees the same
+     conventions. These mirror CHART_COLORS in shared/chartColors.ts:
+       temperature #ef4444, humidity/blue series #2563eb
+     Duplicated rather than imported because this file is served straight to the
+     browser with no build step and cannot reach into the Stratus package. If a
+     colour changes there, change it here too. */
+  var COLOR_TEMP = "#ef4444";   // CHART_COLORS.temperature
+  var COLOR_LOAD = "#2563eb";   // CHART_COLORS.humidity, the house blue
   var COLOR_WARN = "#e08a1e";   // amber
   var COLOR_CRIT = "#c0392b";
-  var COLOR_GRID = "#d7dee8";
-  var COLOR_MUTED = "#5b6673";
+  var COLOR_GRID = "#f1f4f7";   // near-white: grid must not shade the plot area
+  var COLOR_MUTED = "#000000";  // black: axis numbers are read against a logger value
 
   /** Format an ISO timestamp for the x axis, given the window length. */
   function makeTickFormatter(range) {
@@ -57,6 +63,45 @@
    * Written with React.createElement rather than JSX because these files are
    * served straight to the browser with no build step.
    */
+  /* Axis text sizes. Raised from 10: these charts are read on a wall-mounted
+     console at arm's length, where a 10 px tick is a guess rather than a value. */
+  var TICK_FONT = 12;
+  var AXIS_LABEL_FONT = 12;
+
+  /**
+   * Y domain padded around the data, with a floor on the span.
+   *
+   * The old shared-axis domain was
+   *   [min(dataMin, warn - 10), max(dataMax, crit + 4)]
+   * which FORCED the thresholds into view. With a CPU idling at 33 deg C and
+   * CRIT at 78 that made the domain 33..82, so the trace sat flat against the
+   * x axis with four fifths of the plot empty. Scaling to the data instead is
+   * what makes the shape readable; the thresholds are drawn with
+   * ifOverflow "hidden" so they appear when the reading actually approaches
+   * them and are simply absent when it does not.
+   *
+   * minSpan stops a dead-flat trace from being magnified into meaningless
+   * jitter: a unit holding 33.6 deg C all day should read as a flat line.
+   */
+  function paddedDomain(values, minSpan, hardFloor) {
+    var nums = values.filter(function (v) { return typeof v === "number"; });
+    if (!nums.length) return [0, minSpan];
+    var lo = Math.min.apply(null, nums);
+    var hi = Math.max.apply(null, nums);
+    var span = hi - lo;
+    if (span < minSpan) {
+      var mid = (hi + lo) / 2;
+      lo = mid - minSpan / 2;
+      hi = mid + minSpan / 2;
+    } else {
+      var pad = span * 0.15;
+      lo -= pad;
+      hi += pad;
+    }
+    if (typeof hardFloor === "number" && lo < hardFloor) lo = hardFloor;
+    return [Math.floor(lo), Math.ceil(hi)];
+  }
+
   function buildChart(React, Recharts, payload, range) {
     var h = React.createElement;
     var points = payload.points || [];
@@ -73,130 +118,141 @@
 
     var hasLoad = data.some(function (d) { return d.load !== null; });
 
-    var children = [
-      h(Recharts.CartesianGrid, { key: "grid", stroke: COLOR_GRID, strokeDasharray: "3 3", vertical: false }),
-      h(Recharts.XAxis, {
-        key: "x",
-        dataKey: "t",
-        tickFormatter: makeTickFormatter(range),
-        tick: { fontSize: 10, fill: COLOR_MUTED },
-        stroke: COLOR_MUTED,
-        minTickGap: 24
-      }),
-      h(Recharts.YAxis, {
-        key: "yTemp",
-        yAxisId: "temp",
-        tick: { fontSize: 10, fill: COLOR_MUTED },
-        stroke: COLOR_MUTED,
-        width: 38,
-        // Always include the CRIT line in the domain so the reference lines are
-        // visible even on a cool day, and pad the top a little above CRIT.
-        domain: [
-          function (dataMin) { return Math.floor(Math.min(dataMin, payload.warn - 10)); },
-          function (dataMax) { return Math.ceil(Math.max(dataMax, payload.crit + 4)); }
-        ],
-        label: {
-          value: "CPU temp (deg C)", angle: -90, position: "insideLeft",
-          fontSize: 10, fill: COLOR_MUTED, style: { textAnchor: "middle" }
-        }
-      })
-    ];
+    /**
+     * One chart per quantity.
+     *
+     * They were on a single dual-axis plot, which forces two unrelated scales
+     * to share one grid: a temperature in the thirties and a load percentage
+     * cannot both use the vertical space well, and whichever loses ends up
+     * flattened against an axis. Separating them lets each scale to its own
+     * data, and it also removes the ambiguity of a reader having to remember
+     * which trace belongs to which side.
+     */
+    function seriesChart(kind) {
+      var isTemp = kind === "temp";
+      var colour = isTemp ? COLOR_TEMP : COLOR_LOAD;
+      var axisLabel = isTemp ? "CPU temperature (\u00b0C)" : "CPU load (%)";
+      var seriesName = isTemp ? "CPU temp" : "Load";
 
-    if (hasLoad) {
-      children.push(h(Recharts.YAxis, {
-        key: "yLoad",
-        yAxisId: "load",
-        orientation: "right",
-        domain: [0, 100],
-        tick: { fontSize: 10, fill: COLOR_MUTED },
-        stroke: COLOR_MUTED,
-        width: 38,
-        label: {
-          value: "Load (%)", angle: 90, position: "insideRight",
-          fontSize: 10, fill: COLOR_MUTED, style: { textAnchor: "middle" }
-        }
-      }));
-    }
+      var values = data.map(function (d) { return isTemp ? d.temp : d.load; });
+      // Temperature: 8 deg C minimum span. Load: 20 percentage points minimum,
+      // floored at 0 because a negative load is not a thing.
+      var domain = isTemp
+        ? paddedDomain(values, 8)
+        : paddedDomain(values, 20, 0);
 
-    children.push(h(Recharts.Tooltip, {
-      key: "tip",
-      labelFormatter: formatFullTimestamp,
-      formatter: function (value, name) {
-        if (value === null || value === undefined) return ["no reading", name];
-        return [name === "Load" ? value.toFixed(0) + " %" : value.toFixed(1) + " deg C", name];
-      },
-      contentStyle: { fontSize: "11px", fontFamily: "Arial, Helvetica, sans-serif" }
-    }));
-
-    // Legend: a very small caption under the plot, two colored dots and their
-    // labels. Recharts' default legend draws its own line/square markers, which
-    // is what the icons were; a custom `content` replaces them entirely.
-    children.push(h(Recharts.Legend, {
-      key: "legend",
-      verticalAlign: "bottom",
-      height: 14,
-      content: function () {
-        function item(key, color, label) {
-          return h("span", {
-            key: key,
-            style: {
-              display: "inline-flex", alignItems: "center",
-              gap: "3px", marginLeft: key === "t" ? 0 : "12px"
-            }
-          }, [
-            h("span", {
-              key: "d",
-              style: {
-                width: "5px", height: "5px", borderRadius: "50%",
-                background: color, display: "inline-block", flex: "0 0 auto"
-              }
-            }),
-            h("span", { key: "l" }, label)
-          ]);
-        }
-        var items = [item("t", COLOR_TEMP, "CPU temp")];
-        if (hasLoad) items.push(item("l", COLOR_LOAD, "Load"));
-        return h("div", {
-          style: {
-            fontSize: "9px", lineHeight: "1", color: COLOR_MUTED,
-            textAlign: "center", fontFamily: "Arial, Helvetica, sans-serif"
+      /* Axis and grid treatment copied from Stratus WeatherChart.tsx so the two
+         consoles look like one product: a faint dashed grid at 30% opacity with
+         no explicit colour, and axes with NO tick marks and NO axis line, which
+         is what gives the Stratus charts their clean look. */
+      var kids = [
+        h(Recharts.CartesianGrid, {
+          key: "grid", strokeDasharray: "3 3", opacity: 0.3
+        }),
+        h(Recharts.XAxis, {
+          key: "x",
+          dataKey: "t",
+          tickFormatter: makeTickFormatter(range),
+          tick: { fontSize: TICK_FONT },
+          tickLine: false,
+          axisLine: false,
+          tickMargin: 4,
+          minTickGap: 28,
+          height: 22
+        }),
+        h(Recharts.YAxis, {
+          key: "y",
+          tick: { fontSize: TICK_FONT, fill: colour },
+          tickLine: false,
+          axisLine: false,
+          width: 52,
+          domain: domain,
+          allowDecimals: false,
+          label: {
+            value: axisLabel, angle: -90, position: "insideLeft",
+            fontSize: AXIS_LABEL_FONT, fill: COLOR_MUTED,
+            style: { textAnchor: "middle" }
           }
-        }, items);
+        }),
+        h(Recharts.Tooltip, {
+          key: "tip",
+          labelFormatter: formatFullTimestamp,
+          formatter: function (value) {
+            if (value === null || value === undefined) return ["no reading", seriesName];
+            return [isTemp ? value.toFixed(1) + " \u00b0C" : value.toFixed(0) + " %", seriesName];
+          },
+          contentStyle: { fontSize: "11px", fontFamily: "Arial, Helvetica, sans-serif" }
+        })
+      ];
+
+      // Thresholds belong only on the temperature chart. ifOverflow "hidden"
+      // keeps them from dragging the domain up when the CPU is nowhere near them.
+      if (isTemp) {
+        kids.push(h(Recharts.ReferenceLine, {
+          key: "warn", y: payload.warn,
+          stroke: COLOR_WARN, strokeDasharray: "6 3", strokeWidth: 1.8,
+          ifOverflow: "hidden",
+          label: {
+            value: "Warning " + payload.warn + " \u00b0C",
+            position: "insideTopRight", fontSize: 11, fill: COLOR_WARN
+          }
+        }));
+        kids.push(h(Recharts.ReferenceLine, {
+          key: "crit", y: payload.crit,
+          stroke: COLOR_CRIT, strokeDasharray: "2 2", strokeWidth: 1.8,
+          ifOverflow: "hidden",
+          label: {
+            value: "Critical " + payload.crit + " \u00b0C",
+            position: "insideTopRight", fontSize: 11, fill: COLOR_CRIT
+          }
+        }));
       }
-    }));
 
-    // WARN and CRIT thresholds come from the payload, not from a constant here,
-    // so the chart always agrees with the detector's configured limits.
-    children.push(h(Recharts.ReferenceLine, {
-      key: "warn", yAxisId: "temp", y: payload.warn,
-      stroke: COLOR_WARN, strokeDasharray: "6 3", strokeWidth: 1.2, ifOverflow: "extendDomain",
-      label: { value: "WARN " + payload.warn, position: "insideTopRight", fontSize: 9, fill: COLOR_WARN }
-    }));
-    children.push(h(Recharts.ReferenceLine, {
-      key: "crit", yAxisId: "temp", y: payload.crit,
-      stroke: COLOR_CRIT, strokeDasharray: "2 2", strokeWidth: 1.2, ifOverflow: "extendDomain",
-      label: { value: "CRIT " + payload.crit, position: "insideTopRight", fontSize: 9, fill: COLOR_CRIT }
-    }));
-
-    children.push(h(Recharts.Line, {
-      key: "lineTemp", yAxisId: "temp", type: "monotone", dataKey: "temp",
-      name: "CPU temp", stroke: COLOR_TEMP, strokeWidth: 1.6,
-      dot: false, activeDot: { r: 3 }, connectNulls: false, isAnimationActive: false
-    }));
-
-    if (hasLoad) {
-      children.push(h(Recharts.Line, {
-        key: "lineLoad", yAxisId: "load", type: "monotone", dataKey: "load",
-        name: "Load", stroke: COLOR_LOAD, strokeWidth: 1.2, strokeDasharray: "4 3",
-        dot: false, activeDot: { r: 3 }, connectNulls: false, isAnimationActive: false
+      /* strokeWidth 2 and activeDot r 4, matching Stratus WeatherChart.tsx. */
+      kids.push(h(Recharts.Line, {
+        key: "line", type: "monotone", dataKey: kind,
+        name: seriesName, stroke: colour, strokeWidth: 2,
+        dot: false, activeDot: { r: 4 }, connectNulls: false,
+        isAnimationActive: false
       }));
+
+      // Title above each plot, since there is no shared legend to name them.
+      return h("div", {
+        key: kind,
+        style: {
+          // flexWrap on the parent plus this basis is what makes the pair sit
+          // side by side on a desktop and stack on a phone, with no media query.
+          flex: "1 1 300px", minWidth: "280px", height: "100%",
+          display: "flex", flexDirection: "column"
+        }
+      }, [
+        h("div", {
+          key: "title",
+          style: {
+            fontSize: "12px", fontWeight: "700", color: colour,
+            fontFamily: "Arial, Helvetica, sans-serif",
+            textAlign: "center", lineHeight: "1.2", paddingBottom: "2px"
+          }
+        }, axisLabel),
+        h("div", { key: "plot", style: { flex: "1 1 auto", minHeight: 0 } },
+          h(Recharts.ResponsiveContainer, { width: "100%", height: "100%" },
+            h(Recharts.LineChart, {
+              data: data,
+              // Same margins as Stratus WeatherChart.tsx in its non-compact mode.
+              margin: { top: 5, right: 20, left: 10, bottom: 5 }
+            }, kids)))
+      ]);
     }
 
-    return h(
-      Recharts.ResponsiveContainer,
-      { width: "100%", height: "100%" },
-      h(Recharts.LineChart, { data: data, margin: { top: 14, right: 8, bottom: 4, left: 0 } }, children)
-    );
+    var charts = [seriesChart("temp")];
+    if (hasLoad) charts.push(seriesChart("load"));
+
+    return h("div", {
+      style: {
+        display: "flex", flexWrap: "wrap", gap: "12px",
+        width: "100%", height: "100%", alignItems: "stretch"
+      }
+    }, charts);
   }
 
   /** Swap the server-rendered SVG for the interactive chart, once only. */

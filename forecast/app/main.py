@@ -224,7 +224,7 @@ ASSET_VERSION = _asset_version()
 templates.env.globals["asset_version"] = ASSET_VERSION
 
 
-# Defense-in-depth response headers, mirroring the alert console so the two
+# Defence-in-depth response headers, mirroring the alert console so the two
 # FastAPI services present the same posture. The content security policy allows
 # inline styles because the loading-gate CSS is inlined in base.html by design,
 # and it allows same-origin scripts for /static/app.js; there are no inline

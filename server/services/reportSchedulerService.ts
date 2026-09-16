@@ -28,11 +28,12 @@
 import * as cron from 'node-cron';
 import { sendEmail, isEmailConfigured } from './emailService';
 import * as pg from '../db-postgres';
-import { applyRainfallOffset } from '../config/stationRainfallOffsets';
+import { rainfallSqlTransform } from '../config/stationRainfallOffsets';
+import { rainfallSqlCoalesce } from '../config/rainfallFields';
 
 const REPORTS_TZ = process.env.REPORTS_TZ || 'Africa/Johannesburg';
 
-/** Catalog of selectable fields. label is what the user sees; key is stored. */
+/** Catalogue of selectable fields. label is what the user sees; key is stored. */
 export const REPORT_FIELDS = [
   { key: 'temp_min',         label: 'Temperature (minimum)',  unit: 'degC' },
   { key: 'temp_avg',         label: 'Temperature (average)',  unit: 'degC' },
@@ -219,12 +220,10 @@ export function getReportPeriod(freq: ReportFrequency) { return periodFor(freq);
 
 export interface FieldStat { value: number | null; readings: number; }
 
-const RAIN_COALESCE = `COALESCE(
-  data->>'Rain_mm_Tot', data->>'Rain_Tot', data->>'Precip_Tot',
-  data->>'Rain_1_Tot', data->>'Rain_Tot_1',
-  data->>'rainfall', data->>'Rain_mm', data->>'Precip',
-  data->>'Rain', data->>'Rainfall'
-)::numeric`;
+// Shared alias list. Previously a hand-written COALESCE here that omitted
+// Rain_2_Tot and Rain_Tot_Tot, so a station logging into either of those names
+// produced a scheduled report showing no rain at all rather than an error.
+const RAIN_COALESCE = `${rainfallSqlCoalesce()}::numeric`;
 
 const TEMP_COALESCE = `COALESCE(data->>'temperature', data->>'AirTC_Avg', data->>'AirTemp', data->>'Temp_Avg', data->>'AirTemp_Avg', data->>'AirTC', data->>'Temp_C', data->>'Temperature')::numeric`;
 const HUMIDITY_COALESCE = `COALESCE(data->>'humidity', data->>'RH_Avg', data->>'RH', data->>'RelHumidity_Avg', data->>'RelHumidity', data->>'Humidity')::numeric`;
@@ -406,12 +405,21 @@ export async function gatherStationData(
     if (fields.has('battery_avg')) stats['battery_avg'] = { value: r.rows[0].av != null ? Number(r.rows[0].av) : null, readings: n };
   }
 
-  // ── Rainfall total - use cumulative-aware delta sum with per-station offset ──
+  // ── Rainfall total - cumulative-aware, calibrated per reading ──
+  //
+  // The calibration MUST be applied to each reading inside the query, not to the
+  // finished total. Applying it afterwards produced a third answer for the same
+  // week: the dashboard said 4.65 mm, the report said 9.3 mm and the logger file
+  // said 18.6 mm. The scale is linear so scaling a sum happens to agree, but the
+  // offset is a per-reading correction and subtracting it once from a period
+  // total is a different calculation, and the clamp at zero then lands in the
+  // wrong place too.
   if (fields.has('rainfall_total')) {
+    const RAIN_CAL = rainfallSqlTransform(stationId, RAIN_COALESCE);
     const r = await pg.query(`
       WITH r AS (
-        SELECT timestamp, ${RAIN_COALESCE} AS v,
-               LAG(${RAIN_COALESCE}) OVER (ORDER BY timestamp) AS pv
+        SELECT timestamp, ${RAIN_CAL} AS v,
+               LAG(${RAIN_CAL}) OVER (ORDER BY timestamp) AS pv
         FROM weather_data
         WHERE station_id = $1 AND timestamp >= $2 AND timestamp < $3
           AND ${RAIN_COALESCE} IS NOT NULL
@@ -431,10 +439,7 @@ export async function gatherStationData(
       let total: number;
       if (maxV <= 50) total = Number(row.sum_inc);
       else total = Number(row.delta_sum);
-      // Apply per-station rainfall offset clamp at the boundary (same transform applied
-      // to live readings via mapToWeatherData, so totals correlate with dashboard).
-      const offsetApplied = applyRainfallOffset(stationId, total);
-      stats['rainfall_total'] = { value: offsetApplied != null ? Math.max(0, offsetApplied) : null, readings: n };
+      stats['rainfall_total'] = { value: Number.isFinite(total) ? Math.max(0, total) : null, readings: n };
     }
   }
 

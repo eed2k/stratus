@@ -476,7 +476,7 @@ def _normalize_unit(unit: str) -> str:
     return u
 
 
-# (canonical variable, normalized unit) -> (scale, offset, description)
+# (canonical variable, normalised unit) -> (scale, offset, description)
 # Only conversions that actually change the number are listed; anything absent
 # is treated as already canonical.
 _CONVERSIONS: dict[tuple[str, str], tuple[float, float, str]] = {}

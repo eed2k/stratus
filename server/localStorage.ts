@@ -28,6 +28,7 @@ import * as postgres from './db-postgres';
 import { sendAlarmEmail, isEmailConfigured } from './services/emailService';
 import type { AlarmEmailData } from './services/emailService';
 import { applyRainfallOffset } from './config/stationRainfallOffsets';
+import { pickRainfall } from './config/rainfallFields';
 
 // Check if PostgreSQL mode is enabled
 const usePostgres = postgres.isPostgresEnabled();
@@ -665,13 +666,25 @@ export class DatabaseStorage {
     return null;
   }
 
-  async getWeatherDataRange(stationId: number, startTime: Date, endTime: Date, tableName?: string): Promise<WeatherData[]> {
+  /**
+   * All readings for a station between two timestamps.
+   *
+   * `limit` caps the rows the database returns. Leaving it undefined used to
+   * fall through to a silent 10000-row default in db-postgres, and because that
+   * query is `ORDER BY timestamp DESC` the cap kept the NEWEST rows and dropped
+   * the rest of the requested window: a station logging every minute could only
+   * ever see its most recent 6.94 days, so a 30-day or 365-day request was
+   * quietly answered with a week of data. Callers that need a whole window must
+   * pass a limit large enough for it.
+   */
+  async getWeatherDataRange(stationId: number, startTime: Date, endTime: Date, tableName?: string, limit?: number): Promise<WeatherData[]> {
     if (usePostgres) {
       // PostgreSQL: single query, tableName is optional (omit to get all tables)
       const result = await postgres.getWeatherData(stationId, {
         tableName: tableName || undefined,
         startTime: startTime.toISOString(),
-        endTime: endTime.toISOString()
+        endTime: endTime.toISOString(),
+        limit,
       });
       if (result.records && result.records.length > 0) {
         return result.records.map((r: any) => this.mapPgWeatherData(r));
@@ -893,7 +906,9 @@ export class DatabaseStorage {
       windSpeed: data.data.windSpeed ?? data.data.WS_ms_Avg ?? data.data.WindSpeed ?? data.data.Wind_Spd_S_WVT ?? null,
       windDirection: data.data.windDirection ?? data.data.WindDir ?? data.data.WindDir_D1_WVT ?? data.data.Wind_Dir_D1_WVT ?? null,
       windGust: data.data.windGust ?? data.data.WS_ms_Max ?? data.data.Wind_Spd_Max ?? null,
-      rainfall: data.data.rainfall ?? data.data.Rain_mm_Tot ?? data.data.Rain ?? null,
+      // Was three alias names here against eight on the Postgres path, so the
+      // SQLite fallback silently reported no rain for most loggers.
+      rainfall: pickRainfall(data.data),
       solarRadiation: data.data.solarRadiation ?? data.data.SlrW ?? data.data.Solar ?? data.data.Solar_Rad_Avg ?? null,
       batteryVoltage: data.data.batteryVoltage ?? data.data.BattV ?? data.data.BattV_Min ?? data.data.Batt_volt_Min ?? null,
       waterLevel: data.data.waterLevel ?? data.data.Water_Level_Avg ?? data.data.WaterLevel ?? null,
@@ -1986,7 +2001,7 @@ export class DatabaseStorage {
       windDirection: data.windDirection ?? data.WindDir ?? data.WindDir_D1_WVT ?? data.Wind_Dir_D1_WVT ?? data.WindDir_Avg ?? data.WD_Deg ?? data.WD_Avg ?? data.WDir_1_Avg ?? data.WDir_Avg ?? data.WDir_1_D1_WVT ?? null,
       windGust: data.windGust ?? data.WS_ms_Max ?? data.Wind_Spd_Max ?? data.WindSpeed_Max ?? data.WS_Max ?? data.Wind_Gust ?? data.WSpd_1_Max ?? data.WSpd_Max ?? null,
       windSpeedMin: data.windSpeedMin ?? data.WSpd_1_Min ?? data.WSpd_Min ?? data.WS_ms_Min ?? null,
-      rainfall: data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? data.Rain_1_Tot ?? data.Rain_Tot_1 ?? null,
+      rainfall: pickRainfall(data),
       solarRadiation: data.solarRadiation ?? data.SlrW ?? data.Solar ?? data.Solar_Rad_Avg ?? data.SolarRad_Avg ?? data.SlrW_Avg ?? data.SR_Avg ?? null,
       solarMJTotal: data.solarMJTotal ?? data.SlrMJ_Tot ?? data.SlrMJ ?? data.Solar_MJ_Tot ?? null,
       dewPoint: data.dewPoint ?? data.DewPoint_Avg ?? data.DewPt ?? data.DewPoint ?? data.Dew_C ?? data.DewPointTemp_Avg ?? data.DewPointTemp ?? null,
@@ -2088,12 +2103,15 @@ export class DatabaseStorage {
 
     const stationId = record.stationId ?? record.station_id;
 
-    // Apply per-station rainfall offset (e.g. RIKA reports cumulative-since-
-    // erection; offset suppresses phantom rain after counter resets). Same
-    // offset is applied in the rainfall-yearly server endpoints so monthly
-    // (client) and yearly (server) totals stay consistent.
-    const rawRainfall = data.rainfall ?? data.Rain_mm_Tot ?? data.Rain ?? data.Rain_Tot ?? data.Precip ?? data.Precip_Tot ?? data.Rain_1_Tot ?? data.Rain_Tot_1 ?? null;
-    const rainfall = applyRainfallOffset(stationId, rawRainfall);
+    // Calibrate this reading (scaling multiplier, then offset, clamped at 0).
+    // The offset exists because e.g. RIKA reports cumulative-since-erection, and
+    // it also suppresses phantom rain after a counter reset.
+    //
+    // This is the ONLY place the per-record transform is applied. The aggregation
+    // endpoints apply the identical rule in SQL via `rainfallSqlTransform`, so
+    // every view of the same data agrees. Never apply it a second time further
+    // up the stack, and never apply it to an already-summed total.
+    const rainfall = applyRainfallOffset(stationId, pickRainfall(data));
 
     return {
       id: record.id,

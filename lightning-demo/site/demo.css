@@ -17,7 +17,7 @@
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .demo-controls button {
-  font: 600 11px/1 Consolas, "Courier New", monospace;
+  font: 600 11px/1 Arial, Helvetica, sans-serif;
   padding: 7px 12px; cursor: pointer; text-transform: none;
 }
 .demo-speed { display: flex; }
@@ -32,7 +32,7 @@
 }
 .demo-elapsed {
   margin-left: auto;
-  font: 11px/1.5 Consolas, "Courier New", monospace;
+  font: 11px/1.5 Arial, Helvetica, sans-serif;
   color: var(--muted-solid);
 }
 .demo-track {

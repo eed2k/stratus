@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from . import thermo
 from . import probabilistic
 
-# Open, flat terrain power-law exponent, the one-seventh law. Used and labeled
+# Open, flat terrain power-law exponent, the one-seventh law. Used and labelled
 # as assumed when a second measurement height is not available (which, for the
 # Stratus vocabulary, is almost always).
 DEFAULT_SHEAR_EXPONENT = 0.143

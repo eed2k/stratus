@@ -268,7 +268,7 @@ def assess_frost(hours) -> FrostAssessment:
 
     # 3. Frost TYPE and, crucially, the basis for it. A two-height measurement
     #    resolves the inversion directly and may speak to frost fans; wind alone
-    #    is a labeled proxy that may not, because acting on it costs money.
+    #    is a labelled proxy that may not, because acting on it costs money.
     cold_deltas = [d for d in (_inversion_delta(h) for h in coldest)
                    if d is not None]
     frost_type = None

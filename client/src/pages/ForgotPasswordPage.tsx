@@ -57,8 +57,8 @@ export function ForgotPasswordPage() {
                 <div className="w-4 h-4 rounded-full bg-white"></div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-                <p className="text-sm text-gray-600">Weather Station Server</p>
+                <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+                <p className="text-sm text-foreground">Weather Station Server</p>
               </div>
             </div>
           </div>
@@ -70,15 +70,15 @@ export function ForgotPasswordPage() {
                   <span className="text-2xl text-green-600">✓</span>
                 </div>
               </div>
-              <CardTitle className="text-2xl text-center text-gray-900">
+              <CardTitle className="text-2xl text-center text-foreground">
                 Check Your Email
               </CardTitle>
-              <CardDescription className="text-center text-gray-600">
+              <CardDescription className="text-center text-foreground">
                 If an account with that email exists, we've sent you a password reset link.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-foreground text-center">
                 The link will expire in 1 hour. If you don't see the email, check your spam folder.
               </p>
               <Button 
@@ -105,18 +105,18 @@ export function ForgotPasswordPage() {
               <div className="w-4 h-4 rounded-full bg-white"></div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-              <p className="text-sm text-gray-600">Weather Station Server</p>
+              <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+              <p className="text-sm text-foreground">Weather Station Server</p>
             </div>
           </div>
         </div>
 
         <Card className="shadow-xl border border-gray-200 bg-white">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl text-center text-gray-900">
+            <CardTitle className="text-2xl text-center text-foreground">
               Forgot Password
             </CardTitle>
-            <CardDescription className="text-center text-gray-600">
+            <CardDescription className="text-center text-foreground">
               Enter your email address and we'll send you a link to reset your password.
             </CardDescription>
           </CardHeader>
@@ -129,12 +129,12 @@ export function ForgotPasswordPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">Email Address</Label>
+                <Label htmlFor="email" className="text-foreground">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="you@example.com"
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  className="bg-white border-gray-300 text-foreground placeholder:text-gray-400"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

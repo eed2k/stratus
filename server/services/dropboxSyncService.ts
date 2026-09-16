@@ -524,7 +524,7 @@ export class DropboxSyncService extends EventEmitter {
       const stationPrefix = folderName.split('_')[0].toLowerCase();
       console.log(`[DropboxSync] Looking for files matching station: ${stationPrefix}`);
 
-      // Filter for .dat files only - prioritize files matching station name
+      // Filter for .dat files only - prioritise files matching station name
       // Skip "conflicted copy" files and old backups
       const datFiles = files.filter(f => {
         if (f['.tag'] !== 'file') return false;

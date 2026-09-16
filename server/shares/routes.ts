@@ -612,7 +612,7 @@ router.get('/shares/:shareToken/data', async (req: Request, res: Response) => {
      * Rows come back newest first, so data[0] is the newest reading and the last
      * element is the oldest. This was logged as "range=<first>..<last>", which
      * printed a range that appears to run backwards and reads like a bug in the
-     * query. It is labeled explicitly now, and demoted to debug: it fired on
+     * query. It is labelled explicitly now, and demoted to debug: it fired on
      * every request from every shared dashboard, which is the single noisiest
      * line in the production log.
      */
@@ -718,6 +718,27 @@ router.get('/shares/:shareToken/data/rainfall-monthly', async (req: Request, res
     return res.json(monthlyTotals);
   } catch (error) {
     console.error('Error fetching shared rainfall monthly totals:', error);
+    return res.status(500).json({ message: 'Failed to fetch rainfall data' });
+  }
+});
+
+// Rainfall period totals via share token (public)
+// Database-side aggregation; see getRainfallPeriodTotals for why these totals
+// must not be summed from the decimated /data response.
+router.get('/shares/:shareToken/data/rainfall-totals', async (req: Request, res: Response) => {
+  try {
+    const access = await validateShareAccess(req.params.shareToken, req);
+    if (!access) {
+      return res.status(404).json({ success: false, error: 'Share not found or expired' });
+    }
+    const { getRainfallPeriodTotals } = await import('../services/rainfallAggregation');
+    const reference = typeof req.query.reference === 'string' ? new Date(req.query.reference) : undefined;
+    const totals = await getRainfallPeriodTotals(access.stationId, {
+      reference: reference && !isNaN(reference.getTime()) ? reference : undefined,
+    });
+    return res.json(totals);
+  } catch (error) {
+    console.error('Error fetching shared rainfall period totals:', error);
     return res.status(500).json({ message: 'Failed to fetch rainfall data' });
   }
 });

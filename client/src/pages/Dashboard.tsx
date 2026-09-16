@@ -103,7 +103,7 @@ import {
   calculateWindChill,
 } from "@shared/utils/calc";
 import { interpretLightningIntensity } from "@shared/utils/lightning";
-import { rainfallTotalFromRecords, type RainfallType } from "@shared/utils/rainfall";
+import { rainfallTotalFromRecords, DEFAULT_TIP_FACTOR, type RainfallType } from "@shared/utils/rainfall";
 import { CHART_COLORS } from "@shared/chartColors";
 import {
   DEFAULT_DASHBOARD_CONFIG,
@@ -246,7 +246,7 @@ const processChartData = (historicalData: WeatherData[], timeRangeHours?: number
       const date = new Date(dateKey + 'T12:00:00');
       const label = date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
 
-      // Rainfall: per-day total. Behavior depends on logger type:
+      // Rainfall: per-day total. Behaviour depends on logger type:
       //  - incremental/tip_count: server-side rainfall is already a per-period
       //    increment, so the daily total is the SUM of the bucket.
       //  - cumulative_*/auto: rainfall is a running counter; daily total is
@@ -952,18 +952,45 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
 
   // Per-station rainfall config - drives whether the chart/daily aggregations
   // SUM increments vs delta cumulative counters. Falls back to 'auto' when no
-  // config exists (preserves legacy heuristic display behavior).
+  // config exists (preserves legacy heuristic display behaviour).
   const { data: rainfallConfig } = useQuery<{ type: 'incremental' | 'cumulative_yearly' | 'cumulative_lifetime' | 'tip_count' | 'auto'; offset: number; tipFactor: number; configured: boolean }>({
     queryKey: ['rainfall-config', activeStationId],
     queryFn: async () => {
       const res = await authFetch(`/api/stations/${activeStationId}/rainfall-config`);
-      if (!res.ok) return { type: 'auto', offset: 0, tipFactor: 0.2, configured: false };
+      if (!res.ok) return { type: 'auto', offset: 0, tipFactor: DEFAULT_TIP_FACTOR, configured: false };
       return res.json();
     },
     enabled: !!activeStationId,
     staleTime: 60 * 60 * 1000,
   });
   const rainfallType = rainfallConfig?.type ?? 'auto';
+
+  // Rainfall period totals, aggregated server-side over EVERY reading.
+  //
+  // These deliberately do not reuse the chart datasets. `/data` decimates its
+  // response by dropping records to keep payloads small, which is fine for
+  // instantaneous fields but destroys an accumulating quantity: the rain in a
+  // dropped record exists nowhere else, so summing the survivors under-reports
+  // in direct proportion to the thinning. A 1-minute station over a 30-day
+  // request was thinned 2:1 and reported exactly half its rain.
+  const { data: rainfallTotals } = useQuery<{
+    last24h: number;
+    yesterday: number;
+    thisWeek: number;
+    thisMonth: number;
+    mode: string;
+    readings: number;
+    reference: string;
+  }>({
+    queryKey: ['rainfall-totals', activeStationId, dataRange?.latest],
+    queryFn: async () => {
+      const res = await authFetch(`/api/stations/${activeStationId}/data/rainfall-totals`);
+      if (!res.ok) throw new Error('rainfall totals unavailable');
+      return res.json();
+    },
+    enabled: !!activeStationId,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // The operator-configured type wins. When a station has never been calibrated
   // the type is 'auto'; for RIKA we still know the answer from the protocol
@@ -1021,7 +1048,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     // allowZero: rainfall can be 0 and still mean the sensor exists
     const hasData = (field: keyof WeatherData, allowZero = false) => {
       // If this field is a toggleable parameter and was disabled in config, hide it.
-      // Parameters added to the catalog after a config was saved stay visible
+      // Parameters added to the catalogue after a config was saved stay visible
       // (see LATE_ADDED_PARAMETERS) so new sensors are not silently hidden.
       if (toggleableFields.has(field) && !isParameterEnabled(field, ep)) {
         return false;
@@ -1157,7 +1184,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
   const windScatterData = useMemo(() => processWindScatterData(sortedHistoricalData), [sortedHistoricalData]);
 
   // Process wind data for different time periods (60min, 24h, 48h, 7d, 31d)
-  // Optimization: only compute counts upfront; rose/scatter are lazy-computed on first access
+  // Optimisation: only compute counts upfront; rose/scatter are lazy-computed on first access
   // For historical-only stations (data not from today), uses referenceNow from data's latest timestamp
   const windDataByPeriod = useMemo(() => {
     const now = referenceNow;
@@ -1673,13 +1700,22 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       return { accumulatedRainfall: 0, isRainfallStale: false, effectiveRainfall: 0 };
     }
 
-    const total = rainfallTotalFromRecords(last24hData, effectiveRainfallType, rainfallConfig?.tipFactor ?? 0.2);
+    // Prefer the server-side total: it sums every stored reading, whereas
+    // `dataSource` has been decimated for charting and is missing rain.
+    const total = rainfallTotals
+      ? rainfallTotals.last24h
+      : rainfallTotalFromRecords(last24hData, effectiveRainfallType, rainfallConfig?.tipFactor ?? DEFAULT_TIP_FACTOR);
     return { accumulatedRainfall: total, isRainfallStale: total < 0.05, effectiveRainfall: total };
-  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallConfig?.tipFactor]);
+  }, [sortedStatsData, sortedHistoricalData, referenceNow, effectiveRainfallType, rainfallConfig?.tipFactor, rainfallTotals]);
 
-  // Rainfall totals over standard reporting periods (24h / yesterday / this week / this month)
-  // Uses the same incremental-vs-cumulative auto-detection as effectiveRainfall.
-  const rainfallPeriods = useMemo(() => {
+  // Rainfall totals over standard reporting periods (24h / yesterday / this week / this month).
+  //
+  // The server aggregates these over every stored reading and is always
+  // preferred. The local computation below is a DEGRADED FALLBACK for when that
+  // request fails: it can only see the decimated chart records, so it
+  // under-reports whenever the station logs faster than the chart limit allows.
+  // It exists so the cards still show something rather than nothing.
+  const rainfallPeriodsLocal = useMemo(() => {
     const dataSource = sortedStatsData.length > 0 ? sortedStatsData : sortedHistoricalData;
     const sumWindow = (startMs: number, endMs: number) => {
       const window = dataSource
@@ -1722,7 +1758,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
       thisWeek: sumWindow(week7Start, now),
       thisMonth: sumWindow(month30Start, now),
     };
-  }, [sortedStatsData, sortedHistoricalData, referenceNow]);
+  }, [sortedStatsData, sortedHistoricalData, referenceNow, isRikaStation]);
+
+  const rainfallPeriods = rainfallTotals ?? rainfallPeriodsLocal;
 
   // Daily ETo vs Rainfall over the last 30 days (fixed window).
   // ETo: average per-record FAO Penman-Monteith result (mm/day) per day.

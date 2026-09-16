@@ -25,12 +25,13 @@ def _scale_y(val, lo, hi, y0, h):
     return y0 + h - frac * h
 
 
-def _polyline(points, color, width=2):
+def _polyline(points, color, width=2.6):
     if not points:
         return ""
     pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
     return (f'<polyline fill="none" stroke="{color}" stroke-width="{width}" '
-            f'stroke-linejoin="round" stroke-linecap="round" points="{pts}"/>')
+            f'stroke-linejoin="round" stroke-linecap="round" '
+            f'vector-effect="non-scaling-stroke" points="{pts}"/>')
 
 
 def cpu_chart_svg(samples, hours=24):
@@ -61,10 +62,10 @@ def cpu_chart_svg(samples, hours=24):
             f'<svg viewBox="0 0 {W} {H}" width="100%" '
             f'preserveAspectRatio="xMidYMid meet" role="img" '
             f'aria-label="CPU trend (no data yet)">'
-            f'<rect x="0" y="0" width="{W}" height="{H}" fill="#fafafa" '
+            f'<rect x="0" y="0" width="{W}" height="{H}" fill="#ffffff" '
             f'stroke="#e0e0e0"/>'
             f'<text x="{W//2}" y="{H//2}" text-anchor="middle" '
-            f'font-family="{_ARIAL}" font-size="11" fill="#888">'
+            f'font-family="{_ARIAL}" font-size="11" fill="#000000">'
             f'Collecting data - chart fills over the next 24 h</text></svg>'
         )
 
@@ -111,12 +112,12 @@ def cpu_chart_svg(samples, hours=24):
         )
         parts.append(
             f'<text x="{x0-6}" y="{gy+4:.1f}" text-anchor="end" '
-            f'font-family="{_ARIAL}" font-size="11" fill="#c0392b">{tval:.0f}</text>'
+            f'font-family="{_ARIAL}" font-size="11" fill="#ef4444">{tval:.0f}</text>'
         )
         lval = l_lo + frac * (l_hi - l_lo)
         parts.append(
             f'<text x="{x0+plot_w+6}" y="{gy+4:.1f}" text-anchor="start" '
-            f'font-family="{_ARIAL}" font-size="11" fill="#2c7fb8">{lval:.0f}</text>'
+            f'font-family="{_ARIAL}" font-size="11" fill="#2563eb">{lval:.0f}</text>'
         )
 
     # Faint vertical gridlines every 4 hours, so a reading can be placed in time.
@@ -132,24 +133,24 @@ def cpu_chart_svg(samples, hours=24):
         lbl = "now" if hrs_ago < 0.5 else f"-{hrs_ago:.0f}h"
         parts.append(
             f'<text x="{gx:.1f}" y="{H-10}" text-anchor="middle" '
-            f'font-family="{_ARIAL}" font-size="10" fill="#8a929b">{lbl}</text>'
+            f'font-family="{_ARIAL}" font-size="10" fill="#000000">{lbl}</text>'
         )
 
     # Data lines: temperature (red), load (blue)
-    parts.append(_polyline(temp_pts, "#c0392b"))
+    parts.append(_polyline(temp_pts, "#ef4444"))
     if load_pts:
-        parts.append(_polyline(load_pts, "#2c7fb8"))
+        parts.append(_polyline(load_pts, "#2563eb"))
 
     # Legend: text only, no marker glyphs. The label is drawn in the same color
     # as its line, which identifies the series without a square in front of it.
     parts.append(
         f'<text x="{x0}" y="{pad_t-6}" font-family="{_ARIAL}" font-size="11" '
-        f'fill="#c0392b">Temp &deg;C</text>'
+        f'fill="#ef4444">Temp &deg;C</text>'
     )
     legend2 = "Load %" if load_pts else "Load % (awaiting unit update)"
     parts.append(
         f'<text x="{x0+110}" y="{pad_t-6}" font-family="{_ARIAL}" font-size="11" '
-        f'fill="#2c7fb8">{legend2}</text>'
+        f'fill="#2563eb">{legend2}</text>'
     )
 
     parts.append('</svg>')
@@ -176,10 +177,15 @@ from .metrics import (energy_band, energy_bands_legend, ENERGY_MAX,
 # interpolated into font-family="..." on SVG <text>, so a double-quoted family
 # would close the attribute early and make the whole chart unparseable XML.
 _ARIAL = "Arial, 'Liberation Sans', Helvetica, sans-serif"
-_INK = "#111111"
-_MUTED = "#6b7280"
+_INK = "#000000"
+# Axis and tick labels. Black, not grey: these charts are read on a wall-mounted
+# console and printed into technical reports, and the axis numbers are the part a
+# reader checks a value against.
+_MUTED = "#000000"
 _NAVY = "#1b3a5b"
-_GRID = "#e6e9ee"
+# Gridlines only, never text. Kept very light so the plot reads as lines on white
+# rather than as a shaded block: the previous value tinted the whole plot area.
+_GRID = "#f4f6f8"
 
 
 def _svg_head(w, h, label):
@@ -295,7 +301,7 @@ def cpu_trend_svg(samples, hours=24, warn=CPU_WARN_C, crit=CPU_CRIT_C,
     pts = " ".join(f"{px(s.ts):.1f},{py(s.cpu_temp_c):.1f}"
                    for s in rows if s.cpu_temp_c is not None)
     if pts:
-        parts.append(f'<polyline fill="none" stroke="{_NAVY}" stroke-width="2" '
+        parts.append(f'<polyline fill="none" stroke="{_NAVY}" stroke-width="2.6" '
                      f'stroke-linejoin="round" stroke-linecap="round" '
                      f'points="{pts}"/>')
 
@@ -547,7 +553,7 @@ def storm_bands_svg(strikes, radius_km=40):
         # Data block.
         dy = pad_t + head_h + cloud_h
         parts.append(f'<rect x="{x}" y="{dy}" width="{cell_w}" '
-                     f'height="{data_h}" fill="#fafbfd" stroke="#b9c2cf" '
+                     f'height="{data_h}" fill="#ffffff" stroke="#b9c2cf" '
                      f'stroke-width="1"/>')
         parts.append(f'<rect x="{x}" y="{dy}" width="{cell_w}" height="3" '
                      f'fill="{color}"/>')

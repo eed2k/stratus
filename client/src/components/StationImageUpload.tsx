@@ -66,7 +66,7 @@ export function StationImageUpload({
         ctx.translate(OUT / 2, OUT / 2);
         ctx.rotate((targetRotation * Math.PI) / 180);
 
-        // Fit the larger dimension to the square (cover behavior)
+        // Fit the larger dimension to the square (cover behaviour)
         const fitRatio = OUT / Math.min(drawnW, drawnH);
         const finalW = drawnW * fitRatio;
         const finalH = drawnH * fitRatio;

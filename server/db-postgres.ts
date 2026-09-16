@@ -988,11 +988,17 @@ export async function getWeatherData(
   // Default limit prevents loading too many records
   const hasTimeRange = options.startTime && options.endTime;
   const effectiveLimit = options.limit || 10000;
-  
-  // For very large requests (e.g. 365-day wind rose with limit > 20000),
-  // use modulo sampling via CTE to get evenly-distributed records.
-  // For normal queries (limit <= 20000), use simple LIMIT for speed.
-  const useSampling = hasTimeRange && effectiveLimit > 20000;
+
+  // When the caller asks for a bounded time range AND a row budget, spread the
+  // rows evenly across the WHOLE range via modulo sampling.
+  //
+  // The alternative (plain `LIMIT` on an `ORDER BY timestamp DESC` query) does
+  // not thin the window, it TRUNCATES it: you get the newest N rows and the
+  // older part of the requested range is simply absent. A station logging every
+  // minute has 43200 rows in 30 days, so a 30-day request came back holding the
+  // most recent 6.94 days while still being labelled 30 days. Sampling costs a
+  // window function over the range, which the 365-day queries already paid for.
+  const useSampling = Boolean(hasTimeRange && options.limit);
   
   let queryText: string;
   

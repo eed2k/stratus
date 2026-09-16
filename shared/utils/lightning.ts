@@ -15,7 +15,7 @@
  *    useful for is comparison: between strikes in the same storm, and against
  *    the distance reported at the same moment. This module therefore converts
  *    it to a logarithmic 0 to 100 relative scale with named bands, and offers a
- *    distance-adjusted comparison figure, both clearly labeled as relative.
+ *    distance-adjusted comparison figure, both clearly labelled as relative.
  *
  * 2. The distance figure is the estimated distance to the leading edge of the
  *    storm, not to the individual strike, and it is quantised into fifteen

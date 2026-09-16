@@ -99,8 +99,8 @@ export function SetupPasswordPage() {
                 <div className="w-4 h-4 rounded-full bg-white"></div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-                <p className="text-sm text-gray-600">Weather Station Server</p>
+                <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+                <p className="text-sm text-foreground">Weather Station Server</p>
               </div>
             </div>
           </div>
@@ -108,7 +108,7 @@ export function SetupPasswordPage() {
           <Card className="shadow-xl border border-gray-200 bg-white">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-600">Validating invitation link...</p>
+              <p className="text-foreground">Validating invitation link...</p>
             </CardContent>
           </Card>
         </div>
@@ -127,8 +127,8 @@ export function SetupPasswordPage() {
                 <div className="w-4 h-4 rounded-full bg-white"></div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-                <p className="text-sm text-gray-600">Weather Station Server</p>
+                <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+                <p className="text-sm text-foreground">Weather Station Server</p>
               </div>
             </div>
           </div>
@@ -140,15 +140,15 @@ export function SetupPasswordPage() {
                   <span className="text-2xl text-red-600 font-bold">✗</span>
                 </div>
               </div>
-              <CardTitle className="text-2xl text-center text-gray-900">
+              <CardTitle className="text-2xl text-center text-foreground">
                 Invalid Invitation Link
               </CardTitle>
-              <CardDescription className="text-center text-gray-600">
+              <CardDescription className="text-center text-foreground">
                 This invitation link is invalid or has expired.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-foreground text-center">
                 Invitation links expire after 72 hours for security reasons. Please contact your administrator for a new invitation.
               </p>
               <Button 
@@ -176,8 +176,8 @@ export function SetupPasswordPage() {
                 <div className="w-4 h-4 rounded-full bg-white"></div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-                <p className="text-sm text-gray-600">Weather Station Server</p>
+                <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+                <p className="text-sm text-foreground">Weather Station Server</p>
               </div>
             </div>
           </div>
@@ -189,10 +189,10 @@ export function SetupPasswordPage() {
                   <span className="text-2xl text-green-600">✓</span>
                 </div>
               </div>
-              <CardTitle className="text-2xl text-center text-gray-900">
+              <CardTitle className="text-2xl text-center text-foreground">
                 Account Activated!
               </CardTitle>
-              <CardDescription className="text-center text-gray-600">
+              <CardDescription className="text-center text-foreground">
                 Your account is now ready to use. You can log in with your email and password.
               </CardDescription>
             </CardHeader>
@@ -220,18 +220,18 @@ export function SetupPasswordPage() {
               <div className="w-4 h-4 rounded-full bg-white"></div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Stratus</h1>
-              <p className="text-sm text-gray-600">Weather Station Server</p>
+              <h1 className="text-3xl font-bold text-foreground">Stratus</h1>
+              <p className="text-sm text-foreground">Weather Station Server</p>
             </div>
           </div>
         </div>
 
         <Card className="shadow-xl border border-gray-200 bg-white">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl text-center text-gray-900">
+            <CardTitle className="text-2xl text-center text-foreground">
               Welcome to Stratus!
             </CardTitle>
-            <CardDescription className="text-center text-gray-600">
+            <CardDescription className="text-center text-foreground">
               Set up your password to complete your account registration.
             </CardDescription>
           </CardHeader>
@@ -246,7 +246,7 @@ export function SetupPasswordPage() {
             {/* Show custom message from admin if present */}
             {customMessage && (
               <div className="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
-                <p className="text-sm text-gray-700 italic">"{customMessage}"</p>
+                <p className="text-sm text-foreground italic">"{customMessage}"</p>
               </div>
             )}
 
@@ -258,27 +258,27 @@ export function SetupPasswordPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">Create Password</Label>
+                <Label htmlFor="password" className="text-foreground">Create Password</Label>
                 <Input
                   id="password"
                   type="password"
                   placeholder="Enter your password"
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  className="bg-white border-gray-300 text-foreground placeholder:text-gray-400"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
                 />
-                <p className="text-xs text-gray-500">Must be at least 8 characters</p>
+                <p className="text-xs text-foreground">Must be at least 8 characters</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-gray-700">Confirm Password</Label>
+                <Label htmlFor="confirmPassword" className="text-foreground">Confirm Password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   placeholder="Confirm your password"
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  className="bg-white border-gray-300 text-foreground placeholder:text-gray-400"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -296,7 +296,7 @@ export function SetupPasswordPage() {
           </CardContent>
         </Card>
 
-        <div className="text-center text-xs text-gray-500">
+        <div className="text-center text-xs text-foreground">
           <p>By setting up your account, you agree to use this system responsibly.</p>
         </div>
       </div>

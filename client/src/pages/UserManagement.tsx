@@ -468,9 +468,7 @@ export default function UserManagement() {
               {newUser.role === "user" && (
                 <div className="space-y-2">
                   <Label>Assign Stations</Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Select which stations this user can view on their dashboard.
-                  </p>
+
                   {stationsLoading ? (
                     <div className="flex items-center justify-center py-4">
                       <Loader2 className="h-4 w-4 animate-spin" />

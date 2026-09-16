@@ -494,9 +494,7 @@ export default function Stations() {
                         value={formData.dropboxFolderPath}
                         onChange={(e) => updateForm({ dropboxFolderPath: e.target.value })}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        The folder path in Dropbox where data files are stored
-                      </p>
+
                     </div>
                     <div className="space-y-2">
                       <Label>File Pattern (optional)</Label>
@@ -524,9 +522,7 @@ export default function Stations() {
                           <SelectItem value="7200">2 hours</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">
-                        How often Stratus checks Dropbox for new data files
-                      </p>
+
                     </div>
                   </div>
                 )}
@@ -790,9 +786,7 @@ Body:
                         value={formData.rikaEmail}
                         onChange={(e) => updateForm({ rikaEmail: e.target.value })}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Your RikaCloud account username
-                      </p>
+
                     </div>
                     <div className="space-y-2">
                       <Label>RikaCloud Password</Label>
@@ -1056,7 +1050,7 @@ Body:
                         {station.isActive ? (
                           <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 text-xs">Active</Badge>
                         ) : (
-                          <Badge variant="outline" className="border-gray-300 text-gray-600 bg-transparent text-xs">Inactive</Badge>
+                          <Badge variant="outline" className="border-gray-300 text-foreground bg-transparent text-xs">Inactive</Badge>
                         )}
                       </td>
                     </tr>

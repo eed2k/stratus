@@ -38,6 +38,15 @@ services:
     volumes:
       - stratus-data:/app/data
       - stratus-logs:/app/logs
+      # The weekday operations digest reports on backup health, and it reads the
+      # backup directory off disk. Without this mount `fs.existsSync` runs inside
+      # the container, finds nothing, and the email says "Last backup: none found"
+      # while cron has in fact been writing every six hours the whole time. The
+      # host directory currently holds 429 files totalling 3 GB.
+      #
+      # READ-ONLY on purpose: the app only ever needs to stat these files, and it
+      # must never be able to modify or delete a backup.
+      - /opt/stratus/backups:/opt/stratus/backups:ro
     depends_on:
       postgres:
         condition: service_healthy

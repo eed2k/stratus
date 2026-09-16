@@ -1,4 +1,4 @@
-﻿// Stratus Weather Server
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState } from "react";
@@ -225,7 +225,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
           <title>${title}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #333; }
+            h1 { color: #000000; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f4f4f4; }
@@ -523,7 +523,7 @@ export function StationInfoPanel({ station, isAdmin = true, onSave, onDelete }: 
                     Calibration Schedule & Logs
                   </CardTitle>
                   <CardDescription className="mt-1">
-                    Last calibration: {station.lastCalibrationDate || "Never"} • Next due: {station.nextCalibrationDate || "Not scheduled"}
+                    Last calibration: {station.lastCalibrationDate || "Never"} � Next due: {station.nextCalibrationDate || "Not scheduled"}
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">

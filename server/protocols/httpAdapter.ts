@@ -153,28 +153,45 @@ export class HTTPAdapter extends BaseProtocolAdapter {
 
   async readData(): Promise<NormalizedWeatherData | null> {
     try {
+      let result: NormalizedWeatherData | null;
+
       // Arduino IoT Cloud: use OAuth2 token to read thing properties
       if (this.serviceType === "arduino_iot") {
-        return await this.readArduinoIoTData();
+        result = await this.readArduinoIoTData();
+      } else if (this.serviceType === "rikacloud") {
+        // RikaCloud v2: use session header and handle re-login
+        result = await this.readRikaCloudData();
+      } else {
+        const url = this.buildEndpointUrl();
+        const response = await this.httpClient.get(url);
+
+        if (response.status !== 200) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const rawData = this.extractDataFromResponse(response.data);
+        const normalized = this.normalizeData(rawData);
+
+        this.emit("data", normalized);
+        result = normalized;
       }
 
-      // RikaCloud v2: use session header and handle re-login
-      if (this.serviceType === "rikacloud") {
-        return await this.readRikaCloudData();
-      }
-
-      const url = this.buildEndpointUrl();
-      const response = await this.httpClient.get(url);
-      
-      if (response.status !== 200) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const rawData = this.extractDataFromResponse(response.data);
-      const normalized = this.normalizeData(rawData);
-      
-      this.emit("data", normalized);
-      return normalized;
+      /**
+       * A read that completed without throwing means the link is healthy, so
+       * clear any stale lastError.
+       *
+       * Without this, a single transient timeout stayed on the System Settings
+       * panel forever: lastError is only ever cleared by setConnected(true),
+       * which runs in connect(), and a registered station is not reconnected on
+       * every poll. A Rika station polls every 30 minutes, so one blip left a
+       * red "Last error: timeout of 30000ms exceeded" line on screen through
+       * every later successful poll until the process restarted.
+       *
+       * A null result is NOT a failure here: readRikaCloudData returns null
+       * when the device has no reading newer than the one already ingested.
+       */
+      this.setConnected(true);
+      return result;
     } catch (error: any) {
       this.setError(error);
       return null;
@@ -210,6 +227,108 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     return false;
   }
 
+  /**
+   * Network-level faults that are worth a second attempt. These are conditions
+   * where the request never got a considered answer from the application, so
+   * repeating it can genuinely succeed. Anything else (bad credentials, a
+   * malformed request) fails identically on a retry and is surfaced at once.
+   */
+  private static readonly TRANSIENT_NET_CODES = new Set([
+    "ECONNABORTED",  // what axios raises for its own client-side timeout
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "EAI_AGAIN",     // transient DNS resolution failure
+    "ENETUNREACH",
+    "ENOTFOUND",
+    "EHOSTUNREACH",
+    "EPIPE",
+  ]);
+
+  /**
+   * Gateway statuses that mean "busy, try again" rather than "your request was
+   * wrong". 429 is rate limiting; 502/503/504 are a front-end proxy that could
+   * not reach or wait for the RikaCloud application server.
+   */
+  private static readonly TRANSIENT_HTTP_STATUS = new Set([429, 502, 503, 504]);
+
+  private isTransientNetworkError(error: any): boolean {
+    if (!error) return false;
+    if (error.code && HTTPAdapter.TRANSIENT_NET_CODES.has(String(error.code))) return true;
+    // Older axios builds set only the message for a timeout, not a code.
+    if (/timeout/i.test(String(error.message || ""))) return true;
+    return false;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * GET a RikaCloud URL, retrying transient faults with exponential backoff.
+   *
+   * Why this exists: the RikaCloud device endpoint is intermittently slow, and
+   * a single slow response used to fail the whole poll with
+   * "timeout of 30000ms exceeded". Because a Rika station only polls every 30
+   * minutes, one blip cost a full half-hour of data.
+   *
+   * The timeout is set explicitly per attempt rather than inheriting the 30s
+   * axios instance default, so the budget is visible here: three attempts of
+   * 20s with 2s and 5s backoff is at most ~67s, comfortably inside the
+   * 30-minute poll interval and so it can never overlap the next poll.
+   */
+  private async rikaGet(url: string): Promise<any> {
+    const MAX_ATTEMPTS = 3;
+    const PER_ATTEMPT_TIMEOUT_MS = 20000;
+    const BACKOFF_MS = [2000, 5000];
+
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await this.httpClient.get(url, {
+          headers: { session: this.rikaSession! },
+          validateStatus: () => true,
+          timeout: PER_ATTEMPT_TIMEOUT_MS,
+        });
+
+        // Busy gateway: same treatment as a network fault, but only if we still
+        // have an attempt left, otherwise return it so the caller can report
+        // the real status rather than a generic retry error.
+        if (
+          HTTPAdapter.TRANSIENT_HTTP_STATUS.has(response.status) &&
+          attempt < MAX_ATTEMPTS
+        ) {
+          const wait = BACKOFF_MS[attempt - 1] ?? 5000;
+          console.warn(
+            `[HTTPAdapter] RikaCloud HTTP ${response.status} on attempt ${attempt}/${MAX_ATTEMPTS} - retrying in ${wait}ms`
+          );
+          await this.sleep(wait);
+          continue;
+        }
+
+        if (attempt > 1) {
+          console.log(`[HTTPAdapter] RikaCloud read recovered on attempt ${attempt}/${MAX_ATTEMPTS}`);
+        }
+        return response;
+      } catch (error: any) {
+        lastError = error;
+
+        if (!this.isTransientNetworkError(error) || attempt === MAX_ATTEMPTS) {
+          throw error;
+        }
+
+        const wait = BACKOFF_MS[attempt - 1] ?? 5000;
+        console.warn(
+          `[HTTPAdapter] RikaCloud read attempt ${attempt}/${MAX_ATTEMPTS} failed (${error.code || "no code"}: ${error.message}) - retrying in ${wait}ms`
+        );
+        await this.sleep(wait);
+      }
+    }
+
+    throw lastError ?? new Error("RikaCloud read failed after retries");
+  }
+
   private rikaBodySnippet(response: any): string {
     try {
       const body = response?.data;
@@ -231,10 +350,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
     }
 
     const url = this.buildEndpointUrl();
-    let response = await this.httpClient.get(url, {
-      headers: { session: this.rikaSession! },
-      validateStatus: () => true,
-    });
+    let response = await this.rikaGet(url);
 
     // Session expired / invalid? Renew and retry once. Clearing farm_pk forces
     // re-discovery in case the account's farm changed while we were running.
@@ -247,10 +363,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       this.rikaFarmPk = null;
       const loggedIn = await this.rikaCloudLogin();
       if (!loggedIn) throw new Error("RikaCloud re-login failed - check account/password");
-      response = await this.httpClient.get(url, {
-        headers: { session: this.rikaSession! },
-        validateStatus: () => true,
-      });
+      response = await this.rikaGet(url);
     }
 
     if (response.status !== 200) {
@@ -588,7 +701,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
   private parseRikaCloudResponse(data: any): Record<string, number | null> {
     // RikaCloud v2 /farm/{farm_pk}/device/ returns an array of device objects:
     // [{ pk, name, agri_id, the_type, unit, data: { last_value, t, value, t_display }, is_online }, ...]
-    // Map device the_type codes to normalized weather fields:
+    // Map device the_type codes to normalised weather fields:
     //   2001 = temperature (°C), 2002 = humidity (%RH), 2006 = wind speed (m/s),
     //   2007 = wind direction (°), 2008 = rainfall (mm), 2014 = solar radiation (W/m²),
     //   3003 = barometric pressure (hPa), 2081 = PM10 (μg/m³)
@@ -726,7 +839,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       const num = typeof value === "number" ? value : parseFloat(value);
       if (isNaN(num)) continue;
 
-      // Map Arduino property names to normalized weather fields
+      // Map Arduino property names to normalised weather fields
       if (name.includes("temp") && !name.includes("board") && !name.includes("soil")) result.temperature = num;
       if (name.includes("humid") || name === "rh") result.humidity = num;
       if (name.includes("press") || name.includes("baro")) result.pressure = num;
@@ -839,7 +952,7 @@ export class HTTPAdapter extends BaseProtocolAdapter {
       rainfall: n(rain["1h"]) ?? n(rain["3h"]) ?? n(snow["1h"]) ?? n(snow["3h"]),
       dewPoint: toCelsius(n(main.dew_point ?? data?.dew_point)),
       cloudCover: n(data?.clouds?.all),
-      // Reported in meters; Stratus carries visibility in kilometers.
+      // Reported in meters; Stratus carries visibility in kilometres.
       visibility: n(data?.visibility) === null ? null : (n(data.visibility) as number) / 1000,
     };
 

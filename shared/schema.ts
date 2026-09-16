@@ -728,7 +728,7 @@ export const insertDataloggerProgramSchema = createInsertSchema(dataloggerProgra
 export type InsertDataloggerProgram = z.infer<typeof insertDataloggerProgramSchema>;
 export type DataloggerProgram = typeof dataloggerPrograms.$inferSelect;
 
-// Station Groups table - Organize multiple stations
+// Station Groups table - Organise multiple stations
 export const stationGroups = pgTable("station_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

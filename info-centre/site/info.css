@@ -66,14 +66,17 @@
   color: var(--muted-solid);
 }
 .doc-meta {
-  font-family: Consolas, "Courier New", monospace;
+  /* Arial, matching every other run of text on the site. This was Consolas,
+     which made the size and page count read as a different typeface from the
+     title and description sitting beside it. */
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 10.5px;
-  color: #5b6673;
+  color: #000000;
   white-space: nowrap;
 }
 .doc-actions { display: flex; gap: 6px; white-space: nowrap; }
 .doc-actions a {
-  font: 600 10.5px/1 Consolas, "Courier New", monospace;
+  font: 600 10.5px/1 Arial, Helvetica, sans-serif;
   letter-spacing: .04em;
   text-transform: uppercase;
   padding: 6px 10px;

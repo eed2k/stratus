@@ -36,26 +36,26 @@ const App = () => {
           <h1 className="text-5xl font-bold mb-4 text-atmospheric-primary">
             Stratus
           </h1>
-          <p className="text-xl text-gray-600 mb-8">
+          <p className="text-xl text-foreground mb-8">
             Modern weather station monitoring - Real-time telemetry, beautiful charts, and an atmospheric UI.
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
               <h3 className="font-semibold text-lg mb-2">Research-Grade Data</h3>
-              <p className="text-gray-600">Integrate with Campbell Scientific and Rika weather stations</p>
+              <p className="text-foreground">Integrate with Campbell Scientific and Rika weather stations</p>
             </div>
             <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
               <h3 className="font-semibold text-lg mb-2">Real-Time Monitoring</h3>
-              <p className="text-gray-600">Live weather data with configurable polling intervals</p>
+              <p className="text-foreground">Live weather data with configurable polling intervals</p>
             </div>
             <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
               <h3 className="font-semibold text-lg mb-2">Advanced Visualization</h3>
-              <p className="text-gray-600">2D and 3D wind roses, charts, and statistics</p>
+              <p className="text-foreground">2D and 3D wind roses, charts, and statistics</p>
             </div>
           </div>
 
-          <footer className="text-center text-sm text-gray-500 border-t pt-8">
+          <footer className="text-center text-sm text-foreground border-t pt-8">
             <p>© 2025-2026 Lukas Esterhuizen</p>
             <p className="mt-2">Stratus © 2025-2026. All rights reserved.</p>
           </footer>

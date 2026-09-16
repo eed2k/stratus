@@ -1,4 +1,4 @@
-﻿// Stratus Weather Server
+// Stratus Weather Server
 // Created by Lukas Esterhuizen
 
 import { useState, useMemo, memo } from "react";
@@ -167,7 +167,7 @@ export const WeatherChart = memo(function WeatherChart({
    * exactly, so we choose a handful of evenly spaced instants and Recharts
    * draws precisely those. `__t` is epoch milliseconds derived from the
    * timestamp; it is added only in compact mode so the standard dashboard
-   * keeps its existing category behavior.
+   * keeps its existing category behaviour.
    */
   const compactData = useMemo(() => {
     if (!compact) return data;

@@ -324,7 +324,7 @@ export const EXAMPLE_DECODER_SPEC: PayloadDecoderSpec = {
 
 /**
  * The nine sensor channels the Stratus Sigfox / LoRa logger reports. Field
- * names match the normalized weather fields, so no extra alias mapping is
+ * names match the normalised weather fields, so no extra alias mapping is
  * needed once decoded.
  *
  * Ranges and resolutions:

@@ -49,7 +49,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 # The variables a background may supply. A provider is free to return a subset;
-# the engine simply keeps station-history-only behavior for whatever is absent.
+# the engine simply keeps station-history-only behaviour for whatever is absent.
 CANONICAL_VARIABLES = (
     "temperature",
     "dew_point",

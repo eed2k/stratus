@@ -12,7 +12,7 @@
   --white:       #ffffff;
   --line:        #b9c2cf;
   --line-dark:   #8c98a8;
-  --muted-solid: #111418;
+  --muted-solid: #000000;
   --desktop:     #e7ebf0;
 }
 
@@ -86,7 +86,7 @@ body {
   letter-spacing: .04em; margin-right: 12px;
   border-right: 1px solid var(--line); padding-right: 12px;
 }
-code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92em; }
+code { font-family: Arial, Helvetica, sans-serif; font-size: .92em; }
 .menubar-user span { margin-right: 10px; }
 .menubar-user a { color: var(--black); text-decoration: none; margin-left: 8px; font-weight: 600; }
 .menubar-user a:hover { text-decoration: underline; }
@@ -296,11 +296,15 @@ form.inline { display: inline; }
 .unit-grid { display: flex; flex-direction: column; gap: 12px; }
 .unit-block {
   border: 1px solid var(--line-dark);
-  background: var(--navy-soft);
+  /* White, not navy-soft. The tint read as shading behind the whole unit and
+     the chart beside it; the border already separates the block from the page. */
+  background: var(--white);
   padding: 10px 14px;
   min-width: 240px;
 }
-.unit-name { font-size: 11px; font-weight: 700; letter-spacing: 1px;
+/* Same size as .unit-state below, so "AS3935 UNIT" and "ACTIVE"/"INACTIVE" read
+   as one heading rather than a caption above a label. */
+.unit-name { font-size: 14px; font-weight: 700; letter-spacing: 1px;
   color: var(--muted-solid); }
 .unit-state { font-size: 14px; font-weight: 700; margin: 2px 0 6px;
   display: flex; align-items: center; gap: 8px; }
@@ -332,7 +336,9 @@ form.inline { display: inline; }
      reads as a thin strip. */
   min-height: 300px;
   border: 1px solid var(--line-dark);
-  background: var(--navy-soft);
+  /* White. This tint was the shading behind the chart: the plot drew onto a
+     coloured panel, which flattened the contrast of every line on it. */
+  background: var(--white);
   padding: 8px 10px;
   display: flex;
   /* stretch, not center: the chart host asks for height:100%, which only
@@ -461,7 +467,17 @@ code {
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
-  min-height: 260px;
+  /* Raised from 260px. cpu-chart.js now renders TWO plots side by side, each
+     with its own title, and they wrap to stacked on a narrow screen. 300px is
+     enough for a single row; when they wrap, the pair needs the taller floor
+     below or each plot collapses to a strip. */
+  min-height: 300px;
+}
+/* When the two plots stack rather than sit side by side, the host has to grow
+   or both get squeezed into the single-row height. 560px is the point at which
+   a 280px min-width plot plus the 12px gap no longer fits twice across. */
+@media (max-width: 560px) {
+  .cpu-chart { min-height: 560px; }
 }
 .cpu-chart[hidden] { display: none; }
 
@@ -548,14 +564,14 @@ code {
   margin-bottom: 8px;
 }
 .storm-summary {
-  font-family: Consolas, "Courier New", monospace;
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   line-height: 1.5;
   color: var(--muted-solid);
 }
 .storm-range { display: flex; }
 .storm-range button {
-  font-family: Consolas, "Courier New", monospace;
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
@@ -605,7 +621,7 @@ code {
 .storm-bands { align-items: start; }
 
 .storm-band-range {
-  font-family: Consolas, "Courier New", monospace;
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -627,7 +643,7 @@ code {
   border-top: 3px solid var(--band-color, var(--navy));
   background: #fafbfd;
   padding: 7px 8px 8px;
-  font-family: Consolas, "Courier New", monospace;
+  font-family: Arial, Helvetica, sans-serif;
 }
 .storm-band-count {
   text-align: center;
@@ -639,7 +655,7 @@ code {
 .storm-band-count span {
   font-size: 9.5px;
   font-weight: 400;
-  color: #5b6673;
+  color: #000000;
 }
 .storm-band-label {
   margin: 1px 0 5px;
@@ -647,16 +663,16 @@ code {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: var(--band-color, #5b6673);
+  color: var(--band-color, #000000);
 }
-.storm-band.is-idle .storm-band-label { color: #8c98a8; }
+.storm-band.is-idle .storm-band-label { color: #000000; }
 .storm-band-rows { border-top: 1px dotted var(--line); padding-top: 4px; }
 .storm-band-row {
   display: flex;
   justify-content: space-between;
   font-size: 10px;
   line-height: 1.65;
-  color: #5b6673;
+  color: #000000;
 }
 .storm-band-row b { color: var(--muted-solid); font-weight: 700; }
 .storm-band-row-sep {
@@ -668,7 +684,7 @@ code {
   padding: 4px 0 2px;
   text-align: center;
   font-size: 9.5px;
-  color: #8c98a8;
+  color: #000000;
 }
 
 /* ---- cumulonimbus ----

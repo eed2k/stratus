@@ -1065,7 +1065,7 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
 };
 
 /**
- * Parameters added to the catalog after dashboards were already being saved.
+ * Parameters added to the catalogue after dashboards were already being saved.
  *
  * A saved dashboard config stores an explicit `enabledParameters` list, so any
  * parameter added later would be treated as "switched off" and silently vanish
