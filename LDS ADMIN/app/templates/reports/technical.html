@@ -3,9 +3,14 @@
 {% block doc_title %}Technical Report{% endblock %}
 
 {% block content %}
-<header class="banner">
-  <h1>Lightning Detection System</h1>
-  <p class="sub">Technical System and Health Report</p>
+{#
+  Title block in the same shape the weather report opens with:
+  "<Station> Weather Data Report | Last 30 days" becomes
+  "<Site> Technical Report | <month>". Plain text on white, no navy banner.
+#}
+<header>
+  <h1>{{ meta.site }} Technical Report | {{ period.label }}</h1>
+  <p>System and detector health</p>
 </header>
 
 {{ parts.meta_block(meta, period, generated_at) }}
@@ -16,9 +21,8 @@
 
 <section class="keep">
   <h2>System availability</h2>
-  {{ parts.figure(
-       charts.uptime,
-       "Availability for " ~ period.label ~ " was " ~
+  {{ parts.finding(
+              "Availability for " ~ period.label ~ " was " ~
        ('%.1f'|format(uptime_pct)) ~ " percent, derived from hourly heartbeat " ~
        "continuity over the period.") }}
 </section>
@@ -33,9 +37,8 @@
         ("Average (deg C)", '%.1f'|format(cpu.avg) if cpu.avg is not none else '-'),
         ("At or above " ~ cpu.warn|int ~ " deg C", cpu.warn_count),
         ("At or above " ~ cpu.crit|int ~ " deg C", cpu.crit_count)]) }}
-  {{ parts.figure(
-       charts.cpu,
-       "CPU temperature across " ~ period.label ~ ", with the " ~ cpu.warn|int ~
+  {{ parts.finding(
+              "CPU temperature across " ~ period.label ~ ", with the " ~ cpu.warn|int ~
        " deg C warning and " ~ cpu.crit|int ~ " deg C critical thresholds " ~
        "marked. " ~ cpu.warn_count ~ " reading" ~
        ('' if cpu.warn_count == 1 else 's') ~ " reached the warning threshold.") }}
@@ -101,21 +104,18 @@
        [("Total in-range strikes", strikes.total),
         ("Closest approach (km)",
          '%.0f'|format(strikes.closest) if strikes.closest is not none else '-')]) }}
-  {{ parts.figure(
-       charts.distance,
-       "Distribution of strike distance for the " ~ strikes.total ~
+  {{ parts.finding(
+              "Distribution of strike distance for the " ~ strikes.total ~
        " strike" ~ ('' if strikes.total == 1 else 's') ~ " recorded in " ~
        period.label ~ ". Closest approach " ~
        ('%.0f'|format(strikes.closest) ~ " km" if strikes.closest is not none
         else "not applicable") ~ ".") }}
-  {{ parts.figure(
-       charts.energy,
-       "Strike count by relative intensity band for " ~ period.label ~
+  {{ parts.finding(
+              "Strike count by relative intensity band for " ~ period.label ~
        ". Intensity is a relative sensor value used to compare strikes with " ~
        "each other, not an absolute physical measurement.") }}
-  {{ parts.figure(
-       charts.storm,
-       "Strikes grouped into proximity bands, nearest first, for " ~
+  {{ parts.finding(
+              "Strikes grouped into proximity bands, nearest first, for " ~
        period.label ~ ". Distance only: the sensor does not measure bearing, " ~
        "so no direction is shown.") }}
 </section>

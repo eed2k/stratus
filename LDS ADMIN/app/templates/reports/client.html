@@ -3,13 +3,17 @@
 {% block doc_title %}Monthly Lightning Report{% endblock %}
 
 {% block content %}
-<header class="cover">
-  <p class="brand">STRATUS WEATHER</p>
-  <h1>Monthly Lightning Report</h1>
-  <p class="site">{{ meta.site }}</p>
-  <p class="period">{{ period.label }} &#183; {{ tenant.name }}</p>
-  {% if meta.site_line %}<p class="period">{{ meta.site_line }}</p>{% endif %}
+{#
+  Title block in the same shape the weather report opens with:
+  "<Station> Weather Data Report | Last 30 days" becomes
+  "<Site> Lightning Summary | <month>". Plain text on white, no navy cover panel.
+#}
+<header>
+  <h1>{{ meta.site }} Lightning Summary | {{ period.label }}</h1>
+  <p>Lightning activity for the period</p>
 </header>
+
+{{ parts.meta_block(meta, period, generated_at) }}
 
 {% if not has_data %}
 <p class="nodata">No lightning or system data was recorded for {{ period.label }}.</p>
@@ -30,9 +34,8 @@
     <div><dt>Availability</dt><dd>{{ '%.1f'|format(uptime_pct) }}%</dd></div>
     <div><dt>Station</dt><dd>{{ meta.station_id }}</dd></div>
   </dl>
-  {{ parts.figure(
-       charts.uptime,
-       "Availability for " ~ period.label ~ " was " ~
+  {{ parts.finding(
+              "Availability for " ~ period.label ~ " was " ~
        ('%.1f'|format(uptime_pct)) ~ " percent of the hours expected in the " ~
        "period.") }}
 </section>
@@ -44,19 +47,16 @@
        [("Total in-range strikes", strikes.total),
         ("Closest approach (km)",
          '%.0f'|format(strikes.closest) if strikes.closest is not none else '-')]) }}
-  {{ parts.figure(
-       charts.storm,
-       "Strikes grouped into proximity bands, nearest first. " ~ strikes.total ~
+  {{ parts.finding(
+              "Strikes grouped into proximity bands, nearest first. " ~ strikes.total ~
        " strike" ~ ('' if strikes.total == 1 else 's') ~ " in total" ~
        (", closest approach " ~ '%.0f'|format(strikes.closest) ~ " km"
         if strikes.closest is not none else "") ~
        ". No direction is shown, because the sensor does not measure bearing.") }}
-  {{ parts.figure(
-       charts.distance,
-       "How far away the recorded strikes were during " ~ period.label ~ ".") }}
-  {{ parts.figure(
-       charts.energy,
-       "How many strikes fell into each relative intensity band during " ~
+  {{ parts.finding(
+              "How far away the recorded strikes were during " ~ period.label ~ ".") }}
+  {{ parts.finding(
+              "How many strikes fell into each relative intensity band during " ~
        period.label ~ ".") }}
 </section>
 
@@ -77,9 +77,7 @@
     <tbody>
       {% for row in energy_legend %}
       <tr>
-        <td>
-          <span class="swatch" style="background:{{ row.color }};"
-                aria-hidden="true"></span>{{ row.name }}
+        <td>{{ row.name }}
         </td>
         <td class="num">{{ '{:,}'.format(row.lower) }}</td>
         <td class="num">{{ '{:,}'.format(row.upper) }}</td>

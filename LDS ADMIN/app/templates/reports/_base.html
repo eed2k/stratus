@@ -1,20 +1,33 @@
 {#
   Shared layout for every PDF report.
 
-  Three problems this exists to solve:
+  This stylesheet deliberately mirrors the Stratus weather report
+  (server/services/pdfReportService.ts) so the two documents read as one family.
+  Anything that differs there is a bug here. The parts that are copied on
+  purpose, and must not drift:
 
-  1. The CSS was duplicated verbatim in technical.html and client.html, so the
-     two reports drifted. There is now one stylesheet, here.
-  2. There were no page-break rules at all, so tables and charts split across
-     A4 boundaries and headings were stranded at the foot of a page.
-  3. Three different font stacks were in play (report body, charts.py::_FONT,
-     and the legacy inline chart font). They are one stack now, declared in
-     FONT_STACK below and mirrored in charts.py.
+    page      A4, 50pt margins on all four sides
+    font      Arial, resolving to metric-compatible Liberation Sans in the
+              container, which is what the weather report's Helvetica maps to
+    scale     title 18pt, heading 13pt, subheading 11pt, body 10pt, caption 8.5pt
+    ink       #000000 for ALL text, without exception
+    headings  #1e3a5f, the Stratus navy
+    rules     #cbd5e1 hairlines, #eef2f7 table header fill
+    weight    regular throughout, including headings and table headers
 
-  Structure is semantic rather than table-driven: <header>, <section>, <dl> for
-  key/value pairs, and real <thead>/<tbody> with scope attributes. Every chart
-  is wrapped in a <figure> whose <figcaption> states the same finding in words,
-  so the report carries its meaning as text and not only as a picture.
+  Three things this replaced, at the operator's request:
+
+  1. Grey text. #6b7280 appeared on the footer, metadata labels, table captions,
+     figure captions and every .muted, .note and .nodata. All of it is black now,
+     and the classes are kept so the templates need no edit to stay valid.
+  2. Illustrations. These reports carry headings, text and tables only. The
+     figure and swatch rules are gone, so a stray chart cannot reappear
+     unstyled and full-bleed.
+  3. Coloured status text. Green pass and red fail became black: the words
+     already say which it is, and a colour is not readable in monochrome.
+
+  Structure stays semantic: <header>, <section>, <dl> for key/value pairs, and
+  real <thead>/<tbody> with scope attributes.
 
   Blocks: doc_title, doc_sub, content.
 #}<!doctype html>
@@ -24,48 +37,48 @@
 <title>{% block doc_title %}Report{% endblock %} - {{ meta.site }} - {{ period.label }}</title>
 <style>
   /* ---- page geometry -------------------------------------------------
-     The bottom margin is deeper than the top to make room for the running
-     footer, which lives in the page's bottom margin box. */
+     50pt on every side, matching the weather report's
+     margins: { top: 50, bottom: 50, left: 50, right: 50 }. The running footer
+     sits inside the bottom margin box, and 50pt is ample for an 8.5pt line. */
   @page {
     size: A4;
-    margin: 16mm 15mm 20mm;
+    margin: 50pt;
     @bottom-left {
       {# Pre-sanitized in reports.py::css_safe_text. This is a CSS string inside
          a <style> element, so neither HTML escaping nor raw interpolation is
          safe here: see the note on that function. #}
       content: "{{ footer_text }}";
       font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
-      font-size: 8pt; color: #6b7280;
+      font-size: 8.5pt; color: #000000;
     }
     @bottom-right {
       content: "Page " counter(page) " of " counter(pages);
       font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
-      font-size: 8pt; color: #6b7280;
+      font-size: 8.5pt; color: #000000;
     }
   }
 
-  /* ---- one font stack, one type scale -------------------------------
-     Arial resolves to metric-compatible Liberation Sans in the container
-     (fonts-liberation is installed in the Dockerfile), so the same stack is
-     safe on the server and on a workstation. */
+  /* ---- one font stack, one type scale, one ink ----------------------- */
   body {
     font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
-    color: #111111; font-size: 10.5pt; line-height: 1.45; margin: 0;
+    color: #000000; font-size: 10pt; line-height: 1.45; margin: 0;
   }
-  h1, h2, h3 { font-family: inherit; color: #1b3a5b; }
+
+  /* Regular weight, like the weather report. Hierarchy comes from size and from
+     the rule under a section heading, not from bold. */
+  h1, h2, h3 { font-family: inherit; color: #1e3a5f; font-weight: normal; }
   h1 { font-size: 18pt; margin: 0 0 2mm; }
-  h2 { font-size: 12.5pt; margin: 7mm 0 2mm;
-       border-bottom: 1.25pt solid #1b3a5b; padding-bottom: 1mm; }
+  h2 { font-size: 13pt; margin: 7mm 0 2mm;
+       border-bottom: 0.75pt solid #cbd5e1; padding-bottom: 1mm; }
   h3 { font-size: 11pt; margin: 4mm 0 1.5mm; }
   p { margin: 0 0 2.5mm; }
 
   /* ---- page-break control -------------------------------------------
-     A heading must never be the last thing on a page, a chart must never be
-     cut in half, and a table row must never straddle a boundary. */
+     A heading must never be the last thing on a page, and a table row must
+     never straddle a boundary. */
   h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
   h1, h2, h3 { break-inside: avoid; page-break-inside: avoid; }
   p, dl, ul, ol { orphans: 3; widows: 3; }
-  figure { break-inside: avoid; page-break-inside: avoid; margin: 3mm 0; }
   .keep { break-inside: avoid; page-break-inside: avoid; }
 
   /* Summary tables are short, so they are kept whole. */
@@ -78,56 +91,56 @@
   tfoot { display: table-footer-group; }
   tr, th, td { break-inside: avoid; page-break-inside: avoid; }
 
-  /* ---- banner --------------------------------------------------------- */
-  .banner { background: #1b3a5b; color: #ffffff; padding: 6mm; }
-  .banner h1 { color: #ffffff; }
-  .banner .sub { font-size: 10pt; }
-  .cover { background: #1b3a5b; color: #ffffff; padding: 10mm 8mm; }
-  .cover .brand { font-size: 11pt; letter-spacing: 0.5pt; }
-  .cover h1 { font-size: 22pt; margin: 3mm 0 1mm; color: #ffffff; }
-  .cover .site { font-size: 14pt; }
-  .cover .period { font-size: 10.5pt; margin-top: 2mm; }
+  /* ---- title block ----------------------------------------------------
+     Plain text on white, exactly as the weather report opens: one title line,
+     then the site details beneath it. The navy banner and cover panel that used
+     to sit here were the only heavy blocks of colour in either document, and
+     nothing in the weather report answers to them. */
+  .banner, .cover { background: transparent; color: #000000; padding: 0; }
+  .banner h1, .cover h1 { color: #1e3a5f; font-size: 18pt; margin: 0 0 2mm; }
+  .banner .sub, .cover .brand, .cover .site, .cover .period {
+    color: #000000; font-size: 10pt; margin: 0 0 1mm;
+  }
 
   /* ---- key/value metadata --------------------------------------------
      A description list, not a layout table: the pairing is the meaning, and
-     assistive technology reads it as pairs rather than as tabular data. */
+     assistive technology reads it as pairs rather than as tabular data. Reads
+     as "Label: value" on its own line, which is how the weather report prints
+     location, coordinates, elevation and reporting period. */
   dl.meta { margin: 3mm 0; padding: 0; }
   dl.meta div { display: block; padding: 1.2mm 0;
-                border-bottom: 0.5pt solid #eef1f5; }
-  dl.meta dt { display: inline-block; width: 34%; color: #6b7280;
-               font-size: 9.5pt; margin: 0; }
-  dl.meta dd { display: inline; margin: 0; font-size: 9.5pt; }
+                border-bottom: 0.5pt solid #eef2f7; }
+  dl.meta dt { display: inline-block; width: 34%; color: #000000;
+               font-size: 10pt; margin: 0; }
+  dl.meta dd { display: inline; margin: 0; font-size: 10pt; color: #000000; }
 
   /* ---- data tables ---------------------------------------------------- */
   table.data, table.log {
     width: 100%; border-collapse: collapse; margin: 2mm 0 3mm;
   }
   table.data caption, table.log caption {
-    caption-side: top; text-align: left; font-size: 9pt; color: #6b7280;
+    caption-side: top; text-align: left; font-size: 8.5pt; color: #000000;
     padding: 0 0 1mm;
   }
   table.data th, table.data td, table.log th, table.log td {
-    border: 0.6pt solid #d9dee5; padding: 1.4mm 2mm; text-align: left;
-    font-size: 9.5pt; vertical-align: top;
+    border: 0.5pt solid #cbd5e1; padding: 1.4mm 2mm; text-align: left;
+    font-size: 9.5pt; vertical-align: top; color: #000000;
   }
+  /* Header cells are distinguished by the fill, not by bold. */
   table.data th, table.log th {
-    background: #eef1f5; color: #1b3a5b; font-weight: bold;
+    background: #eef2f7; color: #1e3a5f; font-weight: normal;
   }
   td.num, th.num { text-align: right; }
 
-  /* ---- figures -------------------------------------------------------- */
-  figure { padding: 0; }
-  figure svg { display: block; width: 100%; height: auto; }
-  figcaption { font-size: 8.5pt; color: #6b7280; margin-top: 1.5mm; }
-
-  /* ---- utility -------------------------------------------------------- */
-  .muted { color: #6b7280; font-size: 9pt; }
-  .note { color: #6b7280; font-size: 8.5pt; margin-top: 6mm;
-          border-top: 0.6pt solid #d9dee5; padding-top: 2mm; }
-  .nodata { color: #6b7280; font-style: italic; padding: 8mm 0; }
-  .swatch { display: inline-block; width: 9pt; height: 9pt; margin-right: 3pt;
-            vertical-align: middle; border: 0.5pt solid #d9dee5; }
-  .pass { color: #1b7f3b; } .fail { color: #b00020; }
+  /* ---- utility --------------------------------------------------------
+     Kept as class names so no template needs editing, but every one of them is
+     now plain black text. .muted in particular is a misnomer retained only for
+     compatibility: nothing in these reports is muted. */
+  .muted { color: #000000; font-size: 9pt; }
+  .note { color: #000000; font-size: 8.5pt; margin-top: 6mm;
+          border-top: 0.5pt solid #cbd5e1; padding-top: 2mm; }
+  .nodata { color: #000000; padding: 8mm 0; }
+  .pass, .fail { color: #000000; }
 </style>
 </head>
 <body>

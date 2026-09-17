@@ -13,9 +13,14 @@
   document: it is an evidence record, not a certificate of conformity issued by
   a laboratory, and it says so at the foot.
 #}
-<header class="banner">
-  <h1>Lightning Detection System</h1>
-  <p class="sub">Detector Calibration Report</p>
+{#
+  Title block in the same shape the weather report opens with:
+  "<Station> Weather Data Report | Last 30 days" becomes
+  "<Site> Calibration Report | <month>". Plain text on white, no navy banner.
+#}
+<header>
+  <h1>{{ meta.site }} Calibration Report | {{ period.label }}</h1>
+  <p>Sensor calibration record</p>
 </header>
 
 {{ parts.meta_block(meta, period, generated_at) }}
@@ -215,9 +220,8 @@
         ("Average (deg C)", '%.1f'|format(cpu.avg) if cpu.avg is not none else '-'),
         ("Readings at or above " ~ cpu.warn|int ~ " deg C", cpu.warn_count),
         ("Readings at or above " ~ cpu.crit|int ~ " deg C", cpu.crit_count)]) }}
-  {{ parts.figure(
-       charts.cpu,
-       "CPU temperature across " ~ period.label ~ ". Recorded range " ~
+  {{ parts.finding(
+              "CPU temperature across " ~ period.label ~ ". Recorded range " ~
        ('%.1f'|format(cpu.min) if cpu.min is not none else '-') ~ " to " ~
        ('%.1f'|format(cpu.max) if cpu.max is not none else '-') ~
        " deg C, with " ~ cpu.warn_count ~ " reading" ~

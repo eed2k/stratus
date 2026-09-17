@@ -24,18 +24,27 @@
 {% endmacro %}
 
 {#
-  A chart with its text equivalent.
+  The figure macro was REMOVED.
 
-  The caption is not decoration. Each chart is an SVG, and a reader using a
-  screen reader, or looking at a printed page in monochrome, needs the finding
-  in words. The SVG already carries role="img" and an aria-label from
-  charts.py::_svg_head; this adds the readable summary alongside it.
+  These reports carry headings, text and tables only. Every chart it used to
+  wrap already had a caption stating the same finding in words, because a chart
+  is unreadable to a screen reader and to anyone holding a monochrome print, so
+  removing the picture loses no information: the caption became the sentence and
+  the numbers live in the tables.
+
+  It is not replaced by a stub. A macro that silently rendered nothing would let
+  a future template "add a chart" that never appears, which is worse than a
+  template that fails to build.
 #}
-{% macro figure(svg, caption) %}
-<figure>
-  {{ svg|safe }}
-  {% if caption %}<figcaption>{{ caption }}</figcaption>{% endif %}
-</figure>
+
+{#
+  A short prose finding, where a chart used to sit.
+
+  One sentence, no styling of its own. Use this to say what the numbers show,
+  rather than expecting a reader to infer it from a picture.
+#}
+{% macro finding(text) %}
+{% if text %}<p>{{ text }}</p>{% endif %}
 {% endmacro %}
 
 {#

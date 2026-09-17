@@ -13,9 +13,12 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from . import charts
+# `charts` is deliberately NOT imported any more. These reports are headings,
+# text and tables only. charts.py still exists and is still used by the live
+# dashboard for its no-JavaScript CPU fallback.
 from .metrics import (sast_month_window, expected_hourly_samples, uptime_pct,
-                      energy_bands_legend, CPU_WARN_C, CPU_CRIT_C)
+                      energy_bands_legend, distance_band_summary,
+                      CPU_WARN_C, CPU_CRIT_C)
 from .models import HeartbeatSample, CalibrationEvent, AlertEvent, UnitStatus
 from .tenancy import scope
 from .timeutil import now_sast
@@ -279,20 +282,20 @@ def gather_report_data(db, tenant, station_id, year, month):
         },
         "strikes": {"total": len(evs), "closest": closest},
         "energy_legend": energy_bands_legend(),
-        "charts": {
-            "cpu": charts.cpu_trend_svg(
-                hbs, t_start=start, t_end=nxt,
-                title=f"CPU temperature (deg C) - {month_label}"),
-            "distance": charts.distance_histogram_svg(distances),
-            "energy": charts.energy_band_histogram_svg(energies),
-            "uptime": charts.uptime_gauge_svg(uptime),
-            # Same renderer family as the dashboard: both go through
-            # metrics.distance_band_summary, so the report cannot disagree with
-            # the panel about how many strikes fell in each proximity band.
-            "storm": charts.storm_bands_svg(
-                [{"distance_km": e.distance_km, "energy": e.energy}
-                 for e in evs], 40),
-        },
+        # No "charts" key. These reports carry headings, text and tables only, so
+        # the five SVGs that used to be rendered here (CPU trend, distance
+        # histogram, energy bands, uptime gauge and storm bands) are gone.
+        #
+        # Nothing is lost: every figure already had a caption stating the same
+        # finding in words, because an SVG is unreadable to a screen reader and to
+        # anyone holding a monochrome print. Those captions are now the prose, and
+        # the underlying numbers were always in the tables beside them.
+        #
+        # charts.py itself stays: the live dashboard uses cpu_chart_svg for its
+        # no-JavaScript fallback, and metrics.distance_band_summary is still the
+        # single source both the panel and this report count bands with.
+        "distance_bands": distance_band_summary(
+            [{"distance_km": e.distance_km, "energy": e.energy} for e in evs]),
     }
 
 
