@@ -5,12 +5,14 @@ For higher throughput, swap with Celery/RQ later; the interface stays the same.
 """
 import logging
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from sqlalchemy.orm import Session
 
+from .config import settings
 from .db import SessionLocal
-from .models import Recipient, Group, AlertEvent, MessageLog, AlertStage
+from .models import (Recipient, Group, AlertEvent, MessageLog, AlertStage,
+                     Tenant, UnitStatus)
 from .timeutil import now_sast
 from .runtime import (get_alerts_enabled, get_alert_cooldown_min,
                       get_last_alert_sent, mark_alert_sent, unit_tenant_id,
@@ -21,9 +23,50 @@ from . import sms_gateway
 log = logging.getLogger("alerts")
 
 
-def _build_body(payload: Dict[str, Any], stage=None) -> str:
+def resolve_site_name(db: Session, tenant_id, station_id) -> str:
+    """The name to print on the Location line of an SMS, for THIS alert.
+
+    Resolution order, matching how reports.py and station_display() already
+    label a station, most specific first:
+
+      1. the detector's own site_label, when an admin has set one. A client can
+         run more than one unit, and "Location:" should name the installation
+         that saw the strike, not the account.
+      2. the owning client's site_name, which is what the platform console asks
+         for when a site is created and keeps in step when it is renamed.
+      3. that client's name, so a site created without an explicit site_name
+         still reads correctly rather than falling through.
+      4. the detector's own station_id, which is at least reported by the unit
+         that saw the strike and so can never name the wrong client.
+
+    There is deliberately no deployment-wide fallback: a single environment
+    variable cannot be correct for more than one client.
+
+    This exists because the previous code read a deployment-wide setting instead.
+    Quaggasklip's messages went out saying GLENCORE WONDERKOP, because that was
+    the client the panel was first configured for. Nothing about adding a client
+    could have fixed it, since the name was never read from the client record.
+    """
+    if station_id:
+        unit = db.get(UnitStatus, str(station_id))
+        if unit is not None and (unit.site_label or "").strip():
+            return unit.site_label.strip()
+
+    if tenant_id is not None:
+        tenant = db.get(Tenant, tenant_id)
+        if tenant is not None:
+            for candidate in ((tenant.site_name or ""), (tenant.name or "")):
+                if candidate.strip():
+                    return candidate.strip()
+
+    return str(station_id or "SITE").strip()
+
+
+def _build_body(payload: Dict[str, Any], stage=None,
+                site_name: Optional[str] = None) -> str:
     return build_lightning_sms(
-        payload, stage_name=stage.name if stage is not None else None)
+        payload, site_name=site_name,
+        stage_name=stage.name if stage is not None else None)
 
 
 def select_stage(db: Session, tenant_id: int, distance_km: float):
@@ -102,7 +145,11 @@ def _dispatch(event_id: int, payload: Dict[str, Any]):
         stage = select_stage(db, tid, payload["distance_km"])
         targets = select_targets(db, tid, payload["distance_km"], stage)
         event.recipients_targeted = len(targets)
-        body = _build_body(payload, stage)
+        # Name the site from the event's own tenant and detector, not from the
+        # deployment-wide SITE_NAME.
+        body = _build_body(
+            payload, stage,
+            site_name=resolve_site_name(db, tid, event.station_id))
 
         alerts_on = get_alerts_enabled(db, tenant_id=tid)
 

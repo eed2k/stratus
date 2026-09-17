@@ -236,10 +236,19 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                         <span className="truncate">Location: {station.location}</span>
                       </CardDescription>
                     )}
+                    {/* Coordinates and height above mean sea level are two
+                        different facts, so each gets its own labelled line
+                        rather than being run together with a bullet. Same size
+                        as the location line above, and text-foreground rather
+                        than text-muted-foreground: nothing on the card is grey. */}
                     {(station.latitude !== null && station.longitude !== null) && (
-                      <CardDescription className="text-xs text-muted-foreground">
-                        {safeFixed(station.latitude, 4)}°, {safeFixed(station.longitude, 4)}°
-                        {station.altitude ? ` • ${station.altitude}m` : ''}
+                      <CardDescription className="text-xs sm:text-sm text-foreground">
+                        Coordinates: {safeFixed(station.latitude, 4)}°, {safeFixed(station.longitude, 4)}°
+                      </CardDescription>
+                    )}
+                    {station.altitude !== null && station.altitude !== undefined && (
+                      <CardDescription className="text-xs sm:text-sm text-foreground">
+                        AMSL: {station.altitude}m
                       </CardDescription>
                     )}
                     {station.ingestId && (
@@ -272,7 +281,11 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                         {/* No outline: the sync time is a plain reading, not a
                             status chip, and a border around it competed with the
                             card's own edge. */}
-                        <span className="text-black text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                        {/* Same size as the location and coordinate lines above.
+                            It was a step smaller, which made the freshness of the
+                            data look like a footnote when it is the first thing
+                            an operator checks. */}
+                        <span className="text-black text-xs sm:text-sm font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                           Last Synced: {formatTimeSince(station.lastSyncTime)} &middot; {formatLastSync(station.lastSyncTime)}
                         </span>
                       </div>
@@ -280,7 +293,7 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
                     </>
                   ) : station.lastReading?.timestamp ? (
                     <div>
-                      <span className="text-black text-xs font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                      <span className="text-black text-xs sm:text-sm font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                         Last Synced: {formatTimeSince(new Date(station.lastReading.timestamp).toISOString())} &middot; {formatLastSync(new Date(station.lastReading.timestamp).toISOString())}
                       </span>
                     </div>

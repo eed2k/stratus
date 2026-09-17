@@ -3,125 +3,14 @@
 {% block content %}
 <h1>Dashboard</h1>
 
-{% set can_write = user.role in ['admin','operator'] %}
-<div class="card">
-  <h3>Alert delivery</h3>
-  {% if alerts_enabled %}
-  <p>SMS alerts are <strong class="state-on">ON</strong>. Recipients
-     are notified when a qualifying strike is detected.</p>
-  {% else %}
-  <p>SMS alerts are <strong class="state-off">OFF</strong>. Strikes are
-     still recorded, but no SMS is sent.</p>
-  {% endif %}
-  {% if can_write %}
-    {% if alerts_enabled %}
-    <form method="post" action="{{ base }}/alerts/toggle" class="inline"
-          data-confirm="Switch SMS alerts OFF? Recipients will NOT be notified of strikes.">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="enabled" value="off">
-      <button class="danger" type="submit">Switch Alerts OFF</button>
-    </form>
-    {% else %}
-    <form method="post" action="{{ base }}/alerts/toggle" class="inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="enabled" value="on">
-      <button class="primary" type="submit">Switch Alerts ON</button>
-    </form>
-    {% endif %}
-  {% endif %}
+{#
+  Alert delivery and Detector unit moved to the Settings page.
 
-  <p class="cooldown-line">
-    Alert cooldown:
-    {% if alert_cooldown_min and alert_cooldown_min > 0 %}
-      <strong>{{ alert_cooldown_min }} min.</strong> After an SMS is sent,
-      further strikes within alert range do not trigger an alert for this period.
-    {% else %}
-      <strong>off.</strong> Every qualifying strike sends an SMS.
-    {% endif %}
-  </p>
-  {% if can_write %}
-  <form method="post" action="{{ base }}/alerts/cooldown" class="inline cooldown-form">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label for="cooldown_min">Set cooldown (minutes, 0 = off):</label>
-    <input type="number" id="cooldown_min" name="cooldown_min" min="0" max="1440"
-           step="1" value="{{ alert_cooldown_min or 0 }}">
-    <button class="primary" type="submit">Save</button>
-  </form>
-  {% endif %}
-</div>
-
-<div class="card">
-  <h3>Detector unit</h3>
-  {% if units %}
-  <div class="unit-grid">
-    {% for u, active, age in units %}
-    <div class="unit-row">
-      <div class="unit-block {{ 'unit-active' if active else 'unit-inactive' }}">
-        <div class="unit-name">AS3935 UNIT</div>
-        <div class="unit-state">
-          {{ 'ACTIVE' if active else 'INACTIVE' }}
-          <span class="unit-dot"></span>
-        </div>
-        <div class="unit-meta">
-          <div>Station: {{ u.station_id }}</div>
-          {# last_seen is null for a unit that has been pre-assigned to a client
-             but has never reported in yet. Calling strftime on it took the
-             whole dashboard down with a 500, so it must stay guarded. #}
-          <div>Last seen: {% if u.last_seen %}{{ u.last_seen.strftime('%Y-%m-%d %H:%M:%S') }} SAST{% else %}never{% endif %}</div>
-          <div>
-            {% if age is not none %}
-              {% if age < 90 %}just now
-              {% elif age < 3600 %}{{ (age / 60) | round(0, 'floor') | int }} min ago
-              {% else %}{{ (age / 3600) | round(1) }} h ago{% endif %}
-              &middot; via {{ u.last_kind }}
-            {% endif %}
-          </div>
-          {% if u.cpu_temp_c %}<div>CPU: {{ u.cpu_temp_c | round(1) }} &deg;C</div>{% endif %}
-        </div>
-        {#
-          Chart range selector, in the unit block rather than above the chart.
-
-          Rendered here but hidden: cpu-chart.js reveals it only once the
-          interactive chart has actually rendered. A browser that never runs
-          that file keeps the server-rendered SVG and is not left holding
-          buttons that do nothing.
-        #}
-        <div class="chart-range unit-range" data-cpu-range hidden>
-          <button type="button" data-range="24h" aria-pressed="true">24 H</button>
-          <button type="button" data-range="7d" aria-pressed="false">7 D</button>
-          <button type="button" data-range="30d" aria-pressed="false">30 D</button>
-        </div>
-      </div>
-      <div class="unit-chart">
-        {#
-          Two charts, one visible at a time.
-
-          The server-rendered inline SVG is the baseline: it needs no
-          JavaScript and is what stays on screen if a vendor bundle fails to
-          load, if the /data/cpu fetch errors, or if the reader has scripting
-          off. cpu-chart.js only hides it once the interactive chart has
-          actually rendered.
-        #}
-        {% if unit_charts and unit_charts.get(u.station_id) %}
-        <div data-cpu-fallback title="CPU load vs temperature, last 24 h">
-          {{ unit_charts.get(u.station_id) | safe }}
-        </div>
-        {% endif %}
-        <div class="cpu-chart"
-             data-cpu-chart
-             data-endpoint="{{ base }}/data/cpu?station={{ u.station_id | urlencode }}"
-             data-range="24h"
-             hidden></div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p class="muted">No detector unit has reported in yet. The AS3935 unit
-     sends an hourly heartbeat and pings on every in-range strike.</p>
-  {% endif %}
-</div>
-
+  This is the page people open when lightning is about, so it carries only the
+  two things they came for: what the storm is doing now, and what has already
+  been sent. Configuration and unit health are a click away under Settings,
+  where every role including viewer can read them.
+#}
 <div class="card storm-card">
   <h3>Storm activity</h3>
   {# Decorative only, hence aria-hidden: it carries no data and is paused
@@ -176,19 +65,13 @@
 
 {% block scripts %}
 {#
-  All four bundles are vendored under /static/vendor/ rather than pulled from a
-  CDN, which is what lets the panel keep the strict "script-src 'self'" policy
-  with no exceptions.
+  Storm view only.
 
-  Load order matters: the Recharts UMD factory resolves window.React,
-  window.PropTypes and window.ReactDOM at evaluation time, so all three must
-  already be defined. `defer` preserves document order, so this sequence holds.
+  The React and Recharts bundles moved to settings.html with the CPU charts they
+  serve. This page no longer has a chart that needs them, and base.html is
+  deliberately built so a page only downloads the bundles it actually uses.
+
+  storm-view.js is plain DOM and inline SVG, so it needs none of them.
 #}
-<script src="/static/vendor/react.production.min.js" defer></script>
-<script src="/static/vendor/prop-types.min.js" defer></script>
-<script src="/static/vendor/react-dom.production.min.js" defer></script>
-<script src="/static/vendor/recharts.js" defer></script>
-<script src="/static/js/cpu-chart.js" defer></script>
-{# storm-view.js is plain DOM and inline SVG, so it needs none of the above. #}
 <script src="/static/js/storm-view.js" defer></script>
 {% endblock %}

@@ -52,12 +52,27 @@ services:
         condition: service_healthy
     networks:
       - stratus-network
+    # Health check tuned for a small host that also has to build on itself.
+    #
+    # This is a 951 MB box. A docker build's npm ci pushes it into swap, and while
+    # it is thrashing the app stays alive but answers slowly. At timeout 10s and
+    # retries 3 that was enough for 15 consecutive failures, so Traefik pulled a
+    # working backend out of rotation and the site went dark for the length of the
+    # build. Nothing was actually broken.
+    #
+    # 30s timeout with 5 retries tolerates a slow answer without tolerating a dead
+    # one: a genuinely hung app is still marked unhealthy inside three minutes.
+    #
+    # start_period covers boot, not load. createTables() runs dozens of
+    # CREATE TABLE IF NOT EXISTS statements plus about forty ALTER TABLE
+    # migrations against a REMOTE Postgres on every start, which measured around
+    # three minutes. 300s leaves headroom above that.
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5000/api/health"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 300s
     labels:
       - "traefik.enable=true"
       # Main domain

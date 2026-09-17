@@ -1,0 +1,83 @@
+{#
+  Detector unit health card.
+
+  A partial rather than inline markup because it belongs to the Settings page but
+  is built from the same `units` and `unit_charts` context the dashboard used to
+  supply. Keeping one copy means the block cannot drift between pages if it is
+  ever shown in both.
+
+  Read-only: every role sees it. Knowing whether the unit is reporting, and how
+  hot it is running, is what tells a reader whether silence on the storm display
+  means calm weather or a dead detector.
+#}
+<div class="card">
+  <h3>Detector unit</h3>
+  {% if units %}
+  <div class="unit-grid">
+    {% for u, active, age in units %}
+    <div class="unit-row">
+      <div class="unit-block {{ 'unit-active' if active else 'unit-inactive' }}">
+        <div class="unit-name">AS3935 UNIT</div>
+        <div class="unit-state">
+          {{ 'ACTIVE' if active else 'INACTIVE' }}
+          <span class="unit-dot"></span>
+        </div>
+        <div class="unit-meta">
+          <div>Station: {{ u.station_id }}</div>
+          {# last_seen is null for a unit that has been pre-assigned to a client
+             but has never reported in yet. Calling strftime on it took the
+             whole page down with a 500, so it must stay guarded. #}
+          <div>Last seen: {% if u.last_seen %}{{ u.last_seen.strftime('%Y-%m-%d %H:%M:%S') }} SAST{% else %}never{% endif %}</div>
+          <div>
+            {% if age is not none %}
+              {% if age < 90 %}just now
+              {% elif age < 3600 %}{{ (age / 60) | round(0, 'floor') | int }} min ago
+              {% else %}{{ (age / 3600) | round(1) }} h ago{% endif %}
+              &middot; via {{ u.last_kind }}
+            {% endif %}
+          </div>
+          {% if u.cpu_temp_c %}<div>CPU: {{ u.cpu_temp_c | round(1) }} &deg;C</div>{% endif %}
+        </div>
+        {#
+          Chart range selector, in the unit block rather than above the chart.
+
+          Rendered here but hidden: cpu-chart.js reveals it only once the
+          interactive chart has actually rendered. A browser that never runs
+          that file keeps the server-rendered SVG and is not left holding
+          buttons that do nothing.
+        #}
+        <div class="chart-range unit-range" data-cpu-range hidden>
+          <button type="button" data-range="24h" aria-pressed="true">24 H</button>
+          <button type="button" data-range="7d" aria-pressed="false">7 D</button>
+          <button type="button" data-range="30d" aria-pressed="false">30 D</button>
+        </div>
+      </div>
+      <div class="unit-chart">
+        {#
+          Two charts, one visible at a time.
+
+          The server-rendered inline SVG is the baseline: it needs no
+          JavaScript and is what stays on screen if a vendor bundle fails to
+          load, if the /data/cpu fetch errors, or if the reader has scripting
+          off. cpu-chart.js only hides it once the interactive chart has
+          actually rendered.
+        #}
+        {% if unit_charts and unit_charts.get(u.station_id) %}
+        <div data-cpu-fallback title="CPU load vs temperature, last 24 h">
+          {{ unit_charts.get(u.station_id) | safe }}
+        </div>
+        {% endif %}
+        <div class="cpu-chart"
+             data-cpu-chart
+             data-endpoint="{{ base }}/data/cpu?station={{ u.station_id | urlencode }}"
+             data-range="24h"
+             hidden></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No detector unit has reported in yet. The AS3935 unit
+     sends an hourly heartbeat and pings on every in-range strike.</p>
+  {% endif %}
+</div>

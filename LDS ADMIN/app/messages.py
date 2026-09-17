@@ -9,11 +9,19 @@ _FOOTER = "Ensure all safety protocols are in place."
 
 
 def _site_name(payload: Dict[str, Any]) -> str:
-    """Display name for the location line, from SITE_NAME configuration."""
-    name = (settings.SITE_NAME or "").strip()
-    if not name:
-        name = str(payload.get("station_id") or "SITE").strip()
-    return name.upper()
+    """Last-resort location label, from the detector's own reported station_id.
+
+    Callers are expected to pass an explicit site_name resolved from the owning
+    client (see alert_worker.resolve_site_name). This path exists only so a
+    message still says something truthful if they do not.
+
+    It used to fall back to a deployment-wide SITE_NAME, which named whichever
+    client the panel was first set up for and so mislabelled every other client's
+    alerts. The station_id is at least reported by the unit that saw the strike,
+    so it can never name the wrong client.
+    """
+    name = str(payload.get("station_id") or "").strip()
+    return (name or "SITE").upper()
 
 
 def _format_sent_at(when: Optional[datetime] = None) -> str:

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import engine
 from .models import (Tenant, User, Group, Recipient, AlertEvent, UnitStatus,
-                     HeartbeatSample)
+                     HeartbeatSample, Setting)
 from .tenancy import normalize_slug
 
 log = logging.getLogger("bootstrap")
@@ -243,14 +243,22 @@ def ensure_client_usernames(db: Session) -> None:
             continue
         if candidate.lower() in taken:
             continue          # already assigned, or claimed by another login
-        admins = (db.query(User)
-                  .filter(User.tenant_id == t.id, User.role == "admin")
-                  .all())
+        # The panel's sign-in name goes to its OPERATOR login. Client panels no
+        # longer hold admin logins at all: administration of the console is
+        # Stratus' own, and a client's own login is an operator. A legacy admin
+        # login is still accepted here so an existing panel does not lose its
+        # sign-in name before those accounts are cleaned up.
+        candidates_q = (db.query(User)
+                        .filter(User.tenant_id == t.id,
+                                User.role.in_(("operator", "admin")))
+                        .all())
+        admins = [u for u in candidates_q if u.role == "operator"] \
+            or [u for u in candidates_q if u.role == "admin"]
         if len(admins) != 1:
-            # Zero admins is a broken panel; more than one is ambiguous. Either
+            # Zero logins is a broken panel; more than one is ambiguous. Either
             # way an operator should choose, not this function.
             if admins:
-                skipped.append(f"{t.slug} ({len(admins)} admins)")
+                skipped.append(f"{t.slug} ({len(admins)} candidate logins)")
             continue
         admin = admins[0]
         if admin.username:
@@ -277,13 +285,61 @@ def ensure_platform_tenant(db: Session) -> Tenant:
     slug = platform_tenant_slug()
     t = db.query(Tenant).filter(Tenant.slug == slug).first()
     if t is None:
+        # site_name is the platform's own neutral name, never a client's. It used
+        # to be seeded from the deployment-wide SITE_NAME, which meant the
+        # platform tenant was literally named after the first client onboarded.
         t = Tenant(slug=slug, name="Stratus Weather (platform)",
-                   site_name=settings.SITE_NAME, is_active=True)
+                   site_name=settings.PLATFORM_NAME, is_active=True)
         db.add(t)
         db.commit()
         db.refresh(t)
         log.info("created platform tenant '%s' (id=%s)", slug, t.id)
+    else:
+        # Repair a platform tenant that was seeded from the old deployment-wide
+        # SITE_NAME and so carries a client's name. Only touched when it still
+        # matches that setting, so a name an admin has since chosen is left alone.
+        stale = (settings.SITE_NAME or "").strip()
+        current = (t.site_name or "").strip()
+        if stale and current.casefold() == stale.casefold():
+            t.site_name = settings.PLATFORM_NAME
+            db.commit()
+            log.warning("platform tenant site_name was %r (the deployment-wide "
+                        "SITE_NAME, a client's name); reset to %r",
+                        current, settings.PLATFORM_NAME)
     return t
+
+
+def migrate_global_settings(db: Session, platform_id) -> None:
+    """Move pre-multi-tenant Setting rows onto the platform tenant.
+
+    Settings are stored as "t<tenant_id>:<key>", with bare "<key>" rows left over
+    from before the console was multi-tenant. Reads used to fall back to the bare
+    row when a tenant had none of its own, which quietly shared one client's
+    configuration with every client that had not been configured yet. For
+    last_alert_sent_at that meant one client's alert could start another client's
+    cooldown and suppress its first message.
+
+    That fallback is gone. This hands the leftover values to the platform tenant,
+    which is who they belonged to, and removes the bare rows so nothing can read
+    them again. Idempotent: after the first pass there are no bare rows.
+    """
+    if platform_id is None:
+        return
+    bare = [row for row in db.query(Setting).all() if ":" not in (row.key or "")]
+    if not bare:
+        return
+    moved, dropped = [], []
+    for row in bare:
+        scoped_key = f"t{int(platform_id)}:{row.key}"
+        if db.get(Setting, scoped_key) is None:
+            db.add(Setting(key=scoped_key, value=row.value))
+            moved.append(row.key)
+        else:
+            dropped.append(row.key)
+        db.delete(row)
+    db.commit()
+    log.info("migrated global settings onto platform tenant %s: moved=%s "
+             "already-present=%s", platform_id, moved or "-", dropped or "-")
 
 
 def platform_tenant_id(db: Session):

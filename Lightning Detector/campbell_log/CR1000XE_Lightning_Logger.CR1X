@@ -24,22 +24,26 @@ Public LightningRecordCount As Long
 Public ParseErrorCount As Long
 
 Dim SerialParsedOK As Boolean
+Dim PulseSeenThisScan As Boolean
 
+'One table, and it holds lightning only: distance, energy and the mirrored IRQ
+'pulse count.
+'
+'The periodic LightningHealth table that used to sit here was removed. It wrote a
+'row every minute carrying scan pulse counts, record counts and parse errors,
+'which is detector housekeeping rather than weather: 1440 rows a day on a logger
+'whose actual subject may produce none. The Pi already reports its own health to
+'the lightning console over its hourly heartbeat, so the logger was keeping a
+'second copy of something it is not the system of record for.
+'
+'ParseErrorCount and LightningRecordCount remain Public, so they are still
+'visible in the logger live numeric display for troubleshooting. They are just
+'not written to storage.
 DataTable (LightningEvents, True, -1)
   Sample (1, LastLightningDistanceKm, FP2)
   Sample (1, LastLightningEnergy, Long)
   Sample (1, PulseCountTotal, FP2)
   Sample (1, LastSerialRecord, String)
-EndTable
-
-DataTable (LightningHealth, True, -1)
-  DataInterval (0, 1, Min, 10)
-  Sample (1, PulseCountScan, FP2)
-  Sample (1, PulseCountTotal, FP2)
-  Sample (1, LightningRecordCount, Long)
-  Sample (1, ParseErrorCount, Long)
-  Sample (1, LastLightningDistanceKm, FP2)
-  Sample (1, LastLightningEnergy, Long)
 EndTable
 
 BeginProg
@@ -52,10 +56,22 @@ BeginProg
   SerialFlush(ComC1)
 
   Scan(200, mSec, 0, 0)
+    'SerialParsedOK describes THIS scan, so clear it at the top of every scan.
+    'It is otherwise only cleared inside the "a record arrived" branch, which
+    'leaves it holding the previous scan's answer whenever the UART is quiet, and
+    'a stale True would suppress the pulse-only row below.
+    SerialParsedOK = False
+
     'Count mirrored IRQ pulses from Pi on P1.
     'PConfig 3 = high frequency input with pull up, POption 0 = counts.
     PulseCount(PulseCountScan, 1, P1, 3, 0, 1, 0)
     PulseCountTotal = PulseCountTotal + PulseCountScan
+    'A pulse on its own is worth a row: the IRQ mirror is the hardware witness
+    'that the sensor fired, and it can arrive when the serial record does not.
+    If PulseCountScan > 0 Then PulseSeenThisScan = True
+    'A pulse on its own is worth a row: the IRQ mirror is the hardware witness
+    'that the sensor fired, and it can arrive when the serial record does not.
+    If PulseCountScan > 0 Then PulseSeenThisScan = True
 
     'Read oldest complete record from serial buffer.
     'BeginWord = "L", EndWord = CRLF, NBytes < 0 = read between begin/end.
@@ -81,8 +97,13 @@ BeginProg
       EndIf
     EndIf
 
-    If IfTime(0, 1, Min) Then
-      CallTable LightningHealth
+    'Event driven only. A row is written when the sensor actually reported
+    'something, either as a parsed serial record or as a mirrored IRQ pulse.
+    'Nothing is written on a quiet scan, so the table length is a count of
+    'lightning activity rather than a count of minutes the logger was powered.
+    If PulseSeenThisScan And Not SerialParsedOK Then
+      CallTable LightningEvents
     EndIf
+    PulseSeenThisScan = False
   NextScan
 EndProg

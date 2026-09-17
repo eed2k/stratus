@@ -563,11 +563,14 @@ code {
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
+/* 13px to match a table row, which is the reference size for body text in this
+   panel. This paragraph explains how to read the whole storm display, so it was
+   the last thing that should have been set smaller than everything else. */
 .storm-summary {
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--muted-solid);
+  color: #000000;
 }
 .storm-range { display: flex; }
 .storm-range button {
@@ -620,11 +623,18 @@ code {
 }
 .storm-bands { align-items: start; }
 
+/* Every piece of text in a band cell is 13px Arial, the same as a table row.
+   These were set between 9px and 11px with letter-spacing, which is what made
+   them read as a different, condensed typeface rather than as small Arial. The
+   tracking is gone for the same reason, and the family is stated on the cell so
+   no descendant can inherit anything else. */
+.storm-band, .storm-band * {
+  font-family: Arial, Helvetica, sans-serif;
+}
 .storm-band-range {
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.06em;
   text-align: center;
   text-transform: uppercase;
   color: var(--white);
@@ -633,10 +643,9 @@ code {
   border-bottom: 0;
   padding: 5px 4px;
 }
-.storm-band.is-idle .storm-band-range {
-  background: #93a0b0;
-  border-color: #93a0b0;
-}
+/* Idle bands keep the same navy header. It used to switch to a grey, which is an
+   off-colour this panel does not otherwise use, and "no strikes recorded" plus
+   the pale cloud already say the band is quiet. */
 
 .storm-band-data {
   border: 1px solid var(--line);
@@ -653,28 +662,30 @@ code {
   color: var(--muted-solid);
 }
 .storm-band-count span {
-  font-size: 9.5px;
+  font-size: 13px;
   font-weight: 400;
   color: #000000;
 }
+/* Black, not the band colour. The band colour still carries meaning on the cell
+   border and the header, where it is a block of colour rather than text; using
+   it on a word gave a pale, off-colour label on the quieter bands. */
 .storm-band-label {
   margin: 1px 0 5px;
   text-align: center;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--band-color, #000000);
+  color: #000000;
 }
 .storm-band.is-idle .storm-band-label { color: #000000; }
 .storm-band-rows { border-top: 1px dotted var(--line); padding-top: 4px; }
 .storm-band-row {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.65;
   color: #000000;
 }
-.storm-band-row b { color: var(--muted-solid); font-weight: 700; }
+.storm-band-row b { color: #000000; font-weight: 700; }
 .storm-band-row-sep {
   border-top: 1px dotted var(--line);
   margin-top: 2px;
@@ -683,7 +694,7 @@ code {
 .storm-band-none {
   padding: 4px 0 2px;
   text-align: center;
-  font-size: 9.5px;
+  font-size: 13px;
   color: #000000;
 }
 

@@ -22,7 +22,7 @@ from .. import reports as reports_mod
 from ..auth import (current_user, current_tenant, require_admin, require_writer,
                     require_platform_admin, tenant_id, hash_password,
                     verify_password)
-from ..alert_worker import dispatch_async
+from ..alert_worker import dispatch_async, resolve_site_name
 from ..messages import build_lightning_sms
 from ..runtime import (get_alerts_enabled, set_alerts_enabled, get_units,
                        get_alert_cooldown_min, set_alert_cooldown_min)
@@ -60,12 +60,21 @@ _STORM_RADIUS_KM = 40
 
 
 def station_display(unit, request):
-    """Resolve a station's display label: site_label, then tenant site_name,
-    then the station_id. Used by JSON endpoints and (later) reports."""
+    """Resolve a station's display label, most specific first.
+
+    site_label on the detector, then the panel's own site_name, then its client
+    name, then the detector's station_id, and only then the platform's neutral
+    name. Never a deployment-wide client name: that fallback labelled every
+    panel with whichever client was onboarded first.
+    """
     if unit is not None and getattr(unit, "site_label", None):
         return unit.site_label
-    urlt = url_tenant(request)
-    return (urlt or {}).get("site_name") or settings.SITE_NAME
+    urlt = url_tenant(request) or {}
+    for candidate in (urlt.get("site_name"), urlt.get("name"),
+                      getattr(unit, "station_id", None)):
+        if candidate and str(candidate).strip():
+            return str(candidate).strip()
+    return settings.PLATFORM_NAME
 
 
 def _resolve_unit(db, tid, station):
@@ -89,7 +98,11 @@ def render(request, name, **ctx):
     ctx.setdefault("csrf_token", get_csrf_token(request))
     ctx.setdefault("base", base_path(request))
     urlt = url_tenant(request)
-    ctx.setdefault("site_name", (urlt or {}).get("site_name") or settings.SITE_NAME)
+    # The panel's own name, then its client name, then the platform's neutral
+    # name. Never a deployment-wide client name.
+    ctx.setdefault("site_name", (urlt or {}).get("site_name")
+                   or (urlt or {}).get("name")
+                   or settings.PLATFORM_NAME)
     ctx.setdefault("tenant_name", (urlt or {}).get("name"))
     ctx.setdefault("is_platform_admin",
                    bool(user is not None and getattr(user, "is_platform_admin", False)))
@@ -317,22 +330,12 @@ def dashboard(request: Request, user: User = Depends(current_user),
                         .filter(Group.is_active == True).count(),      # noqa: E712
         "events_24h": scope(db.query(AlertEvent), AlertEvent, tid).count(),
     }
-    units = get_units(db, settings.UNIT_ACTIVE_THRESHOLD_MIN * 60, tenant_id=tid)
-    # Build a 24h CPU trend chart (inline SVG) for each unit.
-    from datetime import timedelta
-    cutoff = now_sast() - timedelta(hours=24)
-    unit_charts = {}
-    for u, _active, _age in units:
-        samples = (scope(db.query(HeartbeatSample), HeartbeatSample, tid)
-                     .filter(HeartbeatSample.station_id == u.station_id,
-                             HeartbeatSample.ts >= cutoff)
-                     .order_by(HeartbeatSample.ts.asc())
-                     .all())
-        unit_charts[u.station_id] = cpu_chart_svg(samples, hours=24)
+    # Unit status and the CPU trend charts moved to the Settings page along with
+    # the cards that displayed them, so this page no longer builds them. That is
+    # one query per detector plus an SVG render saved on the page people leave
+    # open during a storm.
     return render(request, "dashboard.html", user=user, events=events,
-                  counts=counts, alerts_enabled=get_alerts_enabled(db, tenant_id=tid),
-                  units=units, unit_charts=unit_charts,
-                  alert_cooldown_min=get_alert_cooldown_min(db, tenant_id=tid))
+                  counts=counts)
 
 
 # -------------------- DASHBOARD DATA (JSON, tenant-scoped) --------------------
@@ -670,9 +673,31 @@ def recipient_delete(request: Request, rid: int, _: None = Depends(verify_csrf),
 def recipient_toggle(request: Request, rid: int, _: None = Depends(verify_csrf),
                      user: User = Depends(require_writer),
                      tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    """Flip a recipient between active and inactive.
+
+    A recipient that cannot be resolved in this panel is reported rather than
+    ignored. It used to fall through to the same redirect as success, so the page
+    came back looking identical and the button appeared to do nothing at all,
+    with no way to tell a permission problem from a scoping one. Whatever the
+    cause, "nothing happened" is the one outcome the reader must never be left to
+    infer.
+    """
     r = scoped_get(db, Recipient, rid, tid)
-    if r:
-        r.is_active = not r.is_active; db.commit()
+    if r is None:
+        log.warning("recipient toggle no-op: rid=%s not found in tenant %s "
+                    "(user=%s role=%s)", rid, tid, user.email, user.role)
+        rows = scope(db.query(Recipient), Recipient, tid).order_by(Recipient.name).all()
+        groups = scope(db.query(Group), Group, tid).order_by(Group.name).all()
+        return render(request, "recipients.html", user=user, rows=rows,
+                      groups=groups,
+                      error="That recipient is not in this panel, so nothing "
+                            "was changed. Open the panel it belongs to and try "
+                            "again.")
+
+    r.is_active = not r.is_active
+    db.commit()
+    log.info("recipient %s (%s) set %s by %s", r.id, r.name,
+             "active" if r.is_active else "inactive", user.email)
     return RedirectResponse(redirect_to(request, "/recipients"), status_code=303)
 
 
@@ -1034,7 +1059,10 @@ def test_alert_post(request: Request,
                           recipients=recipients,
                           error="Enter a destination number for a single test.",
                           success=None)
-        body = build_lightning_sms(payload)
+        # Same site-name resolution as a real alert, so a test message is a
+        # faithful preview rather than one that reads differently.
+        body = build_lightning_sms(
+            payload, site_name=resolve_site_name(db, tid, station))
         event = AlertEvent(tenant_id=tid,
                            station_id=station, distance_km=payload["distance_km"],
                            energy=payload["energy"], timestamp=now_sast(),
@@ -1064,17 +1092,45 @@ def test_alert_post(request: Request,
                             status_code=303)
 
 
-# -------------------- SETTINGS (admin only) --------------------
+# -------------------- SETTINGS --------------------
 @router.get("/settings", response_class=HTMLResponse)
-def settings_page(request: Request, user: User = Depends(require_admin),
+def settings_page(request: Request, user: User = Depends(current_user),
                   tid: int = Depends(tenant_id), db: Session = Depends(get_db)):
+    """Alert delivery, detector health and (for Stratus) gateway status.
+
+    Readable by every signed-in role. It was admin-only, which meant an operator
+    could not check the cooldown they were working under and a viewer could not
+    tell whether a quiet storm display meant calm weather or a detector that had
+    stopped reporting. The write controls are still gated in the template on
+    can_write, and each POST it targets independently requires require_writer, so
+    opening the page up grants reading only.
+
+    Gateway status stays behind is_platform_admin: which provider Stratus buys
+    from is not a client's business.
+    """
     gateway = {
         "api_key": bool(settings.sms_api_key),
         "dlr_token": bool(settings.sms_dlr_token),
         "webhook_token": bool(settings.ALERT_WEBHOOK_TOKEN),
     }
+
+    # Detector status and its 24h CPU trend, moved here from the dashboard.
+    units = get_units(db, settings.UNIT_ACTIVE_THRESHOLD_MIN * 60, tenant_id=tid)
+    from datetime import timedelta
+    cutoff = now_sast() - timedelta(hours=24)
+    unit_charts = {}
+    for u, _active, _age in units:
+        samples = (scope(db.query(HeartbeatSample), HeartbeatSample, tid)
+                     .filter(HeartbeatSample.station_id == u.station_id,
+                             HeartbeatSample.ts >= cutoff)
+                     .order_by(HeartbeatSample.ts.asc())
+                     .all())
+        unit_charts[u.station_id] = cpu_chart_svg(samples, hours=24)
+
     return render(request, "settings.html", user=user, gateway=gateway,
-                  alerts_enabled=get_alerts_enabled(db, tenant_id=tid))
+                  alerts_enabled=get_alerts_enabled(db, tenant_id=tid),
+                  alert_cooldown_min=get_alert_cooldown_min(db, tenant_id=tid),
+                  units=units, unit_charts=unit_charts)
 
 
 # -------------------- USERS --------------------
@@ -1130,6 +1186,17 @@ def users_create(request: Request, email: str = Form(...), password: str = Form(
 
     if role not in ("admin", "operator", "viewer"):
         return _reload(error="Choose a valid role.")
+    # The admin role exists on the platform tenant only.
+    #
+    # Administration of this console is Stratus' own responsibility and the set of
+    # admin logins is fixed. A client panel gets operator and viewer logins, which
+    # is everything a client needs: an operator manages recipients, groups and
+    # stages, a viewer reads. Allowing a client-side admin would let a client
+    # create further logins inside its own panel, which is how the unused
+    # admin@<slug> accounts came to exist in the first place.
+    if role == "admin" and tid != platform_tenant_id(db):
+        return _reload(error="Client panels use operator or viewer logins. "
+                             "Administrator access is held by Stratus only.")
     email = (email or "").strip().lower()
     if "@" not in email or len(email) < 5:
         return _reload(error="A valid e-mail address is required.")
@@ -1304,7 +1371,7 @@ def unit_assign(request: Request, station_id: str, tenant_id_form: str = Form(""
 
 @router.post("/tenants/create")
 def tenant_create(request: Request, name: str = Form(...), slug: str = Form(...),
-                  admin_email: str = Form(...), admin_password: str = Form(...),
+                  admin_email: str = Form(""), admin_password: str = Form(""),
                   site_name: str = Form(""), _: None = Depends(verify_csrf),
                   user: User = Depends(require_platform_admin),
                   db: Session = Depends(get_db)):
@@ -1322,27 +1389,48 @@ def tenant_create(request: Request, name: str = Form(...), slug: str = Form(...)
     slug = validate_slug(slug)   # raises 400 with a readable message if bad
     if db.query(Tenant).filter(Tenant.slug == slug).first():
         return back(f"A panel with the address '{slug}' already exists.")
-    admin_email = admin_email.strip().lower()
-    if "@" not in admin_email or len(admin_email) < 5:
-        return back("Enter a valid client admin e-mail.")
-    if db.query(User).filter(User.email == admin_email).first():
-        return back("That admin e-mail is already in use.")
-    if len(admin_password) < MIN_PASSWORD_LEN:
-        return back(f"Admin password must be at least {MIN_PASSWORD_LEN} characters.")
+    # A client login is OPTIONAL here.
+    #
+    # The five Stratus admin logins already reach every client panel, so a new
+    # panel is usable the moment it exists. A client's own login is a separate,
+    # deliberate decision by one of those admins on the panel's Users page, which
+    # is why nothing is minted automatically any more: creating one per panel is
+    # what produced the unused admin@<slug> and operator@<slug> accounts.
+    #
+    # Leave both fields blank to create the panel with no client login at all.
+    admin_email = (admin_email or "").strip().lower()
+    admin_password = admin_password or ""
+    wants_login = bool(admin_email or admin_password)
+    if wants_login:
+        if "@" not in admin_email or len(admin_email) < 5:
+            return back("Enter a valid e-mail for the client login, or leave "
+                        "both login fields blank to add one later.")
+        if db.query(User).filter(User.email == admin_email).first():
+            return back("That e-mail is already in use.")
+        if len(admin_password) < MIN_PASSWORD_LEN:
+            return back(f"The client login password must be at least "
+                        f"{MIN_PASSWORD_LEN} characters.")
 
-    # One transaction for the whole panel: tenant, its admin login and its
-    # default group. This used to commit the tenant first and the admin and group
-    # second, so when the second commit failed the client panel existed with no
-    # way to sign into it and no group to attach recipients to. A panel is only
-    # useful complete, so it is created all at once or not at all.
+    # One transaction for the whole panel: tenant, its default group, and its
+    # client login when one was asked for. This used to commit the tenant first
+    # and the rest second, so when the second commit failed the panel existed
+    # with no group to attach recipients to. A panel is only useful complete, so
+    # it is created all at once or not at all.
     t = Tenant(slug=slug, name=name.strip() or slug,
                site_name=(site_name.strip() or name.strip() or slug),
                is_active=True)
     db.add(t)
     db.flush()          # assigns t.id without ending the transaction
-    db.add(User(email=admin_email, password_hash=hash_password(admin_password),
-                role="admin", is_active=True, tenant_id=t.id,
-                is_platform_admin=False))
+    if wants_login:
+        # A client's own login is an OPERATOR, never an admin.
+        #
+        # It can do everything a client needs inside its panel (recipients,
+        # groups, stages, the alert switch) but cannot mint further logins.
+        # Administration of the console belongs to the Stratus admin logins, so
+        # that set never grows when a client is onboarded.
+        db.add(User(email=admin_email, password_hash=hash_password(admin_password),
+                    role="operator", is_active=True, tenant_id=t.id,
+                    is_platform_admin=False))
     db.add(Group(tenant_id=t.id, name="default",
                  description="Default recipient group",
                  distance_threshold_km=15, is_active=True))

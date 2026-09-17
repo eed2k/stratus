@@ -171,7 +171,8 @@
         {% if is_platform_admin %}<a href="/units">Detectors</a>{% endif %}
         {% if user.role in ['admin','operator'] %}<a href="{{ base }}/stations">Site metadata</a>{% endif %}
         {% if user.role == 'admin' %}<a href="{{ base }}/users">Users</a>{% endif %}
-        {% if user.role == 'admin' %}<a href="{{ base }}/settings">Settings</a>{% endif %}
+        {# Settings is readable by every role: it carries alert delivery state and detector health, which a shift needs before acting on an alert. Its write controls are gated inside the page. #}
+        <a href="{{ base }}/settings">Settings</a>
       {% else %}
         {#
           Stratus Admin who have stepped into a client panel need a way back
@@ -189,7 +190,8 @@
         <a href="{{ base }}/reports">Reports</a>
         {% if user.role in ['admin','operator'] %}<a href="{{ base }}/test">Test Alert</a>{% endif %}
         {% if user.role == 'admin' %}<a href="{{ base }}/users">Users</a>{% endif %}
-        {% if user.role == 'admin' %}<a href="{{ base }}/settings">Settings</a>{% endif %}
+        {# Settings is readable by every role: it carries alert delivery state and detector health, which a shift needs before acting on an alert. Its write controls are gated inside the page. #}
+        <a href="{{ base }}/settings">Settings</a>
       {% endif %}
     </nav>
     <div class="menubar-user">

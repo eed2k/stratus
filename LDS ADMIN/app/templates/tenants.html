@@ -22,14 +22,20 @@
       <input name="slug" placeholder="glencore" pattern="[a-z0-9-]+" required>
     </label>
     <label>Site name in SMS<input name="site_name" placeholder="Glencore Wonderkop"></label>
-    <label>Client admin e-mail<input type="email" name="admin_email" required></label>
-    <label>Client admin password
-      <input type="password" name="admin_password" minlength="10" required>
+    {# Optional. Stratus admin logins already reach every panel, so a panel works
+       the moment it exists. A client's own operator login is a separate decision
+       and can be added later on the panel's Users page. #}
+    <label>Client operator e-mail (optional)<input type="email" name="admin_email"></label>
+    <label>Client operator password (optional)
+      <input type="password" name="admin_password" minlength="10">
     </label>
     <button class="primary" type="submit">Create Panel</button>
   </form>
   <p class="muted" style="text-align:left;padding:8px 0 0;">
     Address: 2-40 characters, lower-case letters, numbers and hyphens.
+    Leave both login fields blank to create the panel without a client login;
+    Stratus admins can reach it either way, and a client operator or viewer login
+    can be added afterwards from the panel's Users page.
   </p>
 </div>
 

@@ -12,12 +12,13 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .config import settings
 from .db import Base, engine, SessionLocal
-from .models import User, Setting
+from .models import User
 from .auth import hash_password
-from .runtime import ALERTS_ENABLED_KEY
+
 from .security import CSRF_ERROR_DETAIL
 from .tenancy import TenantPrefixMiddleware, base_path
 from .bootstrap import (add_missing_columns, ensure_platform_tenant,
+                        migrate_global_settings,
                         backfill_tenants, drop_stale_unique_constraints,
                         ensure_tenant_defaults, ensure_client_usernames)
 from .routes.web import router as web_router
@@ -327,9 +328,12 @@ def bootstrap():
         # Let existing clients use the /client sign-in without being issued new
         # credentials: their panel address becomes their sign-in name.
         ensure_client_usernames(db)
-        # Global alert on/off switch defaults to ON.
-        if not db.get(Setting, ALERTS_ENABLED_KEY):
-            db.add(Setting(key=ALERTS_ENABLED_KEY, value="1"))
-            db.commit()
+        # Hand any leftover pre-multi-tenant settings to the platform tenant and
+        # remove the bare rows, so no client can inherit another client's
+        # configuration. Must run before anything reads a tenant setting.
+        migrate_global_settings(db, platform.id)
+        # Alerts default to ON per tenant when a tenant has no row of its own,
+        # which get_alerts_enabled already returns. Nothing is seeded here any
+        # more: a bare seeded row was exactly what other tenants used to inherit.
     finally:
         db.close()

@@ -134,7 +134,26 @@ const ALIASES = {
   solar: ["solarRadiation", "SlrW", "Solar", "Solar_Rad_Avg", "SolarRad_Avg", "SlrW_Avg", "SR_Avg"],
   solarMJ: ["solarMJTotal", "SlrMJ_Tot", "SlrMJ", "Solar_MJ_Tot"],
   battery: ["batteryVoltage", "BattV", "BattV_Min", "Batt_volt_Min", "BattV_Avg", "Batt_V", "LoggerBattery_Avg", "LoggerBattery"],
+  dew: ["dewPoint", "DewPt", "DewPoint", "DewPt_Avg", "DewPoint_Avg", "Dew_Point"],
 } as const;
+
+/**
+ * Dew point from temperature and relative humidity, Magnus formula.
+ *
+ * Used only when the logger does not report dew point itself, which matches how
+ * the dashboard derives it. Returns null rather than a nonsense figure when
+ * either input is missing or the humidity is outside a physical range.
+ */
+function magnusDewPoint(tempC: number | null, rh: number | null): number | null {
+  if (tempC == null || rh == null) return null;
+  if (!Number.isFinite(tempC) || !Number.isFinite(rh)) return null;
+  if (rh <= 0 || rh > 100) return null;
+  const A = 17.62;
+  const B = 243.12;
+  const gamma = Math.log(rh / 100) + (A * tempC) / (B + tempC);
+  const dew = (B * gamma) / (A - gamma);
+  return Number.isFinite(dew) ? dew : null;
+}
 
 function pickAlias(data: Record<string, any>, keys: readonly string[]): number | null {
   for (const k of keys) {
@@ -159,6 +178,7 @@ interface RawRecord {
   solar: number | null;
   solarMJ: number | null;
   battery: number | null;
+  dew: number | null;
 }
 
 export interface StationMeta {
@@ -203,18 +223,23 @@ async function fetchRawSeries(stationId: number, startMs: number, endMs: number)
   );
   return r.rows.map((row: any) => {
     const data = row.data || {};
+    const temp = pickAlias(data, ALIASES.temp);
+    const humidity = pickAlias(data, ALIASES.humidity);
     return {
       ts: new Date(row.timestamp),
-      temp: pickAlias(data, ALIASES.temp),
+      temp,
       rain: pickAlias(data, ALIASES.rain),
       wind: pickAlias(data, ALIASES.wind),
       gust: pickAlias(data, ALIASES.gust),
       windDir: pickAlias(data, ALIASES.windDir),
-      humidity: pickAlias(data, ALIASES.humidity),
+      humidity,
       pressure: pickAlias(data, ALIASES.pressure),
       solar: pickAlias(data, ALIASES.solar),
       solarMJ: pickAlias(data, ALIASES.solarMJ),
       battery: pickAlias(data, ALIASES.battery),
+      // Reported value wins; otherwise derive it, so a station that logs
+      // temperature and humidity still gets a dew point trace.
+      dew: pickAlias(data, ALIASES.dew) ?? magnusDewPoint(temp, humidity),
     };
   });
 }
@@ -462,6 +487,7 @@ export const CHART_COLORS = {
   battery2: "#15803d",        // CHART_COLORS.batteryVoltage2 - second green
   pressure: "#0f766e",        // CHART_COLORS.pressure - teal, was violet
   eto: "#16a34a",             // CHART_COLORS.eto - always green
+  dewPoint: "#0e7490",        // CHART_COLORS.dewPoint - deeper cyan than humidity
 };
 
 interface ChartSeries { ts: Date; value: number }
@@ -1041,26 +1067,40 @@ async function renderStationSection(
 
   const chartW = usableWidth(doc);
 
-  // ── Wind analysis: rose + scatter side by side ──
-  doc.addPage();
-  sectionHeading(doc, `${stationName} Wind Analysis`);
-  const polarSize = Math.floor((chartW - 14) / 2);
-  const polarH = polarSize + POLAR_CHROME_H;
-  const polarY = doc.y;
-  embedSvg(doc, buildWindRoseSVG(raw, `Wind Rose (${periodLabel})`, polarSize),
-    { x: doc.page.margins.left, y: polarY, width: polarSize });
-  embedSvg(doc, buildWindScatterSVG(raw, `Wind Speed Scatter (${periodLabel})`, polarSize),
-    { x: doc.page.margins.left + polarSize + 14, y: polarY, width: polarSize });
-  doc.y = polarY + polarH + 10;
+  /**
+   * Wind analysis: rose plus scatter, side by side.
+   *
+   * Both are functions of speed AND direction, so a station with an anemometer
+   * but no vane cannot produce either: the rose would be an empty dial and the
+   * scatter an empty disc. Skip the whole page in that case rather than printing
+   * two blank circles.
+   */
+  const hasWindPair = raw.some(
+    (r) => r.wind != null && Number.isFinite(r.wind)
+      && r.windDir != null && Number.isFinite(r.windDir),
+  );
 
-  const dirNote = "Petal length shows how often the wind blew from each direction; color bands show the speed class. "
-    + "The scatter plots every reading as direction (angle) against speed (radius).";
-  // Flowed text (no x,y) so it can never land on top of the figures above or
-  // run past the bottom margin - overlapping text boxes are what break DOCX
-  // conversion. If the polar block used up the page, start a fresh one.
-  if (doc.y + 40 > bottomLimit(doc)) doc.addPage();
-  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(TYPE.caption)
-    .text(pdfSafe(dirNote), { width: chartW, align: "justify" });
+  if (hasWindPair) {
+    doc.addPage();
+    sectionHeading(doc, `${stationName} Wind Analysis`);
+    const polarSize = Math.floor((chartW - 14) / 2);
+    const polarH = polarSize + POLAR_CHROME_H;
+    const polarY = doc.y;
+    embedSvg(doc, buildWindRoseSVG(raw, `Wind Rose (${periodLabel})`, polarSize),
+      { x: doc.page.margins.left, y: polarY, width: polarSize });
+    embedSvg(doc, buildWindScatterSVG(raw, `Wind Speed Scatter (${periodLabel})`, polarSize),
+      { x: doc.page.margins.left + polarSize + 14, y: polarY, width: polarSize });
+    doc.y = polarY + polarH + 10;
+
+    const dirNote = "Petal length shows how often the wind blew from each direction; colour bands show the speed class. "
+      + "The scatter plots every reading as direction (angle) against speed (radius).";
+    // Flowed text (no x,y) so it can never land on top of the figures above or
+    // run past the bottom margin - overlapping text boxes are what break DOCX
+    // conversion. If the polar block used up the page, start a fresh one.
+    if (doc.y + 40 > bottomLimit(doc)) doc.addPage();
+    doc.fillColor(INK).font(FONT_REGULAR).fontSize(TYPE.caption)
+      .text(pdfSafe(dirNote), { width: chartW, align: "justify" });
+  }
 
   // ── Time-series graphs ──
   const maxPoints = 900;
@@ -1071,41 +1111,70 @@ async function renderStationSection(
   const solarSeries = downsample(seriesFrom(raw, (r) => r.solar), maxPoints);
   const batterySeries = downsample(seriesFrom(raw, (r) => r.battery), maxPoints);
   const pressureSeries = downsample(seriesFrom(raw, (r) => r.pressure), maxPoints);
+  const dewSeries = downsample(seriesFrom(raw, (r) => r.dew), maxPoints);
   const etoSeries = buildDailyEtoSeries(raw, meta);
 
-  const figures: SvgFigure[] = [
-    buildChartSVG({
-      title: "Temperature and Relative Humidity",
+  /**
+   * Only chart what the station actually measures.
+   *
+   * A sensor this station does not have used to still get its name in a chart
+   * title, its entry in the legend and a flat empty axis, which reads as a broken
+   * sensor rather than an absent one. So each series is admitted only if it has
+   * at least one real value, and a chart is dropped entirely when none of its
+   * series survive. The titles are assembled from the series that remain, so a
+   * station with solar but no battery gets "Solar Irradiance" rather than
+   * "Solar Irradiance and Battery Voltage".
+   */
+  const hasData = (pts: ChartSeries[]): boolean =>
+    pts.some((p) => p.value != null && Number.isFinite(p.value));
+
+  interface Candidate {
+    name: string;
+    unit: string;
+    color: string;
+    points: ChartSeries[];
+    axis?: "left" | "right";
+    type?: "bar" | "line";
+    /** Chart title fragment contributed when this series is present. */
+    label: string;
+  }
+
+  const addFigure = (
+    figures: SvgFigure[],
+    candidates: Candidate[],
+    joiner = " and ",
+  ): void => {
+    const present = candidates.filter((c) => hasData(c.points));
+    if (present.length === 0) return;
+    figures.push(buildChartSVG({
+      title: present.map((c) => c.label).join(joiner),
       width: chartW,
-      series: [
-        { name: "Temperature", unit: "degC", color: CHART_COLORS.temperature, points: tempSeries },
-        { name: "Humidity", unit: "%", color: CHART_COLORS.humidity, points: humSeries, axis: "right" },
-      ],
-    }),
-    buildChartSVG({
-      title: "Wind Speed and Gusts",
-      width: chartW,
-      series: [
-        { name: "Wind speed", unit: "m/s", color: CHART_COLORS.wind, points: windSeries },
-        { name: "Gust", unit: "m/s", color: CHART_COLORS.gust, points: gustSeries },
-      ],
-    }),
-    buildChartSVG({
-      title: "Solar Irradiance and Battery Voltage",
-      width: chartW,
-      series: [
-        { name: "Solar", unit: "W/m2", color: CHART_COLORS.solar, points: solarSeries },
-        { name: "Battery", unit: "V", color: CHART_COLORS.battery, points: batterySeries, axis: "right" },
-      ],
-    }),
-    buildChartSVG({
-      title: "Barometric Pressure",
-      width: chartW,
-      series: [
-        { name: "Pressure", unit: "mbar", color: CHART_COLORS.pressure, points: pressureSeries },
-      ],
-    }),
-  ];
+      series: present.map(({ name, unit, color, points, axis, type }) => ({
+        name, unit, color, points, axis, type,
+      })),
+    }));
+  };
+
+  const figures: SvgFigure[] = [];
+
+  addFigure(figures, [
+    { label: "Temperature", name: "Temperature", unit: "degC", color: CHART_COLORS.temperature, points: tempSeries },
+    { label: "Relative Humidity", name: "Humidity", unit: "%", color: CHART_COLORS.humidity, points: humSeries, axis: "right" },
+  ]);
+
+  addFigure(figures, [
+    { label: "Wind Speed", name: "Wind speed", unit: "m/s", color: CHART_COLORS.wind, points: windSeries },
+    { label: "Gusts", name: "Gust", unit: "m/s", color: CHART_COLORS.gust, points: gustSeries },
+  ]);
+
+  addFigure(figures, [
+    { label: "Solar Irradiance", name: "Solar", unit: "W/m2", color: CHART_COLORS.solar, points: solarSeries },
+    { label: "Battery Voltage", name: "Battery", unit: "V", color: CHART_COLORS.battery, points: batterySeries, axis: "right" },
+  ]);
+
+  addFigure(figures, [
+    { label: "Barometric Pressure", name: "Pressure", unit: "mbar", color: CHART_COLORS.pressure, points: pressureSeries },
+  ]);
 
   if (etoSeries.length > 0) {
     figures.push(buildChartSVG({
@@ -1116,6 +1185,24 @@ async function renderStationSection(
       ],
     }));
   }
+
+  /**
+   * Dew point last, after ETo.
+   *
+   * It sits next to ETo because both answer the same question from opposite
+   * sides: ETo is how much water the atmosphere can take, dew point is how much
+   * it is already holding. Plotted against temperature, because the gap between
+   * the two lines is the reading that matters, and the lines meeting is
+   * saturation.
+   */
+  addFigure(figures, [
+    { label: "Dew Point", name: "Dew point", unit: "degC", color: CHART_COLORS.dewPoint, points: dewSeries },
+    { label: "Temperature", name: "Temperature", unit: "degC", color: CHART_COLORS.temperature, points: tempSeries },
+  ], " and ");
+
+  // No sensors, no graphs page. Adding a page with only a heading on it would be
+  // worse than leaving it out.
+  if (figures.length === 0) return;
 
   doc.addPage();
   sectionHeading(doc, `${stationName} Graphs`);
@@ -1480,12 +1567,18 @@ function renderStatsTableUnsafe(
     // Explicit accumulator type: the series is Array<number | null>, so an
     // inferred accumulator would widen to number | null.
     const rainTotal = rainSeries.reduce<number>((s, v) => s + (v ?? 0), 0);
-    // Per-interval figures are meaningful for rain (how hard it fell in any
-    // one logging interval); the accumulated depth goes in Total.
-    const rainVals = rainSeries.filter((v): v is number => v != null);
+    /**
+     * Total only, no min / average / maximum.
+     *
+     * For an accumulating quantity those three are close to meaningless in a
+     * table: the minimum is 0 on any period with a dry interval, and the average
+     * is the mean of mostly-zero intervals, so it reads as 0.0 even in a wet
+     * month. The depth is the figure that matters here, and the distribution is
+     * legible in the rainfall graph further on.
+     */
     accum.push({
       label: "Rainfall", unit: "mm", decimals: 1,
-      min: minOf(rainVals), avg: meanOf(rainVals), max: maxOf(rainVals),
+      min: null, avg: null, max: null,
       total: rainTotal,
     });
   }
@@ -1502,10 +1595,11 @@ function renderStatsTableUnsafe(
     const eto = buildDailyEtoSeries(raw, meta);
     if (eto.length > 0) {
       const etoTotal = eto.reduce((s, p) => s + (p.value ?? 0), 0);
-      const etoVals = eto.map((pt) => pt.value).filter((v): v is number => v != null);
+      // Total only, for the same reason as rainfall: ETo is an accumulation, and
+      // the daily spread is what the ETo graph is for.
       accum.push({
         label: "Reference ETo (daily)", unit: "mm", decimals: 2,
-        min: minOf(etoVals), avg: meanOf(etoVals), max: maxOf(etoVals),
+        min: null, avg: null, max: null,
         total: etoTotal,
       });
     }
@@ -1861,14 +1955,26 @@ async function drawSiteMaps(
   boxWidth: number,
 ): Promise<number> {
   const GAP = 12;
-  const halfWidth = (boxWidth - GAP) / 2;
-  // 2x2 keeps each half-width view square. Satellite is drawn close in to show
-  // the mast surroundings; the street map is pulled back to show which roads and
+  /**
+   * The pair is deliberately narrower than the text column.
+   *
+   * At full width the two frames dominated page one and pushed the statistics
+   * table down; at 78% they still read clearly while leaving the table on the
+   * same page. The pair stays left-aligned with the text above it.
+   */
+  const PAIR_SCALE = 0.78;
+  const pairWidth = boxWidth * PAIR_SCALE;
+  const halfWidth = (pairWidth - GAP) / 2;
+  // 2x2 keeps each view square. Satellite is drawn close in to show the mast
+  // surroundings; the street map is pulled back to show which roads and
   // settlements the site sits among.
+  //
+  // One extra zoom level is one doubling of scale, so these are each twice the
+  // magnification they were.
   const COLS = 2;
   const ROWS = 2;
-  const SAT_ZOOM = 15;
-  const STREET_ZOOM = 12;
+  const SAT_ZOOM = 16;
+  const STREET_ZOOM = 13;
 
   let sat: Awaited<ReturnType<typeof fetchMapTiles>> = null;
   let street: Awaited<ReturnType<typeof fetchMapTiles>> = null;
@@ -1910,15 +2016,20 @@ async function drawSiteMaps(
     return 0;
   }
 
-  // Label each view under its own frame so a reader can tell them apart, then
-  // credit the imagery once beneath the pair.
+  /**
+   * Label each view under its own frame so a reader can tell them apart.
+   *
+   * The zoom level is deliberately not printed. It is an implementation detail of
+   * how the tiles were fetched, it means nothing to the person reading the
+   * report, and it would go stale the moment the zoom is retuned.
+   */
   doc.fillColor(INK).font(FONT_REGULAR).fontSize(TYPE.caption);
   const labelY = topY + height + 3;
   if (sat) {
-    doc.text(pdfSafe(`Satellite view (zoom ${SAT_ZOOM})`), leftX, labelY, { width: halfWidth });
+    doc.text(pdfSafe("Satellite view"), leftX, labelY, { width: halfWidth });
   }
   if (street) {
-    doc.text(pdfSafe(`Street map (zoom ${STREET_ZOOM})`), rightX, labelY, { width: halfWidth });
+    doc.text(pdfSafe("Street map"), rightX, labelY, { width: halfWidth });
   }
 
   doc.y = labelY + 11;

@@ -271,7 +271,11 @@
       bk.textContent = "band";
       var bv = document.createElement("b");
       bv.textContent = band.band || "-";
-      bv.style.color = color;
+      /* Left black, deliberately.
+         This used to be painted with the band colour, which on the quieter bands
+         is a pale grey and read as disabled text. The band colour still appears
+         on the cell border and the header, where it is a block of colour rather
+         than a word, so nothing is lost by keeping the label legible. */
       brow.appendChild(bk);
       brow.appendChild(bv);
       rows.appendChild(brow);

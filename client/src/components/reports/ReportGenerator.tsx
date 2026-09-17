@@ -526,25 +526,22 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
 
     const lines: string[] = [];
 
-    // --- Metadata Header Block ---
-    lines.push("# Stratus Weather Server - Data Export");
-    lines.push(`# Station: ${csvVal(selectedStation?.name || "Unknown")}`);
-    lines.push(`# Location: ${csvVal(selectedStation?.location || "N/A")}`);
-    if (selectedStation?.latitude != null && selectedStation?.longitude != null) {
-      lines.push(`# Coordinates: ${safeFixed(selectedStation.latitude, 6)}, ${safeFixed(selectedStation.longitude, 6)}`);
-    }
-    if (selectedStation?.altitude != null) {
-      lines.push(`# Altitude: ${safeFixed(selectedStation.altitude, 1)} m`);
-    }
-    lines.push(`# Period: ${config.startDate} to ${config.endDate}`);
-    lines.push(`# Export Date: ${new Date().toISOString()}`);
-    lines.push(`# Total Records: ${weatherData.length}`);
-    lines.push(`# Parameters: ${columns.length}`);
-    lines.push(`# Timestamp Format: ISO 8601 (UTC)`);
-    lines.push(`# Missing Values: (empty)`);
-    lines.push("#");
-
-    // --- Column Headers ---
+    /**
+     * Column headers go on line 1, and the provenance block moves to the end.
+     *
+     * The metadata used to be written first, as a dozen lines each prefixed with
+     * "#". That convention comes from tools that treat "#" as a comment; a
+     * spreadsheet does not. Excel and Sheets read line 1 as the header row, so
+     * every export opened with "# Stratus Weather Server - Data Export" sitting
+     * where the column names belong and the real headings buried on row 13. That
+     * is also why a reader ends up navigating by column letter instead of by
+     * name.
+     *
+     * Header first means the file opens with named columns, and sorting,
+     * filtering and pivot tables all work on the data range without the reader
+     * having to strip anything. The provenance is still in the file, just below
+     * the data where it cannot be mistaken for a header.
+     */
     const headers = ["Timestamp_UTC", ...columns.map(c => c.header)];
     lines.push(headers.map(csvVal).join(","));
 
@@ -562,6 +559,31 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
       }
       lines.push(vals.join(","));
     }
+
+    /**
+     * Provenance block, after the data.
+     *
+     * A blank line separates it so a spreadsheet's "current region" detection
+     * stops at the end of the readings, which keeps autofilter and sort ranges
+     * clean. The "#" prefix is kept as a visual marker that these rows are not
+     * observations.
+     */
+    lines.push("");
+    lines.push("# Stratus Weather Server - Data Export");
+    lines.push(`# Station: ${csvVal(selectedStation?.name || "Unknown")}`);
+    lines.push(`# Location: ${csvVal(selectedStation?.location || "N/A")}`);
+    if (selectedStation?.latitude != null && selectedStation?.longitude != null) {
+      lines.push(`# Coordinates: ${safeFixed(selectedStation.latitude, 6)}, ${safeFixed(selectedStation.longitude, 6)}`);
+    }
+    if (selectedStation?.altitude != null) {
+      lines.push(`# Altitude: ${safeFixed(selectedStation.altitude, 1)} m AMSL`);
+    }
+    lines.push(`# Period: ${config.startDate} to ${config.endDate}`);
+    lines.push(`# Export Date: ${new Date().toISOString()}`);
+    lines.push(`# Total Records: ${weatherData.length}`);
+    lines.push(`# Parameters: ${columns.length}`);
+    lines.push(`# Timestamp Format: ISO 8601 (UTC)`);
+    lines.push(`# Missing Values: (empty)`);
 
     // --- Statistics Summary Block ---
     if (config.includeStatistics) {

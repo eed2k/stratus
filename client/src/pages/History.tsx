@@ -82,13 +82,24 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
   const handleExportCSV = () => {
     if (weatherData.length === 0) return;
     
+    /**
+     * Units belong in the header, not in the reader's memory.
+     *
+     * Most of these carried a bare name, so a column of rainfall figures gave no
+     * indication whether it was millimetres or tips, and pressure none of whether
+     * it was hPa or mbar. That is exactly the ambiguity that makes a rainfall
+     * total impossible to check against the logger.
+     */
     const headers = [
-      "Timestamp", "Temperature", "Humidity", "Pressure", "Wind Speed", "Wind Direction",
-      "Wind Gust", "Rainfall", "Solar Radiation", "UV Index", "Dew Point", "ETo",
-      "Battery Voltage", "Panel Temp", "Soil Temp", "Soil Moisture",
-      "PM10", "PM2.5", "Air Density",
-      "Water Level (mm)", "Temp Switch (mV)", "Level Switch (On/Off)", "Temp Switch Outlet (mV)", "Level Switch Status",
-      "Lightning", "Charger Voltage",
+      "Timestamp_UTC", "Temperature (°C)", "Humidity (%)", "Pressure (hPa)",
+      "Wind Speed (m/s)", "Wind Direction (deg)", "Wind Gust (m/s)",
+      "Rainfall (mm)", "Solar Radiation (W/m2)", "UV Index", "Dew Point (°C)",
+      "ETo (mm/day)", "Battery Voltage (V)", "Panel Temperature (°C)",
+      "Soil Temperature (°C)", "Soil Moisture (%)",
+      "PM10 (ug/m3)", "PM2.5 (ug/m3)", "Air Density (kg/m3)",
+      "Water Level (mm)", "Temp Switch (mV)", "Level Switch (On/Off)",
+      "Temp Switch Outlet (mV)", "Level Switch Status",
+      "Lightning Strikes", "Charger Voltage (V)",
     ];
     const rows = weatherData.map(d => [
       new Date(d.timestamp).toISOString(),

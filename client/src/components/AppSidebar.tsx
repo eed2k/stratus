@@ -134,7 +134,9 @@ const adminNavSections: NavSection[] = [
     items: [
       { title: "Station Setup", url: "/stations" },
       { title: "User Management", url: "/users" },
-      { title: "Alerts", url: "/alarms" },
+      // The Alert Management page was removed: it was never used and no alarms
+      // were ever configured through it. Lightning alerting lives in the AS3935
+      // console, which has its own recipients, groups and escalation stages.
       { title: "System Settings", url: "/settings" },
     ],
   },

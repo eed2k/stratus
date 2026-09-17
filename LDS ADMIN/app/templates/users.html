@@ -15,10 +15,15 @@
     <label>E-mail<input name="email" type="email" required></label>
     <label>Password (min 10 chars)<input name="password" type="password" required minlength="10"></label>
     <label>Role
+      {# Admin is offered on the platform panel only. `base` is empty there and
+         "/<slug>" inside a client panel, so it is the distinction we already
+         have. Inside a client panel the choice is operator or viewer: the server
+         rejects admin there, and offering a choice that will be refused is
+         worse than not offering it. #}
       <select name="role">
         <option value="operator">Operator</option>
-        <option value="admin">Admin</option>
         <option value="viewer">Viewer</option>
+        {% if not base %}<option value="admin">Admin</option>{% endif %}
       </select>
     </label>
     <button class="primary" type="submit">Add</button>

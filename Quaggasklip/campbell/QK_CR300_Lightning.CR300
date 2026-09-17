@@ -1,15 +1,15 @@
 '=============================================================================
 '
 '  Stratus AS3935 Lightning Detection System
-'  CR300 receiver: logs the ASCII serial records sent by the Pi Zero detector.
+'  Logging the ASCII serial records sent by the RPi Zero W LDS
 '
-'  Property of METRON (PTY) LTD | Inteltronics
-'  Developed by L.J. Esterhuizen, Inteltronics
+'  Property of METRON (PTY) LTD [Inteltronics]
+'  Developer: L.J. Esterhuizen
 '
 '=============================================================================
 ' Site: QUAGGASKLIP
 '
-' WHAT THE PI SENDS   9600 baud, 8 data bits, no parity, 1 stop bit, 3.3 V TTL
+' 9600 baud, 8 data bits, no parity, 1 stop bit, 3.3 V TTL
 '
 '   L,<distance_km>,<energy>     one record per forwarded strike
 '   H,<cpu_temp_c>,<rssi_dbm>    status, every campbell_heartbeat_interval
@@ -144,19 +144,25 @@ DataTable (LightningEvents, True, -1)
   Sample (1, LastRecord, String)
 EndTable
 
-' Detector health, once a minute.
-DataTable (LightningHealth, True, -1)
-  DataInterval (0, 1, Min, 10)
-  Sample (1, DetectorOnline, Boolean)
-  Sample (1, MinutesSinceRecord, FP2)
-  Sample (1, PiCpuTempC, FP2)
-  Sample (1, PiRssiDbm, FP2)
-  Sample (1, StrikeCount, Long)
-  Sample (1, StatusCount, Long)
-  Sample (1, ParseErrorCount, Long)
-  Sample (1, PulseCountTotal, FP2)
-  Sample (1, CountMismatch, FP2)
-EndTable
+' The once-a-minute LightningHealth table was REMOVED.
+'
+' It logged the detector's own housekeeping: Pi CPU temperature, wifi RSSI, an
+' online flag, minutes since the last record, and running record/error counts.
+' That is 1440 rows a day describing the Pi rather than the lightning, on a
+' logger whose actual subject may produce nothing for weeks.
+'
+' It was also a second copy of something this logger is not the system of record
+' for. The Pi reports its own CPU temperature, load and RSSI straight to the
+' lightning console on its hourly heartbeat, and the console is where the unit's
+' health is read. Two sources for one fact is how they end up disagreeing.
+'
+' Everything it sampled is still computed and still Public, so DetectorOnline,
+' PiCpuTempC, PiRssiDbm, CountMismatch and the counters remain visible in the
+' logger's live numeric display for troubleshooting on site. They are simply not
+' written to storage.
+'
+' What this logger records is lightning: distance, energy and the mirrored IRQ
+' pulse.
 
 ' Daily summary, the same figures the monthly report quotes. Today's values are
 ' tracked in their own variables and reset at midnight, so a day with no
@@ -188,6 +194,14 @@ BeginProg
 
   Scan (SCAN_MS, mSec, 0, 0)
 
+    ' RecordOK describes THIS scan, so it is cleared at the top of every scan.
+    ' It used to be cleared only inside the "a record arrived" branch below,
+    ' which left it holding last scan's answer on any scan where the UART was
+    ' quiet. Nothing depended on that until the pulse-only output below started
+    ' testing it, at which point a stale True would have suppressed exactly the
+    ' rows that output exists to capture.
+    RecordOK = False
+
     '--- Pulse input, one 50 ms pulse per confirmed strike -----------------
     ' PConfig 2 = switch closure up to 150 Hz, POption 0 = counts. This is the
     ' independent strike count, see the PULSE INPUT note in the header.
@@ -207,7 +221,6 @@ BeginProg
       ' Field 1 is the leading letter and parses as NAN. Fields 2 and 3 carry
       ' the values.
       SplitStr (Parsed, LastRecord, ",", 3, 0)
-      RecordOK = False
 
       ' x = x is false only for NAN, which is how a failed parse is caught.
       If Parsed(2) = Parsed(2) AND Parsed(3) = Parsed(3) Then
@@ -263,7 +276,18 @@ BeginProg
     CountMismatch = PulseCountTotal - StrikeCount
 
     '--- Output -----------------------------------------------------------
-    CallTable LightningHealth
+    ' A mirrored IRQ pulse with no serial record still deserves a row. The pulse
+    ' is the hardware witness that the sensor fired; the serial record is the
+    ' software account of it. If the UART drops a message the pulse is the only
+    ' evidence left, and losing it would make a real strike invisible.
+    If PulseCountScan > 0 And Not RecordOK Then
+      CallTable LightningEvents
+    EndIf
+
+    ' LightningDaily is still called every scan on purpose: its Totalize
+    ' accumulates once per CallTable, so gating this behind IfTime would build the
+    ' daily total from a single sample per day. DataInterval decides when the row
+    ' is written.
     CallTable LightningDaily
 
     ' Reset today's figures after the daily row has been written above.

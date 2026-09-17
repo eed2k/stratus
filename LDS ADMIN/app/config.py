@@ -84,10 +84,29 @@ class Settings(BaseSettings):
                 return val
         return self.ALERT_WEBHOOK_TOKEN or ""
 
-    # Site name used in SMS alerts. Set SITE_NAME in the environment per
-    # deployment; falls back to the station_id reported by the detector.
-    # from the Pi if not set.
-    SITE_NAME: str = "Lightning Detection Site"
+    # DEPRECATED and no longer used to name any client.
+    #
+    # This was a single deployment-wide site name, set when the panel served one
+    # client. It is a multi-tenant console now, so a client's name can only come
+    # from that client's own Tenant row: site_name, else name. A detector can
+    # override it with its own site_label.
+    #
+    # It caused a real fault while it was still a fallback: the environment held
+    # the FIRST client onboarded, so every later client's SMS alerts, page
+    # headers and station labels carried that first client's name. There is no
+    # value this could hold that is correct for more than one client, so nothing
+    # reads it any more.
+    #
+    # The field is retained only so an existing deployment that still sets
+    # SITE_NAME in its environment continues to start rather than failing
+    # validation on an unexpected variable. Remove the variable from .env when
+    # convenient.
+    SITE_NAME: str = ""
+
+    # The platform's own name, for the platform console and as the last-resort
+    # label when a page is not inside any client panel. Neutral by design: it
+    # must never be a client's name.
+    PLATFORM_NAME: str = "Stratus Weather"
 
     # Slug of the tenant that owns Stratus' own panel. Existing data is filed
     # under it on upgrade, and newly-seen detectors land there until assigned.

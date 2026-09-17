@@ -174,3 +174,43 @@
     margin-bottom: 0.25rem !important;
   }
 }
+
+/*
+  Keep Leaflet inside the page's stacking order.
+
+  Leaflet assigns its panes and controls very large z-index values of its own
+  (panes 200 to 700, controls 800, the corner containers 1000). Our overlays sit
+  at z-50, so a map punched straight through anything laid over it: opening the
+  dashboard configuration sheet left the station map floating on top of the
+  panel, which is the report of the map "showing along with it".
+
+  Setting these to auto does not disturb the map's internal layering, because the
+  panes are nested in the order Leaflet wants them drawn, so document order gives
+  the same result. It only stops those numbers escaping the map container.
+
+  The container itself gets an explicit isolation so it forms its own stacking
+  context and can never outrank a dialog, sheet, dropdown or tooltip again.
+*/
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tooltip,
+.leaflet-popup,
+.leaflet-overlay-pane,
+.leaflet-shadow-pane,
+.leaflet-marker-pane,
+.leaflet-tooltip-pane,
+.leaflet-popup-pane,
+.leaflet-map-pane canvas,
+.leaflet-map-pane svg,
+.leaflet-control,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: auto !important;
+}
+
+.leaflet-container {
+  z-index: 0;
+  isolation: isolate;
+}

@@ -29,11 +29,24 @@ def _key(base: str, tenant_id) -> str:
 
 
 def _read(db: Session, base: str, tenant_id):
-    """Tenant value if present, else the pre-multi-tenant global value."""
+    """This tenant's value, or None.
+
+    Deliberately NO fallback to the bare un-prefixed key.
+
+    That fallback used to exist to carry pre-multi-tenant values forward, and it
+    silently shared one client's settings with every client that had not yet
+    written its own. The consequences were not cosmetic: last_alert_sent_at is
+    the cooldown clock, so one client's alert could suppress another client's
+    first alert, and alerts_enabled meant switching alerts off in one panel could
+    reach into a panel that had never been configured.
+
+    A tenant with no row of its own now gets the documented default from the
+    caller instead of inheriting a neighbour's value. The bare keys are migrated
+    onto the platform tenant at boot (see bootstrap.migrate_global_settings) and
+    are inert after that.
+    """
     if tenant_id is not None:
-        row = db.get(Setting, _key(base, tenant_id))
-        if row is not None:
-            return row
+        return db.get(Setting, _key(base, tenant_id))
     return db.get(Setting, base)
 
 

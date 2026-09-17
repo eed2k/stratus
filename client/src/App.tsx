@@ -22,7 +22,7 @@ const CampbellDashboard = lazy(() => import("@/pages/CampbellDashboard"));
 const Stations = lazy(() => import("@/pages/Stations"));
 const History = lazy(() => import("@/pages/History"));
 const Settings = lazy(() => import("@/pages/Settings"));
-const Alarms = lazy(() => import("@/pages/Alarms"));
+
 const Reports = lazy(() => import("@/pages/Reports"));
 const ReportsSchedule = lazy(() => import("@/pages/ReportsSchedule"));
 const SharedDashboard = lazy(() => import("@/pages/SharedDashboard"));
@@ -57,7 +57,7 @@ function Router() {
   // the authenticated app. They no longer have a separate portal password.
 
   // Check if this is a friendly share slug (e.g., /swakop-uranium)
-  const knownPrefixes = ['/', '/shared/', '/forgot-password', '/reset-password', '/setup-password', '/dashboard', '/campbell', '/stations', '/users', '/history', '/alarms', '/reports', '/settings', '/account', '/docs'];
+  const knownPrefixes = ['/', '/shared/', '/forgot-password', '/reset-password', '/setup-password', '/dashboard', '/campbell', '/stations', '/users', '/history', '/reports', '/settings', '/account', '/docs'];
   const isKnownRoute = location === '/' || knownPrefixes.some(p => p !== '/' && location.startsWith(p));
   const isSlugRoute = !isKnownRoute && /^\/[a-z0-9][a-z0-9-]*$/.test(location);
   
@@ -223,9 +223,7 @@ function AuthenticatedApp({ user, logout, isAdmin, canAccessStation }: {
               <Route path="/history">
                 <History canAccessStation={canAccessStation} isAdmin={isAdmin} />
               </Route>
-              <Route path="/alarms">
-                <AdminRoute isAdmin={isAdmin}><Alarms /></AdminRoute>
-              </Route>
+
 
               <Route path="/reports">
                 <AdminRoute isAdmin={isAdmin}><Reports /></AdminRoute>

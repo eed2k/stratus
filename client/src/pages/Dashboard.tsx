@@ -1020,20 +1020,9 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
     );
   }, [statsData]);
 
-  // Calculate actual data time range for display
-  const dataTimeRange = useMemo(() => {
-    if (historicalData.length === 0) return null;
-    const timestamps = historicalData.map(d => new Date(d.timestamp).getTime());
-    const earliest = new Date(Math.min(...timestamps));
-    const latest = new Date(Math.max(...timestamps));
-    const hoursAvailable = (latest.getTime() - earliest.getTime()) / (1000 * 60 * 60);
-    return {
-      earliest,
-      latest,
-      hoursAvailable: Math.round(hoursAvailable * 10) / 10,
-      recordCount: historicalData.length
-    };
-  }, [historicalData]);
+  // The data-coverage calculation that used to live here was removed with the
+  // badge that displayed it. It walked every record on each render to derive a
+  // figure nobody acts on.
 
   // Detect which data fields have valid data AND are enabled in config
   const availableFields = useMemo(() => {
@@ -2060,23 +2049,17 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            Updates every {dashboardConfig.updatePeriod < 60 
-              ? `${dashboardConfig.updatePeriod}s` 
-              : `${Math.floor(dashboardConfig.updatePeriod / 60)}m`}
-          </Badge>
-          {dataTimeRange && (
-            <Badge 
-              variant={dataTimeRange.hoursAvailable < dashboardConfig.chartTimeRange ? "secondary" : "outline"} 
-              className="text-xs"
-              title={`Data from ${dataTimeRange.earliest.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })} to ${dataTimeRange.latest.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg', hour12: false })}`}
-            >
-              {dataTimeRange.hoursAvailable < dashboardConfig.chartTimeRange 
-                ? `${safeFixed(dataTimeRange.hoursAvailable, 1)}h of ${dashboardConfig.chartTimeRange}h data`
-                : `${dashboardConfig.chartTimeRange}h data`
-              } ({dataTimeRange.recordCount} records)
-            </Badge>
-          )}
+          {/*
+            The "Updates every 60m" and "22.7h of 24h data (1001 records)" badges
+            were removed at the operator's request.
+
+            Both described the plumbing rather than the weather. The refresh
+            cadence is set in Update Settings, so restating it on every dashboard
+            added nothing, and the coverage badge reported a shortfall that is
+            almost always just the logger's own start time inside the window
+            rather than a fault. Anyone who needs the record count has the
+            history and export pages.
+          */}
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={dataLoading}>
             Refresh
           </Button>

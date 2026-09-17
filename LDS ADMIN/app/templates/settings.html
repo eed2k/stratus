@@ -2,30 +2,74 @@
 {% block title %}Settings{% endblock %}
 {% block content %}
 <h1>Settings</h1>
+
+{#
+  Readable by every signed-in role, writable by admin and operator.
+
+  Alert delivery and the detector's own health are what a shift needs before it
+  can act on an alert: whether SMS is on, how long the cooldown suppresses
+  repeats, and whether the unit is reporting at all. A viewer who cannot see
+  those is being asked to trust the dashboard blindly. So both cards render for
+  every role and only the controls are gated on can_write.
+
+  These two cards used to sit on the Dashboard, above the storm display. That put
+  configuration in front of the thing people open the panel to look at, so the
+  Dashboard now carries only storm activity and recent alerts.
+#}
+{% set can_write = user.role in ['admin','operator'] %}
+
 <p class="muted" style="text-align:left;padding:0 0 10px;">
-  Admin-only. Secrets live in the server environment (<code>.env</code>) and are
-  never shown here. Only whether each is configured is displayed.
+  Secrets live in the server environment (<code>.env</code>) and are never shown
+  here. Only whether each is configured is displayed.
 </p>
 
 <div class="card">
   <h3>Alert delivery</h3>
   {% if alerts_enabled %}
-  <p>SMS alerts are <strong class="state-on">ON</strong>.</p>
-  <form method="post" action="{{ base }}/alerts/toggle" class="inline"
-        data-confirm="Switch SMS alerts OFF? Recipients will NOT be notified of strikes.">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="enabled" value="off">
-    <button class="danger" type="submit">Switch Alerts OFF</button>
-  </form>
+  <p>SMS alerts are <strong class="state-on">ON</strong>. Recipients
+     are notified when a qualifying strike is detected.</p>
   {% else %}
-  <p>SMS alerts are <strong class="state-off">OFF</strong>.</p>
-  <form method="post" action="{{ base }}/alerts/toggle" class="inline">
+  <p>SMS alerts are <strong class="state-off">OFF</strong>. Strikes are
+     still recorded, but no SMS is sent.</p>
+  {% endif %}
+  {% if can_write %}
+    {% if alerts_enabled %}
+    <form method="post" action="{{ base }}/alerts/toggle" class="inline"
+          data-confirm="Switch SMS alerts OFF? Recipients will NOT be notified of strikes.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="enabled" value="off">
+      <button class="danger" type="submit">Switch Alerts OFF</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ base }}/alerts/toggle" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="enabled" value="on">
+      <button class="primary" type="submit">Switch Alerts ON</button>
+    </form>
+    {% endif %}
+  {% endif %}
+
+  <p class="cooldown-line">
+    Alert cooldown:
+    {% if alert_cooldown_min and alert_cooldown_min > 0 %}
+      <strong>{{ alert_cooldown_min }} min.</strong> After an SMS is sent,
+      further strikes within alert range do not trigger an alert for this period.
+    {% else %}
+      <strong>off.</strong> Every qualifying strike sends an SMS.
+    {% endif %}
+  </p>
+  {% if can_write %}
+  <form method="post" action="{{ base }}/alerts/cooldown" class="inline cooldown-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="enabled" value="on">
-    <button class="primary" type="submit">Switch Alerts ON</button>
+    <label for="cooldown_min">Set cooldown (minutes, 0 = off):</label>
+    <input type="number" id="cooldown_min" name="cooldown_min" min="0" max="1440"
+           step="1" value="{{ alert_cooldown_min or 0 }}">
+    <button class="primary" type="submit">Save</button>
   </form>
   {% endif %}
 </div>
+
+{% include "_detector_unit.html" %}
 
 {#
   Gateway status is PLATFORM infrastructure and is shown only on the platform
@@ -67,5 +111,28 @@
   </p>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{#
+  The CPU temperature and load charts live on this page now, so their bundles
+  load here. Without this block the detector card rendered its server-side SVG
+  fallback and nothing else: the interactive chart never mounted and the
+  24 H / 7 D / 30 D selector stayed hidden, because cpu-chart.js is what reveals
+  it once the chart has drawn.
+
+  All four bundles are vendored under /static/vendor/ rather than pulled from a
+  CDN, which is what lets the panel keep the strict "script-src 'self'" policy
+  with no exceptions.
+
+  Load order matters: the Recharts UMD factory resolves window.React,
+  window.PropTypes and window.ReactDOM at evaluation time, so all three must
+  already be defined. `defer` preserves document order, so this sequence holds.
+#}
+<script src="/static/vendor/react.production.min.js" defer></script>
+<script src="/static/vendor/prop-types.min.js" defer></script>
+<script src="/static/vendor/react-dom.production.min.js" defer></script>
+<script src="/static/vendor/recharts.js" defer></script>
+<script src="/static/js/cpu-chart.js" defer></script>
 {% endblock %}
 {# end settings #}
