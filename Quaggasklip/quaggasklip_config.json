@@ -26,6 +26,8 @@
   "campbell_port": "/dev/serial0",
   "campbell_baud": 9600,
   "campbell_write_timeout": 0.5,
+  "_comment_campbell_hb": "Status records to the logger are OFF. Detector health goes to the admin panel only, which is the system of record for whether a unit is alive. The logger records lightning: distance and energy. Consequence: the logger cannot tell a quiet sky from a dead detector, because both are zero L records. The panel answers that instead.",
+  "campbell_heartbeat_enabled": false,
   "campbell_heartbeat_interval": 600,
   "campbell_read_enabled": true,
   "_comment_txpin": "Bit-bang fallback only. GPIO26 is socket 2 INT, so it lands on the Terminal 2 Click terminal labelled INT and does reach a screw terminal.",

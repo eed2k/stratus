@@ -17,7 +17,28 @@
 # ===========================================================================
 set -uo pipefail
 
-SERVICE="lightning-detector"
+# The unit is called quaggasklip.service, which is what install.sh installs.
+# Candidates are listed because this script was previously hardcoded to
+# "lightning-detector", a name that does not exist on this unit, and the
+# consequence was worse than a failed command:
+#
+#   systemctl is-active --quiet <nonexistent>  exits non-zero, exactly as it does
+#   for a unit that exists but is stopped. So WAS_ACTIVE stayed "no", the script
+#   printed a reassuring "not running", and then ran the calibration while the
+#   REAL detector service still held /dev/spidev0.0 and the GPIO6 interrupt.
+#   The calibration cannot work under those conditions, and nothing said why.
+#
+# So resolve the name against installed units, and treat "no unit found at all"
+# as a hard error rather than as "stopped".
+SERVICE=""
+for candidate in quaggasklip quaggasklip-detector lightning-detector; do
+    if systemctl list-unit-files "${candidate}.service" >/dev/null 2>&1 \
+       && systemctl cat "${candidate}.service" >/dev/null 2>&1; then
+        SERVICE="$candidate"
+        break
+    fi
+done
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOL="${HERE}/as3935_bench_cal.py"
 
@@ -30,6 +51,18 @@ if [ ! -f "$TOOL" ]; then
     echo "Cannot find ${TOOL}" >&2
     exit 1
 fi
+
+if [ -z "$SERVICE" ]; then
+    echo "Could not find the detector's systemd unit." >&2
+    echo "Looked for: quaggasklip, quaggasklip-detector, lightning-detector" >&2
+    echo >&2
+    echo "Refusing to continue. If the detector is running under another name it" >&2
+    echo "still holds SPI and the interrupt line, and the calibration would return" >&2
+    echo "nonsense without saying why. Find the real name and set SERVICE:" >&2
+    echo "  systemctl list-units --type=service | grep -i -e quagga -e lightning" >&2
+    exit 1
+fi
+echo "Detector service: ${SERVICE}.service"
 
 # Only restart what we actually stopped. If the service was already down when we
 # arrived, leave it down: that is someone else's deliberate state.

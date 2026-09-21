@@ -155,22 +155,35 @@ This unit has no use for Bluetooth.
 
 ```
 L,<distance_km>,<energy>      one per forwarded strike
-H,<cpu_temp_c>,<rssi_dbm>     periodic, about every 10 minutes
+H,<cpu_temp_c>,<rssi_dbm>     status - DISABLED on this unit, see below
 ```
 
 `distance_km` is `-1` when the storm is out of range (beyond about 40 km).
 `energy` is the sensor's own 21-bit comparative figure - useful for ranking
 strikes against each other, not a measurement in joules.
 
-This is byte-for-byte the format the GWLD1 unit sends, on purpose: a CRBasic
+The format is byte-for-byte what the GWLD1 unit sends, on purpose: a CRBasic
 program written for that site reads this one without modification. It was not
 "improved" for that reason alone.
 
-`campbell/QK_CR300_Lightning.CR300` is the logger program. It differs from
-GWLD1's in one respect: it reads the `H` status records as well as the `L` strike
-records, so the logger can tell a quiet sky from a dead detector
-(`DetectorOnline`, `MinutesSinceRecord`). GWLD1's program filtered on a
-BeginWord of `L` and therefore discarded them.
+### The logger records lightning, the panel records health
+
+`campbell_heartbeat_enabled` is **`false`**. The `H` status record is not sent to
+the logger at all. Detector health goes to the admin panel, which already
+receives it on the panel heartbeat and is the system of record for whether a unit
+is alive. Putting the same fact in two places is how the two end up disagreeing.
+
+The consequence, stated rather than hidden: **the logger cannot tell a quiet sky
+from a dead detector**, because both produce zero `L` records. That question is
+now answered by the panel alone. If you ever want the logger to answer it too,
+set `campbell_heartbeat_enabled` to `true` and add an `H` branch back to the
+logger program.
+
+`campbell/QK_CR300_Lightning.CR300` therefore stores only distance, energy and
+the independent pulse count. It accepts a record only when it begins `L,` - two
+characters, so a corrupted line like `LL,1,2` cannot have its numbers logged as a
+real strike - and counts anything else in `ParseErrorCount` without storing it.
+That holds even if the status record is re-enabled on the Pi.
 
 ### Two transports
 
@@ -314,6 +327,69 @@ runs once a day at a quiet hour rather than on demand.
 
 ---
 
+
+## Remote access (Tailscale)
+
+The unit sits on whatever network the site provides, usually behind NAT with no
+public address. Tailscale puts it on a private mesh so it can be reached from
+anywhere without port forwarding or a VPN concentrator.
+
+```bash
+sudo bash tailscale_setup.sh --authkey tskey-auth-xxxxx --advertise-tags=tag:lds
+sudo bash tailscale_setup.sh --status          # read-only, no sudo needed
+```
+
+Then from any machine on the tailnet:
+
+```bash
+ssh quaggasklip@quaggasklip-lds       # MagicDNS
+ssh quaggasklip@100.x.y.z             # or the Tailscale IP
+```
+
+Tailscale SSH is enabled, so access is governed by tailnet ACLs rather than by
+keys or passwords held on the unit.
+
+### Why a tarball and not apt
+
+**A Pi Zero W is ARMv6.** The `armhf` apt package is built for ARMv7, so the
+packaged `tailscaled` dies immediately with `Illegal instruction`
+([tailscale#6778](https://github.com/tailscale/tailscale/issues/6778)). This build
+supports a Zero W *or* a Zero 2 W, which are ARMv6 and ARMv8, so the script reads
+`uname -m` at run time and fetches the matching static build:
+
+| `uname -m` | Board | Build |
+|---|---|---|
+| `armv6l` | Pi Zero W | `arm` |
+| `armv7l` | Zero 2 W, 32-bit OS | `arm` |
+| `aarch64` | Zero 2 W, 64-bit OS | `arm64` |
+
+One code path for both removes any chance of quietly installing an ARMv7 binary
+on an ARMv6 chip. If the daemon still fails to start, the script greps the journal
+for `illegal instruction` so that failure names itself instead of looking like a
+network fault.
+
+Tradeoff: no automatic apt upgrades. Re-run the script to upgrade; it compares
+versions and only replaces the binaries when they differ.
+
+### Two things only the admin console can do
+
+**Tag the node, or it goes dark after about 180 days.** A node's key expires by
+default and the unit then drops off the tailnet. On something mounted on a pole
+that is an expensive way to find out. Tagged devices have no key expiry, so define
+a tag such as `tag:lds` in the ACL policy with yourself as owner and pass
+`--advertise-tags=tag:lds`. The script warns if the node ends up with an expiring
+key, but it cannot fix that from the device side.
+
+**Approve the subnet route** if you use `--advertise-lan`. That advertises the
+unit's own LAN, which is also how you would reach the CR300's web interface
+remotely. Advertised routes stay inactive until approved.
+
+`--accept-dns=false` is deliberate. The detector resolves the panel's hostname
+over the site uplink, and rewriting `/etc/resolv.conf` on an appliance is a good
+way to break something that was working.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause |
@@ -339,13 +415,18 @@ first call for almost any "it sees nothing" report.
 ```
 quaggasklip_detector.py       the detector
 quaggasklip_config.json       per-site settings (holds the panel token, mode 0600)
-find_irq_pin.py               identifies socket 2's interrupt GPIO
+find_irq_pin.py               identifies socket 1's interrupt GPIO
 check_campbell_link.py        loopback / send / listen check for the UART
+as3935_bench_cal.py           tune-cap calibration and register sweep
+run_bench_cal.sh              wrapper: stops the detector, restores it on any exit
+tailscale_setup.sh            remote access, architecture-aware
 quaggasklip.service           systemd unit
 install.sh                    installer
 requirements.txt              Python dependencies
 campbell/QK_CR300_Lightning.CR300   logger program
 tests/                        off-target tests, no hardware needed
+tests/check_cr300.py          static review of the logger program
+tests/test_cr300_parse.py     Pi to CR300 record contract
 ```
 
 ## Tests

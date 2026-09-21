@@ -215,7 +215,11 @@ class Config:
         self.CAMPBELL_PORT      = "/dev/serial0"
         self.CAMPBELL_BAUD      = 9600       # 8N1, matches SerialOpen in CRBasic
         self.CAMPBELL_WRITE_TIMEOUT = 0.5    # hard deadline; never block the loop
-        self.CAMPBELL_HEARTBEAT_INTERVAL = 600   # a quiet sky is not a dead unit
+        #  Status records to the logger are OFF. Health goes to the admin panel
+        #  only; the logger records lightning. Interval is kept so the feature
+        #  still works if it is ever re-enabled.
+        self.CAMPBELL_HEARTBEAT_ENABLED = False
+        self.CAMPBELL_HEARTBEAT_INTERVAL = 600
         #  The Terminal 2 Click also breaks out RX. Reading it is diagnostic
         #  only: whatever the logger sends is logged, never acted on. A serial
         #  line into a safety device is not a control channel, and treating it
@@ -1020,6 +1024,7 @@ class QuaggasklipDetector:
         "CAMPBELL_TRANSPORT":          (str, ["serial", "bitbang"], None),
         "CAMPBELL_BAUD":               (int, 300, 115200),
         "CAMPBELL_WRITE_TIMEOUT":      (float, 0.05, 5.0),
+        "CAMPBELL_HEARTBEAT_ENABLED":  (bool, None, None),
         "CAMPBELL_HEARTBEAT_INTERVAL": (int, 60, 86400),
         "CAMPBELL_READ_ENABLED":       (bool, None, None),
         "CAMPBELL_READ_MAX_LINE":      (int, 16, 4096),
@@ -1893,7 +1898,16 @@ class QuaggasklipDetector:
             self._stratus_post({"cpuTemperature": cpu_temp,
                                 "rssi": wifi["rssi_dbm"]})
 
-        if campbell_due:
+        # The status record is OFF by default. Detector health belongs to the
+        # admin panel, which already receives it on the panel heartbeat below and
+        # is the system of record for whether a unit is alive. The logger's job is
+        # lightning: distance and energy. Sending health to both put the same fact
+        # in two places, which is how they end up disagreeing.
+        #
+        # The cost of turning it off, stated plainly: the logger can no longer tell
+        # "no lightning" apart from "detector dead", because both look like zero L
+        # records. That question is now answered by the panel alone.
+        if campbell_due and self.config.CAMPBELL_HEARTBEAT_ENABLED:
             self._last_campbell_heartbeat = now
             self.campbell.send_heartbeat(cpu_temp, wifi["rssi_dbm"])
 

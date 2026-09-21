@@ -3,9 +3,9 @@
 
 Run this ON the detector Pi, with the AS3935 in its socket:
 
-    sudo systemctl stop lightning-detector      # it owns SPI and the IRQ line
+    sudo systemctl stop quaggasklip      # it owns SPI and the IRQ line
     sudo python3 as3935_bench_cal.py --sweep
-    sudo systemctl start lightning-detector
+    sudo systemctl start quaggasklip
 
 Defaults match the Quaggasklip build: Thunder Click in mikroBUS socket 1 of a
 Pi 2 Click Shield, so SPI 0.0 (CE0) and INT on BCM6. Override with --dev and
@@ -322,7 +322,7 @@ def main():
             print("     it is socket 1, which is CE0 = spidev 0.0, so --dev 0.")
             print("  2. SPI is enabled (dtparam=spi=on in the boot config).")
             print("  3. The service is stopped, so it is not holding the bus:")
-            print("     sudo systemctl stop lightning-detector")
+            print("     sudo systemctl stop quaggasklip")
             return 1
 
         calibrate_rco(s)
@@ -406,7 +406,7 @@ def main():
             print(f"\n   {args.config}")
             print(f"   {TUNE_CAP_KEY}: {was} -> {args.commit}")
             print("   restart the service for it to take effect:")
-            print("     sudo systemctl restart lightning-detector")
+            print("     sudo systemctl restart quaggasklip")
         return 0
 
     finally:
