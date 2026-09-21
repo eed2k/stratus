@@ -64,27 +64,40 @@ Not routed to either socket, so free for other use: GPIO12, 16, 20, 21, 22, 23,
 ### Wiring to the logger
 
 Everything leaves from the Terminal 2 Click's screw terminals, so one cable runs
-to the logger. The Click breaks socket 2 out across two blocks: TB1 carries AN,
-RST, CS, SCK, MISO, MOSI and 3V3; TB2 carries PWM, INT, TX, RX, SCL, SDA and 5V.
+to the logger. The Click breaks socket 2 out across two 9-position blocks, one per
+side of the mikroBUS socket:
+
+| Block | Terminals | mikroBUS pins |
+|---|---|---|
+| left | AN, RST, CS, SCK, MISO, MOSI, 3V3, GND | 1 to 8 |
+| right | GND, 5V, SDA, SCL, RX, TX, INT, PWM | 9 to 16 |
+
+**Wire by the silkscreen label, never by counting positions.** The signal names
+are printed beside the terminals. Block position numbers are a different scheme
+and an earlier revision of these notes stated them wrongly.
 
 | Terminal 2 Click | Socket 2 pin | CR300 | Purpose |
 |---|---|---|---|
-| TB2 TX | GPIO14 | C2 | ASCII records, Pi to logger |
-| TB1 GND or TB2 GND | - | G | common ground - **required** |
-| TB1 RST | GPIO19 | P_SW | one pulse per strike, optional |
-| TB2 RX | GPIO15 | - | leave open unless the logger transmits |
+| `TX` | GPIO14 | C2 | ASCII records, Pi to logger |
+| `GND` (either block) | - | G | common ground, **required** |
+| `RST` | GPIO19 | P_SW | one pulse per strike, optional |
+| `RX` | GPIO15 | - | leave open, the logger never transmits |
+
+`TX` is mikroBUS pin 14 and is the host's transmit output, so it carries the Pi's
+outgoing records. It must go to **C2**, because that is the terminal the logger
+program opens for receive with `ComC2_Rx`. Nothing listens on C1.
 
 Ground is not optional. Without a shared reference the receiver sees noise
 instead of data, and the only symptom is a rising `ParseErrorCount`.
 
 **On the strike pulse pin.** It has to be a socket 2 pin to reach a terminal, and
-GPIO19 is socket 2's RST, which lands on TB1 pin 7. That matches what the CR300
-program's header says. GPIO17 is the other candidate, socket 2's PWM on TB2
-pin 2, and it is the more natural name for a pulse output; if you move to it,
-update the logger program's comment as well so the two do not drift apart.
-GPIO18 is **not** an option on this build despite being the obvious "socket 1
-PWM": socket 1 is where the Thunder Click sits, so GPIO18 has no terminal to
-land on.
+GPIO19 is socket 2's RST, so it comes out on the terminal labelled `RST`
+(mikroBUS pin 2, left block). That matches what the CR300 program's header says.
+GPIO17 is the other candidate, socket 2's PWM on the terminal labelled `PWM`, and
+it is the more natural name for a pulse output; if you move to it, update the
+logger program's comment as well so the two do not drift apart. GPIO18 is **not**
+an option on this build despite being the obvious "socket 1 PWM": socket 1 is
+where the Thunder Click sits, so GPIO18 has no terminal to land on.
 
 ---
 

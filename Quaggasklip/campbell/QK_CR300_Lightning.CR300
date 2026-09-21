@@ -37,12 +37,23 @@
 ' WIRING
 '
 ' Everything lands on the Terminal 2 Click, which sits in mikroBUS socket 2 of
-' the Pi 2 Click Shield and breaks that socket out to two screw blocks. TB1
-' carries AN, RST, CS, SCK, MISO, MOSI and 3V3; TB2 carries PWM, INT, TX, RX,
-' SCL, SDA and 5V.
+' the Pi 2 Click Shield and breaks that socket out to two 9-position screw
+' blocks, one per side of the mikroBUS socket:
 '
-'   Terminal 2 Click TB2 "TX"    Pi BCM 14   ->  CR300  C2
-'   Terminal 2 Click either GND  Pi GND      ->  CR300  G
+'   left  block   AN  RST  CS  SCK  MISO  MOSI  3V3  GND   (mikroBUS pins 1-8)
+'   right block   GND  5V  SDA  SCL  RX  TX  INT  PWM      (mikroBUS pins 9-16)
+'
+' ALWAYS WIRE BY THE SILKSCREEN LABEL, NOT BY COUNTING POSITIONS. The signal
+' names are printed next to the terminals and are unambiguous; block position
+' numbers are not, and an earlier revision of this comment had them wrong.
+'
+'   Terminal 2 Click  "TX"    Pi BCM 14   ->  CR300  C2
+'   Terminal 2 Click  "GND"   Pi GND      ->  CR300  G
+'
+' TX is mikroBUS pin 14 and it is the HOST's transmit output, so it carries the
+' Pi's outgoing records. It goes to C2 because that is the terminal this program
+' opens for receive, via ComC2_Rx. Do not cross it to C1; nothing is listening
+' there. There is no wire in the other direction: the logger only receives.
 '
 ' Ground is not optional. Without a shared reference the receiver samples noise
 ' instead of data, and the symptom is ParseErrorCount climbing steadily while
@@ -60,8 +71,9 @@
 ' rate stops drifting with the core clock.
 '
 ' If for some reason the boot config cannot be changed, the detector has a
-' bit-bang fallback on BCM 26. That is socket 2's INT, so it comes out on TB2
-' pin 3, and it needs campbell_transport set to "bitbang" plus pigpiod running.
+' bit-bang fallback on BCM 26. That is socket 2's INT, so it comes out on the
+' terminal labelled "INT", and it needs campbell_transport set to "bitbang" plus
+' pigpiod running.
 ' Prefer the hardware UART: it costs no CPU and does not compete with the strike
 ' interrupt on a single-core Zero W.
 '
@@ -73,7 +85,9 @@
 '
 ' PULSE INPUT, second wire, currently DISABLED on this unit
 '
-'   Terminal 2 Click TB1 pin 7 "RST"   Pi BCM 19   ->  CR300  P_SW
+'   Terminal 2 Click  "RST"   Pi BCM 19   ->  CR300  P_SW
+'
+' RST is mikroBUS pin 2, on the left block. Again, go by the label.
 '
 ' The detector can mirror every confirmed strike as one pulse on BCM 19, set by
 ' "pulse_mirror_enabled" and "pulse_mirror_ms" in quaggasklip_config.json. It
@@ -83,8 +97,9 @@
 '
 ' BCM 19 is socket 2's RST line. It has to be a socket 2 pin to reach a terminal
 ' at all: socket 1 holds the Thunder Click, so socket 1's PWM on BCM 18 dead-ends
-' under that board. The other usable choice is socket 2's PWM on BCM 17, TB2
-' pin 2. If you move to it, change pulse_mirror_pin and this comment together.
+' under that board. The other usable choice is socket 2's PWM on BCM 17, the
+' terminal labelled "PWM". If you move to it, change pulse_mirror_pin and this
+' comment together.
 '
 ' This is a deliberately independent count. It is driven straight off the strike
 ' handler, so it does not depend on the serial line, the network, or the panel.

@@ -45,8 +45,9 @@
 #       single-core Zero W. The bit-bang path is kept as a fallback for a Pi
 #       whose boot config cannot be changed.
 #    3. The strike pulse mirror uses GPIO19, socket 2's RST pin, which lands on
-#       the Terminal 2 Click's TB1 pin 7: one cable to the logger carries TX,
-#       GND and the pulse. It is not GPIO18, even though "socket 1 PWM" sounds
+#       the Terminal 2 Click terminal labelled RST: one cable to the logger
+#       carries TX, GND and the pulse. It is not GPIO18, even though "socket 1 PWM"
+#       sounds
 #       like the obvious choice, because socket 1 is occupied and GPIO18 has no
 #       terminal to land on.
 #
@@ -185,9 +186,9 @@ class Config:
         self.IRQ_PIN         = 6
 
         #  Strike pulse for a Campbell pulse-count channel. GPIO19 is socket 2's
-        #  RST pin, which lands on the Terminal 2 Click's TB1 pin 7, so one cable
-        #  carries TX, GND and the pulse. It has to be a socket 2 pin: socket 1
-        #  is under the Thunder Click, so its GPIO18 PWM has no terminal.
+        #  RST pin, so it lands on the Terminal 2 Click terminal labelled RST and
+        #  one cable carries TX, GND and the pulse. It has to be a socket 2 pin:
+        #  socket 1 is under the Thunder Click, so its GPIO18 PWM has no terminal.
         self.PULSE_MIRROR_ENABLED = False
         self.PULSE_MIRROR_PIN = 19
         #  How long the pulse is held high. The CR300 counts switch closures up

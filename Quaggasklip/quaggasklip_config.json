@@ -15,7 +15,7 @@
   "_comment_irq": "Socket 1 INT on the Pi 2 shield = GPIO6. CONFIRM with find_irq_pin.py before deploying. Never 12: GPIO12 is not routed to either socket on a Pi 2 shield, so it cannot work.",
   "irq_pin": 6,
 
-  "_comment_pulse": "Optional strike pulse for a Campbell pulse-count channel. Must be a SOCKET 2 pin to reach a screw terminal, because socket 1 is under the Thunder Click. GPIO19 is socket 2 RST on Terminal 2 Click TB1 pin 7, which is what the CR300 program expects. GPIO17 (socket 2 PWM, TB2 pin 2) is the alternative. GPIO18 cannot work here.",
+  "_comment_pulse": "Optional strike pulse for a Campbell pulse-count channel. Must be a SOCKET 2 pin to reach a screw terminal, because socket 1 is under the Thunder Click. GPIO19 is socket 2 RST, so it comes out on the Terminal 2 Click terminal labelled RST, which is what the CR300 program expects. GPIO17 (socket 2 PWM, terminal PWM) is the alternative. GPIO18 cannot work here. Wire by the silkscreen label, not by counting block positions.",
   "pulse_mirror_enabled": false,
   "pulse_mirror_pin": 19,
   "pulse_mirror_ms": 25,
@@ -28,7 +28,7 @@
   "campbell_write_timeout": 0.5,
   "campbell_heartbeat_interval": 600,
   "campbell_read_enabled": true,
-  "_comment_txpin": "Bit-bang fallback only. GPIO26 is socket 2 INT, which lands on Terminal 2 Click TB2 pin 3, so it does reach a terminal.",
+  "_comment_txpin": "Bit-bang fallback only. GPIO26 is socket 2 INT, so it lands on the Terminal 2 Click terminal labelled INT and does reach a screw terminal.",
   "campbell_tx_pin": 26,
 
   "_comment_sensor": "Lower thresholds than GWLD1: this is not a smelter site. Raise if the log fills with NOISE or DISTURBER events.",
