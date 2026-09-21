@@ -1,8 +1,8 @@
 # Quaggasklip (Metron) lightning detector
 
 Third AS3935 detector site. A Raspberry Pi Zero W or Zero 2 W with a MikroE
-Pi 3 Click Shield: a **Thunder Click** in mikroBUS socket 2 reads lightning, and a
-**Terminal 2 Click** in socket 1 carries the results to a Campbell CR300 or
+Pi 2 Click Shield: a **Thunder Click** in mikroBUS socket 1 reads lightning, and a
+**Terminal 2 Click** in socket 2 carries the results to a Campbell CR300 or
 CR1000 datalogger over UART. Strikes also go to the Stratus admin panel, which
 owns all alerting.
 
@@ -16,60 +16,75 @@ decides who hears about it.
 | Item | Part |
 |---|---|
 | Computer | Raspberry Pi Zero W or Zero 2 W |
-| Shield | MikroE Pi 3 Click Shield (MIKROE-2756) |
-| Socket 1 | Terminal 2 Click - UART to the datalogger |
-| Socket 2 | Thunder Click - AS3935 lightning sensor |
+| Shield | MikroE Pi 2 Click Shield |
+| Socket 1 | Thunder Click - AS3935 lightning sensor |
+| Socket 2 | Terminal 2 Click - UART to the datalogger |
 
 ### Pin map
 
-Taken from the shield schematic. Both mikroBUS sockets share SPI0 and are told
-apart only by chip select, because CE0 and CE1 are the Pi's only hardware CS
-lines.
+Taken from the Pi 2 Click Shield schematic. Both mikroBUS sockets share SPI0 and
+are told apart only by chip select, because CE0 and CE1 are the Pi's only
+hardware CS lines.
 
-| mikroBUS pin | Socket 1 (Terminal 2) | Socket 2 (Thunder / AS3935) |
+| mikroBUS pin | Socket 1 (Thunder / AS3935) | Socket 2 (Terminal 2) |
 |---|---|---|
-| AN | GPIO4 | GPIO26 |
-| RST | GPIO5 | GPIO6 |
+| AN | GPIO4 | GPIO13 |
+| RST | GPIO5 | GPIO19 |
 | **CS** | **GPIO8 = CE0 = `spidev 0.0`** | **GPIO7 = CE1 = `spidev 0.1`** |
 | SCK | GPIO11 *(shared)* | GPIO11 *(shared)* |
 | MISO | GPIO9 *(shared)* | GPIO9 *(shared)* |
 | MOSI | GPIO10 *(shared)* | GPIO10 *(shared)* |
-| PWM | GPIO18 | GPIO13 |
-| **INT** | **GPIO17** | **GPIO12** (Pi 3 shield) / **GPIO19** (Pi 2 shield) |
+| PWM | GPIO18 | GPIO17 |
+| **INT** | **GPIO6** | **GPIO26** |
 | RX | GPIO15 *(shared)* | GPIO15 *(shared)* |
 | TX | GPIO14 *(shared)* | GPIO14 *(shared)* |
 | SCL | GPIO3 *(shared)* | GPIO3 *(shared)* |
 | SDA | GPIO2 *(shared)* | GPIO2 *(shared)* |
 
-Two consequences worth knowing before wiring anything:
+So on this unit the sensor is `spidev 0.0` with its interrupt on **GPIO6**.
 
-- **Socket 2's INT is the one net that differs between the two shields.** The
+Three consequences worth knowing before wiring anything:
+
+- **These are Pi 2 shield numbers and do not transfer to a Pi 3 shield.** The
   Pi 3 shield adds an onboard MCP3204 ADC which takes GPIO19, 20 and 21 for SPI1
-  and GPIO16 for its chip select, so socket 2's interrupt moved to GPIO12.
-  Confirm it on the assembled unit with `find_irq_pin.py` rather than trusting
-  this table - a wrong interrupt pin gives a detector that starts cleanly, logs
-  nothing, and reports itself healthy.
-- **GPIO16, 19, 20 and 21 are not free** on the Pi 3 shield. The GWLD1 unit uses
-  GPIO19 for its strike pulse; that pin cannot be reused here. This unit uses
-  GPIO18 instead, socket 1's PWM pin, which is already on the Terminal 2 Click's
-  own terminal block.
+  and GPIO16 for its chip select, and its socket 2 interrupt is GPIO12. Confirm
+  the interrupt on the assembled unit with `find_irq_pin.py` rather than trusting
+  any table, including this one. A wrong interrupt pin gives a detector that
+  starts cleanly, logs nothing, and reports itself healthy.
+- **GPIO12 is connected to nothing on a Pi 2 shield.** It is a plausible-looking
+  value that silently cannot work, so if `irq_pin` is ever 12 on this hardware
+  the detector will never see a strike.
+- **Only socket 2's pins can reach a wire.** Socket 1 has the Thunder Click
+  seated on it, so GPIO4, 5 and 18 terminate under that board with no screw
+  terminal. Anything that has to leave the enclosure must be on a socket 2 pin.
 
-Free for other use on the Pi 3 shield: GPIO22, 23, 24, 25, 27.
+Not routed to either socket, so free for other use: GPIO12, 16, 20, 21, 22, 23,
+24, 25, 27.
 
 ### Wiring to the logger
 
 Everything leaves from the Terminal 2 Click's screw terminals, so one cable runs
-to the logger.
+to the logger. The Click breaks socket 2 out across two blocks: TB1 carries AN,
+RST, CS, SCK, MISO, MOSI and 3V3; TB2 carries PWM, INT, TX, RX, SCL, SDA and 5V.
 
-| Terminal 2 Click | CR300 | Purpose |
-|---|---|---|
-| TX (GPIO14) | C2 | ASCII records, Pi to logger |
-| GND | G | common ground - **required** |
-| PWM (GPIO18) | P_SW | one pulse per strike, optional |
-| RX (GPIO15) | - | leave open unless the logger transmits |
+| Terminal 2 Click | Socket 2 pin | CR300 | Purpose |
+|---|---|---|---|
+| TB2 TX | GPIO14 | C2 | ASCII records, Pi to logger |
+| TB1 GND or TB2 GND | - | G | common ground - **required** |
+| TB1 RST | GPIO19 | P_SW | one pulse per strike, optional |
+| TB2 RX | GPIO15 | - | leave open unless the logger transmits |
 
 Ground is not optional. Without a shared reference the receiver sees noise
 instead of data, and the only symptom is a rising `ParseErrorCount`.
+
+**On the strike pulse pin.** It has to be a socket 2 pin to reach a terminal, and
+GPIO19 is socket 2's RST, which lands on TB1 pin 7. That matches what the CR300
+program's header says. GPIO17 is the other candidate, socket 2's PWM on TB2
+pin 2, and it is the more natural name for a pulse output; if you move to it,
+update the logger program's comment as well so the two do not drift apart.
+GPIO18 is **not** an option on this build despite being the obvious "socket 1
+PWM": socket 1 is where the Thunder Click sits, so GPIO18 has no terminal to
+land on.
 
 ---
 

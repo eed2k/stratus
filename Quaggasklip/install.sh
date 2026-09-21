@@ -5,8 +5,8 @@
 #
 #  Prepares a Raspberry Pi Zero W or Zero 2 W for the detector:
 #    - installs the Python hardware packages
-#    - enables SPI               (the AS3935 in mikroBUS socket 2)
-#    - frees the hardware UART   (the Terminal 2 Click in mikroBUS socket 1)
+#    - enables SPI               (the AS3935 in mikroBUS socket 1)
+#    - frees the hardware UART   (the Terminal 2 Click in mikroBUS socket 2)
 #    - creates the service user and its groups
 #    - copies the program and installs the systemd unit
 #
@@ -213,11 +213,14 @@ else
 fi
 cat <<'STEPS'
 
- 2. Confirm which GPIO carries the sensor interrupt. Socket 2's INT is
-    GPIO12 on the Pi 3 shield and GPIO19 on the Pi 2 shield, so this is
-    not a guess worth making:
+ 2. Confirm which GPIO carries the sensor interrupt. With the Thunder Click in
+    socket 1 of a Pi 2 shield it should be GPIO6, but shields differ and a wrong
+    pin gives a detector that logs nothing while reporting itself healthy, so
+    this is not a guess worth making:
       sudo python3 /home/quaggasklip/find_irq_pin.py
     Put the answer in /home/quaggasklip/quaggasklip_config.json as "irq_pin".
+    Note GPIO12 is routed to neither socket on a Pi 2 shield, so it can never
+    be the right answer there.
 
  3. Check the logger link. Jumper TX to RX on the Terminal 2 Click first:
       sudo -u quaggasklip python3 /home/quaggasklip/check_campbell_link.py --loopback

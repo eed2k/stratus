@@ -8,19 +8,19 @@
   "site_name": "Quaggasklip (Metron)",
   "log_dir": "/home/quaggasklip/lightning_data",
 
-  "_comment_spi": "Thunder Click in mikroBUS socket 2 -> CE1 -> spi device 1.",
+  "_comment_spi": "Thunder Click in mikroBUS socket 1 -> CS is GPIO8 = CE0 -> spi device 0.",
   "spi_bus": 0,
-  "spi_device": 1,
+  "spi_device": 0,
 
-  "_comment_irq": "Socket 2 INT: 12 on the Pi 3 shield, 19 on the Pi 2 shield. CONFIRM with find_irq_pin.py before deploying.",
-  "irq_pin": 12,
+  "_comment_irq": "Socket 1 INT on the Pi 2 shield = GPIO6. CONFIRM with find_irq_pin.py before deploying. Never 12: GPIO12 is not routed to either socket on a Pi 2 shield, so it cannot work.",
+  "irq_pin": 6,
 
-  "_comment_pulse": "Optional strike pulse for a Campbell pulse-count channel. GPIO18 is socket 1 PWM, already on the Terminal 2 Click terminal block.",
+  "_comment_pulse": "Optional strike pulse for a Campbell pulse-count channel. Must be a SOCKET 2 pin to reach a screw terminal, because socket 1 is under the Thunder Click. GPIO19 is socket 2 RST on Terminal 2 Click TB1 pin 7, which is what the CR300 program expects. GPIO17 (socket 2 PWM, TB2 pin 2) is the alternative. GPIO18 cannot work here.",
   "pulse_mirror_enabled": false,
-  "pulse_mirror_pin": 18,
+  "pulse_mirror_pin": 19,
   "pulse_mirror_ms": 25,
 
-  "_comment_campbell": "Terminal 2 Click in socket 1 = the Pi hardware UART. Use transport 'bitbang' with campbell_tx_pin only if the boot config cannot be changed.",
+  "_comment_campbell": "Terminal 2 Click in socket 2. TX/RX are GPIO14/15, shared by both sockets, so this is the Pi hardware UART either way. Use transport 'bitbang' with campbell_tx_pin only if the boot config cannot be changed.",
   "campbell_enabled": true,
   "campbell_transport": "serial",
   "campbell_port": "/dev/serial0",
@@ -28,6 +28,7 @@
   "campbell_write_timeout": 0.5,
   "campbell_heartbeat_interval": 600,
   "campbell_read_enabled": true,
+  "_comment_txpin": "Bit-bang fallback only. GPIO26 is socket 2 INT, which lands on Terminal 2 Click TB2 pin 3, so it does reach a terminal.",
   "campbell_tx_pin": 26,
 
   "_comment_sensor": "Lower thresholds than GWLD1: this is not a smelter site. Raise if the log fills with NOISE or DISTURBER events.",

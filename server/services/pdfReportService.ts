@@ -928,12 +928,20 @@ async function renderPdf(input: BuildPdfInput): Promise<Buffer> {
   return done;
 }
 
-/** Footer with page numbers on every page except the cover. */
+/**
+ * Footer with page numbers, on every page.
+ *
+ * This used to skip the first page, to keep a cover page clean. That cover page
+ * was removed (see renderPdf), so the skip was leaving the report's actual first
+ * page of content as the one page with no identification and no page number: the
+ * document read "Page 2 of 4" on its second sheet with nothing on the first.
+ * Every page is numbered now, which also matches the LDS panel reports, whose
+ * WeasyPrint @page footer has always applied to all pages.
+ */
 function renderPageFooters(doc: any, title: string): void {
   try {
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
-      if (i === range.start) continue; // cover page stays clean
       doc.switchToPage(i);
       const w = usableWidth(doc);
       const x = doc.page.margins.left;
@@ -1034,14 +1042,12 @@ async function renderStationSection(
   doc.moveDown(0.6);
 
   /**
-   * Two views of the site side by side: satellite on the left, street map on the
-   * right, each half the text width, both pinned at the station.
+   * One high-resolution satellite view of the site, pinned at the station.
    *
-   * Two complementary views answer two different questions. The satellite frame
-   * shows the immediate surroundings of the mast, which is what governs exposure
-   * and therefore how the wind and radiation figures should be read. The street
-   * map is drawn further out and shows which roads and settlements the site sits
-   * among, which is what someone who has never been there needs for context.
+   * The satellite frame shows the immediate surroundings of the mast, which is
+   * what governs exposure and therefore how the wind and radiation figures
+   * should be read. That is the one thing the text above cannot state, so it is
+   * the one view worth the page space.
    *
    * Page one therefore reads top to bottom as: what this report is, where the
    * station is, what that place looks like, then the figures. The wind roses and
@@ -1781,16 +1787,9 @@ function renderErrorPdf(input: BuildPdfInput, message: string): Promise<Buffer> 
  * dashboard show the same picture of a site.
  */
 /**
- * Street map tiles from the same Esri host as the imagery.
- *
- * Deliberately the same provider rather than mixing in OpenStreetMap: one host
- * means one egress rule to whitelist, an identical tile scheme, and no usage
- * policy to honour for an automated report.
+ * Marker colour, matching CHART_COLORS.temperature so the report stays on
+ * palette, and matching the dashboard pin so the two show the same thing.
  */
-const STREET_TILE_URL =
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile";
-
-/** Marker colour, matching CHART_COLORS.temperature so the report stays on palette. */
 const MAP_PIN_COLOUR = "#ef4444";
 
 const SAT_TILE_URL =
@@ -1825,7 +1824,10 @@ interface MapTile { col: number; row: number; buf: Buffer }
  * tile as it is drawn.
  *
  * Returns null when too much of the grid is missing, because a grid with holes
- * in it looks broken. One missing tile is tolerated.
+ * in it looks broken. The tolerance is proportional rather than a flat "one
+ * tile": at 4x4 a single absent tile is 6% of the picture and not worth
+ * discarding, but a fixed allowance of one would have been a far stricter test
+ * than it was at 2x2.
  */
 async function fetchMapTiles(
   baseUrl: string,
@@ -1863,16 +1865,19 @@ async function fetchMapTiles(
     return null;
   }
 
-  if (tiles.length < cols * rows - 1) return null;
+  const total = cols * rows;
+  const allowedMissing = Math.max(1, Math.floor(total * 0.1));
+  if (tiles.length < total - allowedMissing) return null;
   return { tiles, x0, y0 };
 }
 
 /**
  * Draw a map pin whose point sits exactly on (px, py).
  *
- * Filled shape with a white outline and a white centre, so it stays legible over
- * both dark satellite imagery and the pale street map without needing to know
- * which one is underneath.
+ * Filled shape with a white outline and a white centre. Satellite imagery is
+ * unpredictable underneath a pin: a mast can sit on dark scrub, bright sand or a
+ * pale roof. The white ring is what keeps the marker readable without having to
+ * know which.
  */
 function drawMapPin(doc: any, px: number, py: number, colour: string): void {
   const r = 4.2;
@@ -1935,13 +1940,23 @@ function drawTileBlock(
 }
 
 /**
- * Draw the satellite and street views side by side, each half the text width.
+ * Draw one high-resolution satellite view of the site, pinned at the station.
  *
- * The two are fetched in parallel and drawn only after both have resolved, so a
- * partial failure cannot leave a half-drawn block of tiles on the page. If only
- * one of the two comes back it is drawn in its own slot at the same half width,
- * which keeps the page geometry stable, and the caption then names only the
- * source that actually rendered.
+ * SATELLITE ONLY. There used to be a street map beside this at a wider zoom.
+ * It was dropped because the two views competed for the same page space and the
+ * street half answered a question the report does not need to answer: the
+ * location is already stated exactly, as a place name, a five-decimal
+ * coordinate pair and an elevation, three lines above. What imagery adds that
+ * text cannot is what the ground around the mast actually looks like, and that
+ * is the satellite frame. Spending the whole width on one view rather than half
+ * the width on each is what buys the resolution.
+ *
+ * RESOLUTION. Tiles are 256 px square, so the pixel count is set by the tile
+ * grid and the detail by the zoom, both independently of the size the block is
+ * drawn at. Going up one zoom level and doubling the grid keeps the same patch
+ * of ground in frame at twice the linear resolution: the old pair fetched 2x2
+ * at zoom 16 (512 px) into a half-width box, and this fetches 4x4 at zoom 17
+ * (1024 px) into a much wider one, which lands near 250 dpi at print size.
  *
  * Returns the height consumed, or 0 when nothing could be drawn. Every failure
  * path returns 0 quietly: a report missing its site imagery is still a usable
@@ -1954,90 +1969,58 @@ async function drawSiteMaps(
   lon: number,
   boxWidth: number,
 ): Promise<number> {
-  const GAP = 12;
   /**
-   * The pair is deliberately narrower than the text column.
+   * Narrower than the text column, and square.
    *
-   * At full width the two frames dominated page one and pushed the statistics
-   * table down; at 78% they still read clearly while leaving the table on the
-   * same page. The pair stays left-aligned with the text above it.
+   * The block is as tall as it is wide, so its width is really a height budget:
+   * at full text width it would take over half the usable page and push the
+   * statistics table onto page two. At 58% it is appreciably larger than either
+   * half of the old pair while still leaving the table on page one with the
+   * details it belongs to.
    */
-  const PAIR_SCALE = 0.78;
-  const pairWidth = boxWidth * PAIR_SCALE;
-  const halfWidth = (pairWidth - GAP) / 2;
-  // 2x2 keeps each view square. Satellite is drawn close in to show the mast
-  // surroundings; the street map is pulled back to show which roads and
-  // settlements the site sits among.
-  //
-  // One extra zoom level is one doubling of scale, so these are each twice the
-  // magnification they were.
-  const COLS = 2;
-  const ROWS = 2;
-  const SAT_ZOOM = 16;
-  const STREET_ZOOM = 13;
+  const SAT_SCALE = 0.58;
+  const boxW = boxWidth * SAT_SCALE;
+  const COLS = 4;
+  const ROWS = 4;
+  const SAT_ZOOM = 17;
 
   let sat: Awaited<ReturnType<typeof fetchMapTiles>> = null;
-  let street: Awaited<ReturnType<typeof fetchMapTiles>> = null;
   try {
-    [sat, street] = await Promise.all([
-      fetchMapTiles(SAT_TILE_URL, lat, lon, SAT_ZOOM, COLS, ROWS),
-      fetchMapTiles(STREET_TILE_URL, lat, lon, STREET_ZOOM, COLS, ROWS),
-    ]);
+    sat = await fetchMapTiles(SAT_TILE_URL, lat, lon, SAT_ZOOM, COLS, ROWS);
   } catch {
     return 0;
   }
 
-  if (!sat && !street) return 0;
+  if (!sat) return 0;
 
-  // Keep the pair with the details they illustrate rather than splitting them
+  // Keep the image with the details it illustrates rather than splitting them
   // across a page break.
-  const projectedHeight = halfWidth + 22;
+  const projectedHeight = boxW + 22;
   if (doc.y + projectedHeight > bottomLimit(doc)) doc.addPage();
 
   const leftX = doc.page.margins.left;
-  const rightX = leftX + halfWidth + GAP;
   const topY = doc.y;
   let height = 0;
 
   try {
-    if (sat) {
-      height = Math.max(
-        height,
-        drawTileBlock(doc, sat, lat, lon, SAT_ZOOM, COLS, ROWS, leftX, topY, halfWidth),
-      );
-    }
-    if (street) {
-      height = Math.max(
-        height,
-        drawTileBlock(doc, street, lat, lon, STREET_ZOOM, COLS, ROWS, rightX, topY, halfWidth),
-      );
-    }
+    height = drawTileBlock(doc, sat, lat, lon, SAT_ZOOM, COLS, ROWS, leftX, topY, boxW);
   } catch {
     return 0;
   }
 
   /**
-   * Label each view under its own frame so a reader can tell them apart.
+   * One caption line, naming what the reader is looking at and what the pin is.
    *
-   * The zoom level is deliberately not printed. It is an implementation detail of
-   * how the tiles were fetched, it means nothing to the person reading the
+   * The zoom level is deliberately not printed. It is an implementation detail
+   * of how the tiles were fetched, it means nothing to the person reading the
    * report, and it would go stale the moment the zoom is retuned.
    */
   doc.fillColor(INK).font(FONT_REGULAR).fontSize(TYPE.caption);
   const labelY = topY + height + 3;
-  if (sat) {
-    doc.text(pdfSafe("Satellite view"), leftX, labelY, { width: halfWidth });
-  }
-  if (street) {
-    doc.text(pdfSafe("Street map"), rightX, labelY, { width: halfWidth });
-  }
-
+  doc.text(pdfSafe("Satellite view"), leftX, labelY, { width: boxW });
   doc.y = labelY + 11;
-  const sources: string[] = [];
-  if (sat) sources.push("Esri World Imagery");
-  if (street) sources.push("Esri World Street Map");
   doc.text(
-    pdfSafe(`Pin marks the station position. Imagery: ${sources.join(" and ")}.`),
+    pdfSafe("Pin marks the station position. Imagery: Esri World Imagery."),
     leftX,
     doc.y,
     { width: boxWidth },

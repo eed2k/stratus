@@ -86,7 +86,7 @@ import {
   Plus,
   Loader2,
   ArrowLeft,
-  Layers,
+  MapPin,
 } from "lucide-react";
 import type { WeatherStation, WeatherData } from "@shared/schema";
 import { 
@@ -2154,7 +2154,7 @@ export default function Dashboard({ isAdmin = true, canAccessStation, stationId,
                   </div>
                 </div>
                 <p className="text-xs text-black italic mt-3 flex items-center gap-1">
-                  <Layers className="h-3 w-3 inline" /> Click the layers icon on the map (top-right) to switch between street and satellite view
+                  <MapPin className="h-3 w-3 inline" /> The pin marks the station position on Esri satellite imagery, the same view used in PDF reports
                 </p>
               </CardContent>
             </Card>

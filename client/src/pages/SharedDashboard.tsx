@@ -37,7 +37,7 @@ import {
   RefreshCw,
   Download,
   Loader2,
-  Layers,
+  MapPin,
 } from "lucide-react";
 import type { WeatherData } from "@shared/schema";
 import { DEFAULT_SECTION_VISIBILITY, DASHBOARD_CATEGORIES, isParameterEnabled, type SectionVisibility } from "../../../shared/dashboardConfig";
@@ -1826,7 +1826,7 @@ function SharedDashboardContent() {
 
                 </div>
                 <p className="text-xs text-black italic mt-3 flex items-center gap-1">
-                  <Layers className="h-3 w-3 inline" /> Click the layers icon on the map (top-right) to switch between street and satellite view
+                  <MapPin className="h-3 w-3 inline" /> The pin marks the station position on Esri satellite imagery
                 </p>
               </CardContent>
             </Card>

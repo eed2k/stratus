@@ -7,28 +7,36 @@
 #
 #  HARDWARE
 #    Raspberry Pi Zero W or Zero 2 W
-#    MikroElektronika Pi 3 Click Shield (MIKROE-2756)
-#      mikroBUS socket 1 : Terminal 2 Click -> UART to a Campbell CR300/CR1000
-#      mikroBUS socket 2 : Thunder Click    -> AS3935 lightning sensor (SPI)
+#    MikroElektronika Pi 2 Click Shield
+#      mikroBUS socket 1 : Thunder Click    -> AS3935 lightning sensor (SPI)
+#      mikroBUS socket 2 : Terminal 2 Click -> UART to a Campbell CR300/CR1000
 #
 #  PIN MAP, taken from the shield schematic (full table in README.md)
 #    Both sockets share SPI0 - SCK GPIO11, MISO GPIO9, MOSI GPIO10 - and are
 #    told apart only by chip select, because CE0/CE1 are the Pi's only hardware
 #    CS lines:
-#        socket 1 CS  = GPIO8  = CE0 = spidev 0.0
-#        socket 2 CS  = GPIO7  = CE1 = spidev 0.1     <- the sensor
-#    Interrupt lines are per socket:
-#        socket 1 INT = GPIO17          (GWLD1 runs its sensor here)
-#        socket 2 INT = GPIO12 on the Pi 3 shield     <- the sensor
-#                     = GPIO19 on the Pi 2 shield
-#    That single net is the only mikroBUS difference between the two shields:
-#    the Pi 3 shield adds an MCP3204 ADC which takes GPIO19/20/21 for SPI1 and
-#    GPIO16 for its chip select, so socket 2's INT moved to GPIO12. Set irq_pin
-#    for the shield actually fitted, and confirm it with find_irq_pin.py.
+#        socket 1 CS  = GPIO8  = CE0 = spidev 0.0     <- the sensor
+#        socket 2 CS  = GPIO7  = CE1 = spidev 0.1
+#    Interrupt lines are per socket, on a Pi 2 shield:
+#        socket 1 INT = GPIO6                         <- the sensor
+#        socket 2 INT = GPIO26
+#    Do not carry those two numbers over to a Pi 3 shield. That board adds an
+#    MCP3204 ADC which takes GPIO19/20/21 for SPI1 and GPIO16 for its chip
+#    select, and its socket 2 INT is GPIO12. Set irq_pin for the shield actually
+#    fitted and confirm it with find_irq_pin.py.
+#
+#    GPIO12 is worth calling out: on a Pi 2 shield it is routed to neither
+#    socket. It looks like a plausible irq_pin and cannot ever work.
+#
+#  ONLY SOCKET 2 CAN REACH A WIRE
+#    Socket 1 has the Thunder Click seated on it, so socket 1's AN, RST and PWM
+#    (GPIO4, 5, 18) dead-end under that board. Anything that must leave the
+#    enclosure has to be a socket 2 pin, because socket 2's pins are broken out
+#    to the Terminal 2 Click's screw terminals.
 #
 #  HOW THIS DIFFERS FROM THE GWLD1 UNIT (Lightning Detector/detector)
-#    1. The sensor sits in socket 2, so SPI_DEVICE is 1 (CE1) and IRQ_PIN is 12,
-#       where GWLD1 uses 0 (CE0) and 17.
+#    1. Both units run the sensor from CE0, but the interrupt differs with the
+#       shield: GPIO6 here, GPIO17 on GWLD1.
 #    2. The Campbell link is the Pi's real hardware UART through the Terminal 2
 #       Click, not a bit-banged GPIO. GWLD1 had no UART breakout so it clocked
 #       bits out of a spare pin with pigpio; bringing the mikroBUS UART out to
@@ -36,10 +44,11 @@
 #       hardware UART does not compete with the interrupt handler for CPU on a
 #       single-core Zero W. The bit-bang path is kept as a fallback for a Pi
 #       whose boot config cannot be changed.
-#    3. The strike pulse mirror uses GPIO18, socket 1's PWM pin, which appears
-#       on the Terminal 2 Click's own terminal block: one cable to the logger
-#       carries TX, GND and the pulse. GWLD1's GPIO19 could not be reused here
-#       because this shield uses GPIO19 for the onboard ADC.
+#    3. The strike pulse mirror uses GPIO19, socket 2's RST pin, which lands on
+#       the Terminal 2 Click's TB1 pin 7: one cable to the logger carries TX,
+#       GND and the pulse. It is not GPIO18, even though "socket 1 PWM" sounds
+#       like the obvious choice, because socket 1 is occupied and GPIO18 has no
+#       terminal to land on.
 #
 # ===========================================================================
 
@@ -158,38 +167,40 @@ class Config:
 
     def __init__(self):
         # ===============================================================
-        #  SPI  -  Thunder Click in mikroBUS socket 2
+        #  SPI  -  Thunder Click in mikroBUS socket 1
         # ===============================================================
         self.SPI_BUS         = 0
-        self.SPI_DEVICE      = 1        # CE1 = socket 2 (socket 1 would be 0)
+        self.SPI_DEVICE      = 0        # CE0 = socket 1 (socket 2 would be 1)
         self.SPI_SPEED_HZ    = 1000000  # 1 MHz, the AS3935 maximum
         self.SPI_MODE        = 0b01     # Mode 1 (CPOL=0, CPHA=1)
 
         # ===============================================================
         #  GPIO
         # ===============================================================
-        #  Socket 2 INT: GPIO12 on the Pi 3 shield, GPIO19 on the Pi 2 shield.
-        #  Confirm with find_irq_pin.py on the assembled unit before trusting
-        #  it. A wrong value gives a detector that logs nothing while reporting
-        #  itself healthy, which is the worst failure this program can have.
-        self.IRQ_PIN         = 12
+        #  Socket 1 INT on a Pi 2 shield = GPIO6. Confirm with find_irq_pin.py
+        #  on the assembled unit before trusting it. A wrong value gives a
+        #  detector that logs nothing while reporting itself healthy, which is
+        #  the worst failure this program can have. Never 12: GPIO12 is routed
+        #  to neither socket on a Pi 2 shield.
+        self.IRQ_PIN         = 6
 
-        #  Strike pulse for a Campbell pulse-count channel. GPIO18 is socket 1's
-        #  PWM pin, so it is already on the Terminal 2 Click's terminal block
-        #  beside TX and GND and one cable carries all three. Not GPIO19 as on
-        #  GWLD1: this shield uses GPIO19 for the onboard ADC's SPI1.
+        #  Strike pulse for a Campbell pulse-count channel. GPIO19 is socket 2's
+        #  RST pin, which lands on the Terminal 2 Click's TB1 pin 7, so one cable
+        #  carries TX, GND and the pulse. It has to be a socket 2 pin: socket 1
+        #  is under the Thunder Click, so its GPIO18 PWM has no terminal.
         self.PULSE_MIRROR_ENABLED = False
-        self.PULSE_MIRROR_PIN = 18
+        self.PULSE_MIRROR_PIN = 19
         #  How long the pulse is held high. The CR300 counts switch closures up
         #  to 150 Hz, so it needs a pulse wide enough to see; the main loop
         #  drops the pin this long after the strike rather than immediately.
         self.PULSE_MIRROR_MS  = 25
 
         # ===============================================================
-        #  Campbell logger link  -  Terminal 2 Click in mikroBUS socket 1
+        #  Campbell logger link  -  Terminal 2 Click in mikroBUS socket 2
         # ===============================================================
         #  The Terminal 2 Click is a passive breakout: it brings its socket's
-        #  mikroBUS pins out to screw terminals. Socket 1's mikroBUS UART is the
+        #  mikroBUS pins out to screw terminals. Both sockets carry the same
+        #  mikroBUS UART, and that UART is the
         #  Pi's own UART (GPIO14 TX / GPIO15 RX), so this is /dev/serial0.
         #
         #  On a Zero W / Zero 2 W, /dev/serial0 is the mini-UART (ttyS0) by
@@ -690,7 +701,7 @@ class DataLogger:
 
 
 # ===========================================================================
-#  CAMPBELL LOGGER LINK  (Terminal 2 Click, mikroBUS socket 1)
+#  CAMPBELL LOGGER LINK  (Terminal 2 Click, mikroBUS socket 2)
 # ===========================================================================
 
 class CampbellLink:
@@ -1170,8 +1181,11 @@ class QuaggasklipDetector:
                          self.config.BOOT_STABILIZE_SECS)
         time.sleep(self.config.BOOT_STABILIZE_SECS)
 
+        # Derived, not hardcoded: chip select is what decides the socket, so the
+        # log cannot drift out of step with the configuration.
+        socket_no = self.config.SPI_DEVICE + 1
         self.logger.info("[2/4] Configuring GPIO (IRQ on GPIO%d, mikroBUS "
-                         "socket 2 INT)...", self.config.IRQ_PIN)
+                         "socket %d INT)...", self.config.IRQ_PIN, socket_no)
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
         GPIO.setup(self.config.IRQ_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
@@ -1186,9 +1200,9 @@ class QuaggasklipDetector:
                            initial=GPIO.LOW)
 
         self.logger.info("[3/4] Initializing AS3935 on SPI %d.%d (CE%d, "
-                         "mikroBUS socket 2)...",
+                         "mikroBUS socket %d)...",
                          self.config.SPI_BUS, self.config.SPI_DEVICE,
-                         self.config.SPI_DEVICE)
+                         self.config.SPI_DEVICE, socket_no)
         last_err = None
         for attempt in range(1, self.config.INIT_RETRY_LIMIT + 1):
             try:
@@ -1911,9 +1925,9 @@ class QuaggasklipDetector:
         self.logger.info("[4/4] Active configuration:")
         self.logger.info("  Station:        %s (%s)", self.config.STATION_ID,
                          self.config.SITE_NAME)
-        self.logger.info("  Sensor:         SPI %d.%d, IRQ GPIO%d (socket 2)",
+        self.logger.info("  Sensor:         SPI %d.%d, IRQ GPIO%d (socket %d)",
                          self.config.SPI_BUS, self.config.SPI_DEVICE,
-                         self.config.IRQ_PIN)
+                         self.config.IRQ_PIN, self.config.SPI_DEVICE + 1)
         self.logger.info("  AFE Mode:       OUTDOOR")
         self.logger.info("  Noise Floor:    %d", self.config.NOISE_FLOOR)
         self.logger.info("  Watchdog:       %d", self.config.WATCHDOG_THRESH)

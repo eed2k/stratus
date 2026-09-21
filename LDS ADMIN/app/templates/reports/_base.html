@@ -12,7 +12,9 @@
     scale     title 18pt, heading 13pt, subheading 11pt, body 10pt, caption 8.5pt
     ink       #000000 for ALL text, without exception
     headings  #1e3a5f, the Stratus navy
-    rules     #cbd5e1 hairlines, #eef2f7 table header fill
+    rules     #cbd5e1 hairlines
+    tables    solid #1e3a5f header band with white text, no cell grid,
+              #f1f5f9 zebra on alternate body rows
     weight    regular throughout, including headings and table headers
 
   Three things this replaced, at the operator's request:
@@ -114,21 +116,46 @@
                font-size: 10pt; margin: 0; }
   dl.meta dd { display: inline; margin: 0; font-size: 10pt; color: #000000; }
 
-  /* ---- data tables ---------------------------------------------------- */
+  /* ---- data tables ----------------------------------------------------
+     Built to the weather report's statistics table, which is the reference for
+     every table in either product. Three things there that this now copies:
+
+       header    a solid #1e3a5f band with WHITE text at caption size. This used
+                 to be a pale #eef2f7 fill with navy text, which is a different
+                 table to look at.
+       body      no cell grid at all. The weather report draws no vertical rules
+                 and no row rules; separation comes from the zebra fill and from
+                 the numeric columns being right-aligned. A full 0.5pt grid, as
+                 was here, reads as a much busier object.
+       zebra     #f1f5f9 on alternate rows, and one closing hairline under the
+                 last row so the table has a definite bottom edge.
+
+     Body cells are 10pt, the shared body size. These tables are two to five
+     columns wide, so there is room for it; the 9.5pt here before was smaller
+     than the surrounding prose for no reason. */
   table.data, table.log {
     width: 100%; border-collapse: collapse; margin: 2mm 0 3mm;
+    border-bottom: 0.5pt solid #cbd5e1;
   }
   table.data caption, table.log caption {
     caption-side: top; text-align: left; font-size: 8.5pt; color: #000000;
     padding: 0 0 1mm;
   }
   table.data th, table.data td, table.log th, table.log td {
-    border: 0.5pt solid #cbd5e1; padding: 1.4mm 2mm; text-align: left;
-    font-size: 9.5pt; vertical-align: top; color: #000000;
+    border: none; padding: 1.4mm 2mm; text-align: left;
+    font-size: 10pt; vertical-align: top; color: #000000;
   }
-  /* Header cells are distinguished by the fill, not by bold. */
+  /* Header cells are distinguished by the navy band, not by bold. */
   table.data th, table.log th {
-    background: #eef2f7; color: #1e3a5f; font-weight: normal;
+    background: #1e3a5f; color: #ffffff; font-weight: normal;
+    font-size: 8.5pt;
+  }
+  /* Zebra on the body only, so a repeated header on a later page cannot be
+     shaded. nth-of-type rather than nth-child because the header lives in its
+     own thead and the count has to start again inside tbody. */
+  table.data tbody tr:nth-of-type(even) td,
+  table.log tbody tr:nth-of-type(even) td {
+    background: #f1f5f9;
   }
   td.num, th.num { text-align: right; }
 

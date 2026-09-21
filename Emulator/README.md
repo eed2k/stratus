@@ -1,26 +1,25 @@
-# Lightning Emulator (Arduino Nano + Thunder EMU Click)
+# Lightning Emulator (Raspberry Pi Zero 2 W + Thunder EMU Click)
 
 Bench rig for injecting synthetic lightning into the AS3935 detector so the whole
 chain can be tested end to end: sensor interrupt, distance and energy, heartbeat,
 alert evaluation, the admin panel's storm display, and the beacon lamps.
 
-Every strike is fired from **push buttons wired to the Nano**. The Thunder EMU
-Click's own buttons are left unwired and unused.
+Every strike is fired from the **Thunder EMU Click's own three push buttons**.
+Nothing is hand-wired and no external parts are needed: the Click drops into the
+mikroBUS socket and its buttons arrive on the socket's `AN`, `PWM` and `INT` pins.
 
 ---
 
-## The one thing worth knowing before you wire anything
+## The one thing worth knowing before you start
 
-The EMU Click does not generate a pulse when you press its buttons. Its
-`CLOSE`, `MID` and `FAR` pins are **inputs to the host MCU** - they are just
-three buttons the host is expected to poll. The emulated strike is produced
-entirely by the host writing a timed 12-bit profile to the board's I2C DAC,
-which drives an inductor.
+The EMU Click does not generate a pulse when you press its buttons. Its `CLOSE`,
+`MID` and `FAR` pins are **inputs to the host** and nothing on the board can
+produce the waveform. The emulated strike comes entirely from the host writing a
+timed 12-bit profile to the board's I2C DAC, which drives an inductor.
 
-That is why this requirement needs no hardware modification at all. You do not
-have to intercept, disable or desolder anything: simply leave `AN`, `PWM` and
-`INT` unconnected and read your own buttons instead. The Click cannot fire on its
-own, because nothing on the board is capable of generating the waveform.
+That is why using the Click's buttons needs no hardware modification at all. You
+do not have to intercept, disable or desolder anything. You read three pins and
+fire the DAC yourself.
 
 Verified against the vendor driver, [Thunder EMU Click on
 LibStock](https://libstock.mikroe.com/projects/view/5463/thunder-emu-click) and
@@ -31,7 +30,102 @@ restrictions.
 
 ---
 
-## What the firmware reproduces
+## Hardware
+
+| Item | Part |
+|---|---|
+| Computer | Raspberry Pi Zero 2 W |
+| Shield | MikroE Pi click shield (MIKROE-1513), one mikroBUS socket |
+| Click | Thunder EMU Click |
+
+The shield mounts on the Pi's first 26 header pins, so only GPIOs on pins 1 to 26
+are in play. That matters: it is why `RST` cannot be GPIO5, which does not exist
+on a 26-pin header.
+
+### Pin map
+
+| mikroBUS | net | Pi pin | BCM | Role | Direction |
+|---|---|---|---|---|---|
+| AN | DIG | 15 | **GPIO22** | CLOSE button | input, pull-up |
+| PWM | PWM | 12 | **GPIO18** | MID button | input, pull-up |
+| INT | INT | 11 | **GPIO17** | FAR button | input, pull-up |
+| RST | RST | 7 | **GPIO4** | thunder LED | output |
+| SDA | SDA | 3 | GPIO2 | I2C to the DAC | `/dev/i2c-1` |
+| SCL | SCL | 5 | GPIO3 | I2C to the DAC | `/dev/i2c-1` |
+
+Read off the vendor schematic, which labels the header by physical pin rather
+than by BCM number. The decode checks itself: all eight fixed nets land exactly
+where a 26-pin Raspberry Pi header puts them (`SDA` 3, `SCL` 5, `TX` 8, `RX` 10,
+`MOSI` 19, `MISO` 21, `SCK` 23, `CS` 24), so the four pins that matter here come
+off the same verified table.
+
+Two oddities worth knowing:
+
+- **`AN` is labelled `DIG` on this shield.** There is no ADC on the board, so the
+  analog pin is wired straight to a plain GPIO. That is exactly what makes reading
+  the `CLOSE` button on it possible at all.
+- **`RST` is GPIO4, not GPIO5.** GPIO5 is on pin 29, outside this shield's reach.
+
+### Confirm it before you trust it
+
+The map above is for this shield. Other shields disagree: the two-socket Pi 2
+shield puts socket 1's `INT` on GPIO6 and socket 2's on GPIO26, so neither is
+GPIO17. A wrong pin gives a rig that starts cleanly, reports itself healthy and
+never fires, which is the same failure mode `find_irq_pin.py` exists for on the
+detector side.
+
+So on a new board, run this first:
+
+```bash
+python3 rpi/lightning_emulator.py --probe-buttons
+```
+
+Press `CLOSE`, then `MID`, then `FAR`, one at a time. It watches every pin a Pi
+shield plausibly uses for `AN`, `PWM`, `INT` or `RST`, names the one that moved,
+and prints a ready-to-paste `--pins` line if your board differs from the default.
+
+---
+
+## Buttons
+
+### Active low
+
+Pressed reads as 0. Confirmed from the vendor example, which fires on
+`!thunderemu_get_close_pin()`. The Pi's internal pull-up is enabled, which is
+correct whether or not the board also pulls up.
+
+### There are three buttons, not four
+
+`CLOSE`, `MID` and `FAR` map one-to-one onto the three modes, which leaves nothing
+spare for the scripted storm. So the storm runs from the keyboard instead:
+
+| Trigger | What it does |
+|---|---|
+| Click `CLOSE` | 3 bursts, strongest, reads as a nearby strike |
+| Click `MID` | 2 bursts |
+| Click `FAR` | 1 burst, weakest, reads as a distant strike |
+| keyboard `c` `m` `f` | the same three, from the console |
+| keyboard `s` | the scripted storm: 9 strikes, approaching then receding |
+| any Click button during a storm | stops the storm rather than firing |
+
+If you want the storm hands-free, `--storm-on-hold` adds it to a long press
+(1.5 s) of `FAR`. `FAR` then fires on release instead of on press, so a hold does
+not fire a strike and a storm. It is opt-in because it makes one button behave
+differently from the other two.
+
+### Behaviour copied from the vendor driver
+
+- **500 ms lockout after a burst.** The vendor sleeps 500 ms after a successful
+  strike, and that delay gates its whole poll loop, so the lockout here is global
+  rather than per button. A second press inside the window is dropped.
+- **Nearest range wins.** The vendor polls `CLOSE`, then `MID`, then `FAR` with
+  `else if`, so a simultaneous press resolves to the nearest. Reproduced.
+- **The DAC is parked powered-down** through the 1 k resistor whenever idle, so
+  the coil is not driven between strikes.
+
+---
+
+## What the software reproduces
 
 The vendor's `thunderemu_generate_thunder()` is reproduced exactly:
 
@@ -49,200 +143,52 @@ The vendor's `thunderemu_generate_thunder()` is reproduced exactly:
 roughly 280 us of bus time, which dwarfs the 22 us delay between samples. The
 transfer time is therefore what actually sets the envelope's timing, so raising
 the bus to 400 kHz would compress the waveform by roughly a factor of three and
-change what the AS3935 sees. If strikes stop being recognized after you touch
-`Wire.setClock()`, that is the first thing to put back.
-
----
-
-## Two hosts, same rig
-
-| | Arduino Nano | Raspberry Pi Zero 2 W |
-|---|---|---|
-| Code | `arduino/lightning_emulator/` | `rpi/lightning_emulator.py` |
-| Logic level | 5 V - **needs checking**, see below | 3.3 V, matches the Click directly |
-| Level shifter | maybe | never |
-| Timing | exact | needs the batching trick below |
-| Control | 4 buttons + serial | 4 buttons + keyboard + `--fire` for scripts |
-
-**The Pi is the easier host electrically.** Its GPIO is 3.3 V, which is what
-MIKROE Click boards are built for, so you power the Click from `3V3` and wire I2C
-straight through. No shifter, and none of the 5 V risk the Nano carries.
-
-**The Nano is the easier host for timing.** On it, "write a sample, wait 22 µs"
-is exact. Linux is not real-time, which the Pi version has to work around.
+change what the AS3935 sees. If strikes stop being recognised after you touch the
+bus speed, that is the first thing to put back.
 
 ### Why the Pi version is not a line-for-line port
 
-The reference profile is 20 samples with a ~22 µs gap. At 100 kHz a 2-byte write
-occupies about 280 µs of bus time, so a sample is roughly 300 µs and a burst
-about 6 ms.
+The reference profile is 20 samples with a ~22 us gap. At 100 kHz a sample is
+roughly 300 us and a burst about 6 ms.
 
 A Python loop would add per-call syscall overhead of the same order as the gap
 itself, and worse, the scheduler can preempt between samples and insert a gap
 measured in *milliseconds*. A burst stretched like that stops looking like
-lightning to the AS3935's rejection algorithm, and it fails intermittently -
-the worst kind of fault to chase.
+lightning to the AS3935's rejection algorithm, and it fails intermittently, which
+is the worst kind of fault to chase.
 
 So the Pi hands each whole burst to the kernel in **one `i2c_rdwr` ioctl**: 20
 messages issued back-to-back by the I2C driver with no return to userspace
 between them. Python overhead and preemption both disappear. The cost is losing
-the 22 µs gap, about 7% of the sample period, which is far less error than a
+the 22 us gap, about 7% of the sample period, which is far less error than a
 single scheduler hiccup would cause.
 
 `--pace loop` reproduces the Arduino timing literally, for comparison. If the
-sensor recognizes one mode and not the other, that is worth knowing, and finding
+sensor recognises one mode and not the other, that is worth knowing, and finding
 that out is what this rig is for.
 
 It also takes `SCHED_FIFO` for the few milliseconds of a burst when run with
-`sudo`, and warns and carries on when it can't.
-
-### Can it share the detector's Pi?
-
-Yes. The detector uses SPI (`/dev/spidev0.0`) and the emulator uses I2C, so there
-is no pin conflict and both services can run on one board. Separate boards are
-tidier for bench work, but one is enough if that is what you have.
+`sudo`, and warns and carries on when it cannot.
 
 ---
 
-## Wiring
-
-### Raspberry Pi Zero 2 W (BCM numbering, physical pin in brackets)
-
-| Pi | Click | Purpose |
-|---|---|---|
-| GPIO2 [3] | SDA | I2C data |
-| GPIO3 [5] | SCL | I2C clock |
-| 3V3 [1] | 3.3V | power, no shifter needed |
-| GND [6] | GND | common ground |
-| GPIO17 [11] | RST | Click's thunder LED (optional) |
-| GPIO5 [29] | - | button to GND: CLOSE |
-| GPIO6 [31] | - | button to GND: MID |
-| GPIO13 [33] | - | button to GND: FAR |
-| GPIO19 [35] | - | button to GND: STORM |
-
-Setup:
+## Setup and use
 
 ```bash
 sudo raspi-config nonint do_i2c 0
 sudo apt install -y python3-smbus2 python3-gpiozero python3-lgpio
 sudo usermod -aG i2c,gpio "$USER"      # log out and back in
 
-python3 rpi/lightning_emulator.py                 # interactive
-sudo python3 rpi/lightning_emulator.py            # + SCHED_FIFO, tighter timing
-python3 rpi/lightning_emulator.py --fire close    # one shot, for scripts
-python3 rpi/lightning_emulator.py --pace loop     # Arduino-identical timing
+python3 rpi/lightning_emulator.py --probe-buttons   # first run, find the pins
+python3 rpi/lightning_emulator.py                   # interactive
+sudo python3 rpi/lightning_emulator.py              # + SCHED_FIFO, tighter timing
+python3 rpi/lightning_emulator.py --fire close      # one shot, for scripts
+python3 rpi/lightning_emulator.py --pace loop       # Arduino-identical timing
+python3 rpi/lightning_emulator.py --pins 22,18,17,4 # explicit CLOSE,MID,FAR,LED
 ```
 
-If the DAC isn't found, `i2cdetect -y 1` should show a device at `0x60` (or
+If the DAC is not found, `i2cdetect -y 1` should show a device at `0x60` (or
 `0x61`).
-
-### Arduino Nano
-
-The Nano's I2C pins are fixed: `A4 = SDA`, `A5 = SCL`.
-
-| Nano | Thunder EMU Click (mikroBUS) | Purpose |
-|---|---|---|
-| A4 | SDA | I2C data to the DAC |
-| A5 | SCL | I2C clock |
-| D6 | RST | Click's on-board thunder LED (host-driven) |
-| 5V or 3V3 | VCC | see the voltage note below |
-| GND | GND | common ground |
-| _not connected_ | AN | Click's own CLOSE button, deliberately unused |
-| _not connected_ | PWM | Click's own MID button, deliberately unused |
-| _not connected_ | INT | Click's own FAR button, deliberately unused |
-
-#### Push buttons: exact wiring
-
-Four momentary normally-open push buttons. Each one has **two legs that matter**:
-one to a Nano digital pin, the other to **GND**. Nothing else. No resistors, no
-`5V`, no `VCC` - the firmware calls `pinMode(pin, INPUT_PULLUP)`, so the Nano's own
-internal pull-up holds the pin at 5 V and pressing the button pulls it to 0 V.
-
-```
-                    Nano                         button          Nano
-                 +--------+                     +-------+
-                 |     D2 |---------------------| o   o |----+
-                 |        |                     +-------+    |
-                 |     D3 |---------------------| o   o |----+
-                 |        |                     +-------+    |
-                 |     D4 |---------------------| o   o |----+
-                 |        |                     +-------+    |
-                 |     D5 |---------------------| o   o |----+
-                 |        |                                  |
-                 |    GND |----------------------------------+
-                 +--------+                          one shared ground rail
-```
-
-| Nano pin | Button leg A | Button leg B | Fires |
-|---|---|---|---|
-| D2 | to D2 | to GND | CLOSE - 3 bursts, strongest, reads as a nearby strike |
-| D3 | to D3 | to GND | MID - 2 bursts |
-| D4 | to D4 | to GND | FAR - 1 burst, weakest, reads as a distant strike |
-| D5 | to D5 | to GND | STORM - scripted storm, far to close then receding |
-
-All four GND legs go to the **same** Nano `GND` pin, which is also the ground
-shared with the Click. On a breadboard that is one ground rail with five wires into
-it: four button legs plus the Click's `GND`.
-
-A 4-pin tactile switch is the same thing twice: legs 1 and 2 are one contact, legs
-3 and 4 are the other. Use one leg from each pair, diagonally opposite, and the
-orientation cannot be wrong.
-
-Nothing is wired to the Nano's `D13`. That is the **on-board** LED, driven in
-firmware as an activity indicator; it needs no external part.
-
-**Do not wire buttons to the Click's `AN`, `PWM` or `INT` pads.** Those are the
-Click's own three buttons, and they are inputs expecting a host to poll them. The
-Click cannot emit a burst from them; see the note at the top of this file.
-
-### Voltage: check this before powering up
-
-**I could not confirm the Thunder EMU Click's logic-level tolerance from the
-vendor documentation, so do not take 5 V on faith.** MIKROE Click boards are
-designed around 3.3 V logic and only some are 5 V tolerant. The Nano is a 5 V
-part.
-
-Check the board for a `VCC SEL` jumper or a "3.3 V / 5 V" marking:
-
-- **Jumper present, set to 5 V** - wire `5V` to `VCC` and connect I2C directly.
-- **3.3 V only** - power `VCC` from the Nano's `3V3` pin and put a bidirectional
-  I2C level shifter on SDA and SCL, or use a 3.3 V board (Nano 33 IoT, Nano
-  Every at 3.3 V, or a Pi) instead.
-
-The same sketch builds unchanged on either of those boards. `Wire.setWireTimeout()`
-exists only in the classic AVR core, not in the SAMD core the Nano 33 IoT uses nor
-the megaavr core the Nano Every uses, so the firmware compiles that one call out by
-architecture and prints a note on the serial line saying the I2C timeout is not
-armed. Nothing else differs and the pin map is identical.
-
-Both of these were compiled and are known to build:
-
-```bash
-arduino-cli compile --fqbn arduino:avr:nano         arduino/lightning_emulator
-# 6438 bytes flash (20%), 558 bytes RAM (27%), no warnings from the sketch
-
-arduino-cli compile --fqbn arduino:samd:nano_33_iot arduino/lightning_emulator
-# 15744 bytes flash (6%), 4204 bytes RAM (12%)
-```
-
-Nano Every (`arduino:megaavr:nona4809`) should build for the same reason the
-Nano 33 IoT does, but that core is not installed here so it has not been
-compiled and is not claimed.
-
-On an AVR core older than 1.8.1, which predates the timeout API and cannot be
-detected from a macro, build with `-DEMU_NO_I2C_TIMEOUT` or update the core.
-
-Sources: the Arduino AVR core's
-[Wire.h](https://github.com/arduino/ArduinoCore-avr/blob/master/libraries/Wire/src/Wire.h)
-declares `setWireTimeout` and publishes no feature macro for it, and Arduino forum
-threads confirm it is missing on
-[Nano Every / megaavr](https://forum.arduino.cc/t/no-wire-setwiretimeout-on-nano-every/1250383)
-and was
-[added to the AVR branch only](https://forum.arduino.cc/t/wire-setwiretimeout-does-not-exist-for-arduino-due/1037030).
-Content was rephrased for compliance with licensing restrictions.
-
-Driving 5 V into a 3.3 V-only I2C input can damage the DAC. If in doubt, the
-3.3 V wiring is safe on both.
 
 ### Coil spacing
 
@@ -251,19 +197,16 @@ and the sensor antenna. Note the lower bound as well as the upper: the profile i
 calibrated for that window. Outside it the AS3935 registers nothing, so if a
 press does nothing, adjust the gap before changing code.
 
----
+The vendor also suggests keeping both Click boards away from their host boards to
+reduce board noise, which affects the sensor and the emulator alike.
 
-## Flashing
+### Do not share the detector's Pi
 
-Arduino IDE or `arduino-cli`, no external libraries needed (`Wire` ships with
-the core):
-
-```bash
-arduino-cli compile --fqbn arduino:avr:nano arduino/lightning_emulator
-arduino-cli upload  --fqbn arduino:avr:nano -p COM5 arduino/lightning_emulator
-```
-
-Open the serial monitor at **115200 baud**. Each press logs what was fired.
+Give the emulator its own Pi and its own shield. The buses do not clash, since
+the detector is on SPI and the emulator on I2C, but GPIO18 is both this shield's
+`PWM` and the Quaggasklip detector's strike pulse mirror, and claiming a pin
+another process is driving fights it. On a bench rig that costs time chasing a
+fault that is not real.
 
 ---
 
@@ -272,7 +215,8 @@ Open the serial monitor at **115200 baud**. Each press logs what was fired.
 1. Power the detector and confirm it is running (`AS3935 calibration PASSED` in
    its log).
 2. Place the EMU Click's coil within ~15 cm of the detector's antenna.
-3. Press a button. The Nano logs the burst; the detector should log an interrupt.
+3. Press a Click button. The emulator logs the burst; the detector should log an
+   interrupt.
 4. Check the panel: a strike inside the alert radius creates an event, which the
    dashboard's storm display groups into its proximity band.
 
@@ -281,9 +225,9 @@ Open the serial monitor at **115200 baud**. Each press logs what was fired.
 Pressing CLOSE does not command "1 km". The three modes vary the emitted energy,
 and the AS3935 derives its own distance from what it receives. The reported
 distance therefore depends on coil spacing, orientation and local noise as much
-as on the mode. Expect CLOSE to land in a nearer band than FAR, but do not
-expect a specific kilometer figure, and do not treat the emulator as a
-calibration reference. It tests the pipeline, not the accuracy of the sensor.
+as on the mode. Expect CLOSE to land in a nearer band than FAR, but do not expect
+a specific kilometre figure, and do not treat the emulator as a calibration
+reference. It tests the pipeline, not the accuracy of the sensor.
 
 Some presses will produce nothing at all. That is normal: the AS3935 runs a
 disturber-rejection algorithm and will discard a waveform it does not accept as
@@ -303,11 +247,94 @@ alerts off, so you lose nothing by testing that way.
 
 ---
 
+## The Arduino Nano alternative
+
+`arduino/lightning_emulator/` is a second host for the same Click, kept for the
+case where no Pi is free. It differs in two ways worth knowing.
+
+**It still reads four external push buttons, not the Click's.** On the Nano there
+is no mikroBUS socket, so the Click is hand-wired either way, and wiring three
+jumpers to `AN`, `PWM` and `INT` is the same effort as wiring three buttons. The
+Pi is where the Click's own buttons pay off, because the socket does the wiring
+for you. The Nano sketch also keeps a fourth button for the storm, which the
+three-button Click cannot offer.
+
+**Check the voltage before powering up.** The Nano is a 5 V part. MIKROE Click
+boards are designed around 3.3 V logic and only some are 5 V tolerant, and I could
+not confirm this board's tolerance from the vendor documentation, so do not take
+5 V on faith. Look for a `VCC SEL` jumper or a "3.3 V / 5 V" marking:
+
+- **Jumper present, set to 5 V:** wire `5V` to `VCC` and connect I2C directly.
+- **3.3 V only:** power `VCC` from the Nano's `3V3` pin and put a bidirectional
+  I2C level shifter on SDA and SCL, or use a 3.3 V board instead.
+
+Driving 5 V into a 3.3 V-only I2C input can damage the DAC. If in doubt, the
+3.3 V wiring is safe on both.
+
+### Nano wiring
+
+`A4 = SDA`, `A5 = SCL`, fixed by the part.
+
+| Nano | Thunder EMU Click | Purpose |
+|---|---|---|
+| A4 | SDA | I2C data to the DAC |
+| A5 | SCL | I2C clock |
+| D6 | RST | the Click's thunder LED |
+| 5V or 3V3 | VCC | see the voltage note above |
+| GND | GND | common ground |
+| D2 | - | button to GND: CLOSE |
+| D3 | - | button to GND: MID |
+| D4 | - | button to GND: FAR |
+| D5 | - | button to GND: STORM |
+
+Each button has one leg to its Nano pin and the other to **GND**. No resistors,
+no `5V`: the firmware uses `pinMode(pin, INPUT_PULLUP)`. All four ground legs
+share the same rail as the Click's `GND`. A 4-pin tactile switch is the same
+contact twice, so use one leg from each diagonal pair and orientation cannot be
+wrong. Nothing is wired to `D13`, which is the on-board LED.
+
+### Nano build
+
+```bash
+arduino-cli compile --fqbn arduino:avr:nano         arduino/lightning_emulator
+# 6438 bytes flash (20%), 558 bytes RAM (27%), no warnings from the sketch
+
+arduino-cli compile --fqbn arduino:samd:nano_33_iot arduino/lightning_emulator
+# 15744 bytes flash (6%), 4204 bytes RAM (12%)
+
+arduino-cli upload --fqbn arduino:avr:nano -p COM5 arduino/lightning_emulator
+```
+
+Serial monitor at **115200 baud**. Each press logs what was fired.
+
+Nano Every (`arduino:megaavr:nona4809`) should build for the same reason the
+Nano 33 IoT does, but that core is not installed here so it has not been compiled
+and is not claimed.
+
+`Wire.setWireTimeout()` exists only in the classic AVR core, not in the SAMD core
+the Nano 33 IoT uses nor the megaavr core the Nano Every uses, so the firmware
+compiles that one call out by architecture and prints a note on the serial line
+saying the I2C timeout is not armed. Nothing else differs and the pin map is
+identical. On an AVR core older than 1.8.1, which predates the timeout API and
+cannot be detected from a macro, build with `-DEMU_NO_I2C_TIMEOUT` or update the
+core.
+
+Sources: the Arduino AVR core's
+[Wire.h](https://github.com/arduino/ArduinoCore-avr/blob/master/libraries/Wire/src/Wire.h)
+declares `setWireTimeout` and publishes no feature macro for it, and Arduino forum
+threads confirm it is missing on
+[Nano Every / megaavr](https://forum.arduino.cc/t/no-wire-setwiretimeout-on-nano-every/1250383)
+and was
+[added to the AVR branch only](https://forum.arduino.cc/t/wire-setwiretimeout-does-not-exist-for-arduino-due/1037030).
+Content was rephrased for compliance with licensing restrictions.
+
+---
+
 ## Files
 
 ```
-arduino/lightning_emulator/lightning_emulator.ino    Nano firmware
-rpi/lightning_emulator.py                            Pi Zero 2 W equivalent
+rpi/lightning_emulator.py                            Pi Zero 2 W host, Click buttons
+arduino/lightning_emulator/lightning_emulator.ino    Nano host, external buttons
 README.md                                            this file
 ```
 

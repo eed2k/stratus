@@ -368,10 +368,13 @@ code {
 /* ------------------------------ Login ------------------------------ */
 .login-wrap {
   min-height: 100vh;
+  min-height: 100dvh;      /* accounts for mobile browser chrome */
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  /* Light gradient sign-in screen, matched to stratusweather.co.za. */
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
 }
 .card.narrow {
   max-width: 340px;
@@ -859,3 +862,188 @@ td form.inline + form.inline { margin-left: 6px; }
 td form.inline + .btn-link,
 td .btn-link + form.inline,
 td .btn-link + .btn-link { margin-left: 6px; }
+
+/* =====================================================================
+   Sign-in screen (login.html, client_login.html)
+
+   A light gradient screen with a navy-circle logo, a white rounded card, and
+   blue (admin) / emerald (client) accents, so the admin panel, the client
+   sign-in and the main site share one identity. Scoped entirely to .auth-*;
+   the .card.narrow rules above are left alone because change_password.html
+   still uses them.
+
+   THIS BLOCK WAS ONCE LOST. login.html and client_login.html were rewritten to
+   this markup, and a later stylesheet edit dropped every rule behind it, so the
+   sign-in page rendered as bare unstyled divs. It lives at the end of the file
+   deliberately: these rules have to beat the panel's global label, input and
+   button styling, and being last is what guarantees that without resorting to
+   !important. If you are about to delete a block of CSS you think is unused,
+   grep the templates for the class names first.
+
+   Text colours are black rather than the grey of the original design, to match
+   the rest of the panel. The one exception is the input placeholder, which has
+   to stay lighter than a real value or an empty field reads as a filled one.
+   ===================================================================== */
+.auth-shell {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.auth-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #1e3a5f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .1), 0 4px 6px -4px rgba(0, 0, 0, .1);
+  flex-shrink: 0;
+}
+.auth-logo-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: block;
+}
+/* The name and its subtitle sit beside the logo as one unit. This had no rule at
+   all in the original design and fell back to a plain block, which happened to
+   look close enough; stating it keeps the two lines tight instead of leaving the
+   spacing to whatever the surrounding flex layout does. */
+.auth-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.auth-brand-name {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: #000000;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.auth-brand-sub {
+  font-size: 14px;
+  color: #000000;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.auth-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .1), 0 8px 10px -6px rgba(0, 0, 0, .1);
+  padding: 24px;
+}
+.auth-card-head {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.auth-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #000000;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.auth-desc {
+  font-size: 14px;
+  color: #000000;
+  margin-top: 4px;
+}
+.auth-note {
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.auth-note--admin { background: #eff6ff; border: 1px solid #bfdbfe; }
+.auth-note--client { background: #ecfdf5; border: 1px solid #a7f3d0; }
+.auth-note-title { font-size: 13px; font-weight: 600; }
+/* Accent colours, not body text: these sit on their own tinted panel and are
+   what tells an admin sign-in apart from a client one at a glance. */
+.auth-note--admin .auth-note-title { color: #1e40af; }
+.auth-note--client .auth-note-title { color: #065f46; }
+.auth-note-body { font-size: 12px; margin-top: 2px; }
+.auth-note--admin .auth-note-body { color: #1e40af; }
+.auth-note--client .auth-note-body { color: #065f46; }
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.auth-field { display: flex; flex-direction: column; gap: 6px; }
+/* The panel styles every label uppercase with tracking. A form field label is
+   ordinary prose here, so each of those is reset rather than inherited. */
+.auth-field label {
+  font-size: 14px;
+  color: #000000;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  margin: 0;
+}
+.auth-field input {
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 14px;
+  font-family: inherit;
+  margin: 0;
+}
+.auth-field input::placeholder { color: #6b7280; }
+.auth-field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+}
+.auth-submit {
+  width: 100%;
+  height: 40px;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  margin: 0;
+}
+.auth-submit:hover { background: #1d4ed8; }
+.auth-submit--client { background: #059669; }
+.auth-submit--client:hover { background: #047857; }
+.auth-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.auth-alt {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #000000;
+}
+.auth-alt a { color: #2563eb; text-decoration: none; }
+.auth-alt a:hover { text-decoration: underline; }
+.auth-foot {
+  text-align: center;
+  font-size: 12px;
+  color: #000000;
+}

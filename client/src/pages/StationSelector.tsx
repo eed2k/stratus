@@ -227,13 +227,39 @@ export default function StationSelector({ isAdmin, canAccessStation, onSelectSta
               
               <CardHeader className="pb-1 pt-3 px-3">
                 <div className="flex items-start justify-between">
+                  {/*
+                    `truncate` goes on the block element, never on an inner span.
+
+                    It was on a nested <span> before, and that is why long
+                    location strings ran out past the edge of the card on both
+                    web and mobile. Tailwind's `truncate` is three properties:
+                    overflow:hidden, text-overflow:ellipsis and
+                    white-space:nowrap. On an INLINE element only the nowrap
+                    takes effect, because an inline box has no width of its own
+                    to overflow and ellipsis needs a constrained block box. So
+                    the text was told not to wrap and then not clipped, which is
+                    the worst of both and put it outside the block.
+
+                    CardTitle and CardDescription are both divs, so putting the
+                    class on them gives a real block box, and the flex parent
+                    already carries min-w-0 so it is allowed to shrink below its
+                    content width. `title` keeps the full string reachable on
+                    hover once it is cut.
+                  */}
                   <div className="space-y-0.5 flex-1 min-w-0">
-                    <CardTitle className="text-base sm:text-lg font-normal" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                      <span className="truncate">{station.name}</span>
+                    <CardTitle
+                      className="text-base sm:text-lg font-normal truncate"
+                      style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
+                      title={station.name}
+                    >
+                      {station.name}
                     </CardTitle>
                     {station.location && (
-                      <CardDescription className="text-xs sm:text-sm">
-                        <span className="truncate">Location: {station.location}</span>
+                      <CardDescription
+                        className="text-xs sm:text-sm truncate"
+                        title={station.location}
+                      >
+                        Location: {station.location}
                       </CardDescription>
                     )}
                     {/* Coordinates and height above mean sea level are two

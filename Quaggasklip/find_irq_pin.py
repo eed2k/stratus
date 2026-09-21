@@ -4,11 +4,15 @@
 # ===========================================================================
 #
 #  WHY THIS EXISTS
-#    The Pi 3 and Pi 2 Click Shields route mikroBUS socket 2's INT to different
-#    GPIOs - 12 and 19 respectively - because the Pi 3 shield's onboard MCP3204
-#    ADC claims GPIO19/20/21 for SPI1. Getting it wrong produces a detector that
-#    starts cleanly, logs nothing, and reports itself healthy for as long as
-#    nobody looks, which is the worst way for a safety device to fail.
+#    Shields disagree about which GPIO carries a mikroBUS socket's INT, and the
+#    Pi 3 shield disagrees further because its onboard MCP3204 ADC claims
+#    GPIO19/20/21 for SPI1. Getting it wrong produces a detector that starts
+#    cleanly, logs nothing, and reports itself healthy for as long as nobody
+#    looks, which is the worst way for a safety device to fail.
+#
+#    This unit is a Pi 2 Click Shield with the Thunder Click in SOCKET 1, so the
+#    expected answer is GPIO6. Expected, not assumed: that is the whole point of
+#    measuring it.
 #
 #  HOW IT WORKS
 #    The AS3935 has an antenna-display mode: setting bit 7 of register 0x08
@@ -22,8 +26,8 @@
 #    also proves the sensor is alive and talking over SPI.
 #
 #  USAGE
-#      python3 find_irq_pin.py                 # sensor in socket 2 (CE1)
-#      python3 find_irq_pin.py --spi-device 0  # sensor in socket 1 (CE0)
+#      python3 find_irq_pin.py                 # sensor in socket 1 (CE0)
+#      python3 find_irq_pin.py --spi-device 1  # sensor in socket 2 (CE1)
 #
 #  Read-only apart from the display-mode bit, which is restored before exit.
 #  It sends nothing anywhere.
@@ -48,8 +52,8 @@ REG_CALIB    = 0x3D
 REG_CALIB_TRCO = 0x3A
 REG_CALIB_SRCO = 0x3B
 
-# Every GPIO that either shield routes to a mikroBUS INT, plus the documented
-# alternatives, so a mis-seated board or an unexpected shield revision still
+# Every GPIO a shield plausibly routes to a mikroBUS INT, plus the neighbouring
+# mikroBUS signals, so a mis-seated board or an unexpected shield revision still
 # turns up rather than reporting "not found".
 #
 # Excluded on purpose:
@@ -59,17 +63,32 @@ REG_CALIB_SRCO = 0x3B
 #   14, 15  the UART going to the Terminal 2 Click
 CANDIDATES = [4, 5, 6, 12, 13, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
 
+# Pi 2 Click Shield, read off the shield schematic silkscreen:
+#
+#   mikroBUS   socket 1   socket 2
+#   AN         GPIO4      GPIO13
+#   RST        GPIO5      GPIO19
+#   CS         GPIO8      GPIO7      (CE0 / CE1)
+#   PWM        GPIO18     GPIO17
+#   INT        GPIO6      GPIO26
+#
+# Do not extend this to the Pi 3 shield from memory. Its socket 2 INT is GPIO12
+# and its ADC takes GPIO16/19/20/21, so several rows below would be wrong there.
 KNOWN = {
-    17: "mikroBUS socket 1 INT (both shields)",
+    4:  "mikroBUS socket 1 AN (Pi 2 shield)",
+    5:  "mikroBUS socket 1 RST (Pi 2 shield)",
+    6:  "mikroBUS socket 1 INT (Pi 2 shield)  <-- expected on this build",
     12: "mikroBUS socket 2 INT (Pi 3 shield)",
-    19: "mikroBUS socket 2 INT (Pi 2 shield) / SPI1-MISO on the Pi 3 shield",
-    18: "mikroBUS socket 1 PWM",
-    13: "mikroBUS socket 2 PWM",
-    4:  "mikroBUS socket 1 AN",
-    5:  "mikroBUS socket 1 RST",
-    6:  "mikroBUS socket 2 RST",
+    13: "mikroBUS socket 2 AN (Pi 2 shield)",
     16: "SPI1-CE2 on the Pi 3 shield (onboard ADC)",
+    17: "mikroBUS socket 2 PWM (Pi 2 shield)",
+    18: "mikroBUS socket 1 PWM (Pi 2 shield)",
+    19: "mikroBUS socket 2 RST (Pi 2 shield) / SPI1-MISO on the Pi 3 shield",
+    26: "mikroBUS socket 2 INT (Pi 2 shield)",
 }
+
+# Which pin each socket's INT should be, for the closing sanity check.
+EXPECTED_INT = {0: 6, 1: 26}        # spi device -> BCM, Pi 2 shield
 
 
 def read_register(spi, register):
@@ -113,8 +132,9 @@ def main():
     ap = argparse.ArgumentParser(
         description="Identify the GPIO carrying the AS3935 interrupt line.")
     ap.add_argument("--spi-bus", type=int, default=0)
-    ap.add_argument("--spi-device", type=int, default=1,
-                    help="1 = CE1 = mikroBUS socket 2 (default), 0 = CE0 = socket 1")
+    ap.add_argument("--spi-device", type=int, default=0, choices=(0, 1),
+                    help="0 = CE0 = mikroBUS socket 1 (default, the sensor on "
+                         "this build), 1 = CE1 = socket 2")
     ap.add_argument("--seconds", type=float, default=0.4,
                     help="sampling window per pass (default 0.4)")
     args = ap.parse_args()
@@ -200,11 +220,25 @@ def main():
         print()
         print("Set it in the config file:")
         print('    "irq_pin": %d' % pin)
-        if pin == 17:
+        expected = EXPECTED_INT.get(args.spi_device)
+        other = EXPECTED_INT.get(1 - args.spi_device)
+        if expected is not None and pin != expected:
             print()
-            print("Note: GPIO17 is socket 1's INT. If the Thunder Click is meant")
-            print("to be in socket 2, it is in the wrong socket, or")
-            print("--spi-device does not match where it actually is.")
+            print("Note: socket %d's INT should be GPIO%d on a Pi 2 shield, not "
+                  "GPIO%d."
+                  % (args.spi_device + 1, expected, pin))
+            if pin == other:
+                print("GPIO%d is socket %d's INT, so the Click is in the other "
+                      "socket and" % (pin, 2 - args.spi_device))
+                print("--spi-device does not match where it actually is. Chip "
+                      "select and the")
+                print("interrupt have to come from the same socket.")
+            else:
+                print("That is neither socket's INT on a Pi 2 shield, so this is "
+                      "probably a")
+                print("different shield. Trust this measurement over the table "
+                      "above, and")
+                print("correct the table.")
         return 0
 
     if not hits:

@@ -225,10 +225,20 @@ interface StationMapProps {
 }
 
 /**
- * OpenStreetMap component using Leaflet.js
- * Free and open source map with no API key required
- * Uses Nominatim for location search (OpenStreetMap geocoding)
- * Default view: South Africa
+ * Station location map: Leaflet, Esri World Imagery, satellite only.
+ *
+ * Shared by the main dashboard (client/src/pages/Dashboard.tsx) and the public
+ * shared dashboard (client/src/pages/SharedDashboard.tsx), so both show a site
+ * identically. No API key and no npm dependency: Leaflet is loaded from a CDN at
+ * runtime and the imagery is Esri's public tile service.
+ *
+ * There is one basemap by design. See the tile layer below for why the street
+ * option went.
+ *
+ * Nominatim still provides location SEARCH when the map is editable. That is a
+ * geocoder, not a basemap, and is unaffected by the satellite-only rule.
+ *
+ * Falls back to a South Africa overview when the station has no coordinates.
  */
 export function StationMap({
   latitude,
@@ -245,7 +255,8 @@ export function StationMap({
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const windArrowRef = useRef<any>(null);
-  const activeLayerRef = useRef<'street' | 'satellite'>('satellite');
+  // No activeLayerRef any more: satellite is the only basemap, so there is
+  // nothing to track and openInMaps has one destination.
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
@@ -394,20 +405,24 @@ export function StationMap({
           zoomAnimation: true,
         });
 
-        // Tile layers - Street (CARTO Voyager) and Satellite (Esri World Imagery).
-        // NOTE: we deliberately do NOT use raw tile.openstreetmap.org tiles here.
-        // OSM's tile usage policy forbids production/heavy use and returns HTTP 403
-        // for flagged referrers. CARTO + Esri both permit web embedding, are CORS
-        // enabled, and need no API key or login.
-        const streetLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-          maxZoom: 20,
-          minZoom: 1,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          subdomains: ['a', 'b', 'c', 'd'],
-          crossOrigin: 'anonymous',
-          errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-        });
-
+        /**
+         * Satellite only. Esri World Imagery, the same source the PDF report
+         * draws, so the dashboard and a filed report show the same picture of a
+         * site.
+         *
+         * The street basemap and the layers control that switched to it were
+         * removed. A weather station is identified by its coordinates, which are
+         * printed beside this map to six decimals, and what the reader cannot
+         * get from those numbers is what the ground around the mast looks like:
+         * the exposure that explains the wind and radiation readings. That is
+         * the satellite view. The street layer answered a question nothing on
+         * this dashboard asks.
+         *
+         * Raw tile.openstreetmap.org is deliberately still not used anywhere:
+         * their usage policy forbids production use and returns HTTP 403 for
+         * flagged referrers. Esri permits web embedding, is CORS enabled and
+         * needs no key.
+         */
         const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
           maxZoom: 19,
           minZoom: 1,
@@ -415,26 +430,26 @@ export function StationMap({
           crossOrigin: 'anonymous',
           errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         });
-        
-        // Satellite is the default base layer; users can toggle to Street.
+
         satelliteLayer.addTo(map);
 
-        // Add layer control toggle
-        const baseMaps = {
-          "Satellite": satelliteLayer,
-          "Street": streetLayer,
-        };
-        L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
-
-        // Track which base layer is active for "open in maps" link
-        map.on('baselayerchange', (e: any) => {
-          activeLayerRef.current = e.name === 'Satellite' ? 'satellite' : 'street';
-        });
-
-        // Custom marker
+        /**
+         * Station location pin.
+         *
+         * Red with a white ring, matching MAP_PIN_COLOUR in
+         * server/services/pdfReportService.ts so the dashboard pin and the
+         * report pin are recognisably the same marker.
+         *
+         * It used to be a blue gradient, which was chosen against a white page
+         * rather than against imagery. Now that satellite is the only basemap
+         * the pin is always over aerial photography, where blue competes with
+         * water, shadow and dark scrub. The white ring is what guarantees it
+         * reads over whatever happens to be underneath, which on a mast site
+         * could be dark bush, bright sand or a pale roof.
+         */
         const stationIcon = L.divIcon({
           className: "custom-station-marker",
-          html: `<div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid white;"><svg style="transform:rotate(45deg);width:16px;height:16px;color:white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
+          html: `<div style="background:#ef4444;width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.45);border:3px solid white;"><svg style="transform:rotate(45deg);width:15px;height:15px;color:white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 32],
           popupAnchor: [0, -32],
@@ -580,19 +595,18 @@ export function StationMap({
     };
   }, [windDirection, windSpeed, lat, lng, isLoading]);
 
+  /**
+   * Open the site in Google Maps, in satellite view.
+   *
+   * The `data=!3m1!1e1` fragment is what selects satellite, so the external view
+   * matches the one on the dashboard. There is no longer a street branch here,
+   * because there is no longer a street layer to be looking at.
+   */
   const openInMaps = () => {
-    if (activeLayerRef.current === 'satellite') {
-      // Open Google Maps in satellite view
-      window.open(
-        `https://www.google.com/maps/@${lat},${lng},${zoom}z/data=!3m1!1e1`,
-        "_blank"
-      );
-    } else {
-      window.open(
-        `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=${zoom}`,
-        "_blank"
-      );
-    }
+    window.open(
+      `https://www.google.com/maps/@${lat},${lng},${zoom}z/data=!3m1!1e1`,
+      "_blank"
+    );
   };
 
   const centerOnStation = () => {
@@ -639,7 +653,7 @@ export function StationMap({
             <Button variant="ghost" size="icon" onClick={centerOnStation} title="Center on station">
               <Navigation className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={openInMaps} title="Open in OpenStreetMap">
+            <Button variant="ghost" size="icon" onClick={openInMaps} title="Open in Google Maps (satellite)">
               <ExternalLink className="h-4 w-4" />
             </Button>
           </div>
@@ -695,21 +709,23 @@ export function StationMap({
       <CardContent>
         {error ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
-            {/* Static map fallback image */}
-            <div className="relative w-full h-40 rounded-lg overflow-hidden bg-muted">
-              <img 
-                src={`https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=${Math.min(defaultZoom, 12)}&size=400x200&markers=${lat},${lng},red-pushpin`}
-                alt="Station location"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
-                <MapPin className="h-8 w-8 text-black/50" />
-              </div>
-            </div>
+            {/*
+              No fallback image here.
+
+              This used to embed a staticmap.openstreetmap.de render, which was a
+              street map with a pushpin. It went for two reasons: it contradicted
+              the satellite-only rule the rest of this component now follows, and
+              that host is a volunteer service with no availability guarantee, so
+              the fallback for a failed map was itself liable to fail. The
+              coordinates are shown in the card header and repeated in the Station
+              Details panel beside this map, so nothing is lost by saying plainly
+              that the map did not load and offering the retry.
+            */}
+            <MapPin className="h-10 w-10 text-black/40" />
             <p className="text-sm text-black text-center">{error}</p>
+            <p className="text-xs text-black text-center">
+              {safeFixed(lat, 5)}&deg;, {safeFixed(lng, 5)}&deg;
+            </p>
             <div className="flex gap-2">
               <Button 
                 variant="outline" 

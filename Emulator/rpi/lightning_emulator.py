@@ -1,16 +1,9 @@
-# =========================================================================
-#
-#  Stratus AS3935 Lightning Emulator
-#  Raspberry Pi host for the Thunder EMU Click, equivalent to the Nano
-#  firmware.
-#
-#  Property of METRON (PTY) LTD | Inteltronics
-#  Developed by L.J. Esterhuizen, Inteltronics
-#
-# =========================================================================
-
-   #!/usr/bin/env python3
+#!/usr/bin/env python3
 """AS3935 lightning emulator - Raspberry Pi Zero 2 W + Thunder EMU Click.
+
+Strikes are fired from the Click's OWN three push buttons. Nothing is
+hand-wired: the Click drops into the single mikroBUS socket on the Pi Click
+Shield and the buttons come through on that socket's AN, PWM and INT pins.
 
 PROCESS
   1. Host writes a 20-sample decaying profile to the Click's MCP4725 DAC.
@@ -18,6 +11,61 @@ PROCESS
   3. Burst repeats (3 - mode) times: CLOSE 3, MID 2, FAR 1.
   4. 10 ms tail, then DAC parked powered-down at 0.
   5. AS3935 receives the burst and derives its own distance and energy.
+
+  The Click cannot fire on its own. Its buttons are plain inputs for the host to
+  read; the waveform is produced entirely by the host writing to the DAC. So
+  "use the Click's buttons" is a software change only, with no board
+  modification and no external parts.
+
+THE CLICK HAS THREE BUTTONS, NOT FOUR
+  CLOSE, MID and FAR map one-to-one onto the three modes, which leaves no button
+  for the scripted storm. Storm therefore runs from the keyboard ('s') or
+  --fire storm. Pass --storm-on-hold to also get it from holding FAR.
+
+BUTTON POLARITY
+  Active low, confirmed against the vendor example, which fires on
+  !thunderemu_get_close_pin(). Pressed = 0. The Pi's internal pull-up is
+  enabled, which is correct whether or not the board also pulls up.
+
+PIN MAP (BCM), MikroE Pi click shield (MIKROE-1513)
+  One mikroBUS socket, so one set of pins and nothing to choose.
+
+    mikroBUS  net   Pi pin  BCM      role    direction
+    AN        DIG   15      GPIO22   CLOSE   input, pull-up
+    PWM       PWM   12      GPIO18   MID     input, pull-up
+    INT       INT   11      GPIO17   FAR     input, pull-up
+    RST       RST    7      GPIO4    LED     output
+    SDA       SDA    3      GPIO2    I2C     /dev/i2c-1
+    SCL       SCL    5      GPIO3    I2C     /dev/i2c-1
+
+  Taken from the vendor schematic, which labels the header by physical pin
+  rather than by BCM number. The decode is self-checking: all eight fixed nets
+  (SDA 3, SCL 5, TX 8, RX 10, MOSI 19, MISO 21, SCK 23, CS 24) land exactly
+  where the 26-pin Raspberry Pi header puts them, so the four pins that matter
+  here are read off the same table.
+
+  Two of these are worth knowing:
+    AN is named DIG on this shield. There is no ADC on the board, so the analog
+    pin is just wired to a plain GPIO, which is what makes reading the Click's
+    CLOSE button on it work at all.
+    RST is GPIO4, not GPIO5. GPIO5 is not on a 26-pin header, and this shield
+    only uses pins 1-26.
+
+  This map does NOT carry over to other shields. The two-socket Pi 2 shield puts
+  socket 1's INT on GPIO6 and socket 2's on GPIO26, so neither is GPIO17. If you
+  swap shields, check before running:
+
+    python3 lightning_emulator.py --probe-buttons
+
+  A wrong pin gives a rig that starts cleanly, reports itself healthy and never
+  fires, which is the same trap find_irq_pin.py exists for on the detector side.
+
+SHARING THE DETECTOR'S PI
+  Don't. Give the emulator its own Pi and its own shield. The buses do not
+  clash, since the detector is on SPI and the emulator on I2C, but GPIO18 is
+  both this shield's PWM and the Quaggasklip detector's strike pulse mirror, and
+  claiming a pin another process is driving fights it. On a bench rig that costs
+  time chasing a fault that is not real. Two boards is the cheap way out.
 
 TIMING
   I2C 100 kHz. One 2-byte write = ~280 us bus time. Sample period ~300 us.
@@ -44,19 +92,6 @@ DAC PROTOCOL
     byte1 = value & 0xFF
   mode 0x00 = normal, 0x10 = powered down through 1k.
 
-WIRING (BCM, physical pin in brackets)
-  GPIO2  [3]   -> SDA
-  GPIO3  [5]   -> SCL
-  3V3    [1]   -> 3.3V                Click power
-  GND    [6]   -> GND
-  GPIO17 [11]  -> RST                 Click thunder LED
-  GPIO5  [29]  -> button to GND       CLOSE
-  GPIO6  [31]  -> button to GND       MID
-  GPIO13 [33]  -> button to GND       FAR
-  GPIO19 [35]  -> button to GND       STORM sequence
-  AN, PWM, INT: not connected. These are the Click's own buttons, wired as host
-  inputs. The Click cannot emit a burst on its own.
-
 LEVELS
   Pi GPIO is 3.3 V, matching the Click. No level shifter.
 
@@ -69,10 +104,13 @@ SETUP
   sudo usermod -aG i2c,gpio "$USER"      # log out and back in
 
 USAGE
-  python3 lightning_emulator.py                  interactive
-  sudo python3 lightning_emulator.py             + SCHED_FIFO
-  python3 lightning_emulator.py --fire close     one shot
-  python3 lightning_emulator.py --pace loop      Arduino timing
+  python3 lightning_emulator.py --probe-buttons    FIRST RUN: find the pins
+  python3 lightning_emulator.py                    interactive, Click buttons live
+  sudo python3 lightning_emulator.py               + SCHED_FIFO
+  python3 lightning_emulator.py --pins 4,18,17,5   CLOSE,MID,FAR,LED
+  python3 lightning_emulator.py --fire close       one shot
+  python3 lightning_emulator.py --pace loop        Arduino timing
+  python3 lightning_emulator.py --storm-on-hold    hold FAR to run the storm
 """
 from __future__ import annotations
 
@@ -94,6 +132,10 @@ DAC_FAST_PDOWN_1K = 0x10            # fast-mode write, powered down via 1k
 MODE_CLOSE, MODE_MID, MODE_FAR = 0, 1, 2
 MODE_NAMES = {MODE_CLOSE: "CLOSE", MODE_MID: "MID", MODE_FAR: "FAR"}
 
+# Vendor example polls CLOSE, then MID, then FAR with else-if, so a simultaneous
+# press resolves to the nearest range. Reproduced in _higher_priority_held().
+MODE_PRIORITY = (MODE_CLOSE, MODE_MID, MODE_FAR)
+
 # 20 samples, 12-bit, decaying.
 THUNDER_PROFILE = (
     1030, 730, 520, 370, 270, 200, 150, 110, 90, 70,
@@ -105,13 +147,58 @@ BURST_TAIL_S = 0.010                # tail before parking the DAC
 MAX_RDWR_MSGS = 42                  # I2C_RDWR_IOCTL_MAX_MSGS
 I2C_BUS = 1                         # /dev/i2c-1
 
-# GPIO, BCM numbering.
-PIN_LED = 17
-PIN_BTN = {MODE_CLOSE: 5, MODE_MID: 6, MODE_FAR: 13}
-PIN_BTN_STORM = 19
+# ---------------------------------------------------------------------------
+# Pin map, BCM numbering. MikroE Pi click shield (MIKROE-1513), one mikroBUS
+# socket. The Click's buttons arrive on AN (CLOSE), PWM (MID) and INT (FAR);
+# its thunder LED is driven on RST. See the PIN MAP note in the module
+# docstring for the schematic decode.
+# ---------------------------------------------------------------------------
+
+CLICK_PINS = {"an": 22, "pwm": 18, "int": 17, "rst": 4}
+
+# Pins another process on the same Pi may already be driving.
+PIN_WARNINGS = {
+    18: "GPIO18 is also the Quaggasklip detector's strike pulse mirror "
+        "(pulse_mirror_pin)",
+    4:  "GPIO4 is the 1-Wire default pin, so a w1-gpio overlay would fight the "
+        "thunder LED",
+}
+
+# Pins a Pi Click shield plausibly routes to AN, PWM, INT or RST, across the
+# single-socket MIKROE-1513 and the two-socket Pi 2 shield. Used by
+# --probe-buttons so an unexpected shield still turns up rather than reporting
+# "not found".
+#
+# Excluded on purpose:
+#   2, 3      I2C, and the DAC is on it
+#   8         CS / CE0
+#   9, 10, 11 SPI0
+#   14, 15    UART
+PROBE_CANDIDATES = {
+    4:  "MIKROE-1513 RST (LED, an output here - should not move)",
+    5:  "Pi 2 shield socket 1 RST",
+    6:  "Pi 2 shield socket 1 INT",
+    12: "spare GPIO",
+    13: "Pi 2 shield socket 2 AN",
+    17: "MIKROE-1513 INT (FAR)  /  Pi 2 shield socket 2 PWM",
+    18: "MIKROE-1513 PWM (MID)  /  Pi 2 shield socket 1 PWM",
+    19: "Pi 2 shield socket 2 RST",
+    22: "MIKROE-1513 AN as DIG (CLOSE)",
+    23: "spare GPIO",
+    24: "spare GPIO",
+    25: "spare GPIO",
+    26: "Pi 2 shield socket 2 INT",
+    27: "spare GPIO",
+}
+
+# What --probe-buttons should conclude. Pressed button -> the pin we expect.
+EXPECTED_BY_ROLE = (("CLOSE", "an"), ("MID", "pwm"), ("FAR", "int"))
 
 DEBOUNCE_S = 0.04
-RETRIGGER_LOCKOUT_S = 0.4
+# Vendor example sleeps 500 ms after a successful burst. That delay gates the
+# whole poll loop, so the lockout here is global rather than per mode.
+RETRIGGER_LOCKOUT_S = 0.5
+STORM_HOLD_S = 1.5                  # --storm-on-hold: hold FAR this long
 
 # Scripted storm: 9 strikes, far to close then receding.
 STORM_SCRIPT = (MODE_FAR, MODE_FAR, MODE_MID, MODE_MID, MODE_CLOSE,
@@ -295,7 +382,7 @@ class Emulator:
         """Run STORM_SCRIPT with STORM_GAP_S between strikes."""
         print(f"[emu] storm sequence: approaching, then receding "
               f"({len(STORM_SCRIPT)} strikes)")
-        print("[emu] press STORM again, or Ctrl-C, to stop")
+        print("[emu] press any Click button, or Ctrl-C, to stop")
         for i, mode in enumerate(STORM_SCRIPT):
             self.fire(mode, f"storm step {i + 1}/{len(STORM_SCRIPT)}")
             if i + 1 >= len(STORM_SCRIPT):
@@ -310,68 +397,264 @@ class Emulator:
 
 
 # ---------------------------------------------------------------------------
-# Buttons
+# Click buttons
 # ---------------------------------------------------------------------------
 
-def build_buttons(emu: Emulator):
-    """Claim the LED and button GPIOs. Returns (buttons, led).
+class ClickButtons:
+    """The Thunder EMU Click's own CLOSE, MID and FAR buttons.
 
-    gpiozero debounces via bounce_time. A per-mode lockout drops a second
-    trigger inside RETRIGGER_LOCKOUT_S. A second STORM press sets a stop flag
-    that the running sequence polls.
+    Active low with the Pi's internal pull-up. gpiozero debounces via
+    bounce_time; a global lockout matching the vendor's 500 ms post-burst delay
+    drops anything closer than that. While a storm is running, any press stops
+    it instead of firing.
     """
-    try:
-        from gpiozero import Button, DigitalOutputDevice
-    except ImportError:
-        print("[emu] gpiozero not installed, buttons disabled")
-        return None, None
 
-    try:
-        led = DigitalOutputDevice(PIN_LED, initial_value=False)
-    except Exception as exc:                # noqa: BLE001
-        print(f"[emu] GPIO{PIN_LED} unavailable for the Click LED ({exc})")
-        led = None
+    def __init__(self, emu: Emulator, pins: dict, storm_on_hold: bool = False):
+        self.emu = emu
+        self.pins = pins
+        self.storm_on_hold = storm_on_hold
+        self.buttons: dict[int, object] = {}
+        self.led = None
+        self._last_fire = 0.0
+        self._storm = {"running": False, "stop": False}
+        self._held = False
 
-    last_fire = {}
-    storm_state = {"running": False, "stop": False}
+    # -- wiring ------------------------------------------------------------
 
-    def guard(mode):
+    def claim(self) -> bool:
+        """Claim the LED and the three button pins. False if gpiozero is absent."""
+        try:
+            from gpiozero import Button, DigitalOutputDevice
+        except ImportError:
+            print("[emu] gpiozero not installed, Click buttons disabled")
+            print("      sudo apt install -y python3-gpiozero python3-lgpio")
+            return False
+
+        rst = self.pins["rst"]
+        try:
+            self.led = DigitalOutputDevice(rst, initial_value=False)
+        except Exception as exc:            # noqa: BLE001
+            print(f"[emu] GPIO{rst} unavailable for the Click thunder LED ({exc})")
+            self.led = None
+        self.emu.led = self.led
+
+        wanted = ((MODE_CLOSE, self.pins["an"]),
+                  (MODE_MID, self.pins["pwm"]),
+                  (MODE_FAR, self.pins["int"]))
+
+        for mode, pin in wanted:
+            try:
+                b = Button(pin, pull_up=True, bounce_time=DEBOUNCE_S)
+            except Exception as exc:        # noqa: BLE001
+                print(f"[emu] GPIO{pin} unavailable for the "
+                      f"{MODE_NAMES[mode]} button ({exc})")
+                print("      Another process may hold it. On the detector Pi, "
+                      "see the sharing note at the top of this file.")
+                continue
+            if mode == MODE_FAR and self.storm_on_hold:
+                # Long press starts the storm, so FAR fires on release instead
+                # of on press. Otherwise a hold would fire FAR and then a storm.
+                b.hold_time = STORM_HOLD_S
+                b.hold_repeat = False
+                b.when_held = self._on_hold_far
+                b.when_released = self._on_release_far
+            else:
+                b.when_pressed = self._make_handler(mode)
+            self.buttons[mode] = b
+
+        return bool(self.buttons)
+
+    # -- behaviour ---------------------------------------------------------
+
+    def _higher_priority_held(self, mode: int) -> bool:
+        """True if a nearer-range button is also down, per the vendor else-if."""
+        for other in MODE_PRIORITY:
+            if other == mode:
+                return False
+            b = self.buttons.get(other)
+            if b is not None and b.is_pressed:
+                return True
+        return False
+
+    def _accept(self, mode: int) -> bool:
+        """Apply the storm-stop, priority and lockout rules."""
+        if self._storm["running"]:
+            self._storm["stop"] = True
+            return False
+        if self._higher_priority_held(mode):
+            return False
+        now = time.monotonic()
+        if now - self._last_fire < RETRIGGER_LOCKOUT_S:
+            return False
+        self._last_fire = now
+        return True
+
+    def _make_handler(self, mode: int):
         def handler():
-            now = time.monotonic()
-            if now - last_fire.get(mode, 0.0) < RETRIGGER_LOCKOUT_S:
-                return
-            last_fire[mode] = now
-            emu.fire(mode, f"button {MODE_NAMES[mode]}")
+            if self._accept(mode):
+                self.emu.fire(mode, f"Click {MODE_NAMES[mode]} button")
         return handler
 
-    buttons = []
-    try:
-        for mode, pin in PIN_BTN.items():
-            b = Button(pin, pull_up=True, bounce_time=DEBOUNCE_S)
-            b.when_pressed = guard(mode)
-            buttons.append(b)
+    def _on_hold_far(self):
+        self._held = True
+        if self._storm["running"]:
+            self._storm["stop"] = True
+            return
+        self.run_storm("held FAR")
 
-        storm_btn = Button(PIN_BTN_STORM, pull_up=True, bounce_time=DEBOUNCE_S)
+    def _on_release_far(self):
+        if self._held:
+            self._held = False          # the hold already did something
+            return
+        if self._accept(MODE_FAR):
+            self.emu.fire(MODE_FAR, "Click FAR button")
 
-        def on_storm():
-            if storm_state["running"]:
-                storm_state["stop"] = True
-                return
-            storm_state["running"] = True
-            storm_state["stop"] = False
+    def run_storm(self, why: str) -> None:
+        if self._storm["running"]:
+            self._storm["stop"] = True
+            return
+        self._storm["running"] = True
+        self._storm["stop"] = False
+        print(f"[emu] storm triggered by {why}")
+        try:
+            self.emu.storm(stop_requested=lambda: self._storm["stop"])
+        finally:
+            self._storm["running"] = False
+            self._storm["stop"] = False
+            self._last_fire = time.monotonic()
+
+    # -- teardown ----------------------------------------------------------
+
+    def describe(self) -> str:
+        if not self.buttons:
+            return ""
+        parts = [f"{MODE_NAMES[m]} GPIO{self.buttons[m].pin.number}"
+                 for m in MODE_PRIORITY if m in self.buttons]
+        return "Click buttons: " + "   ".join(parts)
+
+    def close(self) -> None:
+        for b in self.buttons.values():
             try:
-                emu.storm(stop_requested=lambda: storm_state["stop"])
-            finally:
-                storm_state["running"] = False
-                storm_state["stop"] = False
+                b.close()
+            except Exception:               # noqa: BLE001
+                pass
+        if self.led is not None:
+            try:
+                self.led.off()
+                self.led.close()
+            except Exception:               # noqa: BLE001
+                pass
 
-        storm_btn.when_pressed = on_storm
-        buttons.append(storm_btn)
-    except Exception as exc:                # noqa: BLE001
-        print(f"[emu] button GPIOs unavailable ({exc})")
-        return None, led
 
-    return buttons, led
+# ---------------------------------------------------------------------------
+# Button pin finder
+# ---------------------------------------------------------------------------
+
+def probe_buttons(seconds: float = 30.0) -> int:
+    """Name the pin behind each Click button, empirically.
+
+    Claims every pin a Pi Click shield plausibly routes to a mikroBUS AN, PWM,
+    INT or RST, holds them high with the internal pull-up, and reports each one
+    that goes low. Press the buttons one at a time, in order, and it prints a
+    ready-to-paste --pins line.
+    """
+    try:
+        from gpiozero import Button
+    except ImportError:
+        print("gpiozero not installed:  sudo apt install -y python3-gpiozero "
+              "python3-lgpio")
+        return 1
+
+    print("Thunder EMU Click button finder")
+    print("  Press CLOSE, then MID, then FAR, one at a time, in that order.")
+    print("  Each press should name exactly one pin.")
+    print(f"  Listening for {seconds:.0f}s. Ctrl-C to stop early.\n")
+
+    claimed = {}
+    for pin, label in sorted(PROBE_CANDIDATES.items()):
+        try:
+            claimed[pin] = Button(pin, pull_up=True, bounce_time=DEBOUNCE_S)
+        except Exception as exc:            # noqa: BLE001
+            print(f"  GPIO{pin:<2} skipped, unavailable ({exc}) - {label}")
+
+    if not claimed:
+        print("No candidate pin could be claimed. Is another service holding "
+              "them? Stop the detector first:")
+        print("  sudo systemctl stop lightning-detector")
+        return 1
+
+    resting_low = [p for p, b in claimed.items() if b.is_pressed]
+    if resting_low:
+        print("  Note: GPIO" + ", GPIO".join(str(p) for p in sorted(resting_low))
+              + " already reads low with nothing pressed.")
+        print("  That pin is driven by something else, or the Click is not "
+              "seated. Presses on it cannot be told apart from its resting "
+              "state.\n")
+
+    seen: dict[int, int] = {}
+    order: list[int] = []               # first-press order, so we can name roles
+    state = {p: b.is_pressed for p, b in claimed.items()}
+    end = time.monotonic() + seconds
+    try:
+        while time.monotonic() < end:
+            for pin, b in claimed.items():
+                now_pressed = b.is_pressed
+                if now_pressed and not state[pin]:
+                    if pin not in seen:
+                        order.append(pin)
+                    seen[pin] = seen.get(pin, 0) + 1
+                    print(f"  GPIO{pin:<2} went LOW  <- {PROBE_CANDIDATES[pin]}")
+                state[pin] = now_pressed
+            time.sleep(0.01)
+    except KeyboardInterrupt:
+        print()
+    finally:
+        for b in claimed.values():
+            try:
+                b.close()
+            except Exception:               # noqa: BLE001
+                pass
+
+    print("\nResult")
+    if not seen:
+        print("  Nothing moved. Things to check, in order:")
+        print("   1. The Thunder EMU Click is fully seated in a mikroBUS socket.")
+        print("   2. The shield is powered - the Click needs 3.3V from the socket.")
+        print("   3. You are pressing the Click's own buttons, not the sensor "
+              "board's.")
+        print("   4. No other service holds these pins "
+              "(sudo systemctl stop lightning-detector).")
+        return 1
+
+    for i, pin in enumerate(order):
+        print(f"  {i + 1}. GPIO{pin:<2} {seen[pin]} press(es)  "
+              f"{PROBE_CANDIDATES[pin]}")
+
+    default = [CLICK_PINS["an"], CLICK_PINS["pwm"], CLICK_PINS["int"]]
+    if len(order) == 3:
+        if order == default:
+            print("\n  This is the built-in MIKROE-1513 map "
+                  f"(CLOSE {order[0]}, MID {order[1]}, FAR {order[2]}). "
+                  "No --pins needed.")
+        else:
+            print(f"\n  Taking the press order as CLOSE, MID, FAR:")
+            print(f"    CLOSE GPIO{order[0]}   MID GPIO{order[1]}   "
+                  f"FAR GPIO{order[2]}")
+            print("  Run with:")
+            print(f"    --pins {order[0]},{order[1]},{order[2]},"
+                  f"{CLICK_PINS['rst']}")
+            print(f"  The last number is RST, the thunder LED. It is an output, "
+                  f"so pressing cannot find it;")
+            print(f"  GPIO{CLICK_PINS['rst']} is the MIKROE-1513 value. Change "
+                  "it if your shield differs.")
+    else:
+        print(f"\n  Saw {len(order)} distinct pin(s), expected 3. Press each "
+              "button once, in the order")
+        print("  CLOSE, MID, FAR, and give it a moment between presses.")
+        if len(order) > 3:
+            print("  More than three suggests contact bounce on one button or a "
+                  "pin floating.")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +663,14 @@ def build_buttons(emu: Emulator):
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="AS3935 lightning emulator, Raspberry Pi + Thunder EMU Click")
+        description="AS3935 lightning emulator, Raspberry Pi Zero 2 W + "
+                    "Thunder EMU Click. Fired from the Click's own buttons.")
+    ap.add_argument("--pins", metavar="CLOSE,MID,FAR,LED",
+                    help="override the BCM pin map, four comma-separated "
+                         "numbers. Default for the MIKROE-1513 shield is "
+                         f"{CLICK_PINS['an']},{CLICK_PINS['pwm']},"
+                         f"{CLICK_PINS['int']},{CLICK_PINS['rst']}. "
+                         "Use --probe-buttons to find yours.")
     ap.add_argument("--pace", choices=("batched", "loop"), default="batched",
                     help="batched: one ioctl per burst. "
                          "loop: one write per sample plus a 22 us gap.")
@@ -389,17 +679,53 @@ def main() -> int:
     ap.add_argument("--bus", type=int, default=I2C_BUS, help="I2C bus number")
     ap.add_argument("--no-buttons", action="store_true",
                     help="keyboard only, claim no GPIO")
+    ap.add_argument("--storm-on-hold", action="store_true",
+                    help=f"hold FAR for {STORM_HOLD_S:g}s to run the storm "
+                         "sequence. FAR then fires on release.")
+    ap.add_argument("--probe-buttons", action="store_true",
+                    help="report which GPIO each Click button is on, then exit")
+    ap.add_argument("--probe-seconds", type=float, default=30.0,
+                    help="how long --probe-buttons listens (default 30)")
     args = ap.parse_args()
 
+    if args.probe_buttons:
+        return probe_buttons(args.probe_seconds)
+
+    pins = dict(CLICK_PINS)
+    if args.pins:
+        parts = [p.strip() for p in args.pins.split(",")]
+        if len(parts) != 4:
+            ap.error("--pins needs exactly four numbers: CLOSE,MID,FAR,LED")
+        try:
+            nums = [int(p) for p in parts]
+        except ValueError:
+            ap.error(f"--pins must be four BCM numbers, got {args.pins!r}")
+        if len(set(nums)) != 4:
+            ap.error(f"--pins has a repeated pin: {args.pins!r}")
+        for n in nums:
+            if not 0 <= n <= 27:
+                ap.error(f"--pins: GPIO{n} is not a BCM pin on this header")
+        pins = dict(zip(("an", "pwm", "int", "rst"), nums))
+
     print("=== AS3935 lightning emulator ===")
-    print("Raspberry Pi + Thunder EMU Click")
+    print("Raspberry Pi Zero 2 W + Thunder EMU Click")
+    print("Pi click shield (MIKROE-1513), one mikroBUS socket"
+          f"{'' if not args.pins else '  [pins overridden]'}")
+    print(f"  CLOSE GPIO{pins['an']}   MID GPIO{pins['pwm']}   "
+          f"FAR GPIO{pins['int']}   LED GPIO{pins['rst']}")
+
+    for role, pin in pins.items():
+        why = PIN_WARNINGS.get(pin)
+        if why:
+            print(f"[emu] note: {why}.")
 
     dac = Dac(args.bus)
     addr = dac.find()
     if addr is None:
         print("DAC NOT RESPONDING at 0x60 or 0x61.")
-        print("  SDA on GPIO2 [3], SCL on GPIO3 [5], 3V3, common GND.")
-        print("  Check:  ls /dev/i2c-*   and   i2cdetect -y 1")
+        print("  The Click is not talking. Check it is seated in the socket, "
+              "that the shield has power,")
+        print("  and that I2C is on:  ls /dev/i2c-*   and   i2cdetect -y 1")
         return 1
     print(f"DAC found at 0x{addr:02X} on /dev/i2c-{args.bus}")
     print(f"Pacing: {args.pace}")
@@ -418,17 +744,22 @@ def main() -> int:
             dac.close()
         return 0
 
-    buttons = None
+    clicks = None
     if not args.no_buttons:
-        buttons, led = build_buttons(emu)
-        emu.led = led
+        clicks = ClickButtons(emu, pins, storm_on_hold=args.storm_on_hold)
+        if not clicks.claim():
+            clicks = None
 
     print()
-    if buttons:
-        print(f"Buttons to GND: GPIO{PIN_BTN[MODE_CLOSE]} CLOSE   "
-              f"GPIO{PIN_BTN[MODE_MID]} MID   "
-              f"GPIO{PIN_BTN[MODE_FAR]} FAR   "
-              f"GPIO{PIN_BTN_STORM} STORM")
+    if clicks is not None:
+        print(clicks.describe())
+        if args.storm_on_hold:
+            print(f"Hold FAR for {STORM_HOLD_S:g}s to run the storm sequence.")
+        else:
+            print("The Click has three buttons, so the storm sequence runs "
+                  "from the keyboard.")
+    else:
+        print("No Click buttons claimed, keyboard only.")
     print("Keyboard: c m f s, q to quit")
     print("Coil to sensor antenna: 5 to 15 cm.")
     print("SMS alerts must be OFF on the panel before testing.")
@@ -452,7 +783,10 @@ def main() -> int:
             elif key == "f":
                 emu.fire(MODE_FAR, "keyboard")
             elif key == "s":
-                emu.storm()
+                if clicks is not None:
+                    clicks.run_storm("keyboard")
+                else:
+                    emu.storm()
             else:
                 print("  c m f s, q to quit")
     except KeyboardInterrupt:
@@ -460,18 +794,8 @@ def main() -> int:
     finally:
         # Park the DAC and release the pins.
         dac.close()
-        if buttons:
-            for b in buttons:
-                try:
-                    b.close()
-                except Exception:           # noqa: BLE001
-                    pass
-        if emu.led is not None:
-            try:
-                emu.led.off()
-                emu.led.close()
-            except Exception:               # noqa: BLE001
-                pass
+        if clicks is not None:
+            clicks.close()
         print("[emu] stopped, DAC parked")
     return 0
 

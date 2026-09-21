@@ -13,7 +13,7 @@
 '
 '   L,<distance_km>,<energy>     one record per forwarded strike
 '   H,<cpu_temp_c>,<rssi_dbm>    status, every campbell_heartbeat_interval
-'                                (600 s in lightning_config.json)
+'                                (600 s in quaggasklip_config.json)
 '
 ' Both records end with a real CR LF. distance_km is -1 when the AS3935 reports
 ' a strike it cannot range, so -1 is never treated as a "closest strike".
@@ -25,8 +25,13 @@
 '
 ' WIRING
 '
-'   Pi BCM 26   (40 pin header, physical pin 37)  ->  CR300  C2
-'   Pi GND      (40 pin header, physical pin 39)  ->  CR300  G
+' Everything lands on the Terminal 2 Click, which sits in mikroBUS socket 2 of
+' the Pi 2 Click Shield and breaks that socket out to two screw blocks. TB1
+' carries AN, RST, CS, SCK, MISO, MOSI and 3V3; TB2 carries PWM, INT, TX, RX,
+' SCL, SDA and 5V.
+'
+'   Terminal 2 Click TB2 "TX"    Pi BCM 14   ->  CR300  C2
+'   Terminal 2 Click either GND  Pi GND      ->  CR300  G
 '
 ' Ground is not optional. Without a shared reference the receiver samples noise
 ' instead of data, and the symptom is ParseErrorCount climbing steadily while
@@ -37,32 +42,38 @@
 ' with an input tolerance of -10 V to +15 V. The Pi drives 3.3 V, which is
 ' exactly the specified level. P_SW is likewise 3.3 V, tolerant to +/-17 V.
 '
-' Do NOT wire the mikroBUS TX pin of the Terminal 2 Click. On this build that
-' pin is BCM 14, the Linux serial console (enable_uart=1). The detector
-' deliberately bit-bangs its output on BCM 26 with pigpio instead, so the
-' console stays available for field debugging.
+' BCM 14 is the Pi's hardware UART, which is what the Terminal 2 Click exists to
+' bring out. install.sh frees it: it removes console=serial0 from cmdline.txt and
+' disables the serial getty, so the pin is the detector's and not the console's.
+' It also disables Bluetooth, which moves /dev/serial0 onto the PL011 so the baud
+' rate stops drifting with the core clock.
 '
-' BCM 26 was chosen as an accessible pin on the lower header. It is NOT a
-' mikroBUS signal, so if you would rather land the wire on the Terminal 2 Click
-' screw terminals, confirm which terminal actually carries BCM 26 first:
-'
-'   python3 /home/gwld1/campbell_pin_probe.py --toggle
-'
-' and follow it with a meter. Do not assume a mapping.
+' If for some reason the boot config cannot be changed, the detector has a
+' bit-bang fallback on BCM 26. That is socket 2's INT, so it comes out on TB2
+' pin 3, and it needs campbell_transport set to "bitbang" plus pigpiod running.
+' Prefer the hardware UART: it costs no CPU and does not compete with the strike
+' interrupt on a single-core Zero W.
 '
 ' ENABLE THE PI SIDE FIRST, or this program will log nothing at all:
 '
-'   lightning_config.json   ->   "campbell_uart_enabled": true
+'   /home/quaggasklip/quaggasklip_config.json  ->  "campbell_enabled": true
+'                                                  "campbell_transport": "serial"
 '   sudo systemctl restart lightning-detector
 '
-' PULSE INPUT, second wire, enabled on this unit
+' PULSE INPUT, second wire, currently DISABLED on this unit
 '
-'   Pi BCM 19   (40 pin header, physical pin 35)  ->  CR300  P_SW
+'   Terminal 2 Click TB1 pin 7 "RST"   Pi BCM 19   ->  CR300  P_SW
 '
-' The detector mirrors every confirmed strike as one 50 ms pulse on BCM 19, set
-' by "pulse_mirror_enabled" and "pulse_mirror_width_ms" in lightning_config.json.
-' 50 ms is far above any switch-closure debounce and still allows 10 strikes per
-' second, well beyond anything this unit forwards.
+' The detector can mirror every confirmed strike as one pulse on BCM 19, set by
+' "pulse_mirror_enabled" and "pulse_mirror_ms" in quaggasklip_config.json. It
+' ships disabled, so nothing arrives on P_SW until it is turned on. The default
+' width is 25 ms, well above any switch-closure debounce and still good for 10
+' strikes per second, far beyond anything this unit forwards.
+'
+' BCM 19 is socket 2's RST line. It has to be a socket 2 pin to reach a terminal
+' at all: socket 1 holds the Thunder Click, so socket 1's PWM on BCM 18 dead-ends
+' under that board. The other usable choice is socket 2's PWM on BCM 17, TB2
+' pin 2. If you move to it, change pulse_mirror_pin and this comment together.
 '
 ' This is a deliberately independent count. It is driven straight off the strike
 ' handler, so it does not depend on the serial line, the network, or the panel.

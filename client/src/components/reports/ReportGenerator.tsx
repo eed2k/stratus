@@ -13,9 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { WeatherStation, WeatherData } from "@shared/schema";
-import { getWindUnitLabel, getSimplifiedClasses, WIND_DIRECTIONS, type WindSpeedUnit } from "@/lib/windConstants";
+// getSimplifiedClasses and WIND_DIRECTIONS went with the browser-side wind
+// roses: the server renderer builds its own rose and scatter from the same
+// constants, server side, so there is nothing left here to bin wind data for.
+import { getWindUnitLabel, type WindSpeedUnit } from "@/lib/windConstants";
 import { format } from "date-fns";
-import jsPDF from "jspdf";
 
 interface ReportConfig {
   stationId: number;
@@ -129,327 +131,132 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
     return { min, max, avg, stdDev, count: valid.length, total: values.length };
   };
 
+  /**
+   * Download the PDF from the server renderer.
+   *
+   * THIS USED TO BUILD ITS OWN PDF IN THE BROWSER WITH jsPDF, and that was the
+   * problem. There were two unrelated implementations of "the weather report":
+   * this one, and the pdfkit renderer the scheduler attaches to email. They
+   * shared no code and agreed on almost nothing. The scheduled PDF leads with a
+   * station heading, a labelled site list, a satellite view and a six-column
+   * statistics table, then wind analysis and time-series graphs, with a page
+   * footer throughout. The browser one emitted a centred title, per-parameter
+   * text blocks carrying a standard deviation, three wind roses rasterised to
+   * PNG, and no maps, no graphs and no footer. Which document you got depended
+   * on which button you pressed.
+   *
+   * So this now calls GET /api/reports/pdf, the same endpoint the Report
+   * Scheduling page downloads from and the same buildSchedulePdfBuffer the
+   * scheduler emails. One renderer, one format, and a change to the report is
+   * made in one place instead of two.
+   */
   const generatePDFReport = async () => {
-    setIsGenerating(true);
-    
-    try {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      let y = 20;
-
-      doc.setFontSize(20);
-      doc.text("Weather Station Report", pageWidth / 2, y, { align: "center" });
-      y += 15;
-
-      doc.setFontSize(12);
-      doc.text(`Station: ${selectedStation?.name || "Unknown"}`, 20, y);
-      y += 7;
-      doc.text(`Location: ${selectedStation?.location || "N/A"}`, 20, y);
-      y += 7;
-      if (selectedStation?.latitude != null && selectedStation?.longitude != null) {
-        doc.text(`Coordinates: ${safeFixed(selectedStation.latitude, 4)}, ${safeFixed(selectedStation.longitude, 4)}`, 20, y);
-        y += 7;
-      }
-      if (selectedStation?.altitude != null) {
-        doc.text(`Altitude: ${safeFixed(selectedStation.altitude, 0)} m`, 20, y);
-        y += 7;
-      }
-      doc.text(`Period: ${config.startDate} to ${config.endDate}`, 20, y);
-      y += 7;
-      doc.text(`Generated: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`, 20, y);
-      y += 15;
-
-      doc.setLineWidth(0.5);
-      doc.line(20, y, pageWidth - 20, y);
-      y += 10;
-
-      const allSections: Array<{
-        title: string;
-        enabled: boolean;
-        getValue: (d: WeatherData) => number | null;
-        unit: string;
-      }> = [
-        { title: "Temperature", enabled: config.includeTemperature, getValue: (d) => d.temperature, unit: "°C" },
-        { title: "Humidity", enabled: config.includeHumidity, getValue: (d) => d.humidity, unit: "%" },
-        { title: "Dew Point", enabled: config.includeDewPoint, getValue: (d) => d.dewPoint, unit: "°C" },
-        { title: "Pressure", enabled: config.includePressure, getValue: (d) => d.pressure, unit: "hPa" },
-        { title: "Wind Speed", enabled: config.includeWind, getValue: (d) => d.windSpeed, unit: windUnitLabel },
-        { title: "Wind Direction", enabled: config.includeWind, getValue: (d) => d.windDirection, unit: "°" },
-        { title: "Wind Gust", enabled: config.includeWind, getValue: (d) => d.windGust, unit: windUnitLabel },
-        { title: "Rainfall", enabled: config.includeRainfall, getValue: (d) => d.rainfall, unit: "mm" },
-        { title: "Solar Radiation", enabled: config.includeSolar, getValue: (d) => d.solarRadiation, unit: "W/m2" },
-        { title: "UV Index", enabled: config.includeUV, getValue: (d) => (d as any).uvIndex, unit: "" },
-        { title: "Battery Voltage", enabled: config.includeBattery, getValue: (d) => d.batteryVoltage, unit: "V" },
-        { title: "Evapotranspiration (ETo)", enabled: config.includeETo, getValue: (d) => d.eto, unit: "mm/day" },
-        { title: "Soil Temperature", enabled: config.includeSoilTemp, getValue: (d) => d.soilTemperature, unit: "°C" },
-        { title: "Soil Moisture", enabled: config.includeSoilMoisture, getValue: (d) => d.soilMoisture, unit: "%" },
-        { title: "PM10", enabled: config.includePM10, getValue: (d) => d.pm10, unit: "ug/m3" },
-        { title: "PM2.5", enabled: config.includePM25, getValue: (d) => d.pm25, unit: "ug/m3" },
-        { title: "Water Level", enabled: config.includeWaterLevel, getValue: (d) => d.waterLevel, unit: "m" },
-        { title: "Lightning Strikes", enabled: config.includeLightning, getValue: (d) => d.lightning, unit: "" },
-        { title: "Lightning Distance", enabled: config.includeLightning, getValue: (d) => d.lightningDistance, unit: "km" },
-        { title: "Lightning Energy", enabled: config.includeLightning, getValue: (d) => d.lightningEnergy, unit: "" },
-        { title: "Lightning Raw", enabled: config.includeLightning, getValue: (d) => d.lightningRaw, unit: "mA" },
-        { title: "Visibility", enabled: config.includeVisibility, getValue: (d) => d.visibility, unit: "km" },
-        { title: "Visibility Volt", enabled: config.includeVisibility, getValue: (d) => d.visibilityVolt, unit: "V" },
-        { title: "Air Density", enabled: config.includeAirDensity, getValue: (d) => d.airDensity, unit: "kg/m3" },
-        { title: "Charger Voltage", enabled: config.includeChargerVoltage, getValue: (d) => d.chargerVoltage, unit: "V" },
-        { title: "Panel Temperature", enabled: config.includePanelTemp, getValue: (d) => d.panelTemperature, unit: "°C" },
-        { title: "Temperature 8m", enabled: config.includeTemp8m, getValue: (d) => d.temperature8m, unit: "°C" },
-        { title: "Delta Temperature", enabled: config.includeDeltaTemp, getValue: (d) => d.deltaTemperature, unit: "°C" },
-        { title: "MPPT Solar Power", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarPower, unit: "W" },
-        { title: "MPPT Battery Voltage", enabled: config.includeMPPT, getValue: (d) => d.mpptBatteryVoltage, unit: "V" },
-        { title: "MPPT Solar Voltage", enabled: config.includeMPPT, getValue: (d) => d.mpptSolarVoltage, unit: "V" },
-      ];
-
-      // Filter: only include sections that are enabled AND have actual data
-      const sections = allSections.filter(section => {
-        if (!section.enabled) return false;
-        const values = weatherData.map(section.getValue).filter((v): v is number => v !== null && v !== undefined);
-        return values.length > 0;
+    if (!selectedStation) {
+      toast({
+        title: "No station selected",
+        description: "Pick a station before generating a report.",
+        variant: "destructive",
       });
+      return;
+    }
 
-      for (const section of sections) {
-        if (y > 250) {
-          doc.addPage();
-          y = 20;
-        }
+    /**
+     * This page's per-parameter switches, translated to the aggregate keys the
+     * server report selects on.
+     *
+     * The renderer works in REPORT_FIELDS keys ("temp_min", "wind_gust_max",
+     * "rainfall_total"), never in bare parameter names, so the two vocabularies
+     * have to be mapped explicitly. Asking for "temperature" would match
+     * nothing and silently produce a table with no rows in it.
+     */
+    const FIELD_KEY_MAP: Array<{ flag: keyof ReportConfig; keys: string[] }> = [
+      { flag: "includeTemperature", keys: ["temp_min", "temp_avg", "temp_max"] },
+      { flag: "includeHumidity",    keys: ["humidity_avg"] },
+      { flag: "includePressure",    keys: ["pressure_avg"] },
+      { flag: "includeWind",        keys: ["wind_avg", "wind_max", "wind_gust_max"] },
+      { flag: "includeRainfall",    keys: ["rainfall_total"] },
+      { flag: "includeSolar",       keys: ["solar_avg", "solar_total"] },
+      { flag: "includeETo",         keys: ["eto_total"] },
+      { flag: "includeBattery",     keys: ["battery_min", "battery_avg"] },
+      { flag: "includeLightning",   keys: [
+        "lightning_strikes", "lightning_dist_min", "lightning_dist_avg",
+        "lightning_energy_max", "lightning_energy_avg",
+      ] },
+    ];
 
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(section.title, 20, y);
-        y += 8;
+    /**
+     * Switches on this page that the report does not carry at all.
+     *
+     * These have no aggregate key, so there is no way to ask the renderer for
+     * them. Rather than drop them without a word, a ticked one is named in the
+     * completion message and the reader is pointed at the CSV export, which does
+     * include every column. Dew point is deliberately absent from this list: it
+     * has no table row either, but it is always plotted on the graphs page.
+     */
+    const UNMAPPED_PARAMETERS: Array<{ flag: keyof ReportConfig; label: string }> = [
+      { flag: "includeUV",             label: "UV index" },
+      { flag: "includeSoilTemp",       label: "soil temperature" },
+      { flag: "includeSoilMoisture",   label: "soil moisture" },
+      { flag: "includePM10",           label: "PM10" },
+      { flag: "includePM25",           label: "PM2.5" },
+      { flag: "includeWaterLevel",     label: "water level" },
+      { flag: "includeVisibility",     label: "visibility" },
+      { flag: "includeAirDensity",     label: "air density" },
+      { flag: "includeChargerVoltage", label: "charger voltage" },
+      { flag: "includePanelTemp",      label: "panel temperature" },
+      { flag: "includeTemp8m",         label: "temperature at 8 m" },
+      { flag: "includeDeltaTemp",      label: "delta temperature" },
+      { flag: "includeMPPT",           label: "MPPT charger" },
+    ];
 
-        if (config.includeStatistics) {
-          const values = weatherData.map(section.getValue);
-          const stats = calculateStatistics(values);
+    setIsGenerating(true);
+    try {
+      // Whole days, matching the dates picked above and the window the on-screen
+      // data query already uses, so the PDF covers exactly what the page shows.
+      const fromISO = new Date(`${config.startDate}T00:00:00`).toISOString();
+      const toISO = new Date(`${config.endDate}T23:59:59`).toISOString();
 
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          doc.text(`Minimum: ${safeFixed(stats.min, 2)} ${section.unit}`, 25, y);
-          y += 5;
-          doc.text(`Maximum: ${safeFixed(stats.max, 2)} ${section.unit}`, 25, y);
-          y += 5;
-          doc.text(`Average: ${safeFixed(stats.avg, 2)} ${section.unit}`, 25, y);
-          y += 5;
-          doc.text(`Std Dev: ${safeFixed(stats.stdDev, 3)} ${section.unit}`, 25, y);
-          y += 10;
-        }
-      }
+      const fields = FIELD_KEY_MAP
+        .filter((m) => config[m.flag] === true)
+        .flatMap((m) => m.keys);
 
-      // --- Wind Rose Diagrams (24H, 7D, 30D) as PNG images ---
-      if (config.includeWind && weatherData.length > 0) {
-        const windUnit = (stationWindUnit as WindSpeedUnit) || 'ms';
-        const classes = getSimplifiedClasses(windUnit);
-        const now = new Date(weatherData[weatherData.length - 1].timestamp).getTime();
-        const periods = [
-          { label: '24 Hour', hours: 24 },
-          { label: '7 Day', hours: 168 },
-          { label: '30 Day', hours: 720 },
-        ];
+      const params = new URLSearchParams({
+        stationIds: String(config.stationId),
+        from: fromISO,
+        to: toISO,
+        title: `${selectedStation.name || "Station"} Weather Data Report`,
+      });
+      /**
+       * Only send `fields` when something is actually selected.
+       *
+       * An empty list means "every field" on the server side, which is the right
+       * outcome for a report with nothing ticked. Sending `fields=` explicitly
+       * would be indistinguishable from that but relies on the endpoint's
+       * filtering of blank entries, so the intent is stated here instead.
+       */
+      if (fields.length > 0) params.set("fields", fields.join(","));
 
-        const processWindData = (subset: WeatherData[]) => {
-          const bins = Array.from({ length: 16 }, () => new Array(classes.length).fill(0));
-          subset.forEach(d => {
-            if (d.windDirection == null || d.windSpeed == null) return;
-            const dirBin = Math.round(d.windDirection / 22.5) % 16;
-            let sc = 0;
-            for (let i = classes.length - 1; i >= 0; i--) {
-              if (d.windSpeed >= classes[i].min) { sc = i; break; }
-            }
-            bins[dirBin][sc]++;
-          });
-          return bins;
-        };
+      const res = await authFetch(`/api/reports/pdf?${params.toString()}`);
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      const blob = await res.blob();
 
-        // Calculate wind statistics from bins
-        const calcWindStats = (bins: number[][]) => {
-          let total = 0;
-          let calm = 0;
-          let dominant = 0;
-          let maxDirCount = 0;
-          bins.forEach((b, idx) => {
-            const t = b.reduce((a, v) => a + v, 0);
-            total += t;
-            calm += b[0] || 0;
-            if (t > maxDirCount) { maxDirCount = t; dominant = idx; }
-          });
-          return {
-            total,
-            calmPct: total > 0 ? ((calm / total) * 100).toFixed(1) : '0',
-            dominantDir: WIND_DIRECTIONS[dominant],
-            dominantPct: total > 0 ? ((maxDirCount / total) * 100).toFixed(1) : '0',
-          };
-        };
+      const safeName = (selectedStation.name || "station").replace(/[^a-z0-9._-]+/gi, "-");
+      const filename = `weather-report-${safeName}-${config.startDate}-to-${config.endDate}.pdf`;
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(href);
 
-        // Build SVG string matching dashboard WindRose exactly
-        const buildWindRoseSVG = (bins: number[][], label: string): string => {
-          const sz = 320;
-          const ctr = sz / 2;
-          const mxR = sz / 2 - 40;
-          const dirs = WIND_DIRECTIONS;
-          const stats = calcWindStats(bins);
-
-          let maxValue = 0;
-          bins.forEach(b => { const t = b.reduce((a, v) => a + v, 0); if (t > maxValue) maxValue = t; });
-          if (maxValue === 0) maxValue = 1;
-
-          const polar = (deg: number, r: number) => {
-            const rad = ((deg - 90) * Math.PI) / 180;
-            return { x: ctr + r * Math.cos(rad), y: ctr + r * Math.sin(rad) };
-          };
-          const wedgePath = (di: number, ir: number, or2: number) => {
-            const a1 = di * 22.5 - 11.25, a2 = di * 22.5 + 11.25;
-            const p1 = polar(a1, ir), p2 = polar(a1, or2), p3 = polar(a2, or2), p4 = polar(a2, ir);
-            return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${or2} ${or2} 0 0 1 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${ir} ${ir} 0 0 0 ${p1.x} ${p1.y} Z`;
-          };
-
-          // Extra height for title + stats + legend
-          const titleH = 30;
-          const statsH = 22;
-          const legendH = 55;
-          const totalH = sz + titleH + statsH + legendH;
-
-          let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${totalH}">`;
-          s += `<rect width="${sz}" height="${totalH}" fill="white"/>`;
-
-          // Title
-          s += `<text x="${ctr}" y="20" text-anchor="middle" font-size="14" font-weight="bold" fill="#333" font-family="Arial,sans-serif">${label}</text>`;
-
-          // Offset all chart content below title
-          s += `<g transform="translate(0,${titleH})">`;
-
-          // Concentric guide circles with % labels
-          [0.25, 0.5, 0.75, 1].forEach(ratio => {
-            s += `<circle cx="${ctr}" cy="${ctr}" r="${mxR * ratio}" fill="none" stroke="#e5e7eb" stroke-width="1"/>`;
-            s += `<text x="${ctr + 5}" y="${ctr - mxR * ratio + 12}" font-size="10" fill="#999" font-family="Arial,sans-serif">${Math.round(ratio * 100)}%</text>`;
-          });
-
-          // Direction labels
-          dirs.forEach((d, i) => {
-            const p = polar(i * 22.5, mxR + 20);
-            s += `<text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="middle" font-size="12" fill="#333" font-family="Arial,sans-serif">${d}</text>`;
-          });
-
-          // Stacked wedges per direction (matching WindRose.tsx exactly)
-          bins.forEach((dirBins, di) => {
-            let curR = 0;
-            dirBins.forEach((count, si) => {
-              if (count === 0) return;
-              const inner = curR;
-              const height = (count / maxValue) * mxR;
-              curR += height;
-              s += `<path d="${wedgePath(di, inner, curR)}" fill="${classes[si]?.color || '#3b82f6'}" stroke="white" stroke-width="0.5" opacity="0.85"/>`;
-            });
-          });
-
-          // Calm center circle
-          s += `<circle cx="${ctr}" cy="${ctr}" r="8" fill="#999" opacity="0.3"/>`;
-          s += `</g>`;
-
-          // Statistics below chart
-          const statsY = titleH + sz + 14;
-          s += `<text x="${ctr - 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Arial,sans-serif">Dominant: ${stats.dominantDir} (${stats.dominantPct}%)</text>`;
-          s += `<text x="${ctr + 60}" y="${statsY}" text-anchor="middle" font-size="10" fill="#666" font-family="Arial,sans-serif">Calm: ${stats.calmPct}%</text>`;
-
-          // Speed class legend at bottom - 2 rows of 3
-          const legendY = statsY + 16;
-          const legendCols = 3;
-          const legendColW = sz / legendCols;
-          classes.forEach((cls, i) => {
-            const col = i % legendCols;
-            const row = Math.floor(i / legendCols);
-            const lx = col * legendColW + 8;
-            const ly = legendY + row * 16;
-            // Short labels: extract just the first word before /
-            const shortLabels = ['Calm', 'Light', 'Moderate', 'Strong', 'Gale', 'Storm+'];
-            const shortLabel = shortLabels[i] || cls.label.split('(')[0].trim();
-            const range = cls.label.match(/\(([^)]+)\)/)?.[1] || '';
-            s += `<rect x="${lx}" y="${ly - 5}" width="10" height="10" rx="2" fill="${cls.color}"/>`;
-            s += `<text x="${lx + 14}" y="${ly + 4}" font-size="8" fill="#666" font-family="Arial,sans-serif">${shortLabel} ${range}</text>`;
-          });
-
-          s += '</svg>';
-          return s;
-        };
-
-        // Convert SVG string to PNG data URL via canvas
-        const svgToPng = (svg: string, w: number, h: number): Promise<string> =>
-          new Promise((resolve, reject) => {
-            const b64 = btoa(unescape(encodeURIComponent(svg)));
-            const img = new Image();
-            img.onload = () => {
-              const c = document.createElement('canvas');
-              const scale = 3;
-              c.width = w * scale; c.height = h * scale;
-              const ctx = c.getContext('2d');
-              if (!ctx) { reject(new Error('no ctx')); return; }
-              ctx.scale(scale, scale);
-              ctx.drawImage(img, 0, 0, w, h);
-              resolve(c.toDataURL('image/png'));
-            };
-            img.onerror = () => reject(new Error('SVG render failed'));
-            img.src = `data:image/svg+xml;base64,${b64}`;
-          });
-
-        const svgH = 320 + 30 + 22 + 55; // sz + titleH + statsH + legendH
-
-        // Generate all 3 wind rose PNGs at higher resolution
-        const rosePngs = await Promise.all(periods.map(p => {
-          const cutoff = now - p.hours * 60 * 60 * 1000;
-          const subset = weatherData.filter(d => new Date(d.timestamp).getTime() > cutoff);
-          const bins = processWindData(subset);
-          return svgToPng(buildWindRoseSVG(bins, `${p.label} Wind Rose`), 640, svgH * 2);
-        }));
-
-        // Wind roses stacked vertically, each on its own row
-        doc.addPage();
-        y = 20;
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text("Wind Rose Analysis", pageWidth / 2, y, { align: "center" });
-        y += 8;
-
-        const roseImgW = 80;
-        const roseImgH = roseImgW * (svgH / 320);
-        rosePngs.forEach((png) => {
-          if (y + roseImgH > 275) {
-            doc.addPage();
-            y = 20;
-          }
-          const x = (pageWidth - roseImgW) / 2;
-          doc.addImage(png, 'PNG', x, y, roseImgW, roseImgH);
-          y += roseImgH + 5;
-        });
-        y += roseImgH + 10;
-      }
-
-      if (y > 250) {
-        doc.addPage();
-        y = 20;
-      }
-
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Data Summary", 20, y);
-      y += 8;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      if (weatherData.length > 0) {
-        const firstDate = new Date(weatherData[0].timestamp);
-        const lastDate = new Date(weatherData[weatherData.length - 1].timestamp);
-        doc.text(`First Record: ${format(firstDate, "yyyy-MM-dd HH:mm")}`, 25, y);
-        y += 5;
-        doc.text(`Last Record: ${format(lastDate, "yyyy-MM-dd HH:mm")}`, 25, y);
-      }
-
-      const filename = `weather-report-${selectedStation?.name?.replace(/\s+/g, "-") || "station"}-${config.startDate}-to-${config.endDate}.pdf`;
-      doc.save(filename);
-
+      const skipped = UNMAPPED_PARAMETERS
+        .filter((p) => config[p.flag] === true)
+        .map((p) => p.label);
       toast({
         title: "Report Generated",
-        description: `Downloaded ${filename}`,
+        description: skipped.length > 0
+          ? `Downloaded ${filename}. This report does not cover ${skipped.join(", ")}; the CSV export includes those columns.`
+          : `Downloaded ${filename}`,
       });
     } catch (err) {
       console.error("PDF generation error:", err);
@@ -542,10 +349,10 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
      * having to strip anything. The provenance is still in the file, just below
      * the data where it cannot be mistaken for a header.
      */
-    const headers = ["Timestamp_UTC", ...columns.map(c => c.header)];
-    lines.push(headers.map(csvVal).join(","));
+    const headerCells = ["Timestamp_UTC", ...columns.map(c => c.header)].map(csvVal);
 
     // --- Data Rows ---
+    const dataRows: string[][] = [];
     for (const d of weatherData) {
       const ts = new Date(d.timestamp).toISOString();
       const vals: string[] = [ts];
@@ -557,8 +364,77 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
           vals.push(Number(v).toFixed(col.decimals));
         }
       }
-      lines.push(vals.join(","));
+      dataRows.push(vals);
     }
+
+    /**
+     * Statistics rows are built before anything is written, not after.
+     *
+     * They share the column grid with the data, so their cell contents have to be
+     * known before the widths can be worked out. "# Completeness (%)" is the
+     * longest label in the first column and would otherwise be the one thing that
+     * did not line up.
+     */
+    const statRowCells: string[][] = [];
+    if (config.includeStatistics) {
+      const statSpecs: Array<{
+        label: string;
+        fn: (stats: ReturnType<typeof calculateStatistics>, col: typeof columns[0]) => string;
+      }> = [
+        { label: "# Minimum", fn: (s, c) => s.count > 0 ? Number(s.min).toFixed(c.decimals) : "" },
+        { label: "# Maximum", fn: (s, c) => s.count > 0 ? Number(s.max).toFixed(c.decimals) : "" },
+        { label: "# Mean", fn: (s, c) => s.count > 0 ? Number(s.avg).toFixed(c.decimals) : "" },
+        { label: "# Std Dev", fn: (s, c) => s.count > 0 ? Number(s.stdDev).toFixed(c.decimals + 1) : "" },
+        { label: "# Completeness (%)", fn: (s) => s.total > 0 ? ((s.count / s.total) * 100).toFixed(1) : "0.0" },
+      ];
+      // One pass per column rather than per column per row: calculateStatistics
+      // walks every reading, so doing it inside the row loop repeated the whole
+      // scan five times over.
+      const perColumn = columns.map(col => calculateStatistics(weatherData.map(col.getValue)));
+      for (const spec of statSpecs) {
+        statRowCells.push([
+          spec.label,
+          ...columns.map((col, i) => spec.fn(perColumn[i], col)),
+        ]);
+      }
+    }
+
+    /**
+     * Pad every cell so the columns line up under their headings.
+     *
+     * Without this the file is valid CSV that is unreadable as text: a heading
+     * like "Solar Radiation (W/m2)" is 22 characters and its values are 5, so
+     * nothing below row 1 sits under the name it belongs to and the file can only
+     * be read in a spreadsheet.
+     *
+     * Two deliberate choices:
+     *
+     *  - Padding goes on the RIGHT, so the value still begins immediately after
+     *    its comma. Spaces inside a field are part of the field under RFC 4180,
+     *    and a numeric column with LEADING spaces is what makes Excel import the
+     *    column as text. Trailing spaces are trimmed when a cell is coerced to a
+     *    number, so this stays machine-readable.
+     *  - The last column is not padded, because trailing whitespace at the end of
+     *    a line buys no alignment and some diff and lint tools flag it.
+     *
+     * The provenance block is left unpadded: those lines are prose, not table
+     * rows, and stretching them to the data grid would only misalign them.
+     */
+    const colCount = headerCells.length;
+    const widths = new Array<number>(colCount).fill(0);
+    for (const row of [headerCells, ...dataRows, ...statRowCells]) {
+      for (let i = 0; i < colCount; i++) {
+        const len = (row[i] ?? "").length;
+        if (len > widths[i]) widths[i] = len;
+      }
+    }
+    const padCell = (s: string, i: number): string =>
+      i === colCount - 1 ? s : s + " ".repeat(Math.max(0, widths[i] - s.length));
+    const formatRow = (row: string[]): string =>
+      row.map((cell, i) => padCell(cell ?? "", i)).join(",");
+
+    lines.push(formatRow(headerCells));
+    for (const row of dataRows) lines.push(formatRow(row));
 
     /**
      * Provenance block, after the data.
@@ -586,25 +462,11 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
     lines.push(`# Missing Values: (empty)`);
 
     // --- Statistics Summary Block ---
-    if (config.includeStatistics) {
+    // Built above, alongside the data, so it shares the same column widths.
+    if (statRowCells.length > 0) {
       lines.push("#");
       lines.push("# --- Statistics Summary ---");
-      const statRows: { label: string; fn: (stats: ReturnType<typeof calculateStatistics>, col: typeof columns[0]) => string }[] = [
-        { label: "# Minimum", fn: (s, c) => s.count > 0 ? Number(s.min).toFixed(c.decimals) : "" },
-        { label: "# Maximum", fn: (s, c) => s.count > 0 ? Number(s.max).toFixed(c.decimals) : "" },
-        { label: "# Mean", fn: (s, c) => s.count > 0 ? Number(s.avg).toFixed(c.decimals) : "" },
-        { label: "# Std Dev", fn: (s, c) => s.count > 0 ? Number(s.stdDev).toFixed(c.decimals + 1) : "" },
-        { label: "# Completeness (%)", fn: (s) => s.total > 0 ? ((s.count / s.total) * 100).toFixed(1) : "0.0" },
-      ];
-      for (const sr of statRows) {
-        const vals = [sr.label];
-        for (const col of columns) {
-          const rawVals = weatherData.map(col.getValue);
-          const stats = calculateStatistics(rawVals);
-          vals.push(sr.fn(stats, col));
-        }
-        lines.push(vals.join(","));
-      }
+      for (const row of statRowCells) lines.push(formatRow(row));
     }
 
     // UTF-8 BOM for Excel compatibility + CSV content
@@ -737,7 +599,10 @@ export function ReportGenerator({ stations }: ReportGeneratorProps) {
               { key: "includeTemp8m", label: "Temperature 8m" },
               { key: "includeDeltaTemp", label: "Delta Temperature" },
               { key: "includeMPPT", label: "MPPT Solar Charger" },
-              { key: "includeStatistics", label: "Statistics (PDF)" },
+              // CSV only. The PDF's statistics table is the core of that
+              // document and is always present, so this switch no longer has
+              // anything to do with it.
+              { key: "includeStatistics", label: "Statistics summary (CSV)" },
             ].map((item) => (
               <div key={item.key} className="flex items-center gap-2">
                 <Checkbox
