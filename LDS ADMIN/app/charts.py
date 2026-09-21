@@ -436,8 +436,19 @@ _CB_BODY = ("M-24 11C-33 11-35 1-27-3C-30-12-20-17-12-14"
 # behind it. A report is printed on white paper with no bloom layer, so that
 # near-white would be invisible. Here the blue does the work of the body and
 # white is kept for the hot core, which reads as the same object in print.
-_BOLT_MAIN = "#8fc4ff"          # storm-view.js BOLT_GLOW, used as the body
+_BOLT_MAIN = "#7dbcff"          # storm-view.js BOLT_GLOW, used as the body
 _BOLT_CORE = "#ffffff"          # storm-view.js BOLT_CORE
+
+# The channel, as three fixed paths shared verbatim with storm-view.js. Authored
+# for a 104 x 78 cell with the channel spanning y 42 to 73.5; _bolt_geometry maps
+# them onto whatever box it is given. Glow is fattest, core thinnest and inset,
+# and all three converge on the same point.
+_BOLT_GLOW_D = ("M53.6 42L61.4 42L55.2 54.6L60.6 54.6L46.4 73.5"
+                "L51.4 57.4L45.6 57.4L50.2 42Z")
+_BOLT_MAIN_D = ("M54 43L60 43L55.4 54.6L59.4 54.6L47.6 72.6"
+                "L51.6 57.4L46.8 57.4L51 43Z")
+_BOLT_CORE_D = ("M55.4 44.4L57.6 44.4L54.6 55.6L56.8 55.6L49.6 68.6"
+                "L52.4 56.6L50 56.6L53.2 44.4Z")
 
 
 def _cumulonimbus(cx, cy, s, active=True):
@@ -453,42 +464,51 @@ def _cumulonimbus(cx, cy, s, active=True):
 
 
 def _bolt_geometry(cx, y_top, y_end, seed):
-    """Bolt outline and center-line, matching boltGeometry() in storm-view.js.
+    """Bolt paths, matching boltGeometry() in storm-view.js.
 
-    One kink, so one zigzag, and a filled outline whose width falls to zero at
-    the last vertex, which is what gives the tip a sharp point. A stroke has
-    uniform width and cannot converge.
+    FOUR TURNS, NOT ONE, AND NO BRANCH. The previous version built a centre-line
+    of three points (base, one kink, tip) and thickened it. One direction
+    reversal draws a letter Z rather than a discharge, so the shape is now the
+    classic four-turn channel, held as fixed path data shared verbatim with the
+    browser renderer.
 
-    Seeded rather than random so a regenerated report is byte-identical instead
-    of drawing a different channel each run.
+    Three filled paths rather than two plus a stroke. A stroke has uniform width
+    and cannot converge, so the old stroked centre-line put a blunt end back on
+    the tip that the filled outline had just sharpened.
 
-    Returns (outline_path, centerline_points).
+    Position is jittered from the seed rather than random, so a regenerated
+    report is byte-identical instead of drawing a different channel each run.
+    Only the horizontal offset varies: wobbling vertices independently distorted
+    the silhouette into something that stopped reading as lightning.
+
+    The paths are authored for a 104 x 78 cell with the channel spanning y 42 to
+    73.5, so they are translated and scaled onto whatever box the caller asks
+    for.
+
+    Returns (glow_path, main_path, core_path).
     """
     import math
+    import re
 
     def jitter(salt):
         """Deterministic value in [0, 1) from the seed."""
         v = math.sin((seed + 1) * 12.9898 + salt * 78.233) * 43758.5453
         return v - math.floor(v)
 
-    h = y_end - y_top
-    flip = 1 if (seed % 2 == 0) else -1
-    k1 = flip * (6.5 + jitter(1) * 2.0)
-    y1 = h * (0.44 + jitter(3) * 0.08)
+    dx = (jitter(1) * 4.4) - 2.2
 
-    pts = [(0.0, 0.0), (k1, y1), (0.0, h)]
-    # 60% heavier than the 3.4 this used to be, so the channel still reads at
-    # the smaller cell size. Matches the w array in storm-view.js.
-    widths = [5.4, 3.7, 0.0]                # zero at the tip
+    # Authored span of the path data above, used to map it onto the caller's box.
+    SRC_TOP, SRC_END, SRC_CX = 42.0, 73.5, 52.0
+    sy = (y_end - y_top) / (SRC_END - SRC_TOP)
 
-    left = [(cx + x - w / 2, y_top + y) for (x, y), w in zip(pts, widths)]
-    right = [(cx + x + w / 2, y_top + y) for (x, y), w in zip(pts, widths)]
+    def place(d):
+        def repl(m):
+            x = float(m.group(2)) - SRC_CX + dx
+            y = float(m.group(3)) - SRC_TOP
+            return f"{m.group(1)}{cx + x * sy:.1f} {y_top + y * sy:.1f}"
+        return re.sub(r"([ML])(-?[\d.]+) (-?[\d.]+)", repl, d)
 
-    outline = ("M" + "L".join(f"{x:.1f} {y:.1f}" for x, y in left)
-               + "L" + "L".join(f"{x:.1f} {y:.1f}" for x, y in reversed(right))
-               + "Z")
-    center = " ".join(f"{cx + x:.1f},{y_top + y:.1f}" for x, y in pts)
-    return outline, center
+    return place(_BOLT_GLOW_D), place(_BOLT_MAIN_D), place(_BOLT_CORE_D)
 
 
 def storm_bands_svg(strikes, radius_km=40):
@@ -533,22 +553,31 @@ def storm_bands_svg(strikes, radius_km=40):
         # Cloud, sized on the band mean against the busiest peak on the page so
         # the cells stay comparable with one another.
         frac = (b["mean"] / max_peak) if (active and max_peak) else 0.0
-        s = (0.62 + min(1.0, max(0.0, frac)) * 0.30) * 0.80
+        # Smaller cloud, matching storm-view.js: 0.56 to 0.62 active, 0.52 idle,
+        # down from 0.62 to 0.92. It leaves the channel as the dominant element
+        # in the cell. The trailing 0.80 is this renderer's own cell being
+        # smaller than the browser's, and is unchanged.
+        if active:
+            s = (0.56 + min(1.0, max(0.0, frac)) * 0.06) * 0.80
+        else:
+            s = 0.52 * 0.80
         ccx = x + cell_w / 2
         ccy = pad_t + head_h + 26
         parts.append(_cumulonimbus(ccx, ccy, s, active))
 
         if active:
             # Shorter channel than before: 24 units rather than 30.
-            outline, center = _bolt_geometry(ccx, ccy + 14, ccy + 38, i)
+            glow_d, main_d, core_d = _bolt_geometry(ccx, ccy + 14, ccy + 38, i)
             # Filled outline for the channel, thin stroke for the hot core.
             # Blue-white, not the band color, matching the dashboard.
-            parts.append(f'<path d="{outline}" fill="{_BOLT_MAIN}" stroke="none" '
+            # Three filled paths, so every layer converges to the same point.
+            # The glow is drawn first and faintly, then the body, then the core.
+            parts.append(f'<path d="{glow_d}" fill="{_BOLT_MAIN}" stroke="none" '
+                         f'opacity="0.45"/>')
+            parts.append(f'<path d="{main_d}" fill="{_BOLT_MAIN}" stroke="none" '
                          f'opacity="0.95"/>')
-            parts.append(f'<polyline points="{center}" fill="none" '
-                         f'stroke="{_BOLT_CORE}" stroke-width="1.3" '
-                         f'stroke-linecap="butt" stroke-linejoin="miter" '
-                         f'stroke-miterlimit="6" opacity="0.9"/>')
+            parts.append(f'<path d="{core_d}" fill="{_BOLT_CORE}" stroke="none" '
+                         f'opacity="0.9"/>')
 
         # Data block.
         dy = pad_t + head_h + cloud_h

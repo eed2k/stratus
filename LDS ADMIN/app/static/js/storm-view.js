@@ -39,20 +39,37 @@
   // Tightened around the artwork so the cell is shorter and narrower, and the
   // stylesheet caps the rendered width so a cloud no longer stretches to fill
   // its whole grid column. Shared with charts.py::storm_bands_svg; keep in step.
-  var VB_W = 104, VB_H = 78, CX = 52, CY = 29, BOLT_TOP = 43, BOLT_END = 72;
+  var VB_W = 104, VB_H = 78, CX = 52, CY = 26, BOLT_TOP = 43, BOLT_END = 72;
+
+  /* The channel, as three fixed paths.
+     Built once rather than generated per strike: the shape is what makes it read
+     as lightning, so it is pinned, and only its horizontal position varies. See
+     boltGeometry() for why. Glow is fattest, core is thinnest and inset, all
+     three converge to the same point at the bottom. */
+  var BOLT_GLOW_D = "M53.6 42L61.4 42L55.2 54.6L60.6 54.6L46.4 73.5L51.4 57.4L45.6 57.4L50.2 42Z";
+  var BOLT_MAIN_D = "M54 43L60 43L55.4 54.6L59.4 54.6L47.6 72.6L51.6 57.4L46.8 57.4L51 43Z";
+  var BOLT_CORE_D = "M55.4 44.4L57.6 44.4L54.6 55.6L56.8 55.6L49.6 68.6L52.4 56.6L50 56.6L53.2 44.4Z";
 
   // Lightning is blue-white in every band. The band color still drives the
   // header and the data block, where it carries information; painting the
   // channel with it made a distant strike look orange rather than like
   // lightning.
-  var BOLT_MAIN = "#eaf4ff";
-  var BOLT_GLOW = "#8fc4ff";
+  // Brighter than before, because the channel is now read against a navy sky
+  // rather than white. Intensity here is contrast, not size.
+  var BOLT_MAIN = "#f5fbff";
+  var BOLT_GLOW = "#7dbcff";
   var BOLT_CORE = "#ffffff";
-  var BOLT_HALO = "#a8d2ff";
+  var BOLT_HALO = "#bfe0ff";
 
-  // How long a flash stays on screen, matching the storm-* keyframe durations in
-  // style.css. Scheduling must not fire faster than this.
-  var FLASH_HOLD_MS = 2260;
+  // One full strike cycle, matching the storm-* keyframe durations in style.css.
+  // An active band repeats this, so it strikes once a second.
+  //
+  // This was 2260 ms, of which two full seconds was the channel HOLDING lit. The
+  // hold is what made a strike read as a lamp switching on: real lightning is
+  // gone before the eye settles on it. The burst now occupies roughly the first
+  // 550 ms and the cell is dark for the remainder, and that dark gap is the
+  // reason separate strikes read as separate rather than as a flicker.
+  var FLASH_CYCLE_MS = 1000;
 
   var reduceMotion = window.matchMedia
     ? window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -119,51 +136,42 @@
     return g;
   }
 
-  /** Bolt geometry: one zigzag, tapering to a point at the bottom.
+  /** Bolt geometry. Returns { glow, outline, core }, three filled path strings.
    *
-   * Returns { outline, center }.
+   * FOUR TURNS, NOT ONE, AND NO BRANCH.
    *
-   * The channel is a FILLED outline, not a stroked line. A stroke has a uniform
-   * width and cannot converge, so a stroked polyline always ends in a blunt or
-   * rounded cap. Building the shape from a center-line whose width falls to zero
-   * at the last vertex is what produces a sharp tip.
+   * The previous centre-line had three points: base, one kink, tip. One kink is
+   * one direction reversal, and a single reversal draws a letter Z rather than a
+   * discharge. This is the classic four-turn channel: down, back, down, back,
+   * converging to a point. A branched version was tried and rejected as too busy
+   * at this cell size.
    *
-   * The center-line has three points: the cloud base, one kink, and the tip.
-   * One kink is one direction reversal, which reads as a single zigzag. Kink
-   * offset is jittered a little so no two flashes are identical.
+   * Three concentric shapes rather than a stroke: a blurred outer glow, the
+   * channel itself, and a thin inset core. A stroke has uniform width and always
+   * ends blunt or rounded, whereas a filled shape can converge to a real point,
+   * which is what makes the tip sharp.
+   *
+   * Jitter is a small horizontal shift of the whole channel rather than a
+   * per-vertex wobble. Wobbling vertices independently distorted the shape into
+   * something that no longer read as lightning; shifting it keeps the silhouette
+   * and still means no two strikes land in the same place.
    *
    * Shared shape with charts.py::_bolt_geometry; keep the two in step.
    */
   function boltGeometry() {
-    var H = BOLT_END - BOLT_TOP;
-    var flip = Math.random() < 0.5 ? 1 : -1;      // which way it zigs first
-    var k1 = flip * (6.5 + Math.random() * 2.0);
-    var y1 = H * (0.44 + Math.random() * 0.08);
-
-    var pts = [[0, 0], [k1, y1], [0, H]];
-    // Width per vertex, 60% heavier than the 3.4 this used to be, so the
-    // channel still reads at the smaller cell size. Zero at the tip: that is
-    // the sharp point.
-    var w = [5.4, 3.7, 0];
-
-    var left = [], right = [];
-    for (var i = 0; i < pts.length; i++) {
-      left.push([CX + pts[i][0] - w[i] / 2, BOLT_TOP + pts[i][1]]);
-      right.push([CX + pts[i][0] + w[i] / 2, BOLT_TOP + pts[i][1]]);
-    }
-
-    var d = "M" + left.map(function (p) {
-      return p[0].toFixed(1) + " " + p[1].toFixed(1);
-    }).join("L");
-    d += "L" + right.reverse().map(function (p) {
-      return p[0].toFixed(1) + " " + p[1].toFixed(1);
-    }).join("L") + "Z";
-
-    var center = pts.map(function (p) {
-      return (CX + p[0]).toFixed(1) + "," + (BOLT_TOP + p[1]).toFixed(1);
-    }).join(" ");
-
-    return { outline: d, center: center };
+    // Nudged up to +/-2.2 units, which at 104 wide is a visible change of
+    // position without leaving the cloud base.
+    var dx = (Math.random() * 4.4 - 2.2);
+    var shift = function (d) {
+      return d.replace(/([ML])(-?[\d.]+) (-?[\d.]+)/g, function (_, cmd, x, y) {
+        return cmd + (parseFloat(x) + dx).toFixed(1) + " " + y;
+      });
+    };
+    return {
+      glow: shift(BOLT_GLOW_D),
+      outline: shift(BOLT_MAIN_D),
+      core: shift(BOLT_CORE_D)
+    };
   }
 
   /* -------------------------------------------------------------------
@@ -181,7 +189,12 @@
     if (active && maxPeak > 0 && band.mean !== null) {
       frac = Math.max(0, Math.min(1, band.mean / maxPeak));
     }
-    var scale = 0.62 + frac * 0.30;
+    /* Smaller cloud than before: 0.56 to 0.62 active, down from 0.62 to 0.92,
+       and 0.52 when idle. Two reasons. It leaves the channel as the dominant
+       element in the cell, which is half of what makes a strike look intense,
+       and the band still carries its activity cue through the size range without
+       the cloud crowding the figures underneath. */
+    var scale = active ? (0.56 + frac * 0.06) : 0.52;
 
     var cell = div("storm-band" + (active ? "" : " is-idle"));
     cell.style.setProperty("--band-color", color);
@@ -226,15 +239,15 @@
     var glow = null, main = null, core = null;
     if (active) {
       var geo = boltGeometry();
-      // Filled outline, so the channel can taper to a point. The core stays a
-      // thin stroke down the center-line and reads as the hot inner channel.
-      glow = el("path", { d: geo.outline, fill: BOLT_GLOW,
+      // Three filled paths, so every layer converges to the same sharp point.
+      // The core was a stroked polyline before, which could not taper and put a
+      // blunt end back on the tip the outline had just sharpened.
+      glow = el("path", { d: geo.glow, fill: BOLT_GLOW,
         "class": "storm-bolt storm-bolt-glow",
         filter: "url(#" + fid + ")" });
       main = el("path", { d: geo.outline, fill: BOLT_MAIN,
         "class": "storm-bolt storm-bolt-main" });
-      core = el("polyline", { points: geo.center, stroke: BOLT_CORE,
-        "stroke-width": 1.3, fill: "none",
+      core = el("path", { d: geo.core, fill: BOLT_CORE,
         "class": "storm-bolt storm-bolt-core" });
       svg.appendChild(glow);
       svg.appendChild(main);
@@ -288,15 +301,22 @@
     // ---- flash ------------------------------------------------------
     if (active && !reduceMotion.matches) {
       cell.classList.add("is-clickable");
+      /* Reposition the channel, then let CSS run it.
+         The animation is `infinite` on .is-flashing, so an active band keeps
+         striking once a second on its own and this only needs to be called once.
+         Calling it again re-jitters the position and restarts the cycle, which is
+         what the click handler is for. */
       cell._strike = function () {
         var g = boltGeometry();
-        glow.setAttribute("d", g.outline);
+        glow.setAttribute("d", g.glow);
         main.setAttribute("d", g.outline);
-        core.setAttribute("points", g.center);
+        core.setAttribute("d", g.core);
         cell.classList.remove("is-flashing");
         void cell.offsetWidth;              // force the animation to restart
         cell.classList.add("is-flashing");
       };
+      // Start it immediately; the 1 Hz repeat is the CSS animation, not a timer.
+      cell._strike();
       cell.addEventListener("click", cell._strike);
     }
     return cell;
@@ -352,27 +372,31 @@
       flashTimers = [];
     }
 
-    /** Keep each cell flashing on its own irregular schedule, more often the
-        busier the band, so activity level reads at a glance.
-
-        The gap can never fall below the flash animation itself. The channel now
-        holds lit for 2260 ms, so a shorter gap would cut a flash short and
-        restart it, leaving the cloud permanently lit and strobing. */
+    /** Stagger the START of each active cell's cycle.
+     *
+     * THE REPEAT ITSELF IS NO LONGER A TIMER. The flash animation is `infinite`
+     * in CSS at FLASH_CYCLE_MS, so an active band strikes once a second without
+     * any JavaScript running. This only offsets each cell's phase so the five
+     * bands do not all fire on the same frame, which looked like one shared
+     * flash across the row rather than five independent cells.
+     *
+     * What this replaced was a self-rescheduling chain of setTimeouts per cell,
+     * with the gap derived from the band's share of the strikes. That carried a
+     * real cue, activity level by flash rate, but it could not also deliver one
+     * strike a second: its floor was the 2260 ms animation plus 700 ms. Fixed
+     * 1 Hz was the explicit requirement, so the rate cue is gone and the size
+     * cue on the cloud now carries activity level on its own.
+     */
     function scheduleFlashes(cells) {
       clearFlashTimers();
       cells.forEach(function (entry, i) {
         if (!entry.cell._strike) return;
-        var gap = Math.max(FLASH_HOLD_MS + 700,
-                           7000 - (entry.share * 5 * 900));
+        // Phase offset only, fired once. Spread across the cycle so the row
+        // ripples rather than pulsing in unison.
+        var phase = (FLASH_CYCLE_MS / Math.max(1, cells.length)) * i;
         flashTimers.push(window.setTimeout(function () {
           entry.cell._strike();
-          (function loop() {
-            flashTimers.push(window.setTimeout(function () {
-              entry.cell._strike();
-              loop();
-            }, gap + Math.random() * gap * 0.7));
-          })();
-        }, 140 * i + Math.random() * 160));
+        }, phase + Math.random() * 90));
       });
     }
 

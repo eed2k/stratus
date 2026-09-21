@@ -8,7 +8,13 @@
   --navy:        #0a2540;
   --navy-deep:   #061a30;
   --navy-soft:   #eef2f7;
-  --black:       #111418;
+  /* TRUE black, not the #111418 this used to be.
+     body sets `color: var(--black)`, so that near-black grey was the inherited
+     colour of every table cell, heading, link and button in the console. The
+     earlier no-grey pass corrected --muted-solid and missed this one, which is
+     why the Recent alerts rows still read as grey: nothing was styling them
+     grey, they were simply inheriting a grey that was named "black". */
+  --black:       #000000;
   --white:       #ffffff;
   --line:        #b9c2cf;
   --line-dark:   #8c98a8;
@@ -614,15 +620,30 @@ code {
 
 .storm-band { display: flex; flex-direction: column; }
 .storm-band.is-clickable { cursor: pointer; }
-/* The svg carries width="100%", so without a cap it stretches to the full grid
-   column. The cap is what actually reduces the drawn size; the viewBox aspect
-   (104 x 78) then fixes the height. */
+/* The cloud sits on the same navy as the band header, with no seam between them,
+   so the header and the sky read as one dark block with the white data block
+   beneath it.
+
+   Two reasons this is better than the old white background:
+     contrast   the cloud is a pale #dde5ee and the bolt is blue-white, and both
+                were being drawn on white. Against navy the cloud reads as lit
+                from within, which is what a flash actually looks like.
+     size       the svg carries width="100%", and a 104px max-width used to cap
+                it to roughly a third of its grid column. The cap is gone, so the
+                cloud now fills the column and the viewBox aspect (104 x 78)
+                fixes the height to match.
+   The side borders continue the header's navy edge, and .storm-band-data below
+   already draws a 3px band-coloured top border, which becomes the divider
+   between the sky and the figures. */
 .storm-band svg {
   display: block;
   width: 100%;
-  max-width: 104px;
   height: auto;
-  margin: 0 auto;
+  margin: 0;
+  background: var(--navy);
+  border-left: 1px solid var(--navy);
+  border-right: 1px solid var(--navy);
+  padding: 4px 0 2px;
 }
 .storm-bands { align-items: start; }
 
@@ -703,9 +724,17 @@ code {
 
 /* ---- cumulonimbus ----
    One path, one outline. No stacked ellipses, so no circular ring edges show
-   through, and no separate base shading band. */
-.cb-body { fill: #dde5ee; stroke: var(--line-dark); stroke-width: 1; }
-.storm-band.is-idle .cb-body { fill: #eceff3; }
+   through, and no separate base shading band.
+
+   The outline is a light blue now rather than --line-dark. That grey was chosen
+   when the cloud sat on white, where a dark edge defined it; on the navy sky it
+   turned into a dark line around a pale shape and flattened it. A lighter edge
+   than the fill would wash the shape out, so it is a mid blue that reads as the
+   shaded underside. */
+.cb-body { fill: #dde5ee; stroke: #6f8dab; stroke-width: 1; }
+/* Idle clouds are dimmer, not lighter. On white, lighter meant quieter; on navy
+   it would mean brighter, which is backwards. */
+.storm-band.is-idle .cb-body { fill: #9fb2c6; stroke: #5b7793; }
 
 /* The channel is a filled outline that narrows to zero at the tip, which is what
    gives it a sharp point. A stroke has uniform width and cannot converge.
@@ -717,79 +746,118 @@ code {
    sets the same values as presentation attributes, so the artwork survives
    either file being served from cache while the other is fresh. */
 .storm-bolt { opacity: 0; }
-.storm-bolt-glow, .storm-bolt-main { stroke: none; }
-.storm-bolt-main { fill: #eaf4ff; }
-.storm-bolt-glow { fill: #8fc4ff; }
-.storm-bolt-core {
-  fill: none;
-  stroke: #ffffff;
-  /* butt, not round: a round cap would put a blob back on the tip. */
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  stroke-miterlimit: 6;
+/* All three layers are FILLED paths now. The core used to be a stroked
+   polyline, and a stroke cannot taper, so it put a blunt end back on the tip
+   that the filled outline had just sharpened. */
+.storm-bolt-glow, .storm-bolt-main, .storm-bolt-core { stroke: none; }
+.storm-bolt-main { fill: #f5fbff; }
+.storm-bolt-glow { fill: #7dbcff; }
+.storm-bolt-core { fill: #ffffff; }
+/* transform-box/origin are required for the halo's scale to work at all: an SVG
+   element's default transform origin is the viewBox corner, not the shape, so
+   without these the halo would grow away to one side instead of outward. */
+.storm-halo {
+  opacity: 0;
+  fill: #bfe0ff;
+  transform-box: fill-box;
+  transform-origin: center;
 }
-.storm-halo { opacity: 0; fill: #a8d2ff; }
 
-/* A recorded strike.
-   The opening flicker is the same double return stroke as before, over the first
-   ~260 ms. After it the channel then HOLDS lit for a further 2 s before going
-   out, so a flash is on screen long enough to look at instead of being a blink
-   you catch out of the corner of your eye. Total 2260 ms.
-   The percentages below are that 260 ms flicker expressed against the longer
-   duration: 260/2260 is about 11.5%.
-   steps(1, end) is kept so each stage switches cleanly rather than cross-fading,
-   which is what makes it read as lightning and not a pulse. */
-.storm-band.is-flashing .cb-body { animation: storm-lit 2260ms steps(1, end) 1; }
-.storm-band.is-flashing .storm-bolt-glow { animation: storm-glow 2260ms steps(1, end) 1; }
-.storm-band.is-flashing .storm-bolt-main { animation: storm-main 2260ms steps(1, end) 1; }
-.storm-band.is-flashing .storm-bolt-core { animation: storm-core 2260ms steps(1, end) 1; }
-.storm-band.is-flashing .storm-halo { animation: storm-halo 2260ms ease-out 1; }
+/* An active band strikes ONCE A SECOND, on repeat.
+   1000 ms cycle, of which the burst is roughly the first 550 ms and the rest is
+   dark. Two things make it read as lightning rather than as a blinking lamp:
 
-/* Blue-white, not the warm yellow used before, so the cloud and the channel are
-   the same color temperature. */
+     the dark gap    without it the cell is lit more often than not, and separate
+                     strikes stop reading as separate
+     uneven spacing  five strokes at 0, 50, 100, 190, 300 and 460 ms. Evenly
+                     spaced pulses read mechanical; irregular ones read
+                     electrical.
+
+   This replaced a 2260 ms cycle in which the channel HELD lit for two full
+   seconds. The hold was the single biggest reason it looked wrong.
+
+   `infinite` is what delivers the once-a-second repeat: storm-view.js sets
+   .is-flashing once per active cell and no timer drives the rate. Keep the
+   duration in step with FLASH_CYCLE_MS there.
+
+   steps(1, end) so each stage switches cleanly instead of cross-fading. */
+.storm-band.is-flashing .cb-body { animation: storm-lit 1000ms steps(1, end) infinite; }
+.storm-band.is-flashing .storm-bolt-glow { animation: storm-glow 1000ms steps(1, end) infinite; }
+.storm-band.is-flashing .storm-bolt-main { animation: storm-main 1000ms steps(1, end) infinite; }
+.storm-band.is-flashing .storm-bolt-core { animation: storm-core 1000ms steps(1, end) infinite; }
+.storm-band.is-flashing .storm-halo { animation: storm-halo 1000ms ease-out infinite; }
+
+/* The cloud flares to full white on the leading stroke and drops straight back,
+   rather than shifting between two pale tints. That flare is what carries the
+   intensity; the channel alone cannot, because it covers so little of the cell. */
 @keyframes storm-lit {
-  0%   { fill: #e9f3ff; }
-  2.5% { fill: #dde5ee; }
-  4.5% { fill: #e9f3ff; }
-  6%   { fill: #dde5ee; }
-  8%   { fill: #e9f3ff; }   /* re-strike, then hold */
-  94%  { fill: #e9f3ff; }
+  0%   { fill: #ffffff; }
+  5%   { fill: #dde5ee; }
+  10%  { fill: #ffffff; }
+  14%  { fill: #dde5ee; }
+  19%  { fill: #fbfdff; }
+  24%  { fill: #dde5ee; }
+  30%  { fill: #f2f8ff; }
+  38%  { fill: #dde5ee; }
+  46%  { fill: #e9f3ff; }
+  55%  { fill: #dde5ee; }
   100% { fill: #dde5ee; }
 }
 @keyframes storm-main {
   0%   { opacity: 1; }
-  2.5% { opacity: 0; }
-  4.5% { opacity: 0.9; }
-  6%   { opacity: 0; }
-  8%   { opacity: 1; }      /* holds visible for the next ~2 s */
-  94%  { opacity: 1; }
+  5%   { opacity: 0.10; }
+  10%  { opacity: 1; }
+  14%  { opacity: 0.06; }
+  19%  { opacity: 1; }
+  24%  { opacity: 0.18; }
+  30%  { opacity: 0.9; }
+  38%  { opacity: 0.12; }
+  46%  { opacity: 0.5; }
+  55%  { opacity: 0; }
   100% { opacity: 0; }
 }
 @keyframes storm-core {
   0%   { opacity: 1; }
-  2%   { opacity: 0; }
-  4.5% { opacity: 0.8; }
-  5.5% { opacity: 0; }
-  8%   { opacity: 1; }
-  94%  { opacity: 1; }
+  5%   { opacity: 0; }
+  10%  { opacity: 1; }
+  14%  { opacity: 0; }
+  19%  { opacity: 1; }
+  24%  { opacity: 0; }
+  30%  { opacity: 0.85; }
+  38%  { opacity: 0; }
+  46%  { opacity: 0.4; }
+  55%  { opacity: 0; }
   100% { opacity: 0; }
 }
 @keyframes storm-glow {
-  0%   { opacity: 0.5; }
-  2.5% { opacity: 0; }
-  4.5% { opacity: 0.35; }
-  6%   { opacity: 0; }
-  8%   { opacity: 0.45; }
-  94%  { opacity: 0.45; }
+  0%   { opacity: 0.75; }
+  5%   { opacity: 0.06; }
+  10%  { opacity: 0.8; }
+  14%  { opacity: 0.04; }
+  19%  { opacity: 0.78; }
+  24%  { opacity: 0.1; }
+  30%  { opacity: 0.55; }
+  38%  { opacity: 0.08; }
+  46%  { opacity: 0.3; }
+  55%  { opacity: 0; }
   100% { opacity: 0; }
 }
+/* The halo expands and fades once per cycle, which is what sells the discharge
+   as coming out of the cloud rather than being drawn on top of it. Percentages
+   are against the 1000 ms cycle: it is finished by 400 ms, well before the last
+   stroke fades, so it does not leave a glow hanging over the dark gap.
+   ease-out, not steps: this one IS a fade, unlike the strokes. */
 @keyframes storm-halo {
-  0%   { opacity: 0.45; }
-  8%   { opacity: 0.3; }
-  94%  { opacity: 0.22; }
-  100% { opacity: 0; }
+  0%   { opacity: 0.7;  transform: scale(0.55); }
+  18%  { opacity: 0.28; transform: scale(1.2); }
+  40%  { opacity: 0;    transform: scale(1.5); }
+  100% { opacity: 0;    transform: scale(0.55); }
 }
 
+/* .storm-note is no longer emitted by dashboard.html. The rule is kept because
+   the demo site's static index.html still carries the paragraph, and because a
+   deleted rule plus surviving markup is how you get unstyled text on a page
+   nobody rebuilt. */
 .storm-note {
   margin: 8px 0 0;
   font-size: 11px;

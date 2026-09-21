@@ -59,32 +59,40 @@
 
   // Drawing box, matching storm-view.js in the console exactly. style.css caps
   // the rendered width, so the cloud no longer stretches to fill its column.
-  var VB_W = 104, VB_H = 78, CX = 52, CY = 29, BOLT_TOP = 43, BOLT_END = 72;
+  var VB_W = 104, VB_H = 78, CX = 52, CY = 26, BOLT_TOP = 43, BOLT_END = 72;
+
+  /* The channel, as three fixed paths. Identical to storm-view.js so this page
+     and the console draw the same artwork. Glow fattest, core thinnest and
+     inset, all three converging to one point. */
+  var BOLT_GLOW_D = "M53.6 42L61.4 42L55.2 54.6L60.6 54.6L46.4 73.5L51.4 57.4L45.6 57.4L50.2 42Z";
+  var BOLT_MAIN_D = "M54 43L60 43L55.4 54.6L59.4 54.6L47.6 72.6L51.6 57.4L46.8 57.4L51 43Z";
+  var BOLT_CORE_D = "M55.4 44.4L57.6 44.4L54.6 55.6L56.8 55.6L49.6 68.6L52.4 56.6L50 56.6L53.2 44.4Z";
 
   // The channel is lightning-colored, not band-colored: blue-white with a
   // cooler blue bloom behind it and a white core. The band color still drives
   // the data block's border and label, where it carries information.
-  var BOLT_MAIN = "#eaf4ff";
-  var BOLT_GLOW = "#8fc4ff";
+  // Brighter, because the channel is now read against a navy sky, not white.
+  var BOLT_MAIN = "#f5fbff";
+  var BOLT_GLOW = "#7dbcff";
   var BOLT_CORE = "#ffffff";
-  var BOLT_HALO = "#a8d2ff";
+  var BOLT_HALO = "#bfe0ff";
 
   var STATION = "Site A";
 
   // A band keeps flashing until this long with no strike in it.
   var FLASH_HOLD_MIN = 12 * 60;        // simulated minutes
 
-  // Repeat interval for an armed band, real milliseconds. Busier bands flash
-  // at the shorter end. Real time, not simulated: at 30 sim-min/s a
-  // simulated-time cadence would strobe.
-  //
-  // Both bounds must exceed the flash animation itself, which now holds the
-  // channel lit for 2260 ms (see storm-lit and friends in style.css). At the
-  // previous 900 ms floor a flash was cut short and restarted before it had
-  // finished, so the cloud never went dark and the strobe was constant.
-  var FLASH_HOLD_MS = 2260;
-  var FLASH_MIN_MS = FLASH_HOLD_MS + 700;
-  var FLASH_MAX_MS = FLASH_HOLD_MS + 3000;
+  /* One full strike cycle, matching the storm-* keyframes in style.css and
+     FLASH_CYCLE_MS in storm-view.js. An active band repeats it, so it strikes
+     once a second.
+
+     This was 2260 ms, two seconds of which was the channel HOLDING lit, and the
+     re-trigger gap was built on top of that (hold + 700 to hold + 3000). The
+     repeat is now the CSS animation's own `infinite`, so these gaps only decide
+     when a cell FIRST starts, not how often it strikes. */
+  var FLASH_CYCLE_MS = 1000;
+  var FLASH_MIN_MS = FLASH_CYCLE_MS;
+  var FLASH_MAX_MS = FLASH_CYCLE_MS + 400;
 
   // ---- timelapse ---------------------------------------------------------
 
@@ -258,34 +266,25 @@
      back to the vertical at the tip. The outline is filled and its width falls
      to zero at the tip, which is what gives the point; a stroke has uniform
      width and cannot converge. Returns { outline, center }. */
+  /* FOUR TURNS, NOT ONE, AND NO BRANCH. Kept byte-identical in intent to
+     storm-view.js::boltGeometry so this page matches the console exactly.
+
+     The old centre-line had three points: base, one kink, tip. One reversal
+     draws a letter Z, not a discharge. Jitter is a horizontal shift of the whole
+     channel rather than a per-vertex wobble, because wobbling vertices distorted
+     the silhouette into something that stopped reading as lightning. */
   function boltGeometry() {
-    var H = BOLT_END - BOLT_TOP;
-    var flip = Math.random() < 0.5 ? 1 : -1;
-    var k1 = flip * (6.5 + Math.random() * 2.0);
-    var y1 = H * (0.44 + Math.random() * 0.08);
-
-    var pts = [[0, 0], [k1, y1], [0, H]];
-    // 60% heavier than the 3.4 this used to be, matching storm-view.js.
-    var w = [5.4, 3.7, 0];
-
-    var left = [], right = [];
-    for (var i = 0; i < pts.length; i++) {
-      left.push([CX + pts[i][0] - w[i] / 2, BOLT_TOP + pts[i][1]]);
-      right.push([CX + pts[i][0] + w[i] / 2, BOLT_TOP + pts[i][1]]);
-    }
-
-    var d = "M" + left.map(function (p) {
-      return p[0].toFixed(1) + " " + p[1].toFixed(1);
-    }).join("L");
-    d += "L" + right.reverse().map(function (p) {
-      return p[0].toFixed(1) + " " + p[1].toFixed(1);
-    }).join("L") + "Z";
-
-    var center = pts.map(function (p) {
-      return (CX + p[0]).toFixed(1) + "," + (BOLT_TOP + p[1]).toFixed(1);
-    }).join(" ");
-
-    return { outline: d, center: center };
+    var dx = (Math.random() * 4.4 - 2.2);
+    var shift = function (d) {
+      return d.replace(/([ML])(-?[\d.]+) (-?[\d.]+)/g, function (_, cmd, x, y) {
+        return cmd + (parseFloat(x) + dx).toFixed(1) + " " + y;
+      });
+    };
+    return {
+      glow: shift(BOLT_GLOW_D),
+      outline: shift(BOLT_MAIN_D),
+      core: shift(BOLT_CORE_D)
+    };
   }
 
   function buildCell(def) {
@@ -320,8 +319,7 @@
       filter: "url(#" + fid + ")" }, svg);
     var main = el("path", { d: geo.outline, fill: BOLT_MAIN,
       "class": "storm-bolt storm-bolt-main" }, svg);
-    var core = el("polyline", { points: geo.center, stroke: BOLT_CORE,
-      "stroke-width": 1.3, fill: "none",
+    var core = el("path", { d: geo.core, fill: BOLT_CORE,
       "class": "storm-bolt storm-bolt-core" }, svg);
 
     var data = div("storm-band-data");
@@ -350,7 +348,10 @@
     // Size follows the 12-hour mean so the cloud does not jump when the window
     // changes.
     var frac = (armed && maxPeak) ? Math.max(0, Math.min(1, hold.mean / maxPeak)) : 0;
-    var scale = 0.62 + frac * 0.30;
+    /* Smaller cloud, matching storm-view.js: 0.56 to 0.62 active, 0.52 idle,
+       down from 0.62 to 0.92. It leaves the channel as the dominant element in
+       the cell, which is half of what makes a strike look intense. */
+    var scale = (frac > 0) ? (0.56 + frac * 0.06) : 0.52;
     node.group.setAttribute("transform",
       "translate(" + CX + "," + CY + ") scale(" + scale.toFixed(3) + ")");
 
@@ -402,11 +403,14 @@
     }
   }
 
+  /* Reposition the channel and let CSS run it. The animation is `infinite` at
+     1000 ms, so an active band strikes once a second with no timer involved;
+     calling this again only re-jitters the position and restarts the cycle. */
   function flashCell(node) {
     var g = boltGeometry();
-    node.glow.setAttribute("d", g.outline);
+    node.glow.setAttribute("d", g.glow);
     node.main.setAttribute("d", g.outline);
-    node.core.setAttribute("points", g.center);
+    node.core.setAttribute("d", g.core);
     node.wrap.classList.remove("is-flashing");
     void node.wrap.offsetWidth;                 // restart the animation
     node.wrap.classList.add("is-flashing");
