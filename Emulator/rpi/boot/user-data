@@ -1,0 +1,70 @@
+#cloud-config
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Emulator
+#  cloud-init first-boot provisioning for the bench card.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
+#
+# Raspberry Pi OS Lite first-boot config for the AS3935 lightning emulator.
+#
+# This is the file Raspberry Pi Imager wrote, with two changes:
+#   1. The packages: list was removed. See the note below.
+#   2. A runcmd entry was added to install the emulator offline.
+#
+# The user block is untouched, including the password hash and the SSH key,
+# because getting it wrong on a box with no network means no way in at all.
+#
+# Goes on the FAT32 boot partition, which the running Pi mounts at
+# /boot/firmware. Only read on FIRST boot. To re-run it, either reimage or use
+# `sudo cloud-init clean --logs && sudo reboot`.
+manage_resolv_conf: false
+
+hostname: lightningemulator1
+manage_etc_hosts: true
+
+# Imager put `packages: [avahi-daemon]` here and it has been removed on purpose.
+# avahi-daemon is already installed by pi-gen stage2, so it was a no-op, but
+# listing ANY package makes cloud-init run apt-get update first. This emulator is
+# a bench instrument and is deliberately never given WiFi, so that update can
+# only ever add a DNS timeout plus a connect timeout to the first boot. Removing
+# it costs nothing and drops a multi-minute stall.
+
+apt:
+  preserve_sources_list: true
+  conf: |
+    Acquire {
+      Check-Date "false";
+    };
+timezone: Africa/Johannesburg
+keyboard:
+  model: pc105
+  layout: "za"
+user:
+  name: emulator1
+  shell: /bin/bash
+  lock_passwd: false
+  passwd: "$y$jB5$9NHPHRa9LZnNodaRt7ZGb/$/2PcKIjuFz369VUhODvH81Ak5g7hSsjtBQQw/XJ.IM5"
+  ssh_authorized_keys:
+    - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOxe24Ihqo4ZRqAOZAyWTdbEN2YfA0PZfFOxSwU1xUq6"
+  sudo: null
+ssh_pwauth: false
+runcmd:
+  - [ systemctl, enable, --now, ssh ]
+  - [ rfkill, unblock, wifi ]
+  - [ sh, -c, "for f in /var/lib/systemd/rfkill/*:wlan; do echo 0 > \"$f\"; done" ]
+  # Install the emulator: copy the script to /opt, install and enable the
+  # service, put emulator1 in the i2c and gpio groups. Offline and idempotent,
+  # nothing is downloaded.
+  #
+  # Called through bash rather than relying on the execute bit, because the
+  # script lives on a FAT32 partition where the mode comes from the mount's
+  # fmask rather than from the file.
+  #
+  # `|| true` so a failure here cannot abort the rest of cloud-init and leave the
+  # box in a half-provisioned state. The log is the place to look:
+  #   /var/log/lightning-emulator-install.log
+  - [ sh, -c, "bash /boot/firmware/emulator/install.sh > /var/log/lightning-emulator-install.log 2>&1 || true" ]

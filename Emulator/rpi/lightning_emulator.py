@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Emulator
+#  Raspberry Pi Zero 2 W host for the Thunder EMU Click: injects synthetic
+#  strikes for bench testing of LDS detector units.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
 """AS3935 lightning emulator - Raspberry Pi Zero 2 W + Thunder EMU Click.
 
 Strikes are fired from the Click's OWN three push buttons. Nothing is
@@ -98,10 +108,29 @@ LEVELS
 RANGE
   Emulator coil to sensor antenna: 5 to 15 cm.
 
+DEPENDENCIES: NOTHING TO INSTALL
+  This runs on a stock Raspberry Pi OS Lite with no network, which matters
+  because the emulator is a bench instrument and is never given WiFi.
+
+  Both third-party imports are already on the image. pi-gen stage2, which is
+  what "Lite" is built from, installs python3-smbus2, python3-gpiozero and
+  python3-rpi-lgpio as standard, along with gpiod and python3-libgpiod. So there
+  is no apt step and no wheel to side-load: an offline Pi can run this as
+  shipped.
+
+  rpi-lgpio is the pin backend. It presents itself as RPi.GPIO, so gpiozero
+  finds it through its rpigpio pin factory without being told to.
+
+  The one thing the image does NOT do is enable I2C. That is a config.txt
+  change, which is why install.sh sets it.
+
 SETUP
-  sudo raspi-config nonint do_i2c 0
-  sudo apt install -y python3-smbus2 python3-gpiozero python3-lgpio
-  sudo usermod -aG i2c,gpio "$USER"      # log out and back in
+  Handled by install.sh, which is offline and idempotent:
+    sudo /boot/firmware/emulator/install.sh
+
+  It enables I2C in config.txt, puts emulator1 in the i2c and gpio groups,
+  installs the script to /opt/lightning-emulator and enables the service.
+  Enabling I2C needs one reboot.
 
 USAGE
   python3 lightning_emulator.py --probe-buttons    FIRST RUN: find the pins
@@ -111,6 +140,10 @@ USAGE
   python3 lightning_emulator.py --fire close       one shot
   python3 lightning_emulator.py --pace loop        Arduino timing
   python3 lightning_emulator.py --storm-on-hold    hold FAR to run the storm
+  python3 lightning_emulator.py --headless         buttons only, no keyboard
+
+  Headless is what the systemd service uses, and it is assumed automatically
+  whenever stdin is not a TTY.
 """
 from __future__ import annotations
 
@@ -679,6 +712,10 @@ def main() -> int:
     ap.add_argument("--bus", type=int, default=I2C_BUS, help="I2C bus number")
     ap.add_argument("--no-buttons", action="store_true",
                     help="keyboard only, claim no GPIO")
+    ap.add_argument("--headless", action="store_true",
+                    help="never read the keyboard, just service the Click "
+                         "buttons until terminated. Implied when stdin is not "
+                         "a TTY, which is how it runs under systemd.")
     ap.add_argument("--storm-on-hold", action="store_true",
                     help=f"hold FAR for {STORM_HOLD_S:g}s to run the storm "
                          "sequence. FAR then fires on release.")
@@ -760,6 +797,38 @@ def main() -> int:
                   "from the keyboard.")
     else:
         print("No Click buttons claimed, keyboard only.")
+    # Under systemd there is no controlling terminal, so input() raises EOFError
+    # on the first call and the old loop treated that as "quit". The service
+    # would start, park the DAC and exit within milliseconds, looking for all the
+    # world like a clean run. Detect the condition up front instead: with no TTY
+    # the only sensible mode is to sit on the button callbacks.
+    headless = args.headless or not sys.stdin.isatty()
+
+    if headless:
+        if clicks is None:
+            print("Headless with no Click buttons claimed: nothing could fire "
+                  "a strike, so there is no reason to keep running.")
+            print("  Check the pin map with --probe-buttons, or pass --fire to "
+                  "send a single burst.")
+            dac.close()
+            return 1
+        print("Headless: the Click buttons are live, the keyboard is not read.")
+        print("Coil to sensor antenna: 5 to 15 cm.")
+        print("SMS alerts must be OFF on the panel before testing.")
+        print("[emu] ready", flush=True)
+        try:
+            while True:
+                # gpiozero services the buttons on its own threads, so this one
+                # only has to stay alive and stay out of the way.
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            print()
+        finally:
+            dac.close()
+            clicks.close()
+            print("[emu] stopped, DAC parked")
+        return 0
+
     print("Keyboard: c m f s, q to quit")
     print("Coil to sensor antenna: 5 to 15 cm.")
     print("SMS alerts must be OFF on the panel before testing.")

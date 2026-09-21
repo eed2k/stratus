@@ -1,0 +1,66 @@
+# =========================================================================
+#
+#  Stratus AS3935 Lightning Emulator
+#  systemd unit: runs the emulator headless off the Click's own buttons.
+#
+#  Property of METRON (PTY) LTD | Inteltronics
+#  Developed by L.J. Esterhuizen, Inteltronics
+#
+# =========================================================================
+
+[Unit]
+Description=AS3935 lightning emulator (Thunder EMU Click, button fired)
+Documentation=file:/opt/lightning-emulator/lightning_emulator.py
+# The emulator is a bench instrument with no network by design, so there is
+# deliberately no After=network-online.target here. Waiting on a network that
+# will never come up would just delay start by the DHCP timeout.
+After=local-fs.target
+ConditionPathExistsGlob=/dev/i2c-*
+
+[Service]
+Type=simple
+
+# Not root. CAP_SYS_NICE is the only privilege the emulator actually wants: it
+# takes SCHED_FIFO for the length of a burst so a scheduler preemption cannot
+# stretch the 300 us sample period and distort the waveform the AS3935 sees.
+# Everything else it needs comes from group membership on the two device nodes.
+User=emulator1
+SupplementaryGroups=i2c gpio
+AmbientCapabilities=CAP_SYS_NICE
+
+WorkingDirectory=/opt/lightning-emulator
+
+# Flags live in /etc/default/lightning-emulator so they can be changed without
+# editing a unit file. The leading "-" makes the file optional. Unbraced $EMU_ARGS
+# is word split by systemd, which is what we want for a list of flags.
+EnvironmentFile=-/etc/default/lightning-emulator
+ExecStart=/usr/bin/python3 /opt/lightning-emulator/lightning_emulator.py --headless $EMU_ARGS
+
+# Unbuffered, otherwise the status lines and every "[emu] fired" sit in Python's
+# stdout buffer and the journal stays empty until the process exits.
+Environment=PYTHONUNBUFFERED=1
+
+# If the Click is not seated the script exits 1 with a clear message. Retry a few
+# times in case this raced the I2C device appearing, then stop and stay failed so
+# `systemctl status` shows the reason instead of hiding it in a restart loop.
+Restart=on-failure
+RestartSec=15
+
+# SIGINT rather than SIGTERM: the script's KeyboardInterrupt handler is what
+# parks the DAC, and leaving the coil driven while idle is the one state worth
+# avoiding on shutdown.
+KillSignal=SIGINT
+TimeoutStopSec=20
+
+# Modest hardening only, and deliberately not ProtectSystem=strict. The script
+# writes nothing, so strict would buy very little, and this box has no network to
+# debug through: a sandbox rule quietly blocking lgpio would present as "the
+# buttons do nothing", which is the single most expensive symptom to chase here.
+# PrivateTmp is safe and worth keeping, because the lgpio C library puts its
+# notification FIFOs in /tmp.
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

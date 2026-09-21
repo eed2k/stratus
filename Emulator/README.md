@@ -1,5 +1,8 @@
 # Lightning Emulator (Raspberry Pi Zero 2 W + Thunder EMU Click)
 
+Property of METRON (PTY) LTD | Inteltronics
+Developed by L.J. Esterhuizen, Inteltronics
+
 Bench rig for injecting synthetic lightning into the AS3935 detector so the whole
 chain can be tested end to end: sensor interrupt, distance and energy, heartbeat,
 alert evaluation, the admin panel's storm display, and the beacon lamps.
@@ -174,18 +177,89 @@ It also takes `SCHED_FIFO` for the few milliseconds of a burst when run with
 
 ## Setup and use
 
-```bash
-sudo raspi-config nonint do_i2c 0
-sudo apt install -y python3-smbus2 python3-gpiozero python3-lgpio
-sudo usermod -aG i2c,gpio "$USER"      # log out and back in
+### It runs offline, and there is nothing to install
 
+The emulator is a bench instrument. It generates signals for testing LDS units
+and it talks to nothing: no WiFi, no panel, no cloud. So it has to work on a Pi
+that has never had a network, and it does.
+
+Both third-party imports are already on Raspberry Pi OS Lite. The image is built
+from pi-gen **stage2**, whose package list includes `python3-smbus2`,
+`python3-gpiozero` and `python3-rpi-lgpio`, plus `gpiod` and
+`python3-libgpiod`. `rpi-lgpio` is the pin backend and presents itself as
+`RPi.GPIO`, so gpiozero finds it through its `rpigpio` pin factory without being
+configured.
+
+That removes the only real obstacle to a network-less build. There is no `apt`
+step and no wheel to side-load.
+
+The one thing the image does **not** do is enable I2C. That is a `config.txt`
+change, and it is the single piece of setup that genuinely has to happen.
+
+### Bench card
+
+The SD card is staged from Windows against the FAT32 boot partition, which the
+running Pi mounts at `/boot/firmware`. On first boot cloud-init runs the
+installer:
+
+```
+/boot/firmware/emulator/install.sh          offline, idempotent
+/boot/firmware/emulator/lightning_emulator.py
+/boot/firmware/emulator/lightning-emulator.service
+/boot/firmware/emulator/README.txt          bench-facing notes
+```
+
+The installer copies the script to `/opt/lightning-emulator`, installs and
+enables the systemd service, and puts `emulator1` in the `i2c` and `gpio`
+groups. It verifies the two imports rather than trying to fetch them. Its log
+lands in `/var/log/lightning-emulator-install.log`.
+
+I2C is enabled on the card at staging time rather than left to the installer, so
+the first boot already has `/dev/i2c-1` and no second reboot is needed.
+
+To run it by hand on a box set up some other way:
+
+```bash
+sudo raspi-config nonint do_i2c 0       # or: dtparam=i2c_arm=on in config.txt
+sudo usermod -aG i2c,gpio "$USER"       # log out and back in
+```
+
+### Service
+
+`lightning-emulator.service` runs the emulator headless: the Click's buttons are
+live and the keyboard is not read. It runs as `emulator1`, not root, with
+`AmbientCapabilities=CAP_SYS_NICE`, which is the only privilege the emulator
+actually wants. It takes `SCHED_FIFO` for the length of a burst so a scheduler
+preemption cannot stretch the 300 us sample period and distort the waveform.
+
+Flags go in `/etc/default/lightning-emulator` so the unit file does not have to
+be edited:
+
+```bash
+sudo systemctl status lightning-emulator
+journalctl -u lightning-emulator -f
+```
+
+The service holds the GPIO pins, so stop it before driving the emulator by hand
+or the pins will not be free.
+
+### By hand
+
+```bash
 python3 rpi/lightning_emulator.py --probe-buttons   # first run, find the pins
 python3 rpi/lightning_emulator.py                   # interactive
 sudo python3 rpi/lightning_emulator.py              # + SCHED_FIFO, tighter timing
 python3 rpi/lightning_emulator.py --fire close      # one shot, for scripts
 python3 rpi/lightning_emulator.py --pace loop       # Arduino-identical timing
 python3 rpi/lightning_emulator.py --pins 22,18,17,4 # explicit CLOSE,MID,FAR,LED
+python3 rpi/lightning_emulator.py --headless        # buttons only, no keyboard
 ```
+
+`--headless` is assumed whenever stdin is not a TTY. That matters more than it
+sounds: under systemd there is no controlling terminal, so `input()` raises
+`EOFError` on the first call, and the interactive loop used to read that as
+"quit". The service would have started, parked the DAC and exited within
+milliseconds, looking like a clean run.
 
 If the DAC is not found, `i2cdetect -y 1` should show a device at `0x60` (or
 `0x61`).
@@ -334,9 +408,16 @@ Content was rephrased for compliance with licensing restrictions.
 
 ```
 rpi/lightning_emulator.py                            Pi Zero 2 W host, Click buttons
+rpi/lightning-emulator.service                       systemd unit, headless
+rpi/install.sh                                       offline idempotent installer
+rpi/boot/user-data                                   cloud-init, first boot
+rpi/boot/README.txt                                  bench notes, kept on the card
 arduino/lightning_emulator/lightning_emulator.ino    Nano host, external buttons
 README.md                                            this file
 ```
+
+Everything under `rpi/boot/` and the three files above it are what gets staged
+onto the SD card's FAT32 boot partition.
 
 Both reproduce the vendor driver's `thunderemu_generate_thunder()`: the same
 20-sample profile, the same `3 - mode` burst count, the same 10 ms tail and

@@ -25,3 +25,65 @@ release
 deploy
 data
 backups
+# ---------------------------------------------------------------------------
+# Trim the build context.
+#
+# `npm run build` is `vite build` (root: client) plus `tsc -p
+# tsconfig.server.json`, so the image only ever needs client/, server/,
+# shared/, the package manifests and the config files at the root. Everything
+# below is firmware, hardware design, sibling services or old archives that the
+# Node build never reads, and it was all being shipped to the daemon on every
+# build: the context measured 306 MB and took 181 s to transfer on a box with
+# 2 GB of free disk.
+#
+# Safe to exclude because docker-compose.yml declares exactly one build context
+# (the stratus service). The forecast, panel, demo and info-centre services are
+# built from their own compose files under /opt, not from this directory, so
+# ignoring their source here cannot affect them.
+#
+# The @assets vite alias points at ./attached_assets, NOT ./assets, and nothing
+# imports it, so assets/ is not a build input either.
+
+# Sibling services, built from their own compose files elsewhere.
+forecast
+info-centre
+lightning-demo
+LDS ADMIN
+LDS ADMIN PANEL
+
+# Firmware, hardware design and device tooling.
+AS3935
+AS3935handheld
+Beacon
+BeagleBone
+Emulator
+Lightning Detector
+Quaggasklip
+RPiZero SD Card
+StratusLoggerV1*
+
+# Local-only working directories.
+localhost-preview
+documents
+demo_data
+.venv
+.github
+.sixth
+
+# Loose archives and database dumps left at the root.
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.sql
+*.sql.gz
+*.pdf
+
+# Stale source snapshots.
+client.bak*
+client_src.bak*
+clientsrc*
+server.bak*
+
+# assets/ is not referenced by the client build (see note above).
+assets
