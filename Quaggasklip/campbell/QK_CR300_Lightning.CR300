@@ -9,7 +9,18 @@
 '=============================================================================
 ' Site: QUAGGASKLIP
 '
+' REQUIRES CR300 OPERATING SYSTEM 6.0 OR LATER.
+' Configuring C1 and C2 individually for transmit or receive, which is what
+' ComC2_Rx does, was introduced in OS 6.0. On an older OS the constant does not
+' exist and the program will not compile. Check with the logger's Station Status
+' or in Device Configuration Utility before uploading. The alternative on an
+' older OS is Com1, which claims C1 as TX and C2 as RX as a pair; that still
+' receives correctly on C2, it simply ties up C1 for nothing.
+'
 ' 9600 baud, 8 data bits, no parity, 1 stop bit, 3.3 V TTL
+' SerialOpen format 0 is ASCII only: it discards nulls and anything above
+' ASCII 127. Both record types are plain ASCII digits and commas, so that is
+' correct here, but it is the reason not to send binary on this link.
 '
 '   L,<distance_km>,<energy>     one record per forwarded strike
 '   H,<cpu_temp_c>,<rssi_dbm>    status, every campbell_heartbeat_interval
@@ -130,10 +141,11 @@ Public CountMismatch As Float
 Public LastRecord As String * 48
 Public RecordType As String * 2
 Public BytesReturned As Float
-Public Parsed(3) As Float
+Public Parsed(2) As Float
 Public ParseErrorCount As Long
 
 Dim RecordOK As Boolean
+Dim EventRowWritten As Boolean
 Dim ScansSinceRecord As Long
 
 '=============================================================================
@@ -148,10 +160,16 @@ Dim ScansSinceRecord As Long
 '=============================================================================
 
 ' One row per strike. Nothing is averaged away.
+' PulseCountTotal is IEEE4, NOT FP2. It is a lifetime cumulative count, and FP2
+' tops out at a magnitude of 7999, so it would have silently saturated after the
+' 8000th mirrored strike. Worse, FP2 stores NAN as -7999, so an overflowed count
+' is indistinguishable from a failed measurement. IEEE4 holds integers exactly to
+' 2^24, which is 16.7 million, and costs two extra bytes a row.
+' FP2 is kept for LastDistanceKm, which is 0 to 40 km and well inside its range.
 DataTable (LightningEvents, True, -1)
   Sample (1, LastDistanceKm, FP2)
   Sample (1, LastEnergy, Long)
-  Sample (1, PulseCountTotal, FP2)
+  Sample (1, PulseCountTotal, IEEE4)
   Sample (1, LastRecord, String)
 EndTable
 
@@ -184,7 +202,10 @@ DataTable (LightningDaily, True, -1)
   Sample (1, StrikesToday, Long)
   Sample (1, ClosestTodayKm, FP2)
   Sample (1, MaxEnergyToday, Long)
-  Totalize (1, PulseCountScan, FP2, False)
+  ' IEEE4 for the same reason as above. A daily total is far less likely to pass
+  ' 7999 than a lifetime one, but a severe storm is exactly when this figure
+  ' matters and exactly when it would have overflowed.
+  Totalize (1, PulseCountScan, IEEE4, False)
 EndTable
 
 '=============================================================================
@@ -213,7 +234,11 @@ BeginProg
     ' rows that output exists to capture.
     RecordOK = False
 
-    '--- Pulse input, one 50 ms pulse per confirmed strike -----------------
+    ' Tracks whether a LightningEvents row has already been written THIS scan.
+    ' Kept separate from RecordOK on purpose, see the pulse-only output below.
+    EventRowWritten = False
+
+    '--- Pulse input, one 25 ms pulse per confirmed strike -----------------
     ' PConfig 2 = switch closure up to 150 Hz, POption 0 = counts. This is the
     ' independent strike count, see the PULSE INPUT note in the header.
     PulseCount (PulseCountScan, 1, P_SW, 2, 0, 1, 0)
@@ -228,17 +253,34 @@ BeginProg
     SerialInRecord (ComC2_Rx, LastRecord, 0, 0, 3338, BytesReturned, 10)
 
     If BytesReturned > 0 Then
+      ' The record type comes from the raw string, NOT from the split below,
+      ' because the split cannot see it. See the note on SplitOption 0.
       RecordType = Left (LastRecord, 1)
-      ' Field 1 is the leading letter and parses as NAN. Fields 2 and 3 carry
-      ' the values.
-      SplitStr (Parsed, LastRecord, ",", 3, 0)
+
+      ' SplitOption 0 is NUMERIC: it pulls the numbers out and DISCARDS every
+      ' non-numeric character, treating each as a delimiter. So "L,12,45" yields
+      ' exactly two values, 12 and 45, in Parsed(1) and Parsed(2). The leading
+      ' letter does not occupy a slot.
+      '
+      ' This previously read Parsed(2) and Parsed(3) on the assumption that the
+      ' letter landed in Parsed(1) as NAN. It does not. The effect was severe and
+      ' completely silent: Parsed(3) was always NAN, so the guard below was always
+      ' false, no record ever validated, ParseErrorCount climbed on every record,
+      ' DetectorOnline never went true and not a single row was ever written. The
+      ' program compiled, ran, and looked healthy the whole time.
+      '
+      ' Minus signs are kept by SplitOption 0 (+ - . 0-9 E are all numeric
+      ' characters), so the -1 unrangeable distance survives as -1.
+      ' Passed as Parsed(1) rather than a bare Parsed, which is the form used in
+      ' every Campbell example for this instruction.
+      SplitStr (Parsed(1), LastRecord, ",", 2, 0)
 
       ' x = x is false only for NAN, which is how a failed parse is caught.
-      If Parsed(2) = Parsed(2) AND Parsed(3) = Parsed(3) Then
+      If Parsed(1) = Parsed(1) AND Parsed(2) = Parsed(2) Then
 
         If RecordType = "L" Then
-          LastDistanceKm = Parsed(2)
-          LastEnergy = Parsed(3)
+          LastDistanceKm = Parsed(1)
+          LastEnergy = Parsed(2)
           StrikeCount = StrikeCount + 1
           StrikesToday = StrikesToday + 1
 
@@ -255,12 +297,13 @@ BeginProg
           EndIf
 
           RecordOK = True
+          EventRowWritten = True
           CallTable LightningEvents
         EndIf
 
         If RecordType = "H" Then
-          PiCpuTempC = Parsed(2)
-          PiRssiDbm = Parsed(3)
+          PiCpuTempC = Parsed(1)
+          PiRssiDbm = Parsed(2)
           StatusCount = StatusCount + 1
           RecordOK = True
         EndIf
@@ -291,7 +334,15 @@ BeginProg
     ' is the hardware witness that the sensor fired; the serial record is the
     ' software account of it. If the UART drops a message the pulse is the only
     ' evidence left, and losing it would make a real strike invisible.
-    If PulseCountScan > 0 And Not RecordOK Then
+    '
+    ' Gated on EventRowWritten, not on RecordOK. RecordOK goes true for a STATUS
+    ' record as well as a strike, so gating on it meant a pulse arriving in the
+    ' same 200 ms scan as an unrelated H record was silently dropped: RecordOK
+    ' was true, yet no LightningEvents row had been written. Rare, since H arrives
+    ' once every 600 s, but it would have thrown away exactly the strike this
+    ' branch exists to preserve, and it would have shown up only as CountMismatch
+    ' drifting for no visible reason.
+    If PulseCountScan > 0 And Not EventRowWritten Then
       CallTable LightningEvents
     EndIf
 

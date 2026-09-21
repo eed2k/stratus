@@ -846,17 +846,34 @@ class CampbellLink:
     #  Record formatting  (static, so it is testable off-target)
     # ===================================================================
 
+    # Every field on the wire MUST be a finite number.
+    #
+    # The CR300 parses these records with SplitStr SplitOption 0, which keeps
+    # only + - . 0-9 E and discards everything else as a delimiter. So "nan" or
+    # "inf" in a field does not arrive as a bad number, it vanishes entirely and
+    # the record arrives one value short. The logger's NAN guard then rejects the
+    # whole record, increments ParseErrorCount and, for a status record, lets the
+    # detector age out to offline while it is in fact running. A malformed field
+    # therefore costs far more than a wrong value, which is why both formatters
+    # below substitute rather than pass anything through.
+    @staticmethod
+    def _finite_int(value, default):
+        """int(value), or default if that is not a finite number.
+
+        OverflowError is caught deliberately: int(float("inf")) raises it, and it
+        is neither a TypeError nor a ValueError, so the original two-exception
+        tuple let it escape and propagate out of the send path.
+        """
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            return default
+
     @staticmethod
     def format_lightning(distance_km, energy):
         r"""Build ``L,<dist>,<energy>\r\n``."""
-        try:
-            dist = int(distance_km)
-        except (TypeError, ValueError):
-            dist = -1
-        try:
-            eng = int(energy)
-        except (TypeError, ValueError):
-            eng = 0
+        dist = CampbellLink._finite_int(distance_km, -1)
+        eng = CampbellLink._finite_int(energy, 0)
         return f"L,{dist},{eng}\r\n"
 
     @staticmethod
@@ -864,12 +881,16 @@ class CampbellLink:
         r"""Build ``H,<cpu_temp_c>,<rssi_dbm>\r\n``."""
         try:
             cpu = round(float(cpu_temp_c), 1)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             cpu = 0.0
-        try:
-            rssi = int(rssi_dbm)
-        except (TypeError, ValueError):
-            rssi = 0
+        # round() does NOT raise on nan or inf, it returns them unchanged, so the
+        # try above cannot catch this case and it has to be tested for. The
+        # comparison is false for nan (every comparison against nan is) and for
+        # both infinities, which is exactly the set to reject, and it avoids
+        # importing math just for isfinite.
+        if not (float("-inf") < cpu < float("inf")):
+            cpu = 0.0
+        rssi = CampbellLink._finite_int(rssi_dbm, 0)
         return f"H,{cpu},{rssi}\r\n"
 
     # ===================================================================
