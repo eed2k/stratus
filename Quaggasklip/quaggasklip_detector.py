@@ -1755,6 +1755,42 @@ class QuaggasklipDetector:
         target_hz = 500000
         tolerance = 0.035                    # 3.5% per the datasheet
         low, high = target_hz * (1 - tolerance), target_hz * (1 + tolerance)
+
+        # A failed measurement is NOT a detuned antenna, and telling them apart
+        # matters because the two need opposite responses.
+        #
+        # This unit shipped without the distinction and the field record shows the
+        # cost. On 2026-09-15 the scheduled check recorded freq_hz = 0 and still
+        # moved tune_cap from 12 to 11, because 0 satisfies "freq_hz < low" and so
+        # fell into the "frequency too low, add less capacitance" branch. A
+        # resonant LC tank cannot oscillate at 0 Hz, so that reading could only
+        # ever have meant the measurement itself failed.
+        #
+        # Left alone it compounds: every daily check that fails to read decrements
+        # tune_cap again, so under a fortnight of failed measurements would walk a
+        # correctly tuned antenna from 12 down to 0 and then start warning that
+        # the antenna needs physical attention. The logs would show a tuning
+        # problem that the checker itself created.
+        #
+        # The AS3935 LCO sits near 500 kHz and tune_cap shifts it by roughly
+        # +/-15%, so anything outside this band is an instrumentation fault:
+        # a dead divider setting, a missed interrupt, or a zero counter.
+        MIN_PLAUSIBLE_HZ = 100000
+        MAX_PLAUSIBLE_HZ = 2000000
+        if not (MIN_PLAUSIBLE_HZ <= freq_hz <= MAX_PLAUSIBLE_HZ):
+            self.logger.error(
+                "Antenna frequency reading of %d Hz is not physically plausible "
+                "(expected %d-%d Hz). Treating this as a FAILED MEASUREMENT, not "
+                "a tuning error, and leaving tune_cap at %d. Check the LCO "
+                "divider and the IRQ line before trusting the next check.",
+                freq_hz, MIN_PLAUSIBLE_HZ, MAX_PLAUSIBLE_HZ, self.config.TUNE_CAP)
+            self._calibration_webhook(
+                kind="antenna_check", reason="measurement_failed",
+                cpu_temp_c=get_cpu_temperature(), freq_hz=freq_hz,
+                in_tolerance=None, tune_cap_before=self.config.TUNE_CAP,
+                tune_cap_after=self.config.TUNE_CAP)
+            return
+
         self.logger.info("Antenna frequency: %d Hz (target %d Hz, %.1f%%, "
                          "range %d-%d Hz)", freq_hz, target_hz, tolerance * 100,
                          int(low), int(high))
