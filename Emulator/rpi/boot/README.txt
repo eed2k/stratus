@@ -61,13 +61,39 @@ Nothing is downloaded at any point. smbus2, gpiozero and the rpi-lgpio pin
 backend all ship with Raspberry Pi OS Lite, which is what lets this work with no
 network.
 
-Checking it came up
--------------------
+Checking it came up, with no screen
+-----------------------------------
+Watch the thunder LED on the Click. It is the only feedback the board gives, so
+it has been made to mean something specific:
+
+  THREE BLINKS a few minutes after power up
+      The service armed and the buttons are live. This is the signal to wait for.
+      It does not appear until cloud-init has finished, so on a Zero 2 W give it
+      2 to 3 minutes and one self-reboot.
+
+  ONE FLASH when you press CLOSE, MID or FAR
+      That strike was emitted. The flash is deliberately stretched to about
+      120 ms: a strike itself is only 16 to 28 ms, which is too brief to see
+      reliably. The stretch happens after the coil is parked, so it does not
+      affect what the detector receives.
+
+  NO THREE BLINKS AT ALL
+      The service did not start. Almost always the Click is not seated, or I2C is
+      not up. This is the one fault the LED cannot narrow down on its own.
+
+  THREE BLINKS, but a button does nothing
+      The service is running, so the fault is the button pin map or that one
+      button. Not the service, and not I2C.
+
+That split is the point of the startup blink: it separates "never started" from
+"started but wrong pin", which otherwise look identical from the outside.
+
+With a screen and keyboard (mini-HDMI plus USB), the detail is there too:
+
   i2cdetect -y 1                       expect 0x60, or 0x61 if strapped
   systemctl status lightning-emulator
   journalctl -u lightning-emulator -f
-
-Then press CLOSE, MID or FAR on the Click. The journal logs every burst.
+  cat /var/log/lightning-emulator-install.log
 
 Driving it by hand
 ------------------
@@ -99,12 +125,22 @@ Using it
 
 If nothing fires
 ----------------
+Use the startup blink to decide which half of the problem you have.
+
+  No three blinks:
   1. Is the Click properly seated in the socket?
   2. i2cdetect -y 1 shows nothing  ->  I2C or the board, not the software.
      Confirm: grep i2c_arm /boot/firmware/config.txt
-  3. DAC is found but no button does anything  ->  wrong pin map. Run
-     --probe-buttons; it prints a ready-to-paste --pins line.
-  4. journalctl -u lightning-emulator -n 40 --no-pager
+  3. journalctl -u lightning-emulator -n 40 --no-pager
+
+  Three blinks, but pressing does nothing:
+  4. Wrong pin map. Stop the service so it releases the pins, then run
+     --probe-buttons; it prints a ready-to-paste --pins line, which goes in
+     /etc/default/lightning-emulator.
+  5. If the LED flashes on a press but the detector sees nothing, the emulator is
+     working and the problem is the gap or the detector. Check the 5 to 15 cm
+     spacing first.
 
 A wrong pin map gives a rig that starts cleanly, reports itself healthy and
-never fires. That is the trap worth knowing about.
+never fires. That is the trap worth knowing about, and the startup blink is what
+makes it distinguishable without a screen.

@@ -206,6 +206,16 @@ foreach ($name in ($cardFiles.Keys | Sort-Object)) {
   Ck "no tooling references: $name" ($banned.Count -eq 0) `
      $(if ($banned.Count) { "found: " + (($banned | ForEach-Object { $_.Value }) -join ', ') } else { '' })
 
+  # Pure ASCII. Added after a Cyrillic "bu" was typed into "--probe-buttons" in
+  # the card README, which renders as a plausible-looking word but is a command
+  # nobody can run and is invisible on inspection. Cheap to check, nasty to find.
+  $nonAscii = [regex]::Matches($txt, '[^\x00-\x7F]')
+  $detail = ''
+  if ($nonAscii.Count) {
+    $detail = "chars: " + ((($nonAscii | ForEach-Object { "U+{0:X4}" -f [int][char]$_.Value }) | Select-Object -Unique) -join ' ')
+  }
+  Ck "pure ASCII: $name" ($nonAscii.Count -eq 0) $detail
+
   # South African English. American spellings that would realistically appear in
   # this kind of prose.
   $usPattern = '(?i)\b(behavior|behaviors|color|colors|colored|organize|organized|initialize|initialized|initializing|recognize|recognized|analyze|analyzed|customize|optimize|normalize|serialize|minimize|maximize|authorize|apologize|centered|defense|fulfill|favor|labor|neighbor|traveled|canceled|modeling|signaling|license)\b'

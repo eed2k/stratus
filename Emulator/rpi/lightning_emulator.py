@@ -241,6 +241,20 @@ STORM_GAP_S = 3.0
 # SCHED_FIFO priority, 1..99.
 RT_PRIORITY = 10
 
+# How long to hold the Click's thunder LED lit after a strike.
+#
+# A whole strike is only 16 to 28 ms depending on mode, so an LED lit for exactly
+# that long is a flicker at the edge of perception. On a headless bench rig this
+# LED is the ONLY feedback there is, so the flash is stretched to something a
+# person can actually see. Applied after the DAC is parked, so it cannot affect
+# the emitted waveform, and it is far inside RETRIGGER_LOCKOUT_S so it cannot
+# swallow a press either.
+LED_MIN_FLASH_S = 0.12
+
+# Triple blink at startup, so "nothing happens when I press a button" can be told
+# apart from "the service never started".
+LED_READY_BLINKS = 3
+
 
 def fast_write_bytes(mode: int, value: int) -> bytes:
     """Two bytes of an MCP4725 fast-mode write. Value clamped to 12 bits."""
@@ -398,9 +412,18 @@ class Emulator:
         except OSError as exc:
             # No ACK: nothing was emitted.
             print(f"[emu] ** I2C write failed ({exc}) - nothing emitted **")
+            # Park on the way out. A write can fail part way through a burst, and
+            # without this the DAC would be left holding whatever sample it got
+            # to, driving the coil until the next strike. park() swallows its own
+            # OSError, so a dead bus cannot turn this into a second exception.
+            self.dac.park()
             return False
         finally:
             if self.led is not None:
+                # Stretch the flash to something visible. See LED_MIN_FLASH_S.
+                # Safe here: by this point the DAC is parked on both the success
+                # and the failure path, so the delay cannot reach the waveform.
+                time.sleep(LED_MIN_FLASH_S)
                 self.led.off()
 
     def fire(self, mode: int, why: str) -> None:
@@ -555,6 +578,32 @@ class ClickButtons:
             self._storm["running"] = False
             self._storm["stop"] = False
             self._last_fire = time.monotonic()
+
+    # -- operator feedback -------------------------------------------------
+
+    def ready_signal(self) -> None:
+        """Blink the thunder LED so an operator with no console knows we armed.
+
+        This earns its keep on a headless rig. The LED is the only feedback the
+        board gives, so without a startup signal "nothing happens when I press a
+        button" is ambiguous between three quite different faults: the service
+        never started, the service is running but the pin map is wrong, or the
+        Click is not seated. A triple blink at start rules out the first, which is
+        the one you cannot otherwise see without a console.
+
+        Failure here is not worth aborting for: it is a diagnostic aid, not part
+        of emitting a strike.
+        """
+        if self.led is None:
+            return
+        try:
+            for _ in range(LED_READY_BLINKS):
+                self.led.on()
+                time.sleep(LED_MIN_FLASH_S)
+                self.led.off()
+                time.sleep(LED_MIN_FLASH_S)
+        except Exception as exc:                # noqa: BLE001
+            print(f"[emu] could not blink the ready signal ({exc})")
 
     # -- teardown ----------------------------------------------------------
 
@@ -815,7 +864,11 @@ def main() -> int:
         print("Headless: the Click buttons are live, the keyboard is not read.")
         print("Coil to sensor antenna: 5 to 15 cm.")
         print("SMS alerts must be OFF on the panel before testing.")
-        print("[emu] ready", flush=True)
+        # Three blinks on the Click's thunder LED. On a headless rig this is the
+        # only sign the operator gets that the service armed, so it matters more
+        # here than the log line next to it.
+        clicks.ready_signal()
+        print(f"[emu] ready, thunder LED blinked {LED_READY_BLINKS}x", flush=True)
         try:
             while True:
                 # gpiozero services the buttons on its own threads, so this one
@@ -832,6 +885,10 @@ def main() -> int:
     print("Keyboard: c m f s, q to quit")
     print("Coil to sensor antenna: 5 to 15 cm.")
     print("SMS alerts must be OFF on the panel before testing.")
+    # Also blinked interactively, which doubles as a check that the LED pin is
+    # right before anyone relies on it headless.
+    if clicks is not None:
+        clicks.ready_signal()
     print()
 
     try:

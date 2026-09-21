@@ -24,8 +24,16 @@ Type=simple
 # takes SCHED_FIFO for the length of a burst so a scheduler preemption cannot
 # stretch the 300 us sample period and distort the waveform the AS3935 sees.
 # Everything else it needs comes from group membership on the two device nodes.
+#
+# Deliberately NO SupplementaryGroups= here. It would be redundant, because
+# systemd already applies the groups the user holds in the system group database
+# and SupplementaryGroups only extends that list, and install.sh puts emulator1
+# in i2c and gpio. Worse, naming a group that cannot be resolved is a hard
+# failure: the unit dies with status=216/GROUP before the script ever runs. On a
+# bench box with no console that presents as "the buttons do nothing", which is
+# the most expensive symptom to chase. install.sh guards its usermod calls with
+# getent, so a missing group degrades instead of breaking.
 User=emulator1
-SupplementaryGroups=i2c gpio
 AmbientCapabilities=CAP_SYS_NICE
 
 WorkingDirectory=/opt/lightning-emulator
