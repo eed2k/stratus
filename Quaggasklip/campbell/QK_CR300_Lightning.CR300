@@ -7,9 +7,20 @@
 '  Developer: L.J. Esterhuizen
 '
 '=============================================================================
-' Site: QUAGGASKLIP
+' Site: QUAGGASKLIP. Requires CR300 OS 6.0 or later; this unit is on 7.04.
 '
-' Requires CR300 OS 6.0 or later. ComC2_Rx needs it. This unit is on 7.04.
+' PORT NAMES AND VOLTAGE, BOTH OF WHICH ARE CR300-SPECIFIC
+'
+' The port is Com1, being control ports 1 and 2 as a pair with C2 as the receive
+' half. Not ComC1, which is the CR6 and CR1000X spelling and does not compile
+' here. ComC2_Rx also exists and addresses the same terminal receive-only, but the
+' pair is the supported route.
+'
+' There is no PortPairConfig on the CR300. That instruction belongs to the CR1000X
+' and CR6, where digital ports default to 5 V and have to be switched down. The
+' CR300 needs nothing: its own specification lists C1 and C2 as 5.0 V output and
+' 3.3 V input, so the input is natively at the level the Pi drives. P_SW is 3.3 V
+' as well.
 '
 ' Record formats, 9600 baud 8N1, 3.3 V TTL, CR LF terminated:
 '
@@ -18,19 +29,15 @@
 '
 ' distance_km is -1 when the sensor could not range the strike.
 '
-' Lightning is the only thing stored. H records are recognised and dropped, so
-' health never reaches storage: that belongs to the admin panel, which is the
-' system of record for whether a unit is alive. This logger therefore cannot tell
-' a quiet sky from a dead detector. The panel answers that.
+' Lightning is the only thing stored. H records are recognised and dropped, because
+' health belongs to the admin panel, which is the system of record for whether a
+' unit is alive. So this logger cannot tell a quiet sky from a dead detector.
 '
 ' EACH RECORD IS FOUND BY ITS FIRST LETTER, NOT BY READING THE WHOLE LINE.
-' This matters. With BeginWord 0 the NBytes parameter becomes the count of bytes
-' to keep before the EndWord, so passing 0 for both asks the logger to store
-' nothing at all. It consumes each record and returns zero bytes, which looks
-' exactly like a dead cable: BytesReturned stays 0, nothing parses, and no error
-' is raised because the guard never runs. Keying on the letter, as Campbell's own
-' example does, is what makes the read work. The letter is consumed as the
-' BeginWord, so Dest receives ",40,1234567" and SplitStr takes it from there.
+' With BeginWord 0 the NBytes parameter becomes the count of bytes to keep before
+' the EndWord, so passing 0 for both asks the logger to store nothing. It consumes
+' each record and returns zero bytes, which reads exactly like a dead cable. The
+' letter is consumed as the BeginWord, so Dest receives ",40,1234567".
 '
 ' WIRING. Two signals and a ground. BCM 14 is the Pi's hardware UART TX, brought
 ' out on mikroBUS socket 2 as the TX pin, so the Terminal 2 Click "TX" terminal
@@ -40,27 +47,26 @@
 '   Pi BCM 19   header pin 35           ->  CR300  P_SW    strike pulse
 '   Pi GND      Terminal 2 Click "GND"  ->  CR300  G       required
 '
+' C2 is the receive half of the pair, which is why the program opens Com1. C1
+' itself is unused here and simply idles as the pair's transmit line.
+'
 ' The detector does not use the UART peripheral. It builds the 9600 baud waveform
 ' in software with pigpio, and the serial console has been taken off BCM 14 so
 ' the kernel does not fight it for the pin. The unit confirms the pin at startup:
 ' "Campbell UART TX enabled on GPIO 14 @ 9600 baud".
 '
-' C2 is the terminal this program opens for receive. Nothing listens on C1.
-'
 ' Ground is not optional. Without it the receiver samples noise.
 '
-' Cable screen: land it at the CR300 end only, on signal ground. Cut it back and
-' insulate it at the Pi end. The shield has no earth of its own, so grounding
-' both ends would turn the screen into a ground loop conductor.
+' Cable screen: land it at the CR300 end only, on signal ground, and cut it back at
+' the Pi end. The shield has no earth of its own, so grounding both ends would turn
+' the screen into a ground loop conductor.
 '
-' Pi side, in /home/quaggasklip/lightning_config.json:
-'   campbell_uart_enabled true, campbell_uart_tx_pin 14
-'   pulse_mirror_enabled true, pulse_mirror_pin 19
+' Pi side, in /home/quaggasklip/lightning_config.json: campbell_uart_enabled true,
+' campbell_uart_tx_pin 14, pulse_mirror_enabled true, pulse_mirror_pin 19.
 ' After editing: sudo systemctl restart lightning-detector
 '
-' The pulse mirror is an independent strike count taken straight off the sensor
-' interrupt, so it does not depend on the serial line. PulseCountTotal and
-' StrikeCount should track each other. Pulses ahead of serial means the serial
+' The pulse mirror is an independent strike count taken off the sensor interrupt,
+' so it does not depend on the serial line. Pulses ahead of serial means the serial
 ' path is dropping records; serial ahead of pulses means the pulse wire is at fault.
 '=============================================================================
 
@@ -132,8 +138,8 @@ BeginProg
   MaxEnergyToday = 0
   StrikesToday = 0
 
-  SerialOpenOK = SerialOpen (ComC2_Rx, 9600, 0, 0, 256)
-  SerialFlush (ComC2_Rx)
+  SerialOpenOK = SerialOpen (Com1, 9600, 0, 0, 256)
+  SerialFlush (Com1)
 
   Scan (SCAN_MS, mSec, 0, 0)
 
@@ -144,14 +150,14 @@ BeginProg
     PulseCountTotal = PulseCountTotal + PulseCountScan
 
     ' Buffer depth before either read consumes it.
-    BytesWaiting = SerialInChk (ComC2_Rx)
+    BytesWaiting = SerialInChk (Com1)
 
     ' Two reads on the one port, each keyed to a different first letter and each
     ' with its own read pointer, which is what option 110 selects. Without local
     ' pointers the two would compete for the same position in the buffer and one
     ' would swallow the other's records.
-    SerialInRecord (ComC2_Rx, StrikeBody, BW_LIGHTNING, 0, CRLF, StrikeBytes, 110)
-    SerialInRecord (ComC2_Rx, HealthBody, BW_HEALTH, 0, CRLF, HealthBytes, 110)
+    SerialInRecord (Com1, StrikeBody, BW_LIGHTNING, 0, CRLF, StrikeBytes, 110)
+    SerialInRecord (Com1, HealthBody, BW_HEALTH, 0, CRLF, HealthBytes, 110)
 
     If StrikeBytes > 0 Then
 

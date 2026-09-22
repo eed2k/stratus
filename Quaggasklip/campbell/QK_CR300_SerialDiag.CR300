@@ -42,9 +42,21 @@
 '       Levels, baud and polarity are all correct, and the fault is in framing
 '       or parsing, not the link.
 '
-'   RawIn shows unreadable characters
-'       Bytes arrive but are being misread, which means the baud rate is wrong
-'       or the signal is inverted relative to what the port expects.
+'   RawIn shows unreadable characters, or only a few bytes ever arrive
+'       Bytes are being misread rather than missed, so look at baud and framing.
+'       Not at logic levels: the CR300 specification lists C1 and C2 as 5.0 V
+'       output and 3.3 V input, so the input is already at the level the Pi
+'       drives. There is no PortPairConfig on this logger, that instruction
+'       belongs to the CR1000X and CR6.
+'
+'   RawIn holds the record MINUS its first character
+'       The leading byte is being lost while the port wakes, which Campbell warn
+'       about. Fatal to the production program, because that first byte is the
+'       BeginWord both of its reads hunt for. Fix it on the Pi by prefixing each
+'       record with CR LF so the sacrificial byte is padding.
+'
+' The port is Com1, being control ports 1 and 2 as a pair with C2 as the receive
+' half. Not ComC1, which is the CR6 and CR1000X spelling and will not compile here.
 '
 ' WIRING UNDER TEST
 '   Pi BCM 14  ->  CR300 C2      records in
@@ -73,18 +85,18 @@ Public RawIn As String * 64
 
 BeginProg
 
-  SerialOpenOK = SerialOpen (ComC2_Rx, 9600, 0, 0, 256)
-  SerialFlush (ComC2_Rx)
+  SerialOpenOK = SerialOpen (Com1, 9600, 0, 0, 256)
+  SerialFlush (Com1)
 
   Scan (SCAN_MS, mSec, 0, 0)
 
-    BytesWaiting = SerialInChk (ComC2_Rx)
+    BytesWaiting = SerialInChk (Com1)
     If BytesWaiting > MaxBytesWaiting Then MaxBytesWaiting = BytesWaiting
 
     If BytesWaiting > 0 Then
       ' Raw, with no terminator and no parsing, so nothing can be discarded on
       ' the way in.
-      BytesThisScan = SerialInBlock (ComC2_Rx, RawIn, 48)
+      BytesThisScan = SerialInBlock (Com1, RawIn, 48)
       TotalBytesSeen = TotalBytesSeen + BytesThisScan
     EndIf
 

@@ -140,9 +140,22 @@ ck("pulse-only row gates on EventRowWritten", "Not EventRowWritten" in code)
 
 print()
 print("=== serial and pulse configuration ===")
-ck("ComC2_Rx at 9600, 8N1, 256 byte buffer",
-   re.search(r'SerialOpen\s*\(\s*ComC2_Rx\s*,\s*9600\s*,\s*0\s*,\s*0\s*,\s*256\s*\)', code) is not None)
-ck("buffer flushed at start", "SerialFlush (ComC2_Rx)" in code)
+ck("Com1 at 9600, 8N1, 256 byte buffer",
+   re.search(r'SerialOpen\s*\(\s*Com1\s*,\s*9600\s*,\s*0\s*,\s*0\s*,\s*256\s*\)', code) is not None,
+   "Com1 is the C1/C2 pair, C2 being the receive half")
+ck("buffer flushed at start", "SerialFlush (Com1)" in code)
+
+# Two names that look right and are not, both confirmed by the CR300 compiler:
+#   ComC1          the CR6 and CR1000X spelling of the pair, "not defined" here
+#   PortPairConfig a CR1000X and CR6 instruction for switching ports from 5 V to
+#                  3.3 V. The CR300 has no such instruction and needs none: its
+#                  specification lists C1 and C2 as 5.0 V output, 3.3 V input.
+ck("does not use the CR6 spelling ComC1", "ComC1" not in code,
+   "CR300 compiler: ComC1 is not defined")
+ck("does not use PortPairConfig", "PortPairConfig" not in code,
+   "CR300 compiler: PortPairConfig is not defined")
+ck("no leftover ComC2_Rx references", "ComC2_Rx" not in code,
+   "mixing the pair and the receive-only alias would open one and read the other")
 ck("EndWord is CR LF, written as hex rather than 3338",
    re.search(r'Const\s+CRLF\s*=\s*&H0D0A', code) is not None,
    "&H0D0A reads as CR LF; the decimal 3338 does not")
@@ -224,7 +237,7 @@ ck("the SerialOpen return value is captured",
    re.search(r'SerialOpenOK\s*=\s*SerialOpen\s*\(', code) is not None,
    "discarding it makes a refused port look identical to a cut wire")
 ck("buffer depth is read before it is consumed",
-   re.search(r'BytesWaiting\s*=\s*SerialInChk\s*\(\s*ComC2_Rx\s*\)', code) is not None)
+   re.search(r'BytesWaiting\s*=\s*SerialInChk\s*\(\s*Com1\s*\)', code) is not None)
 ck("SerialInChk is read before SerialInRecord consumes the buffer",
    code.index("SerialInChk") < code.index("SerialInRecord"))
 ck("neither diagnostic is sampled into a table",
