@@ -10,7 +10,7 @@
   "campbell_heartbeat_interval": 86400,
   "campbell_uart_baud": 9600,
   "campbell_uart_enabled": true,
-  "campbell_uart_tx_pin": 14,
+  "campbell_uart_tx_pin": 26,
   "cpu_temp_crit_c": 78,
   "cpu_temp_warn_c": 70,
   "heartbeat_interval": 600,
