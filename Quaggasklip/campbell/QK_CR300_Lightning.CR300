@@ -11,41 +11,50 @@
 '
 ' Requires CR300 OS 6.0 or later. ComC2_Rx needs it. This unit is on 7.04.
 '
-' Record format, 9600 baud 8N1, 3.3 V TTL, CR LF terminated:
+' Record formats, 9600 baud 8N1, 3.3 V TTL, CR LF terminated:
 '
-'   L,<distance_km>,<energy>
+'   L,<distance_km>,<energy>     lightning
+'   H,<cpu_temp_c>,<rssi_dbm>    detector health, once a day
 '
 ' distance_km is -1 when the sensor could not range the strike.
 '
-' Lightning is the only thing stored. The detector also sends H,<cpu>,<rssi> once
-' a day, which this program recognises and drops: health belongs to the admin
-' panel, which is the system of record for whether a unit is alive. So this
-' logger cannot tell a quiet sky from a dead detector. The panel answers that.
+' Lightning is the only thing stored. H records are recognised and dropped, so
+' health never reaches storage: that belongs to the admin panel, which is the
+' system of record for whether a unit is alive. This logger therefore cannot tell
+' a quiet sky from a dead detector. The panel answers that.
 '
-' WIRING. Two signals and a ground, straight off the Pi's 40-pin header. The
-' Click Shield mikroBUS sockets are not in this path.
+' EACH RECORD IS FOUND BY ITS FIRST LETTER, NOT BY READING THE WHOLE LINE.
+' This matters. With BeginWord 0 the NBytes parameter becomes the count of bytes
+' to keep before the EndWord, so passing 0 for both asks the logger to store
+' nothing at all. It consumes each record and returns zero bytes, which looks
+' exactly like a dead cable: BytesReturned stays 0, nothing parses, and no error
+' is raised because the guard never runs. Keying on the letter, as Campbell's own
+' example does, is what makes the read work. The letter is consumed as the
+' BeginWord, so Dest receives ",40,1234567" and SplitStr takes it from there.
 '
-'   Pi BCM 26   header pin 37   ->  CR300  C2      lightning records in
-'   Pi BCM 19   header pin 35   ->  CR300  P_SW    strike pulse
-'   Pi GND      header pin 39   ->  CR300  G       required
+' WIRING. Two signals and a ground. BCM 14 is the Pi's hardware UART TX, brought
+' out on mikroBUS socket 2 as the TX pin, so the Terminal 2 Click "TX" terminal
+' is the one to use.
 '
-' BCM 26 is not a hardware UART pin, deliberately. The detector builds the 9600
-' baud waveform in software with pigpio, so any free GPIO serves, and BCM 26 stays
-' reachable with the shield fitted. Do not move this wire to BCM 14 expecting the
-' hardware UART, because nothing transmits there. The unit confirms the pin at
-' startup: "Campbell UART TX enabled on GPIO 26 @ 9600 baud".
+'   Pi BCM 14   Terminal 2 Click "TX"   ->  CR300  C2      records in
+'   Pi BCM 19   header pin 35           ->  CR300  P_SW    strike pulse
+'   Pi GND      Terminal 2 Click "GND"  ->  CR300  G       required
+'
+' The detector does not use the UART peripheral. It builds the 9600 baud waveform
+' in software with pigpio, and the serial console has been taken off BCM 14 so
+' the kernel does not fight it for the pin. The unit confirms the pin at startup:
+' "Campbell UART TX enabled on GPIO 14 @ 9600 baud".
 '
 ' C2 is the terminal this program opens for receive. Nothing listens on C1.
 '
-' Ground is not optional. Without it the receiver samples noise and the only
-' symptom is ParseErrorCount climbing.
+' Ground is not optional. Without it the receiver samples noise.
 '
 ' Cable screen: land it at the CR300 end only, on signal ground. Cut it back and
 ' insulate it at the Pi end. The shield has no earth of its own, so grounding
 ' both ends would turn the screen into a ground loop conductor.
 '
-' Pi side, already enabled, in /home/quaggasklip/lightning_config.json:
-'   campbell_uart_enabled true, campbell_uart_tx_pin 26
+' Pi side, in /home/quaggasklip/lightning_config.json:
+'   campbell_uart_enabled true, campbell_uart_tx_pin 14
 '   pulse_mirror_enabled true, pulse_mirror_pin 19
 ' After editing: sudo systemctl restart lightning-detector
 '
@@ -56,6 +65,9 @@
 '=============================================================================
 
 Const SCAN_MS = 200
+Const CRLF = &H0D0A          ' EndWord for both reads
+Const BW_LIGHTNING = &H4C    ' "L"
+Const BW_HEALTH = &H48       ' "H"
 
 Public LastDistanceKm As Float
 Public LastEnergy As Long
@@ -67,8 +79,10 @@ Public PulseCountScan As Float
 Public PulseCountTotal As Float
 Public CountMismatch As Float
 
-Public LastRecord As String * 48
-Public BytesReturned As Float
+Public StrikeBody As String * 48
+Public StrikeBytes As Float
+Public HealthBody As String * 48
+Public HealthBytes As Float
 Public Parsed(2) As Float
 Public ParseErrorCount As Long
 
@@ -76,6 +90,14 @@ Public ParseErrorCount As Long
 ' positive witness that the wire and ground are good after weeks with no
 ' lightning, which ParseErrorCount alone cannot tell you.
 Public HealthRecordCount As Long
+
+' Link diagnostics, also live only. SerialOpen returns False if the port refuses
+' to open, and discarding that makes a refused port indistinguishable from a cut
+' cable. SerialInChk counts bytes sitting in the buffer before anything consumes
+' them and returns -1 if the port is not open. Bytes here with StrikeBytes and
+' HealthBytes both 0 means data is arriving but not being framed.
+Public SerialOpenOK As Boolean
+Public BytesWaiting As Long
 
 Dim EventRowWritten As Boolean
 
@@ -110,7 +132,7 @@ BeginProg
   MaxEnergyToday = 0
   StrikesToday = 0
 
-  SerialOpen (ComC2_Rx, 9600, 0, 0, 256)
+  SerialOpenOK = SerialOpen (ComC2_Rx, 9600, 0, 0, 256)
   SerialFlush (ComC2_Rx)
 
   Scan (SCAN_MS, mSec, 0, 0)
@@ -121,56 +143,53 @@ BeginProg
     PulseCount (PulseCountScan, 1, P_SW, 2, 0, 1, 0)
     PulseCountTotal = PulseCountTotal + PulseCountScan
 
-    ' BeginWord 0 keeps the whole line. EndWord 3338 is &H0D0A, CR LF.
-    ' Option 10 takes the oldest buffered record, so a burst drains in order.
-    SerialInRecord (ComC2_Rx, LastRecord, 0, 0, 3338, BytesReturned, 10)
+    ' Buffer depth before either read consumes it.
+    BytesWaiting = SerialInChk (ComC2_Rx)
 
-    If BytesReturned > 0 Then
+    ' Two reads on the one port, each keyed to a different first letter and each
+    ' with its own read pointer, which is what option 110 selects. Without local
+    ' pointers the two would compete for the same position in the buffer and one
+    ' would swallow the other's records.
+    SerialInRecord (ComC2_Rx, StrikeBody, BW_LIGHTNING, 0, CRLF, StrikeBytes, 110)
+    SerialInRecord (ComC2_Rx, HealthBody, BW_HEALTH, 0, CRLF, HealthBytes, 110)
 
-      ' Only L is logged, H is dropped, anything else is a parse error.
-      ' Two characters, not one: testing only for "L" would also accept a
-      ' corrupted line like "LL,1,2" and log its numbers as a real strike.
-      If Left (LastRecord, 2) = "L," Then
+    If StrikeBytes > 0 Then
 
-        ' SplitOption 0 is NUMERIC: it keeps + - . 0-9 E and discards everything
-        ' else as a delimiter. So "L,12,45" gives exactly two values, in
-        ' Parsed(1) and Parsed(2). The leading letter does not take a slot.
-        SplitStr (Parsed(1), LastRecord, ",", 2, 0)
+      ' SplitOption 0 is NUMERIC: it keeps + - . 0-9 E and treats everything else
+      ' as a delimiter, so the leading comma of ",40,1234567" costs nothing and
+      ' the two values land in Parsed(1) and Parsed(2).
+      SplitStr (Parsed(1), StrikeBody, ",", 2, 0)
 
-        ' x = x is false only for NAN, which catches a failed parse.
-        If Parsed(1) = Parsed(1) AND Parsed(2) = Parsed(2) Then
-          LastDistanceKm = Parsed(1)
-          LastEnergy = Parsed(2)
-          StrikeCount = StrikeCount + 1
-          StrikesToday = StrikesToday + 1
+      ' x = x is false only for NAN, which catches a failed parse.
+      If Parsed(1) = Parsed(1) AND Parsed(2) = Parsed(2) Then
+        LastDistanceKm = Parsed(1)
+        LastEnergy = Parsed(2)
+        StrikeCount = StrikeCount + 1
+        StrikesToday = StrikesToday + 1
 
-          If LastEnergy > MaxEnergyToday Then MaxEnergyToday = LastEnergy
+        If LastEnergy > MaxEnergyToday Then MaxEnergyToday = LastEnergy
 
-          ' -1 means unrangeable, so it is not a closest-of-day candidate.
-          If LastDistanceKm >= 0 Then
-            If ClosestTodayKm <> ClosestTodayKm Then
-              ClosestTodayKm = LastDistanceKm
-            ElseIf LastDistanceKm < ClosestTodayKm Then
-              ClosestTodayKm = LastDistanceKm
-            EndIf
+        ' -1 means unrangeable, so it is not a closest-of-day candidate.
+        If LastDistanceKm >= 0 Then
+          If ClosestTodayKm <> ClosestTodayKm Then
+            ClosestTodayKm = LastDistanceKm
+          ElseIf LastDistanceKm < ClosestTodayKm Then
+            ClosestTodayKm = LastDistanceKm
           EndIf
-
-          EventRowWritten = True
-          CallTable LightningEvents
-        Else
-          ParseErrorCount = ParseErrorCount + 1
         EndIf
 
-      ElseIf Left (LastRecord, 2) = "H," Then
-
-        ' H,<cpu_temp_c>,<rssi_dbm>. Counted live, then dropped. Deliberately
-        ' NOT added to ParseErrorCount: routine traffic accumulating in the
-        ' fault counter would hide a missing ground or a baud mismatch.
-        HealthRecordCount = HealthRecordCount + 1
-
+        EventRowWritten = True
+        CallTable LightningEvents
       Else
         ParseErrorCount = ParseErrorCount + 1
       EndIf
+    EndIf
+
+    ' Counted live, then dropped. Deliberately NOT added to ParseErrorCount:
+    ' routine traffic accumulating in the fault counter would hide a missing
+    ' ground or a baud mismatch.
+    If HealthBytes > 0 Then
+      HealthRecordCount = HealthRecordCount + 1
     EndIf
 
     CountMismatch = PulseCountTotal - StrikeCount

@@ -107,24 +107,103 @@ so nothing reaches storage either way.
 
 ## Wiring as built
 
-Two signal wires and a ground, straight off the Pi's 40-pin header. The Click
-Shield mikroBUS sockets are not in this path.
-
-| Signal | Pi | Header pin | CR300 |
+| Signal | Pi | Route | CR300 |
 |---|---|---|---|
-| Lightning records | BCM 26 | 37 | C2 |
-| Strike pulse | BCM 19 | 35 | P_SW |
-| Ground | GND | 39 | G |
+| Lightning records | BCM 14 | Terminal 2 Click `TX` | C2 |
+| Strike pulse | BCM 19 | header pin 35 | P_SW |
+| Ground | GND | Terminal 2 Click `GND` | G |
 
-BCM 26 is not a hardware UART pin, and that is deliberate. The detector builds
-the 9600 baud 8N1 waveform in software with pigpio `wave_add_serial`, so any free
-GPIO serves. pyserial is not installed on the unit. Do not move this wire to
-BCM 14 expecting the hardware UART, because nothing transmits there.
+BCM 14 is the Pi's hardware UART TX, which is what mikroBUS socket 2 brings out
+as its `TX` pin, so the Terminal 2 Click `TX` terminal is the correct one.
+Confirmed against the shield's own pin chart.
+
+The detector does not use the UART peripheral. It builds the 9600 baud 8N1
+waveform in software with pigpio `wave_add_serial`, and pyserial is not installed
+on the unit at all. Because the kernel would otherwise hold BCM 14 in ALT5 for
+the console and fight pigpio for it, the serial console has been removed:
+
+- `cmdline.txt` no longer carries `console=serial0,115200`, only `console=tty1`
+- `serial-getty@ttyS0` is masked
+
+After that change the pin reads `mode=1 OUTPUT level=1` under pigpio, which is a
+UART line correctly idling high. The cost is losing the serial console as a
+last-resort way in, which is acceptable now that Tailscale and WiFi SSH both
+work, and it is reversible from `cmdline.txt.bak-*` on the boot partition.
+
+This unit previously transmitted on BCM 26, described in the detector source as
+an "accessible pin on lower header". Either pin works, since the waveform is
+software generated, but BCM 14 is what is physically wired.
 
 Record formats, CR LF terminated:
 
 - `L,<distance_km>,<energy>` where distance is -1 when the strike could not be ranged
 - `H,<cpu_temp_c>,<rssi_dbm>`
+
+## The CR300 read that stored nothing
+
+Worth recording because it cost a long afternoon and looks exactly like a cut
+cable.
+
+The logger program called:
+
+```crbasic
+SerialInRecord (ComC2_Rx, LastRecord, 0, 0, 3338, BytesReturned, 10)
+```
+
+With `BeginWord` 0, the `NBytes` parameter becomes the number of bytes to keep
+*before* the EndWord. Passing 0 for both therefore asks the logger to store zero
+bytes. It finds each record, consumes it from the buffer, stores nothing, and
+returns `BytesReturned` 0 every time. Records were arriving and being discarded
+in silence.
+
+The symptom set is indistinguishable from a disconnected wire: `BytesReturned` 0,
+`ParseErrorCount` 0 because the `If BytesReturned > 0` guard never runs,
+`StrikeCount` 0 and `LastRecord` empty. The one clue was `ParseErrorCount` also
+sitting at 0, since a genuinely connected-but-garbled line raises parse errors.
+
+The fix follows Campbell's own example and keys each read on its first letter,
+with a local read pointer per stream so the two do not compete for one position
+in the buffer:
+
+```crbasic
+SerialInRecord (ComC2_Rx, StrikeBody, BW_LIGHTNING, 0, CRLF, StrikeBytes, 110)
+SerialInRecord (ComC2_Rx, HealthBody, BW_HEALTH,    0, CRLF, HealthBytes, 110)
+```
+
+`BW_LIGHTNING` is `&H4C` for `L` and `BW_HEALTH` is `&H48` for `H`. The letter is
+consumed as the BeginWord, so `StrikeBody` receives `,40,1234567` and `SplitStr`
+in numeric mode treats the leading comma as a delimiter.
+
+The program now also keeps `SerialOpenOK` from `SerialOpen`'s return value and
+`BytesWaiting` from `SerialInChk`, both live only and never sampled into a table.
+`SerialInChk` returns -1 for a port that was never opened, so between them a
+refused port, a dead cable and a framing fault are now three distinguishable
+states instead of one silent zero. `tests/check_cr300.py` fails the build if any
+`SerialInRecord` ever uses BeginWord 0 again.
+
+## Site noise
+
+This location has a high EMI background, which matters when reading anything the
+sensor reports.
+
+With disturbers unmasked and the noise floor at 2, it produced 47 disturber
+events in 90 seconds. At the production noise floor of 5 it still raises
+`INT_NOISE_HIGH` interrupts, logged as `Noise level too high`.
+
+It also produced a false `LIGHTNING` event at 496 kHz-class energy, 468973, which
+reached the admin panel as an alert, while the bench profile had `min_strikes` at
+1 and the validation buffer disabled. That is exactly what those two guards exist
+to prevent:
+
+- `min_strikes` 5 requires five events before the sensor raises a lightning
+  interrupt at all
+- the validation buffer discards a batch sitting entirely at 1 km with no
+  corroborating storm context, logging `[FILTERED-EMI]`
+
+Never leave `min_strikes` at 1 or `validation_buffer_enabled` false on this unit
+outside a supervised bench session. `deployed/qk_bench_profile.sh` switches both
+ways and refuses to run if `irq_pin` or `tune_cap` have drifted from their
+measured values.
 
 ## Behaviour on power up
 

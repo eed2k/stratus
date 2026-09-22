@@ -1,24 +1,22 @@
 #!/bin/bash
-# Prove the Pi to CR300 serial path without writing anything to logger storage.
+# Send a watchable burst of records from the Pi to the CR300 so the counter can
+# be seen moving live in the Public table.
 #
-# The detector's own transmit code is reproduced here: pigpio wave_add_serial on
-# GPIO26 at 9600 baud, CR LF terminated, which is what CampbellUartTx does.
+# Usage: qk_campbell_tx2.sh [count] [gap_seconds]
 #
-# An H record is sent on purpose rather than an L record. The CR300 program
-# recognises "H," , increments the live-only HealthRecordCount and stores
-# nothing, so the serial path is proven without a fabricated strike ending up in
-# LightningEvents. An L record would have written a permanent bogus row.
+# H records are used, not L records. The CR300 program recognises "H," ,
+# increments the live-only HealthRecordCount and stores nothing, so the serial
+# path is proven without a fabricated strike landing in LightningEvents.
 #
-# Two witnesses again:
-#   local  : pigpio counts edges on GPIO26 while the waveform is sent
-#   logger : HealthRecordCount rises by exactly the number of records sent
-#
-# The detector is stopped so only one pigpio client drives GPIO26, and restarted
-# from a trap.
+# Transmit is pigpio wave_add_serial, exactly as the detector's CampbellUartTx
+# does it. The pin and baud are read from lightning_config.json rather than
+# hard coded, so this cannot drift out of step with the detector. The detector is
+# stopped so only one pigpio client drives the pin, and restarted from a trap.
 # METRON (PTY) LTD | Inteltronics - L.J Esterhuizen
 set -u
 
-RECORDS=5
+COUNT=${1:-20}
+GAP=${2:-1.0}
 
 restore() {
   echo
@@ -26,7 +24,6 @@ restore() {
   sudo systemctl start lightning-detector
   sleep 8
   echo -n "  active: "; systemctl is-active lightning-detector
-  sudo journalctl -u lightning-detector -n 6 --no-pager | tail -4
 }
 trap restore EXIT
 
@@ -35,24 +32,33 @@ sudo systemctl stop lightning-detector
 sleep 3
 echo -n "  active: "; systemctl is-active lightning-detector || true
 
+TX_PIN=$(python3 -c "import json;print(json.load(open('/home/quaggasklip/lightning_config.json'))['campbell_uart_tx_pin'])")
+
 echo
-echo "=== TRANSMIT $RECORDS H RECORDS ON GPIO26 ==="
-sudo python3 - "$RECORDS" <<'PY'
+echo "=== SENDING $COUNT RECORDS ON GPIO$TX_PIN, ${GAP}s APART ==="
+echo "    watch HealthRecordCount in the CR300 Public table"
+echo
+sudo python3 - "$COUNT" "$GAP" <<'PY'
+import json
 import sys
 import time
 import pigpio
 
 count = int(sys.argv[1])
-TX_PIN = 26
-BAUD = 9600
+gap = float(sys.argv[2])
+
+# Read the pin and baud from the live config so this can never drift out of step
+# with what the detector itself transmits on.
+with open("/home/quaggasklip/lightning_config.json") as f:
+    _cfg = json.load(f)
+TX_PIN = int(_cfg["campbell_uart_tx_pin"])
+BAUD = int(_cfg["campbell_uart_baud"])
+print("  from config: GPIO %d @ %d baud" % (TX_PIN, BAUD))
 
 pi = pigpio.pi()
 if not pi.connected:
     sys.exit("  cannot reach pigpiod")
 
-# Watch the line while we drive it. pigpio tallies in the daemon, so this is an
-# independent read of what the pin actually did rather than a claim that the
-# call returned without error.
 edges = {"n": 0}
 
 
@@ -62,18 +68,25 @@ def _cb(gpio, level, tick):
 
 cb = pi.callback(TX_PIN, pigpio.EITHER_EDGE, _cb)
 
-print("  idle level before: %d  (a UART line idles high)" % pi.read(TX_PIN))
+idle_before = pi.read(TX_PIN)
+print("  GPIO%d idle level before: %d   (a UART line idles high)" % (TX_PIN, idle_before))
+if idle_before != 1:
+    print("  WARNING: the line is not idling high. A receiver will see a break.")
+print()
 
 sent = 0
-for i in range(count):
-    record = ("H,42.%d,-30\r\n" % i).encode("ascii")
+for i in range(1, count + 1):
+    # A counter inside the record so LastRecord visibly changes on the logger and
+    # a stalled display is obvious.
+    record = ("H,%d,-30\r\n" % i).encode("ascii")
+    before = edges["n"]
     wid = -1
     try:
         pi.wave_add_new()
         pi.wave_add_serial(TX_PIN, BAUD, record)
         wid = pi.wave_create()
         if wid < 0:
-            print("  wave_create failed (%d)" % wid)
+            print("  %2d  wave_create failed (%d)" % (i, wid))
             continue
         pi.wave_send_once(wid)
         started = time.monotonic()
@@ -81,44 +94,42 @@ for i in range(count):
             if time.monotonic() - started > 0.5:
                 break
             time.sleep(0.001)
+        time.sleep(0.02)
         sent += 1
-        print("  sent: %r" % record.decode("ascii"))
+        print("  %2d  sent %-14r  edges %d"
+              % (i, record.decode("ascii"), edges["n"] - before))
     finally:
         if wid >= 0:
             try:
                 pi.wave_delete(wid)
             except Exception:
                 pass
-    time.sleep(0.3)
+    if i < count:
+        time.sleep(gap)
 
 time.sleep(0.2)
 cb.cancel()
-print("  idle level after : %d" % pi.read(TX_PIN))
 print()
-print("  records sent  : %d" % sent)
-print("  edges observed: %d" % edges["n"])
+print("  GPIO%d idle level after : %d" % (TX_PIN, pi.read(TX_PIN)))
+print("  records sent            : %d" % sent)
+print("  total edges observed    : %d" % edges["n"])
 
-# Each 11 bit frame (start, 8 data, stop) produces at least two edges, and a
-# realistic byte produces more. Well under one edge per byte would mean the pin
-# never actually moved.
-min_expected = sent * 11 * 2
-print("  a floor for a real transmission is about %d edges" % min_expected)
-if edges["n"] >= min_expected:
-    print()
-    print("  GPIO26 WAS DRIVEN. The Pi side of the serial link works.")
+# Each 11 bit frame (start, 8 data, stop) yields at least two edges. Well under
+# that floor would mean the pin never actually moved.
+floor = sent * 11 * 2
+print("  floor for a real send   : about %d" % floor)
+print()
+if edges["n"] >= floor:
+    print("  GPIO%d WAS DRIVEN. The Pi side of the link works." % TX_PIN)
 else:
-    print()
-    print("  GPIO26 did not move as expected. The waveform was not emitted.")
+    print("  GPIO%d did not move as expected. The waveform was not emitted." % TX_PIN)
 pi.stop()
 PY
 
 echo
-echo "=== NOW READ THESE ON THE CR300 ==="
-echo "  HealthRecordCount  should have risen by $RECORDS"
-echo "  ParseErrorCount    should NOT have moved"
-echo "  StrikeCount        should NOT have moved"
-echo "  LightningEvents    should have no new row"
-echo
-echo "  HealthRecordCount rising proves the wire, the ground and the baud rate."
-echo "  ParseErrorCount rising instead means the line is connected but the"
-echo "  framing is wrong. Neither moving means the wire or the ground is open."
+echo "=== READ ON THE CR300 ==="
+echo "  HealthRecordCount  up by $COUNT            -> wire, ground and baud all good"
+echo "  ParseErrorCount    up by $COUNT instead    -> link fine, older program loaded"
+echo "  LastRecord         H,$COUNT,-30"
+echo "  StrikeCount        unchanged"
+echo "  neither moved                              -> signal or ground is open"
