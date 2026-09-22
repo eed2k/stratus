@@ -1,0 +1,185 @@
+'=============================================================================
+'
+'  Stratus AS3935 Lightning Detection System
+'  CR300 receive probe. Diagnostic only, NOT the production program.
+'
+'  Property of METRON (PTY) LTD [Inteltronics]
+'  Developer: L.J. Esterhuizen
+'
+'=============================================================================
+' Site: QUAGGASKLIP.
+'
+' WHY THIS EXISTS
+'
+' The link delivers the right NUMBER of bytes and the wrong VALUES. A five record
+' burst of 14 byte records gave BytesSeenTotal 70 for 70 bytes sent, and the
+' latched string came out as high-bit rubbish where plain ASCII was transmitted.
+'
+' Every reading so far has been an inference from a counter or from a string that
+' the display renders as mojibake. This publishes the byte values as numbers, so
+' there is nothing left to interpret.
+'
+' Expected for "L,40,1234567" plus CR:
+'
+'   RxCode(1..13) = 76 44 52 48 44 49 50 51 52 53 54 55 13
+'
+' Read it like this:
+'   exactly those numbers   the bytes are fine and the fault is in the parse
+'   values above 127        electrical corruption, drop BaudSet and retest
+'   a consistent shift      baud or framing error rather than noise
+'   nothing captured        nothing is arriving at all
+'
+' BAUD AND FORMAT ARE LIVE
+'
+' SerialOpen accepts a variable for BaudRate, so BaudSet can be changed straight
+' from the Public table and the port reopens itself. No recompile and no upload.
+' Legal values: 300 1200 2400 4800 9600 19200 38400 57600 115200.
+'
+' The port must be closed before the baud changes, which is why SerialClose runs
+' first rather than simply reopening.
+'
+' FmtSel picks the SerialOpen format, which has to be a literal, hence the two
+' branches. 0 is 8N1 with PakBus allowed to run concurrently on the same port and
+' anything above 127 filtered while it hunts for PakBus frames. 3 is binary 8N1
+' with no PakBus and no filtering, which is what Campbell recommend for anything
+' that is not plain ASCII. If the bytes are corrupt, 0 is also discarding evidence.
+'
+' HOW TO USE IT
+'
+' 1. Send one record from the Pi:  qk_send_at_baud.sh 9600 1
+' 2. Read RxCode(1) to RxCode(16) and RxCodeLen.
+' 3. To retry: set ReArm true, which clears the capture for the next record.
+' 4. To change speed: set BaudSet, then send at the same speed from the Pi.
+'
+' Wiring is unchanged: Pi BCM 26 to C2 on the Terminal 2 Click "INT" terminal,
+' BCM 19 to P_SW on "RST", grounds common. Records are 8N1, CR LF terminated.
+'=============================================================================
+
+Const SCAN_MS = 200
+Const LF = 10
+Const CR_CODE = 13
+Const MAX_CHARS = 48
+Const CODES = 16             ' how many leading bytes to publish
+
+' Set these from the Public table.
+Public BaudSet As Long
+Public FmtSel As Long
+Public ReArm As Boolean
+
+' THE MEASUREMENT. Byte values of the first record captured, as numbers.
+Public RxCode(CODES) As Long
+Public RxCodeLen As Long
+Public FirstRecord As String * 64
+
+' Link state.
+Public SerialOpenOK As Boolean
+Public BytesSeenTotal As Long
+Public RecordsRead As Long
+Public RecLen As Long
+Public LPos As Long
+Public PulseCountTotal As Float
+
+' Parse result, so a good record still proves itself end to end.
+Public LastDistanceKm As Float
+Public LastEnergy As Long
+Public StrikeCount As Long
+Public ParseErrorCount As Long
+Public LastRecord As String * 64
+
+Dim BaudNow As Long
+Dim FmtNow As Long
+Dim BytesWaiting As Long
+Dim Parsed(2) As Float
+Dim Payload As String * 64
+Dim PulseScan As Float
+Dim I As Long
+
+' Same shape as production so an accepted record lands somewhere visible.
+DataTable (LightningEvents, True, -1)
+  Sample (1, LastDistanceKm, FP2)
+  Sample (1, LastEnergy, Long)
+EndTable
+
+BeginProg
+
+  BaudSet = 9600
+  FmtSel = 0
+  BaudNow = BaudSet
+  FmtNow = FmtSel
+
+  SerialOpenOK = SerialOpen (ComC2_Rx, BaudNow, 0, 0, 256)
+  SerialFlush (ComC2_Rx)
+
+  Scan (SCAN_MS, mSec, 0, 0)
+
+    ' Reopen when either setting is changed from the Public table.
+    If BaudSet <> BaudNow OR FmtSel <> FmtNow Then
+      SerialClose (ComC2_Rx)
+      BaudNow = BaudSet
+      FmtNow = FmtSel
+      If FmtNow = 3 Then
+        SerialOpenOK = SerialOpen (ComC2_Rx, BaudNow, 3, 0, 256)
+      Else
+        SerialOpenOK = SerialOpen (ComC2_Rx, BaudNow, 0, 0, 256)
+      EndIf
+      SerialFlush (ComC2_Rx)
+      RxCodeLen = 0
+      FirstRecord = ""
+    EndIf
+
+    If ReArm Then
+      RxCodeLen = 0
+      FirstRecord = ""
+      For I = 1 To CODES
+        RxCode(I) = 0
+      Next I
+      SerialFlush (ComC2_Rx)
+      ReArm = False
+    EndIf
+
+    PulseCount (PulseScan, 1, P_SW, 2, 0, 1, 0)
+    PulseCountTotal = PulseCountTotal + PulseScan
+
+    BytesWaiting = SerialInChk (ComC2_Rx)
+    If BytesWaiting > 0 Then BytesSeenTotal = BytesSeenTotal + BytesWaiting
+
+    LastRecord = ""
+    SerialIn (LastRecord, ComC2_Rx, 1, LF, MAX_CHARS)
+    RecLen = Len (LastRecord)
+
+    If RecLen > 1 Then
+
+      RecordsRead = RecordsRead + 1
+
+      ' Capture once, so the first arrival is preserved rather than overwritten by
+      ' whatever lands next.
+      If RxCodeLen = 0 Then
+        FirstRecord = LastRecord
+        RxCodeLen = RecLen
+        If RxCodeLen > CODES Then RxCodeLen = CODES
+        For I = 1 To RxCodeLen
+          RxCode(I) = ASCII (LastRecord(1,1,I))
+        Next I
+      EndIf
+
+      LPos = InStr (1, LastRecord, "L,", 2)
+
+      If LPos > 0 AND Mid (LastRecord, RecLen, 1) = CHR (CR_CODE) Then
+        Payload = Mid (LastRecord, LPos + 2, MAX_CHARS)
+        SplitStr (Parsed(1), Payload, "", 2, 0)
+        If Parsed(1) = Parsed(1) AND Parsed(2) = Parsed(2) Then
+          LastDistanceKm = Parsed(1)
+          LastEnergy = Parsed(2)
+          StrikeCount = StrikeCount + 1
+          CallTable LightningEvents
+        Else
+          ParseErrorCount = ParseErrorCount + 1
+        EndIf
+      ElseIf Left (LastRecord, 2) = "H," Then
+      Else
+        ParseErrorCount = ParseErrorCount + 1
+      EndIf
+    EndIf
+
+  NextScan
+EndProg

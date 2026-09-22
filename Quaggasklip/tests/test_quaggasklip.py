@@ -163,24 +163,66 @@ def test_poll_is_silent_when_reading_is_disabled():
 # Socket 2 wiring - the whole point of this variant
 # ---------------------------------------------------------------------------
 
-def test_sensor_defaults_to_socket_two_chip_select():
-    """Socket 2's CS is CE1, so spidev device 1. Socket 1 would be 0."""
+def test_sensor_defaults_to_socket_one_chip_select():
+    """The Thunder Click is in socket 1, whose CS is CE0, so spidev device 0.
+
+    Measured on the assembled unit, not inferred: the AS3935 answers on SPI 0.0
+    and its interrupt was found on GPIO6, which is socket 1 INT on a Pi 2 shield.
+    Socket 2 holds the Terminal 2 Click that carries the serial line to the CR300.
+    """
     cfg = qd.Config()
     assert cfg.SPI_BUS == 0
-    assert cfg.SPI_DEVICE == 1
+    assert cfg.SPI_DEVICE == 0
 
 
-def test_irq_defaults_to_the_pi3_shield_socket_two_int():
-    """GPIO12 on the Pi 3 shield. GPIO17 would be socket 1, i.e. wrong socket."""
+def test_irq_is_the_pin_the_interrupt_was_measured_on():
+    """GPIO6, socket 1 INT on a Pi 2 shield, established by measurement.
+
+    THE FAULT THIS LOCKS OUT: the unit ran with irq_pin 17 and had never detected
+    a single strike in its life. It reported itself healthy throughout, because
+    nothing in the program can tell a silent interrupt line from a quiet sky. The
+    pin was found by driving the sensor's LCO and counting edges across every
+    candidate GPIO; only GPIO6 carried the clock.
+
+    17 is socket 1 INT on a Pi 3 shield and 12 is routed to neither socket on a
+    Pi 2 shield, so both look plausible in a datasheet and neither can ever work
+    on this unit.
+    """
     cfg = qd.Config()
-    assert cfg.IRQ_PIN == 12
+    assert cfg.IRQ_PIN == 6
     assert cfg.IRQ_PIN != 17
+    assert cfg.IRQ_PIN != 12
 
 
-def test_pulse_mirror_avoids_the_pins_the_pi3_shield_uses_for_its_adc():
-    """GPIO19/20/21 are SPI1 and GPIO16 is its CS on the Pi 3 shield."""
+def test_pulse_mirror_is_the_socket_two_rst_terminal_that_is_wired():
+    """GPIO19 is socket 2 RST, the terminal actually landed on the CR300 P_SW.
+
+    The earlier rule here was to avoid GPIO19/20/21 because a Pi 3 shield uses
+    them for its MCP3204 ADC over SPI1. This is a Pi 2 shield with no ADC, so
+    those pins are free, and 19 is the one brought out to a screw terminal next to
+    the serial line. Avoiding it would mean no pulse wire at all.
+    """
     cfg = qd.Config()
-    assert cfg.PULSE_MIRROR_PIN not in (16, 19, 20, 21)
+    assert cfg.PULSE_MIRROR_PIN == 19
+
+
+def test_pulse_mirror_and_serial_do_not_share_a_pin():
+    """Both come off socket 2: serial on INT/GPIO26, pulse on RST/GPIO19."""
+    cfg = qd.Config()
+    assert cfg.PULSE_MIRROR_PIN != cfg.CAMPBELL_TX_PIN
+    assert cfg.PULSE_MIRROR_PIN != cfg.IRQ_PIN
+    assert cfg.CAMPBELL_TX_PIN != cfg.IRQ_PIN
+
+
+def test_serial_does_not_use_the_contended_hardware_uart_pin():
+    """BCM14 is shared with the USB HUB HAT's CP2102 bridge.
+
+    Records transmitted on BCM14 never reached the logger, through three separate
+    transmit methods, while BCM26 delivered every byte of a five record burst.
+    """
+    cfg = qd.Config()
+    assert cfg.CAMPBELL_TX_PIN == 26
+    assert cfg.CAMPBELL_TX_PIN != 14
 
 
 def test_campbell_defaults_to_the_hardware_uart():

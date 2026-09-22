@@ -109,40 +109,102 @@ so nothing reaches storage either way.
 
 | Signal | Pi | Route | CR300 |
 |---|---|---|---|
-| Lightning records | BCM 14 | Terminal 2 Click `TX` | C2 |
-| Strike pulse | BCM 19 | header pin 35 | P_SW |
+| Lightning records | BCM 26 | Terminal 2 Click `INT` | C2 |
+| Strike pulse | BCM 19 | Terminal 2 Click `RST` | P_SW |
 | Ground | GND | Terminal 2 Click `GND` | G |
 
-BCM 14 is the Pi's hardware UART TX, which is what mikroBUS socket 2 brings out
-as its `TX` pin, so the Terminal 2 Click `TX` terminal is the correct one.
-Confirmed against the shield's own pin chart.
+Both signals come off the Terminal 2 Click in mikroBUS socket 2, which brings
+socket 2 `INT` out on BCM 26 and `RST` on BCM 19. Neither pin is used for
+anything else on this unit.
+
+**Do not use the Click's `TX` terminal.** Socket 2 routes `TX` to BCM 14, the Pi's
+hardware UART, which on this unit is shared with the USB HUB HAT's CP2102 bridge.
+Records transmitted on BCM 14 produced nothing at C2 at all, through three
+separate transmit methods. On BCM 26 the bytes do arrive: a five record burst of
+14 byte records gave `BytesSeenTotal` 70 for 70 bytes sent.
+
+**The byte values are still wrong, and that is the open fault.** See "The receive
+corruption" below. Do not read the 70 for 70 above as a working link.
 
 The detector does not use the UART peripheral. It builds the 9600 baud 8N1
 waveform in software with pigpio `wave_add_serial`, and pyserial is not installed
-on the unit at all. Because the kernel would otherwise hold BCM 14 in ALT5 for
-the console and fight pigpio for it, the serial console has been removed:
+on the unit at all, so any free GPIO works and the transmit pin is only a config
+value.
 
-- `cmdline.txt` no longer carries `console=serial0,115200`, only `console=tty1`
-- `serial-getty@ttyS0` is masked
+Two boot changes were made while BCM 14 was still the candidate pin. Both were
+kept, because each is worth having on its own:
 
-After that change the pin reads `mode=1 OUTPUT level=1` under pigpio, which is a
-UART line correctly idling high. The cost is losing the serial console as a
-last-resort way in, which is acceptable now that Tailscale and WiFi SSH both
-work, and it is reversible from `cmdline.txt.bak-*` on the boot partition.
+- The serial console was removed, so the kernel no longer holds BCM 14 in ALT5.
+  `cmdline.txt` carries only `console=tty1` and `serial-getty@ttyS0` is masked.
+  Reversible from `cmdline.txt.bak-*` on the boot partition.
+- `dtoverlay=disable-bt`, which moves `serial0` from `ttyS0` to `ttyAMA0`. The
+  mini-UART derives its baud rate from the VPU core clock, which is not pinned, so
+  the rate drifts when the clock does. That is the explanation for the console
+  baud drift seen earlier and written off at the time as unexplained. It also
+  saves a little power.
 
-This unit previously transmitted on BCM 26, described in the detector source as
-an "accessible pin on lower header". Either pin works, since the waveform is
-software generated, but BCM 14 is what is physically wired.
+Losing the serial console costs a last-resort way in, acceptable now that both
+Tailscale and WiFi SSH work.
 
 Record formats, CR LF terminated:
 
 - `L,<distance_km>,<energy>` where distance is -1 when the strike could not be ranged
 - `H,<cpu_temp_c>,<rssi_dbm>`
 
-## The CR300 serial receive is NOT yet working
+There is no bearing field and no site position on the wire. The AS3935 is a
+single-antenna sensor: it measures distance to the storm and energy, and it cannot
+resolve direction, so a bearing field could only ever hold a fabricated number.
+
+## What the logger stores
+
+Distance, energy, timestamp. One row per accepted record in `LightningEvents`,
+where the timestamp is the stamp CRBasic writes on every row rather than a field
+of its own.
+
+Nothing else is stored. No daily summary table, no running strike total, no
+closest-of-day, no health field. All of that is derivable from the stored rows,
+and the admin panel is the system of record for whether a unit is alive, so a
+second copy here could only disagree with it.
+
+The consequence is worth stating plainly: **the logger cannot tell a quiet sky
+from a dead detector.** That is deliberate, and it is the panel's job.
+
+The program keeps a small set of live-only `Public` variables for commissioning:
+`SerialOpenOK`, `BytesSeenTotal`, `RecordsRead`, `StrikeCount`, `ParseErrorCount`,
+`PulseCountTotal`, `LPos`, `RecLen`, `LastRecord` and `FirstRecord`. None of them
+is sampled into a table, and `tests/check_cr300.py` fails the build if any ever is.
+
+## The receive corruption
 
 Read this before spending time on it, because a lot has already been eliminated
 and some of what was concluded along the way was wrong.
+
+**Current state: the bytes arrive and their values are corrupt.** A five record
+burst gave `BytesSeenTotal` 70 for 70 bytes sent, `RecordsRead` 5 and
+`ParseErrorCount` 5. The latched `FirstRecord` came back as high-bit rubbish where
+plain ASCII was transmitted, so the records were never merely misaligned: there is
+no `L,` anywhere in that stream to find.
+
+That rules out the framing theories, including the `InStr` change, which was made
+on the assumption of a leading offset and turned out to be treating the wrong
+disease. It stays because it is harmless and correct, but it is not the fix.
+
+The shape of the fault points at timing or slew rather than wiring. The 50 ms
+pulse on BCM 19 to `P_SW` counts perfectly, so the cable and the ground return
+carry DC without trouble. A 9600 baud bit is 104 us, roughly 500 times faster. A
+line that passes DC and mangles fast edges is being low-passed, or is being
+sampled at the wrong instant. The transmit line idles high, confirmed by readback,
+so it is not inverted.
+
+`QK_CR300_RxProbe.CR300` exists to settle it by measurement instead of inference.
+It publishes `RxCode(1..16)`, the ASCII values of the received bytes as numbers,
+and makes `BaudSet` a live variable so the speed can be swept from the Public
+table without a recompile. `qk_send_at_baud.sh` is the matching Pi side.
+
+For `L,40,1234567` plus CR a healthy link reads
+`76 44 52 48 44 49 50 51 52 53 54 55 13`. Values above 127 confirm corruption, a
+consistent offset points at baud, and clean values would mean the fault was in the
+parse all along.
 
 ### What is proven working
 
@@ -167,11 +229,18 @@ and some of what was concluded along the way was wrong.
 | Ground | proven by the pulse path working |
 | Pi-side transmission | 84 edges per record, line idling high, readback confirmed |
 
-### Open, and the two candidates left
+### Open, in the order worth testing
 
-1. **The receive framing.** `SerialInRecord` keyed on a BeginWord never matches,
-   so nothing parses and no error is raised either.
-2. **The copper between BCM 14 and C2.** Not yet proven, see the correction below.
+1. **Baud or slew.** Drop `BaudSet` to 1200 and send at 1200. Eight times the
+   timing margin. Clean at 1200 and corrupt at 9600 means slew, and the cable or
+   the drive is the target. Corrupt at both means it is not slew.
+2. **`SerialOpen` format 0.** Format 0 leaves PakBus running concurrently on the
+   same port and filters nulls and anything above 127 while it hunts for PakBus
+   frames, so it is both a contender and a destroyer of evidence. Campbell's own
+   note says to use format 3, binary with no PakBus, for anything that is not
+   plain ASCII. `FmtSel` switches it live in the probe.
+3. **Cable length and screening between the Click and the logger.** Not yet
+   measured. This is the mechanism a slew result would implicate.
 
 ### Corrections to earlier conclusions, recorded deliberately
 
@@ -189,17 +258,18 @@ and some of what was concluded along the way was wrong.
   the signature of a floating receive line**, framing noise into single bytes. On
   the evidence, C2 may have been floating for much of the diagnosis.
 
-### The two tests not yet run
+### Tests still available if the baud sweep does not settle it
 
-- **`qk_hwuart_send.sh`**, which sends the identical record through the Pi's
-  hardware UART on `/dev/ttyS0` instead of pigpio. Every test so far has used the
-  software bit-bang, so this is the first independent transmit path. It sets
-  GPIO 14 back to ALT0 first, because pigpio holds it as a plain output and
-  overrides the UART function.
+- **A single-pattern send.** `qk_send_at_baud.sh 9600 1 u` transmits `0x55`
+  repeated, alternating bits, so every bit cell has an edge. `RxCode` should read
+  85 all the way along. Anything else localises the damage to a bit position
+  rather than leaving it as "garbage", and `ones` and `zeros` bracket it.
 - **Bidirectional wiring.** Run the CR300's C1 back to the Pi's GPIO 15 and have
   the logger transmit. If the Pi receives cleanly, the copper and grounds are
-  proven in one direction and the fault is cornered in the CR300's receive
-  configuration.
+  proven in one direction and the fault is cornered in the CR300's receive path.
+- **`qk_hwuart_send.sh`** is now moot for BCM 14, which is abandoned, but the same
+  idea on another pin would give an independent transmit path to compare against
+  the pigpio bit-bang.
 
 ### Method note
 
@@ -230,25 +300,35 @@ The symptom set is indistinguishable from a disconnected wire: `BytesReturned` 0
 `StrikeCount` 0 and `LastRecord` empty. The one clue was `ParseErrorCount` also
 sitting at 0, since a genuinely connected-but-garbled line raises parse errors.
 
-The fix follows Campbell's own example and keys each read on its first letter,
-with a local read pointer per stream so the two do not compete for one position
-in the buffer:
+Keying each read on the record's first letter as a BeginWord was tried next. It
+never framed anything either, even once all 70 bytes of a burst were confirmed
+arriving, and it makes the read depend on the single byte a waking port is most
+likely to drop. `SerialInRecord` is no longer used at all.
+
+The read is now:
 
 ```crbasic
-SerialInRecord (ComC2_Rx, StrikeBody, BW_LIGHTNING, 0, CRLF, StrikeBytes, 110)
-SerialInRecord (ComC2_Rx, HealthBody, BW_HEALTH,    0, CRLF, HealthBytes, 110)
+LastRecord = ""
+SerialIn (LastRecord, ComC2_Rx, 1, LF, MAX_CHARS)
 ```
 
-`BW_LIGHTNING` is `&H4C` for `L` and `BW_HEALTH` is `&H48` for `H`. The letter is
-consumed as the BeginWord, so `StrikeBody` receives `,40,1234567` and `SplitStr`
-in numeric mode treats the leading comma as a delimiter.
+`TimeOut` is 1, in 0.01 s units, **not 0**: zero waits indefinitely for the
+terminator and would stall the scan. `LF` is 10 as a numeric code, so the
+terminator is excluded while the CR ahead of it is kept, which is what lets a
+complete record be told apart from a fragment. `LastRecord` is cleared first
+because `SerialIn` leaves the destination untouched when nothing arrives.
 
-The program now also keeps `SerialOpenOK` from `SerialOpen`'s return value and
-`BytesWaiting` from `SerialInChk`, both live only and never sampled into a table.
-`SerialInChk` returns -1 for a port that was never opened, so between them a
-refused port, a dead cable and a framing fault are now three distinguishable
-states instead of one silent zero. `tests/check_cr300.py` fails the build if any
-`SerialInRecord` ever uses BeginWord 0 again.
+The program keeps `SerialOpenOK` from `SerialOpen`'s return value, so a port that
+refused to open stays distinguishable from a dead cable, and accumulates
+`SerialInChk` into `BytesSeenTotal` rather than publishing it raw.
+`tests/check_cr300.py` fails the build if `SerialInRecord` ever reappears.
+
+**A diagnosis cost paid twice:** `LastRecord` is cleared at the top of every scan,
+so it reads empty almost all of the time, and asking someone to catch it in the
+Public table was never going to work. `FirstRecord` latches the first non-empty
+read and is never cleared. The probe goes further and publishes byte values as
+numbers, because a corrupt string renders as mojibake and throws away the detail
+that matters.
 
 ## Site noise
 

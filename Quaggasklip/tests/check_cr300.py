@@ -75,75 +75,115 @@ ck("the destination is cleared before every read",
    "otherwise be reprocessed every scan")
 
 print()
-print("=== lightning only: no health in storage ===")
+print("=== lightning only: no health anywhere, not even live ===")
 for bad in ("PiCpuTempC", "PiRssiDbm", "StatusCount", "DetectorOnline",
-            "MinutesSinceRecord"):
+            "MinutesSinceRecord", "HealthRecordCount"):
     ck("no %s variable" % bad, bad not in code)
-ck('only "L," is logged, checking shape not just the first byte',
-   re.search(r'Left\s*\(\s*LastRecord\s*,\s*2\s*\)\s*=\s*"L,"', code) is not None,
-   'testing only "L" would also accept a corrupted "LL,1,2"')
-ck('an "H," record is recognised explicitly',
-   re.search(r'Left\s*\(\s*LastRecord\s*,\s*2\s*\)\s*=\s*"H,"', code) is not None)
+
+# THE TRAP: Left(LastRecord,2) = "L," rejected every record while all 70 bytes of
+# a five record burst were confirmed arriving, which means the string did not
+# begin at "L,". Left cannot see past a stray leading byte and a bit-banged line
+# has no UART to resynchronise it.
+ck('the record is located with InStr, not tested with Left',
+   re.search(r'LPos\s*=\s*InStr\s*\(\s*1\s*,\s*LastRecord\s*,\s*"L,"\s*,\s*2\s*\)',
+             code) is not None,
+   'Left(...)="L," rejected all 5 of 5 records with all 70 bytes confirmed')
+ck("InStr SearchOption is 2, the whole substring",
+   re.search(r'InStr\s*\([^)]*"L,"\s*,\s*2\s*\)', code) is not None,
+   'option 3 would match a bare "L" or a lone comma')
+ck("the parse is gated on LPos being found",
+   re.search(r'If\s+LPos\s*>\s*0\s+AND', code) is not None)
+
+# A fragment stored as a real strike is corrupt data that looks reasonable, which
+# is worse than a rejected record.
+ck("a complete record is proved by its trailing CR",
+   re.search(r'Mid\s*\(\s*LastRecord\s*,\s*RecLen\s*,\s*1\s*\)\s*=\s*CHR\s*\(\s*CR_CODE\s*\)',
+             code) is not None,
+   'without it a split record reads as "L,40,123" and stores as a real strike')
+ck("CR_CODE is 13", re.search(r'Const\s+CR_CODE\s*=\s*13', code) is not None)
+
+ck('an "H," record is still recognised explicitly',
+   re.search(r'Left\s*\(\s*LastRecord\s*,\s*2\s*\)\s*=\s*"H,"', code) is not None,
+   "so the Pi's daily health line does not look like a wiring fault")
 
 # Bound the search to the H branch. An unbounded scan runs into the final Else.
 _h = re.search(r'"H,"\s*Then(.*?)(?:\n\s*Else\b|\n\s*EndIf\b)', code, re.S)
-_h_branch = _h.group(1) if _h else ""
-ck("the H branch does not touch ParseErrorCount",
-   "HealthRecordCount" in _h_branch and "ParseErrorCount" not in _h_branch,
-   "routine health traffic must not accumulate in the fault counter")
-ck("the H counter is live only, never sampled into a table",
-   "HealthRecordCount" in code
-   and not re.search(r'Sample\s*\([^)]*HealthRecordCount', code)
-   and not re.search(r'Totalize\s*\([^)]*HealthRecordCount', code))
-ck("ParseErrorCount covers a bad parse and an unrecognised letter",
+_h_branch = (_h.group(1) if _h else "").strip()
+ck("the H branch is empty: matched, dropped, never counted", _h_branch == "",
+   "counting it would put routine traffic in the fault counter; storing it "
+   "would put health in the data. Both are excluded: %r" % _h_branch)
+ck("ParseErrorCount covers a bad parse and an unrecognised record",
    len(re.findall(r'ParseErrorCount\s*=\s*ParseErrorCount\s*\+\s*1', code)) == 2,
    "increments: %d (expect 2)"
    % len(re.findall(r'ParseErrorCount\s*=\s*ParseErrorCount\s*\+\s*1', code)))
 
 print()
-print("=== what the tables store ===")
+print("=== no bearing and no position: the sensor cannot measure either ===")
+# A single-antenna AS3935 gives distance and energy. Any direction field would be
+# a fabricated number, and site position does not belong on the wire.
+for bad in ("Bearing", "Azimuth", "Direction", "Heading",
+            "Latitude", "Longitude", "SiteLat", "SiteLon"):
+    ck("no %s variable" % bad, not re.search(r'\b%s\b' % bad, code))
+ck("the header says bearing cannot be measured",
+   re.search(r'(?i)cannot measure bearing', src) is not None)
+
+print()
+print("=== what is stored: distance, energy, timestamp. Nothing else ===")
 ev = re.search(r'DataTable\s*\(\s*LightningEvents.*?EndTable', code, re.S)
 ck("LightningEvents table found", ev is not None)
 if ev:
     body = ev.group(0)
     ck("stores distance", "LastDistanceKm" in body)
     ck("stores energy", "LastEnergy" in body)
-    ck("stores the pulse count", "PulseCountTotal" in body)
+    ck("exactly 2 stored fields, the timestamp being implicit",
+       len(re.findall(r'\bSample\s*\(', body)) == 2,
+       "found %d" % len(re.findall(r'\bSample\s*\(', body)))
     ck("does NOT store the raw record string", "LastRecord" not in body,
        "a raw record in the table would leak non-lightning text into storage")
-    ck("exactly 3 stored fields", len(re.findall(r'\bSample\s*\(', body)) == 3)
-    ck("pulse total is IEEE4, not FP2 (FP2 saturates at 7999)",
-       "PulseCountTotal, IEEE4" in body)
+    ck("does NOT store the pulse count", "PulseCount" not in body,
+       "the pulse mirror is a live cross-check, not stored data")
+    ck("no aggregate in the event table",
+       not re.search(r'Totalize|Maximum|Minimum|Average', body))
 
-dy = re.search(r'DataTable\s*\(\s*LightningDaily.*?EndTable', code, re.S)
-ck("LightningDaily table found", dy is not None)
-if dy:
-    body = dy.group(0)
-    ck("daily totalise is IEEE4", "PulseCountScan, IEEE4" in body)
-    ck("daily has a 1 day interval",
-       re.search(r'DataInterval\s*\(\s*0\s*,\s*1\s*,\s*Day', body) is not None)
+# The brief is distance, energy and timestamp. A daily summary is derivable from
+# the stored rows, so keeping one here would mean two places that can disagree.
+ck("there is no LightningDaily table",
+   re.search(r'DataTable\s*\(\s*LightningDaily', code) is None)
+for bad in ("StrikesToday", "ClosestTodayKm", "MaxEnergyToday", "PulseCountScan"):
+    ck("no %s variable" % bad, bad not in code)
+ck("exactly one DataTable", len(re.findall(r'\bDataTable\s*\(', code)) == 1,
+   "found %d" % len(re.findall(r'\bDataTable\s*\(', code)))
 
 print()
 print("=== the parse ===")
 ck("Parsed is dimensioned 2", "Parsed(2) As Float" in code)
-ck("SplitStr asks for 2 values from the record",
-   re.search(r'SplitStr\s*\(\s*Parsed\(1\)\s*,\s*LastRecord\s*,\s*","\s*,\s*2\s*,\s*0\s*\)',
+# Split the payload, not the whole record: a digit in any leading rubbish would
+# otherwise be read as the distance.
+ck("SplitStr runs on the payload after \"L,\", not the raw record",
+   re.search(r'SplitStr\s*\(\s*Parsed\(1\)\s*,\s*Payload\s*,\s*""\s*,\s*2\s*,\s*0\s*\)',
              code) is not None)
+ck("the payload starts after the located \"L,\"",
+   re.search(r'Payload\s*=\s*Mid\s*\(\s*LastRecord\s*,\s*LPos\s*\+\s*2\s*,', code)
+   is not None)
 ck("no Parsed(3) anywhere", "Parsed(3)" not in code)
 ck("guard tests Parsed(1) and Parsed(2)",
    re.search(r'Parsed\(1\)\s*=\s*Parsed\(1\)\s+AND\s+Parsed\(2\)\s*=\s*Parsed\(2\)',
              code) is not None)
 ck("distance comes from Parsed(1)", "LastDistanceKm = Parsed(1)" in code)
 ck("energy comes from Parsed(2)", "LastEnergy = Parsed(2)" in code)
-ck("-1 is excluded from closest-of-day",
-   re.search(r'If\s+LastDistanceKm\s*>=\s*0\s+Then', code) is not None)
 
 print()
-print("=== pulse row cannot be lost or doubled ===")
-ck("EventRowWritten declared", "Dim EventRowWritten As Boolean" in code)
-ck("cleared each scan", "EventRowWritten = False" in code)
-ck("set when a strike row is written", "EventRowWritten = True" in code)
-ck("pulse-only row gates on EventRowWritten", "Not EventRowWritten" in code)
+print("=== one row per accepted record, and none otherwise ===")
+# A pulse-only row would carry the previous strike's distance and energy, which is
+# worse than no row: it is plausible-looking corrupt data.
+ck("exactly one CallTable",
+   len(re.findall(r'CallTable\s+LightningEvents', code)) == 1,
+   "found %d" % len(re.findall(r'CallTable\s+LightningEvents', code)))
+ck("the row is written only inside the NAN guard",
+   re.search(r'StrikeCount\s*=\s*StrikeCount\s*\+\s*1\s*\n\s*CallTable\s+LightningEvents',
+             code) is not None)
+ck("no pulse-only row", "EventRowWritten" not in code,
+   "it would store the previous strike's values against a new timestamp")
 
 print()
 print("=== port and pulse configuration ===")
@@ -159,7 +199,7 @@ ck("does not open the pair as Com1", not re.search(r'\bCom1\b', code),
 ck("does not use PortPairConfig", "PortPairConfig" not in code,
    "CR300 compiler: PortPairConfig is not defined")
 ck("PulseCount on P_SW, PConfig 2 switch closure",
-   re.search(r'PulseCount\s*\(\s*PulseCountScan\s*,\s*1\s*,\s*P_SW\s*,\s*2\s*,\s*0\s*,\s*1\s*,\s*0\s*\)',
+   re.search(r'PulseCount\s*\(\s*PulseScan\s*,\s*1\s*,\s*P_SW\s*,\s*2\s*,\s*0\s*,\s*1\s*,\s*0\s*\)',
              code) is not None)
 
 print()
@@ -172,16 +212,29 @@ ck("buffer depth is read before it is consumed",
 ck("SerialInChk is read before SerialIn consumes the buffer",
    code.index("SerialInChk") < code.index("SerialIn ("))
 # A snapshot is emptied by the read in the same scan, so it cannot distinguish
-# "nothing arrived" from "arrived and was consumed". A high-water mark can, and it
-# is what finally proved the BCM 26 wiring delivering all 70 bytes of a burst.
+# "nothing arrived" from "arrived and was consumed". Accumulating it can, and that
+# is what proved the BCM 26 wiring delivering all 70 bytes of a burst.
 ck("buffer depth is accumulated, not just sampled",
-   re.search(r'MaxBytesWaiting\s*=\s*BytesWaiting', code) is not None
-   and re.search(r'BytesSeenTotal\s*=\s*BytesSeenTotal\s*\+', code) is not None,
-   "MaxBytesWaiting above 0 proves bytes reached C2 even if nothing parsed")
+   re.search(r'BytesSeenTotal\s*=\s*BytesSeenTotal\s*\+', code) is not None,
+   "BytesSeenTotal above 0 proves bytes reached C2 even if nothing parsed")
+ck("BytesWaiting is not published as a bare snapshot",
+   re.search(r'Public\s+BytesWaiting', code) is None,
+   "it reads 0 by the time the table is looked at, whatever happened")
+# Counters alone could not answer why 5 of 5 records were rejected. These can.
+ck("framed records are counted separately from stored ones",
+   re.search(r'RecordsRead\s*=\s*RecordsRead\s*\+\s*1', code) is not None,
+   "RecordsRead up with StrikeCount flat isolates the fault to the content")
+ck("the first record received is latched for inspection",
+   re.search(r'If\s+Len\s*\(\s*FirstRecord\s*\)\s*=\s*0\s+Then\s+FirstRecord\s*=\s*LastRecord',
+             code) is not None,
+   "LastRecord is wiped every scan, so it reads empty almost always")
 ck("no diagnostic is sampled into a table",
    not re.search(r'Sample\s*\([^)]*SerialOpenOK', code)
    and not re.search(r'Sample\s*\([^)]*BytesWaiting', code)
-   and not re.search(r'Sample\s*\([^)]*BytesSeenTotal', code))
+   and not re.search(r'Sample\s*\([^)]*BytesSeenTotal', code)
+   and not re.search(r'Sample\s*\([^)]*RecordsRead', code)
+   and not re.search(r'Sample\s*\([^)]*FirstRecord', code)
+   and not re.search(r'Sample\s*\([^)]*LPos', code))
 
 print()
 print("=== structure ===")
@@ -191,12 +244,10 @@ ck("Scan and NextScan balanced",
    len(re.findall(r'\bScan\s*\(', code)) == len(re.findall(r'\bNextScan\b', code)))
 ck("DataTable and EndTable balanced",
    len(re.findall(r'\bDataTable\s*\(', code)) == len(re.findall(r'\bEndTable\b', code)))
-ck("two tables", len(re.findall(r'\bDataTable\s*\(', code)) == 2)
-ck("both tables are called",
-   "CallTable LightningEvents" in code and "CallTable LightningDaily" in code)
-ck("daily table called unconditionally, not behind IfTime",
-   re.search(r'CallTable LightningDaily', code) is not None
-   and not re.search(r'IfTime[^\n]*\n\s*CallTable LightningDaily', code))
+ck("the table is called", "CallTable LightningEvents" in code)
+ck("no IfTime housekeeping left over from the daily table",
+   "IfTime" not in code,
+   "there is nothing left to reset once a day")
 
 print()
 print("=== no contamination from the unit this was copied from ===")

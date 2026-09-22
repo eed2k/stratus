@@ -11,20 +11,35 @@
 
 Uses the detector's REAL formatters, then models what the logger does:
 
-    SerialInRecord(..., BeginWord 0, NBytes 0, EndWord &H0D0A, ..., 10)
-        strips CR LF, keeps the leading letter
-    Left(LastRecord, 1) = "L"
-        only lightning is accepted
-    SplitStr(Parsed, LastRecord, ",", 2, 0)
-        SplitOption 0 is NUMERIC: numbers are kept, every other character is a
-        delimiter and is DISCARDED. So the leading letter takes no slot and the
-        two values land in Parsed(1) and Parsed(2).
-        help.campbellsci.com/crbasic/cr300/Content/Instructions/splitstr.htm
+    SerialIn(LastRecord, ComC2_Rx, 1, LF, 48)
+        reads to the LF. A numeric TerminationChar is EXCLUDED from the result,
+        so the CR before it stays on the end of the string.
+    LPos = InStr(1, LastRecord, "L,", 2)
+        locates the record instead of assuming it starts at character 1
+    Mid(LastRecord, RecLen, 1) = CHR(13)
+        a complete record ends in CR; a fragment does not
+    Payload = Mid(LastRecord, LPos + 2, 48)
+        everything after "L,"
+    SplitStr(Parsed, Payload, "", 2, 0)
+        SplitOption 0 is NUMERIC: every character except + - . 0-9 E is a
+        delimiter and is DISCARDED, so the trailing CR costs nothing and the two
+        values land in Parsed(1) and Parsed(2). FilterString is ignored.
+        help.campbellsci.com/crbasic/cr300/Content/parameters/splitoption.htm
 
-Two properties matter most:
+Four properties matter most:
   1. The field indexing. Reading Parsed(2)/Parsed(3) logged nothing at all, and
      did so silently.
-  2. A status record must never be logged. Health belongs to the admin panel.
+  2. Leading rubbish must not defeat the match. Left(LastRecord,2) = "L," rejected
+     all five records of a burst whose 70 bytes were confirmed arriving.
+  3. A fragment must never be stored. "L,40,123" from a split record is corrupt
+     data that looks perfectly reasonable.
+  4. A status record must never be stored, and must not be counted as a fault
+     either. Health belongs to the admin panel.
+
+KNOWN LIMIT, accepted deliberately: there is no range guard on the parsed values.
+A corruption that put "L," in front of a health record would store its numbers as
+a strike. That needs a very specific fault that has never been observed, and the
+brief is distance, energy and timestamp with nothing added.
 """
 import importlib.util
 import itertools
@@ -64,11 +79,16 @@ def ck(label, ok, detail=""):
         failed += 1
 
 
-def serial_in_record(wire):
-    """BeginWord 0, EndWord &H0D0A. BytesReturned excludes the EndWord."""
-    if not wire.endswith("\r\n"):
-        return None, 0
-    body = wire[:-2]
+def serial_in(wire):
+    """SerialIn to a numeric TerminationChar of LF.
+
+    The terminator is excluded, so the CR ahead of it survives. Anything with no
+    LF yet is what the logger sees mid-record: returned as-is when TimeOut
+    expires, which is exactly the fragment the CR test has to catch.
+    """
+    if "\n" not in wire:
+        return wire, len(wire)
+    body = wire[:wire.index("\n")]
     return body, len(body)
 
 
@@ -99,31 +119,60 @@ def isnan(x):
     return x != x
 
 
+def logger_outcome(wire):
+    """Model the logger's decision, branch for branch.
+
+    Returns (outcome, distance, energy) where outcome is one of:
+        "stored"       a row was written to LightningEvents
+        "parse_error"  ParseErrorCount incremented, nothing stored
+        "health"       recognised as H, dropped, NOT counted
+        "ignored"      too short to look at, no counter touched
+    """
+    body, rec_len = serial_in(wire)
+    if rec_len <= 1:                      # If RecLen > 1 Then
+        return "ignored", None, None
+
+    l_pos = body.find("L,") + 1           # InStr is 1-indexed, 0 when not found
+    complete = body[-1:] == "\r"          # Mid(LastRecord, RecLen, 1) = CHR(13)
+
+    if l_pos > 0 and complete:
+        payload = body[l_pos + 1:]        # Mid(LastRecord, LPos + 2, MAX_CHARS)
+        p = split_str_numeric(payload, 2)
+        if isnan(p[1]) or isnan(p[2]):
+            return "parse_error", None, None
+        return "stored", p[1], p[2]
+
+    if body[:2] == "H,":                  # ElseIf Left(LastRecord, 2) = "H,"
+        return "health", None, None
+
+    return "parse_error", None, None
+
+
 def logger_accepts(wire):
-    """Model the logger's decision. Returns (logged, distance, energy)."""
-    body, n = serial_in_record(wire)
-    if body is None or n <= 0:
-        return False, None, None
-    # Left(LastRecord, 2) = "L," checks the shape, not just the first byte.
-    if body[:2] != "L,":
-        return False, None, None          # counted as an error, never stored
-    p = split_str_numeric(body, 2)
-    if isnan(p[1]) or isnan(p[2]):
-        return False, None, None
-    return True, p[1], p[2]
+    """Convenience wrapper: (logged, distance, energy)."""
+    outcome, d, e = logger_outcome(wire)
+    return outcome == "stored", d, e
 
 
-print("=== the leading letter takes no slot ===")
-body, n = serial_in_record(CampbellLink.format_lightning(12, 45))
+print("=== the read keeps the CR and drops the LF ===")
+body, n = serial_in(CampbellLink.format_lightning(12, 45))
 ck("wire is 'L,12,45\\r\\n'", CampbellLink.format_lightning(12, 45) == "L,12,45\r\n")
-ck("CR LF stripped, letter kept", body == "L,12,45", repr(body))
-ck("BytesReturned excludes the terminator", n == 7, str(n))
-p3 = split_str_numeric(body, 3)
-ck("asking for 3 leaves Parsed(3) as NAN", isnan(p3[3]),
-   "Parsed = %s" % p3)
+ck("LF excluded, CR kept", body == "L,12,45\r", repr(body))
+ck("so the record is provably complete", body[-1] == "\r")
+ck("RecLen counts the CR", n == 8, str(n))
+
+print()
+print("=== the payload, and the field indexing ===")
+l_pos = body.find("L,") + 1
+ck("InStr finds the record at character 1", l_pos == 1, str(l_pos))
+payload = body[l_pos + 1:]
+ck("payload is everything after 'L,'", payload == "12,45\r", repr(payload))
+p3 = split_str_numeric(payload, 3)
+ck("asking for 3 leaves Parsed(3) as NAN", isnan(p3[3]), "Parsed = %s" % p3)
 ck("the OLD indexing would have logged nothing, ever", isnan(p3[3]))
-p2 = split_str_numeric(body, 2)
-ck("the NEW indexing gives 12 and 45", p2[1] == 12.0 and p2[2] == 45.0)
+p2 = split_str_numeric(payload, 2)
+ck("2 slots give 12 and 45", p2[1] == 12.0 and p2[2] == 45.0)
+ck("the trailing CR costs no slot", len(split_str_numeric(payload, 2)) == 2)
 
 print()
 print("=== strike records: every value the Pi can emit ===")
@@ -145,27 +194,69 @@ for d_in, e_in, want_d, want_e, note in cases:
     ck("L %-30s -> logged d=%s e=%s" % (note, d, e), ok, repr(wire))
 
 print()
-print("=== the -1 unrangeable guard ===")
+print("=== the -1 unrangeable value survives the wire ===")
 _, d, _ = logger_accepts(CampbellLink.format_lightning(-1, 500))
 ck("-1 survives as -1, not 1", d == -1.0, str(d))
-ck("-1 fails the >= 0 closest-of-day test", not (d >= 0))
+ck("the minus sign is kept by SplitOption 0", split_str_numeric("-1,500", 2)[1] == -1.0)
 
 print()
-print("=== status records must NEVER be logged ===")
-# Health goes to the admin panel. Even if a status record reaches the logger,
-# it must be discarded rather than stored.
+print("=== leading rubbish must not defeat the match ===")
+# THE FAULT THIS FIXES: Left(LastRecord,2) = "L," rejected 5 of 5 records while
+# BytesSeenTotal confirmed all 70 bytes arriving. A bit-banged line has no UART to
+# resynchronise it, so a stray byte ahead of the record is real.
+for junk, note in [("\x00", "a null"), ("\r", "a stray CR"), ("\xff", "a framing glitch"),
+                   ("?", "one bad character"), ("xy", "two bad characters")]:
+    wire = junk + "L,12,45\r\n"
+    outcome, d, e = logger_outcome(wire)
+    ck("%-20s ahead of the record still stores 12/45" % note,
+       outcome == "stored" and d == 12.0 and e == 45.0,
+       "%s -> %s d=%s e=%s" % (repr(wire), outcome, d, e))
+# And the junk must not be read as the distance.
+outcome, d, e = logger_outcome("99L,12,45\r\n")
+ck("a digit in the rubbish does not become the distance",
+   outcome == "stored" and d == 12.0 and e == 45.0,
+   "got %s d=%s e=%s" % (outcome, d, e))
+
+print()
+print("=== a fragment must never be stored ===")
+# THE FAULT THIS FIXES: a record split across two scans reads as "L,40,123" and
+# would store as a real strike at 123 joules. Corrupt, but entirely plausible.
+for frag in ["L,40,123", "L,40,1234567", "L,4", "L,"]:
+    outcome, d, e = logger_outcome(frag)
+    ck("no CR, so rejected: %-16s" % repr(frag), outcome != "stored",
+       "outcome %s d=%s" % (outcome, d))
+ck("the complete record it came from IS stored",
+   logger_outcome("L,40,1234567\r\n")[0] == "stored")
+
+print()
+print("=== status records: dropped, and NOT counted as a fault ===")
+# Health goes to the admin panel. Counting it would put routine daily traffic in
+# the fault counter and hide a real wiring problem.
 for cpu, rssi, note in [(48.3, -62, "typical"), (0.0, 0, "zeros"),
                         (None, None, "fallbacks"), (float("nan"), -62, "nan cpu")]:
     wire = CampbellLink.format_heartbeat(cpu, rssi)
-    logged, _, _ = logger_accepts(wire)
-    ck("H %-24s is REJECTED by the logger" % note, not logged, repr(wire))
+    outcome, _, _ = logger_outcome(wire)
+    ck("H %-24s dropped uncounted" % note, outcome == "health",
+       "%s -> %s" % (repr(wire), outcome))
 
 print()
-print("=== anything else on the wire is also rejected ===")
-for junk in ["X,1,2\r\n", ",1,2\r\n", "12,45\r\n", "\r\n", "L,12,45",
-             "l,12,45\r\n", "LL,1,2\r\n", "L\r\n", "L,\r\n", "L,abc,def\r\n"]:
-    logged, _, _ = logger_accepts(junk)
-    ck("rejected: %-18s" % repr(junk), not logged)
+print("=== anything else on the wire is rejected and counted ===")
+for junk, want in [("X,1,2\r\n", "parse_error"), (",1,2\r\n", "parse_error"),
+                   ("12,45\r\n", "parse_error"), ("\r\n", "ignored"),
+                   ("l,12,45\r\n", "parse_error"), ("L\r\n", "parse_error"),
+                   ("L,\r\n", "parse_error"), ("L,abc,def\r\n", "parse_error")]:
+    outcome, _, _ = logger_outcome(junk)
+    ck("%-14s -> %-12s" % (repr(junk), outcome), outcome == want,
+       "expected %s" % want)
+# "LL,1,2" is tolerated now and that is the deliberate trade: InStr locates the
+# "L," at position 2 and reads 1 and 2. Rejecting it would mean rejecting every
+# record with a stray leading byte, which is the fault that cost this link weeks.
+outcome, d, e = logger_outcome("LL,1,2\r\n")
+ck("'LL,1,2' is accepted as 1/2, the cost of tolerating leading junk",
+   outcome == "stored" and d == 1.0 and e == 2.0,
+   "got %s d=%s e=%s" % (outcome, d, e))
+ck("lowercase 'l,' is still rejected: string functions are case sensitive",
+   logger_outcome("l,12,45\r\n")[0] == "parse_error")
 
 print()
 print("=== the Pi does not send a status record at all by default ===")
@@ -196,9 +287,11 @@ ck("all %d strike-formatter combinations parse and log"
 
 print()
 print("=== sizing ===")
-longest = max(len(CampbellLink.format_lightning(-1, 4294967295)) - 2,
-              len(CampbellLink.format_heartbeat(-999.9, -32768)) - 2)
-ck("longest record fits String * 48", longest <= 48, "%d chars" % longest)
+# The read keeps the CR, so the stored string is wire length minus the LF only.
+longest = max(len(CampbellLink.format_lightning(-1, 4294967295)) - 1,
+              len(CampbellLink.format_heartbeat(-999.9, -32768)) - 1)
+ck("longest record fits MAX_CHARS of 48", longest <= 48, "%d chars" % longest)
+ck("and fits String * 64 with room for the null", longest < 64, "%d chars" % longest)
 rec = len(CampbellLink.format_lightning(40, 1048575))
 ck("256 byte buffer holds many records", 256 >= 2 * rec + 1,
    "%d bytes each, about %d records" % (rec, 256 // rec))
