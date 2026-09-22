@@ -18,7 +18,10 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 P = os.path.normpath(os.path.join(HERE, "..", "campbell", "QK_CR300_Lightning.CR300"))
-CFG = os.path.normpath(os.path.join(HERE, "..", "quaggasklip_config.json"))
+# Checked against the configuration that is actually on the unit, not against
+# ../quaggasklip_config.json, which belongs to a build that is not deployed.
+# See ../deployed/README.md.
+CFG = os.path.normpath(os.path.join(HERE, "..", "deployed", "lightning_config.json"))
 
 src = open(P, encoding="utf-8").read()
 lines = src.split("\n")
@@ -41,7 +44,9 @@ def ck(label, ok, detail=""):
 
 print("=== lightning only: no heartbeat anywhere in storage ===")
 # The requirement: health goes to the admin panel, the logger records lightning.
-ck("no H record branch", not re.search(r'=\s*"H"', code))
+# The unit still emits an H record once a day, because the deployed build has no
+# flag to silence it, so the program must recognise and drop it rather than
+# pretend it cannot arrive.
 ck("no PiCpuTempC variable", "PiCpuTempC" not in code)
 ck("no PiRssiDbm variable", "PiRssiDbm" not in code)
 ck("no StatusCount variable", "StatusCount" not in code)
@@ -49,9 +54,22 @@ ck("no DetectorOnline flag", "DetectorOnline" not in code)
 ck("no MinutesSinceRecord", "MinutesSinceRecord" not in code)
 ck('only "L," records are accepted, checking shape not just first byte',
    re.search(r'Left\s*\(\s*LastRecord\s*,\s*2\s*\)\s*=\s*"L,"', code) is not None)
-ck("a non-L record is counted, not logged",
+ck('an "H," record is recognised explicitly',
+   re.search(r'Left\s*\(\s*LastRecord\s*,\s*2\s*\)\s*=\s*"H,"', code) is not None)
+# Bound the search to the H branch itself. An unbounded scan would run straight
+# past it into the final Else and find that branch's ParseErrorCount increment.
+_h = re.search(r'"H,"\s*Then(.*?)(?:\n\s*Else\b|\n\s*EndIf\b)', code, re.S)
+_h_branch = _h.group(1) if _h else ""
+ck("the H branch does not touch ParseErrorCount",
+   "HealthRecordCount" in _h_branch and "ParseErrorCount" not in _h_branch,
+   "routine health traffic must not accumulate in the fault counter")
+ck("the H counter is live only, never sampled into a table",
+   "HealthRecordCount" in code
+   and not re.search(r'Sample\s*\([^)]*HealthRecordCount', code)
+   and not re.search(r'Totalize\s*\([^)]*HealthRecordCount', code))
+ck("a genuinely unrecognised record is still counted",
    len(re.findall(r'ParseErrorCount\s*=\s*ParseErrorCount\s*\+\s*1', code)) == 2,
-   "ParseErrorCount increments: %d (expect 2: bad parse, and non-L)"
+   "ParseErrorCount increments: %d (expect 2: bad parse, and unrecognised)"
    % len(re.findall(r'ParseErrorCount\s*=\s*ParseErrorCount\s*\+\s*1', code)))
 
 print()
@@ -127,15 +145,28 @@ print("=== no contamination from the unit this was copied from ===")
 for bad in ("GWLD1", "GLENCORE", "WONDERKOP", "Wonderkop"):
     ck("no %s reference" % bad, bad not in src)
 ck("site is QUAGGASKLIP", "Site: QUAGGASKLIP" in src)
-ck("service name is quaggasklip, not lightning-detector",
-   "systemctl restart quaggasklip" in src and "lightning-detector" not in src)
+# The deployed service really is lightning-detector. A note telling the field
+# technician to restart a unit called quaggasklip would simply fail.
+ck("names the service that actually exists",
+   "systemctl restart lightning-detector" in src
+   and "systemctl restart quaggasklip" not in src)
+ck("names the config file that actually exists",
+   "lightning_config.json" in src and "quaggasklip_config.json" not in src)
 
 print()
-print("=== wiring notes are label-based, not position-based ===")
+print("=== wiring notes name the real transmit pin ===")
 ck("no screw-block position claims",
    not re.search(r'TB[12]\s+pin\s+\d', src))
-ck("says to use the silkscreen label", "silkscreen label" in src)
-ck("states TX must go to C2", re.search(r'"TX"[^\n]*C2', src) is not None)
+ck("records go from BCM 26 to C2",
+   re.search(r'BCM\s*26[^\n]*C2', src) is not None)
+ck("the strike pulse goes from BCM 19 to P_SW",
+   re.search(r'BCM\s*19[^\n]*P_SW', src) is not None)
+ck("gives the physical header pins", "pin 37" in src and "pin 35" in src)
+ck("warns against BCM 14 and the hardware UART",
+   "BCM 14" in src and "hardware UART" in src,
+   "the old note sent the wire to BCM 14, where nothing transmits")
+ck("does not claim the Click socket carries these signals",
+   re.search(r'(?i)sockets?\s+are\s+not\s+in\s+this\s+path', src) is not None)
 ck("covers the cable screen", "screen" in src.lower())
 
 print()
@@ -157,22 +188,39 @@ ck("comments no more than 1.5x the code", ratio <= 1.5,
 ck("total under 200 lines", len(lines) < 200, "%d lines" % len(lines))
 
 print()
-print("=== agrees with quaggasklip_config.json ===")
-cfg = open(CFG, encoding="utf-8").read()
+print("=== agrees with the configuration that is on the unit ===")
+import json
 
+cfg = json.load(open(CFG, encoding="utf-8"))
 
-def cfgval(key):
-    m = re.search(r'"%s"\s*:\s*([^,\n}]+)' % re.escape(key), cfg)
-    return m.group(1).strip() if m else None
-
-
-ck("campbell_heartbeat_enabled is false",
-   cfgval("campbell_heartbeat_enabled") == "false", str(cfgval("campbell_heartbeat_enabled")))
-ck("campbell_enabled is true", cfgval("campbell_enabled") == "true")
-ck("campbell_transport is serial", cfgval("campbell_transport") == '"serial"')
-ck("campbell_baud 9600 matches SerialOpen", cfgval("campbell_baud") == "9600")
-ck("pulse_mirror_pin 19 matches the RST note", cfgval("pulse_mirror_pin") == "19")
-ck("pulse_mirror_enabled is false", cfgval("pulse_mirror_enabled") == "false")
+ck("campbell_uart_enabled is true", cfg.get("campbell_uart_enabled") is True)
+ck("campbell_uart_baud 9600 matches SerialOpen",
+   cfg.get("campbell_uart_baud") == 9600)
+ck("campbell_uart_tx_pin 26 matches the wiring note",
+   cfg.get("campbell_uart_tx_pin") == 26, str(cfg.get("campbell_uart_tx_pin")))
+ck("pulse_mirror_enabled is true, so the P_SW wire carries something",
+   cfg.get("pulse_mirror_enabled") is True)
+ck("pulse_mirror_pin 19 matches the wiring note",
+   cfg.get("pulse_mirror_pin") == 19)
+ck("pulse width exceeds one scan, so PulseCount cannot miss it",
+   cfg.get("pulse_mirror_width_ms", 0) >= 25,
+   "%s ms against a %s ms scan"
+   % (cfg.get("pulse_mirror_width_ms"),
+      (re.search(r'Const\s+SCAN_MS\s*=\s*(\d+)', code) or [None, "?"])[1]))
+ck("irq_pin is 6, the pin the LCO was measured on",
+   cfg.get("irq_pin") == 6,
+   "17 meant the detector never saw an interrupt")
+ck("tune_cap is 9, the swept optimum", cfg.get("tune_cap") == 9)
+ck("the broken daily antenna check is disabled",
+   cfg.get("antenna_check_enabled") is False,
+   "it reads 0 Hz and walks tune_cap down a step a day")
+ck("campbell heartbeat reduced to once a day",
+   cfg.get("campbell_heartbeat_interval") == 86400)
+ck("the panel still gets an hourly heartbeat",
+   cfg.get("heartbeat_webhook_interval") == 3600)
+ck("no secret committed",
+   cfg.get("alert_webhook_token") == "REDACTED"
+   and not cfg.get("stratus_api_key"))
 
 print()
 print("pass=%d fail=%d" % (passed, failed))

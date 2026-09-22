@@ -17,37 +17,42 @@
 '
 ' distance_km is -1 when the sensor could not range the strike.
 '
-' Lightning only. Detector health is NOT sent here, it goes to the admin panel,
-' which is the system of record for whether a unit is alive. Consequence: this
+' Lightning is the only thing stored. The detector also sends H,<cpu>,<rssi> once
+' a day, which this program recognises and drops: health belongs to the admin
+' panel, which is the system of record for whether a unit is alive. So this
 ' logger cannot tell a quiet sky from a dead detector. The panel answers that.
 '
-' WIRING, by silkscreen label on the Terminal 2 Click (socket 2), not by
-' counting terminal positions:
+' WIRING. Two signals and a ground, straight off the Pi's 40-pin header. The
+' Click Shield mikroBUS sockets are not in this path.
 '
-'   "TX"    Pi BCM 14   ->  CR300  C2      records in
-'   "GND"   Pi GND      ->  CR300  G       required
-'   "RST"   Pi BCM 19   ->  CR300  P_SW    strike pulse, optional, OFF by default
+'   Pi BCM 26   header pin 37   ->  CR300  C2      lightning records in
+'   Pi BCM 19   header pin 35   ->  CR300  P_SW    strike pulse
+'   Pi GND      header pin 39   ->  CR300  G       required
 '
-' TX is mikroBUS pin 14, the host's transmit output. It must go to C2, which is
-' the terminal this program opens for receive. Nothing listens on C1.
+' BCM 26 is not a hardware UART pin, deliberately. The detector builds the 9600
+' baud waveform in software with pigpio, so any free GPIO serves, and BCM 26 stays
+' reachable with the shield fitted. Do not move this wire to BCM 14 expecting the
+' hardware UART, because nothing transmits there. The unit confirms the pin at
+' startup: "Campbell UART TX enabled on GPIO 26 @ 9600 baud".
+'
+' C2 is the terminal this program opens for receive. Nothing listens on C1.
 '
 ' Ground is not optional. Without it the receiver samples noise and the only
 ' symptom is ParseErrorCount climbing.
 '
-' Cable screen: land it at the CR300 end only, on the signal ground terminal.
-' Leave it cut back and insulated at the Pi end. The Pi 2 Click Shield has no
-' earth of its own, so grounding both ends would turn the screen into a ground
-' loop conductor.
+' Cable screen: land it at the CR300 end only, on signal ground. Cut it back and
+' insulate it at the Pi end. The shield has no earth of its own, so grounding
+' both ends would turn the screen into a ground loop conductor.
 '
-' Enable the Pi side first or nothing arrives:
-'   quaggasklip_config.json -> "campbell_enabled": true, transport "serial"
-'   sudo systemctl restart quaggasklip
+' Pi side, already enabled, in /home/quaggasklip/lightning_config.json:
+'   campbell_uart_enabled true, campbell_uart_tx_pin 26
+'   pulse_mirror_enabled true, pulse_mirror_pin 19
+' After editing: sudo systemctl restart lightning-detector
 '
 ' The pulse mirror is an independent strike count taken straight off the sensor
 ' interrupt, so it does not depend on the serial line. PulseCountTotal and
-' StrikeCount should track each other. Pulses exceeding serial means the serial
-' path is dropping records; serial exceeding pulses means the pulse wire is at
-' fault.
+' StrikeCount should track each other. Pulses ahead of serial means the serial
+' path is dropping records; serial ahead of pulses means the pulse wire is at fault.
 '=============================================================================
 
 Const SCAN_MS = 200
@@ -66,6 +71,11 @@ Public LastRecord As String * 48
 Public BytesReturned As Float
 Public Parsed(2) As Float
 Public ParseErrorCount As Long
+
+' Live only, never sampled into a table, so no health reaches storage. It is a
+' positive witness that the wire and ground are good after weeks with no
+' lightning, which ParseErrorCount alone cannot tell you.
+Public HealthRecordCount As Long
 
 Dim EventRowWritten As Boolean
 
@@ -117,13 +127,9 @@ BeginProg
 
     If BytesReturned > 0 Then
 
-      ' Only L records are logged. Anything else is counted and discarded, which
-      ' is what keeps a status record out of storage if one is ever re-enabled
-      ' on the Pi.
-      '
-      ' Two characters, not one: "L," checks the record's shape rather than just
-      ' its first byte. Testing only for "L" would also accept a corrupted line
-      ' such as "LL,1,2", whose numbers would then be logged as a real strike.
+      ' Only L is logged, H is dropped, anything else is a parse error.
+      ' Two characters, not one: testing only for "L" would also accept a
+      ' corrupted line like "LL,1,2" and log its numbers as a real strike.
       If Left (LastRecord, 2) = "L," Then
 
         ' SplitOption 0 is NUMERIC: it keeps + - . 0-9 E and discards everything
@@ -154,6 +160,13 @@ BeginProg
         Else
           ParseErrorCount = ParseErrorCount + 1
         EndIf
+
+      ElseIf Left (LastRecord, 2) = "H," Then
+
+        ' H,<cpu_temp_c>,<rssi_dbm>. Counted live, then dropped. Deliberately
+        ' NOT added to ParseErrorCount: routine traffic accumulating in the
+        ' fault counter would hide a missing ground or a baud mismatch.
+        HealthRecordCount = HealthRecordCount + 1
 
       Else
         ParseErrorCount = ParseErrorCount + 1
