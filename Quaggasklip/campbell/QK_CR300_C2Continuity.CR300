@@ -1,0 +1,95 @@
+'=============================================================================
+'
+'  Stratus AS3935 Lightning Detection System
+'  C2 continuity test, logger used as the meter
+'
+'  Property of METRON (PTY) LTD [Inteltronics]
+'  Developer: L.J. Esterhuizen
+'
+'=============================================================================
+' Site: QUAGGASKLIP
+'
+' TEMPORARY DIAGNOSTIC. Stores nothing. Load it, run the toggle on the Pi, read
+' C2Changes, then put QK_CR300_Lightning.CR300 back.
+'
+' WHAT IT SETTLES
+'
+' The one thing never actually measured on this link: whether the Pi's BCM 14
+' electrically reaches the CR300's C2 terminal. Everything else has been checked
+' and passed. The Pi emits a correct 9600 8N1 waveform, 105 us per bit against
+' 104.167 nominal, idling high. The port opens, SerialOpenOK is true. The ground is
+' sound, proven by 16 pulses counted from BCM 19 into P_SW. And still not one byte
+' is received, with TotalBytesSeen at 0 on a raw SerialInBlock read.
+'
+' Note this program does NOT call SerialOpen. That is deliberate: C2 must stay a
+' plain digital input for PortGet to read its level. Opening it as a serial port
+' would hand the terminal to the comms driver instead.
+'
+' HOW TO RUN IT
+'
+' On the Pi:  bash /home/quaggasklip/qk_pin_toggle.sh 14 90 3
+'
+' That holds BCM 14 high for 3 s, then low for 3 s, for 90 seconds, so about 15
+' transitions. Watch C2Changes climb in the Public table.
+'
+' HOW TO READ IT
+'
+'   C2Changes climbs to roughly 15
+'       BCM 14 does reach C2. The wire is fine and the fault is entirely in the
+'       serial framing, which is mine to fix.
+'
+'   C2Changes stays 0, and C2HighSamples or C2LowSamples is 0
+'       The line is stuck at one level, so nothing is driving it. The wire does
+'       not reach C2, whatever the terminal markings say. Stuck high means the
+'       logger's own pull-up with an open circuit; stuck low means shorted or
+'       held down.
+'
+'   C2Changes climbs wildly, far past 15
+'       The line is floating and picking up noise, which also means it is not
+'       connected to the Pi.
+'
+' This is the test I should have insisted on hours ago instead of reasoning from
+' byte counts, which kept pointing at the wrong things.
+'=============================================================================
+
+Const SCAN_MS = 100
+
+' PortGet stores 1 when the terminal is high and 0 when it is low.
+Public C2Level As Long
+
+' Transitions are what matter. A level read on its own can be caught mid-state
+' between glances at the table, but a transition count cannot be missed.
+Public C2Changes As Long
+
+' If either of these stays 0 the line never left that state, which is the
+' signature of a wire that is not connected to anything driving it.
+Public C2HighSamples As Long
+Public C2LowSamples As Long
+
+' Seeded to -1 so the very first read is not counted as a transition.
+Dim PrevLevel As Long
+
+'=============================================================================
+' PROGRAM
+'=============================================================================
+
+BeginProg
+  PrevLevel = -1
+
+  Scan (SCAN_MS, mSec, 0, 0)
+
+    PortGet (C2Level, C2)
+
+    If C2Level = 1 Then
+      C2HighSamples = C2HighSamples + 1
+    Else
+      C2LowSamples = C2LowSamples + 1
+    EndIf
+
+    If C2Level <> PrevLevel Then
+      If PrevLevel <> -1 Then C2Changes = C2Changes + 1
+      PrevLevel = C2Level
+    EndIf
+
+  NextScan
+EndProg

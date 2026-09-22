@@ -1,223 +1,44 @@
 '=============================================================================
-'
 '  Stratus AS3935 Lightning Detection System
-'  Logging the lightning records sent by the Raspberry Pi LDS
+'  C2 continuity test, logger used as the meter
 '
 '  Property of METRON (PTY) LTD [Inteltronics]
 '  Developer: L.J. Esterhuizen
-'
 '=============================================================================
-' Site: QUAGGASKLIP. Requires CR300 OS 6.0 or later; this unit is on 7.04.
+' Site: QUAGGASKLIP
 '
-' PORT NAMES AND VOLTAGE, BOTH OF WHICH ARE CR300-SPECIFIC
-'
-' The port is Com1, being control ports 1 and 2 as a pair with C2 as the receive
-' half. Not ComC1, which is the CR6 and CR1000X spelling and does not compile
-' here. ComC2_Rx also exists and addresses the same terminal receive-only, but the
-' pair is the supported route.
-'
-' There is no PortPairConfig on the CR300. That instruction belongs to the CR1000X
-' and CR6, where digital ports default to 5 V and have to be switched down. The
-' CR300 needs nothing: its own specification lists C1 and C2 as 5.0 V output and
-' 3.3 V input, so the input is natively at the level the Pi drives. P_SW is 3.3 V
-' as well.
-'
-' Record formats, 9600 baud 8N1, 3.3 V TTL, CR LF terminated:
-'
-'   L,<distance_km>,<energy>     lightning
-'   H,<cpu_temp_c>,<rssi_dbm>    detector health, once a day
-'
-' distance_km is -1 when the sensor could not range the strike.
-'
-' Lightning is the only thing stored. H records are recognised and dropped, because
-' health belongs to the admin panel, which is the system of record for whether a
-' unit is alive. So this logger cannot tell a quiet sky from a dead detector.
-'
-' EACH RECORD IS FOUND BY ITS FIRST LETTER, NOT BY READING THE WHOLE LINE.
-' With BeginWord 0 the NBytes parameter becomes the count of bytes to keep before
-' the EndWord, so passing 0 for both asks the logger to store nothing. It consumes
-' each record and returns zero bytes, which reads exactly like a dead cable. The
-' letter is consumed as the BeginWord, so Dest receives ",40,1234567".
-'
-' WIRING. Two signals and a ground. BCM 14 is the Pi's hardware UART TX, brought
-' out on mikroBUS socket 2 as the TX pin, so the Terminal 2 Click "TX" terminal
-' is the one to use.
-'
-'   Pi BCM 14   Terminal 2 Click "TX"   ->  CR300  C2      records in
-'   Pi BCM 19   header pin 35           ->  CR300  P_SW    strike pulse
-'   Pi GND      Terminal 2 Click "GND"  ->  CR300  G       required
-'
-' C2 is the receive half of the pair, which is why the program opens Com1. C1
-' itself is unused here and simply idles as the pair's transmit line.
-'
-' The detector does not use the UART peripheral. It builds the 9600 baud waveform
-' in software with pigpio, and the serial console has been taken off BCM 14 so
-' the kernel does not fight it for the pin. The unit confirms the pin at startup:
-' "Campbell UART TX enabled on GPIO 14 @ 9600 baud".
-'
-' Ground is not optional. Without it the receiver samples noise.
-'
-' Cable screen: land it at the CR300 end only, on signal ground, and cut it back at
-' the Pi end. The shield has no earth of its own, so grounding both ends would turn
-' the screen into a ground loop conductor.
-'
-' Pi side, in /home/quaggasklip/lightning_config.json: campbell_uart_enabled true,
-' campbell_uart_tx_pin 14, pulse_mirror_enabled true, pulse_mirror_pin 19.
-' After editing: sudo systemctl restart lightning-detector
-'
-' The pulse mirror is an independent strike count taken off the sensor interrupt,
-' so it does not depend on the serial line. Pulses ahead of serial means the serial
-' path is dropping records; serial ahead of pulses means the pulse wire is at fault.
+' Does NOT call SerialOpen, deliberately: C2 must stay a plain digital input for
+' PortGet to read its level. Opening it as a serial port hands the terminal to
+' the comms driver instead.
 '=============================================================================
 
-Const SCAN_MS = 200
-Const CRLF = &H0D0A          ' EndWord for both reads
-Const BW_LIGHTNING = &H4C    ' "L"
-Const BW_HEALTH = &H48       ' "H"
+Const SCAN_MS = 100
 
-Public LastDistanceKm As Float
-Public LastEnergy As Long
-Public StrikeCount As Long
-Public StrikesToday As Long
-Public ClosestTodayKm As Float
-Public MaxEnergyToday As Long
-Public PulseCountScan As Float
-Public PulseCountTotal As Float
-Public CountMismatch As Float
+Public C2Level As Long
+Public C2Changes As Long
+Public C2HighSamples As Long
+Public C2LowSamples As Long
 
-Public StrikeBody As String * 48
-Public StrikeBytes As Float
-Public HealthBody As String * 48
-Public HealthBytes As Float
-Public Parsed(2) As Float
-Public ParseErrorCount As Long
-
-' Live only, never sampled into a table, so no health reaches storage. It is a
-' positive witness that the wire and ground are good after weeks with no
-' lightning, which ParseErrorCount alone cannot tell you.
-Public HealthRecordCount As Long
-
-' Link diagnostics, also live only. SerialOpen returns False if the port refuses
-' to open, and discarding that makes a refused port indistinguishable from a cut
-' cable. SerialInChk counts bytes sitting in the buffer before anything consumes
-' them and returns -1 if the port is not open. Bytes here with StrikeBytes and
-' HealthBytes both 0 means data is arriving but not being framed.
-Public SerialOpenOK As Boolean
-Public BytesWaiting As Long
-
-Dim EventRowWritten As Boolean
-
-'=============================================================================
-' DATA TABLES
-'
-' Distance, energy and the independent pulse count. Nothing else is stored.
-' PulseCountTotal is IEEE4 because it is cumulative and FP2 stops at 7999,
-' where it would saturate and also become indistinguishable from NAN.
-'=============================================================================
-
-DataTable (LightningEvents, True, -1)
-  Sample (1, LastDistanceKm, FP2)
-  Sample (1, LastEnergy, Long)
-  Sample (1, PulseCountTotal, IEEE4)
-EndTable
-
-DataTable (LightningDaily, True, -1)
-  DataInterval (0, 1, Day, 10)
-  Sample (1, StrikesToday, Long)
-  Sample (1, ClosestTodayKm, FP2)
-  Sample (1, MaxEnergyToday, Long)
-  Totalize (1, PulseCountScan, IEEE4, False)
-EndTable
-
-'=============================================================================
-' PROGRAM
-'=============================================================================
+Dim PrevLevel As Long
 
 BeginProg
-  ClosestTodayKm = NAN
-  MaxEnergyToday = 0
-  StrikesToday = 0
-
-  SerialOpenOK = SerialOpen (Com1, 9600, 0, 0, 256)
-  SerialFlush (Com1)
+  PrevLevel = -1
 
   Scan (SCAN_MS, mSec, 0, 0)
 
-    EventRowWritten = False
+    PortGet (C2Level, C2)
 
-    ' PConfig 2 = switch closure, POption 0 = counts.
-    PulseCount (PulseCountScan, 1, P_SW, 2, 0, 1, 0)
-    PulseCountTotal = PulseCountTotal + PulseCountScan
-
-    ' Buffer depth before either read consumes it.
-    BytesWaiting = SerialInChk (Com1)
-
-    ' Two reads on the one port, each keyed to a different first letter and each
-    ' with its own read pointer, which is what option 110 selects. Without local
-    ' pointers the two would compete for the same position in the buffer and one
-    ' would swallow the other's records.
-    SerialInRecord (Com1, StrikeBody, BW_LIGHTNING, 0, CRLF, StrikeBytes, 110)
-    SerialInRecord (Com1, HealthBody, BW_HEALTH, 0, CRLF, HealthBytes, 110)
-
-    If StrikeBytes > 0 Then
-
-      ' SplitOption 0 is NUMERIC: it keeps + - . 0-9 E and treats everything else
-      ' as a delimiter, so the leading comma of ",40,1234567" costs nothing and
-      ' the two values land in Parsed(1) and Parsed(2).
-      SplitStr (Parsed(1), StrikeBody, ",", 2, 0)
-
-      ' x = x is false only for NAN, which catches a failed parse.
-      If Parsed(1) = Parsed(1) AND Parsed(2) = Parsed(2) Then
-        LastDistanceKm = Parsed(1)
-        LastEnergy = Parsed(2)
-        StrikeCount = StrikeCount + 1
-        StrikesToday = StrikesToday + 1
-
-        If LastEnergy > MaxEnergyToday Then MaxEnergyToday = LastEnergy
-
-        ' -1 means unrangeable, so it is not a closest-of-day candidate.
-        If LastDistanceKm >= 0 Then
-          If ClosestTodayKm <> ClosestTodayKm Then
-            ClosestTodayKm = LastDistanceKm
-          ElseIf LastDistanceKm < ClosestTodayKm Then
-            ClosestTodayKm = LastDistanceKm
-          EndIf
-        EndIf
-
-        EventRowWritten = True
-        CallTable LightningEvents
-      Else
-        ParseErrorCount = ParseErrorCount + 1
-      EndIf
+    If C2Level = 1 Then
+      C2HighSamples = C2HighSamples + 1
+    Else
+      C2LowSamples = C2LowSamples + 1
     EndIf
 
-    ' Counted live, then dropped. Deliberately NOT added to ParseErrorCount:
-    ' routine traffic accumulating in the fault counter would hide a missing
-    ' ground or a baud mismatch.
-    If HealthBytes > 0 Then
-      HealthRecordCount = HealthRecordCount + 1
-    EndIf
-
-    CountMismatch = PulseCountTotal - StrikeCount
-
-    ' A pulse with no serial record still deserves a row: the pulse is the
-    ' hardware witness that the sensor fired. Gated on EventRowWritten so it
-    ' cannot double up with the strike row above.
-    If PulseCountScan > 0 And Not EventRowWritten Then
-      CallTable LightningEvents
-    EndIf
-
-    ' Called every scan on purpose: Totalize accumulates once per CallTable, so
-    ' gating this on IfTime would build the daily total from one sample a day.
-    ' DataInterval decides when the row is written.
-    CallTable LightningDaily
-
-    ' Reset today's figures after the daily row is written above.
-    If IfTime (0, 1, Day) Then
-      StrikesToday = 0
-      ClosestTodayKm = NAN
-      MaxEnergyToday = 0
+    If C2Level <> PrevLevel Then
+      If PrevLevel <> -1 Then C2Changes = C2Changes + 1
+      PrevLevel = C2Level
     EndIf
 
   NextScan
 EndProg
+
