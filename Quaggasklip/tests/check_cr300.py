@@ -140,10 +140,12 @@ ck("pulse-only row gates on EventRowWritten", "Not EventRowWritten" in code)
 
 print()
 print("=== serial and pulse configuration ===")
-ck("Com1 at 9600, 8N1, 256 byte buffer",
-   re.search(r'SerialOpen\s*\(\s*Com1\s*,\s*9600\s*,\s*0\s*,\s*0\s*,\s*256\s*\)', code) is not None,
-   "Com1 is the C1/C2 pair, C2 being the receive half")
-ck("buffer flushed at start", "SerialFlush (Com1)" in code)
+ck("ComC2_Rx at 9600, 8N1, 256 byte buffer",
+   re.search(r'SerialOpen\s*\(\s*ComC2_Rx\s*,\s*9600\s*,\s*0\s*,\s*0\s*,\s*256\s*\)', code) is not None,
+   "measured: ComC2_Rx delivers bytes, Com1 delivered none on this unit")
+ck("buffer flushed at start", "SerialFlush (ComC2_Rx)" in code)
+ck("does not open the pair as Com1", not re.search(r'\bCom1\b', code),
+   "Com1 compiles but received nothing here, SerialInChk read 0 every time")
 
 # Two names that look right and are not, both confirmed by the CR300 compiler:
 #   ComC1          the CR6 and CR1000X spelling of the pair, "not defined" here
@@ -154,8 +156,7 @@ ck("does not use the CR6 spelling ComC1", "ComC1" not in code,
    "CR300 compiler: ComC1 is not defined")
 ck("does not use PortPairConfig", "PortPairConfig" not in code,
    "CR300 compiler: PortPairConfig is not defined")
-ck("no leftover ComC2_Rx references", "ComC2_Rx" not in code,
-   "mixing the pair and the receive-only alias would open one and read the other")
+
 ck("EndWord is CR LF, written as hex rather than 3338",
    re.search(r'Const\s+CRLF\s*=\s*&H0D0A', code) is not None,
    "&H0D0A reads as CR LF; the decimal 3338 does not")
@@ -225,11 +226,15 @@ code_lines = sum(1 for ln in lines if ln.strip() and not ln.strip().startswith("
 ratio = comment_lines / max(code_lines, 1)
 ck("comments no more than 1.5x the code", ratio <= 1.5,
    "%d comment / %d code lines = %.2f" % (comment_lines, code_lines, ratio))
-# The ratio check above is the real guard on comment volume. This cap is only a
-# backstop, raised to make room for the SerialOpen and SerialInChk diagnostics and
-# for the note explaining the BeginWord trap, all of which turn a silent link
-# failure into a visible one.
-ck("total under 230 lines", len(lines) < 230, "%d lines" % len(lines))
+# The ratio check above is the real guard on comment volume, and it is the one to
+# trust. This cap is only a backstop against the file becoming unreadable, and it
+# has been raised deliberately rather than trimming explanation to fit a number.
+# Everything that pushed it up has been field knowledge that cost real time to
+# learn: the BeginWord trap, PortPairConfig not existing on a CR300, ComC1 being
+# the wrong spelling, ComC2_Rx delivering where Com1 did not, and buffer depth
+# needing a high-water mark because the snapshot misleads.
+ck("total under 250 lines", len(src.splitlines()) < 250,
+   "%d lines" % len(src.splitlines()))
 
 print()
 print("=== the link cannot fail silently ===")
@@ -237,12 +242,21 @@ ck("the SerialOpen return value is captured",
    re.search(r'SerialOpenOK\s*=\s*SerialOpen\s*\(', code) is not None,
    "discarding it makes a refused port look identical to a cut wire")
 ck("buffer depth is read before it is consumed",
-   re.search(r'BytesWaiting\s*=\s*SerialInChk\s*\(\s*Com1\s*\)', code) is not None)
+   re.search(r'BytesWaiting\s*=\s*SerialInChk\s*\(\s*ComC2_Rx\s*\)', code) is not None)
 ck("SerialInChk is read before SerialInRecord consumes the buffer",
    code.index("SerialInChk") < code.index("SerialInRecord"))
 ck("neither diagnostic is sampled into a table",
    not re.search(r'Sample\s*\([^)]*SerialOpenOK', code)
-   and not re.search(r'Sample\s*\([^)]*BytesWaiting', code))
+   and not re.search(r'Sample\s*\([^)]*BytesWaiting', code)
+   and not re.search(r'Sample\s*\([^)]*BytesSeenTotal', code))
+# A snapshot of buffer depth is read at the top of the scan and emptied by the
+# reads immediately after, so it is back to 0 before anyone looks at the table and
+# cannot distinguish "nothing arrived" from "arrived and was consumed". A
+# high-water mark can.
+ck("buffer depth is accumulated, not just sampled",
+   re.search(r'MaxBytesWaiting\s*=\s*BytesWaiting', code) is not None
+   and re.search(r'BytesSeenTotal\s*=\s*BytesSeenTotal\s*\+', code) is not None,
+   "MaxBytesWaiting above 0 proves bytes reached C2 even if nothing parsed")
 
 print()
 print("=== agrees with the configuration that is on the unit ===")

@@ -11,10 +11,17 @@
 '
 ' PORT NAMES AND VOLTAGE, BOTH OF WHICH ARE CR300-SPECIFIC
 '
-' The port is Com1, being control ports 1 and 2 as a pair with C2 as the receive
-' half. Not ComC1, which is the CR6 and CR1000X spelling and does not compile
-' here. ComC2_Rx also exists and addresses the same terminal receive-only, but the
-' pair is the supported route.
+' The port is ComC2_Rx, control terminal 2 configured receive-only. This was
+' settled by measurement, not by the documentation. Opening the pair as Com1 is
+' the route Campbell's engineering team suggested and it compiles, but on this
+' unit it receives nothing at all: SerialInChk reads 0 every time. With ComC2_Rx
+' the same sends put bytes in the buffer, observed at 9, 13 and 12. Whatever the
+' pair is doing internally, it is not delivering C2 to this program.
+'
+' ComC1 is the CR6 spelling of the pair and does not compile here at all.
+' There is no PortPairConfig on the CR300 either: that belongs to the CR1000X and
+' CR6, where ports default to 5 V and must be switched down. The CR300 spec lists
+' C1 and C2 as 5.0 V output, 3.3 V input, already the level the Pi drives.
 '
 ' There is no PortPairConfig on the CR300. That instruction belongs to the CR1000X
 ' and CR6, where digital ports default to 5 V and have to be switched down. The
@@ -47,8 +54,7 @@
 '   Pi BCM 19   header pin 35           ->  CR300  P_SW    strike pulse
 '   Pi GND      Terminal 2 Click "GND"  ->  CR300  G       required
 '
-' C2 is the receive half of the pair, which is why the program opens Com1. C1
-' itself is unused here and simply idles as the pair's transmit line.
+' Nothing listens on C1, and this program never opens it.
 '
 ' The detector does not use the UART peripheral. It builds the 9600 baud waveform
 ' in software with pigpio, and the serial console has been taken off BCM 14 so
@@ -105,6 +111,14 @@ Public HealthRecordCount As Long
 Public SerialOpenOK As Boolean
 Public BytesWaiting As Long
 
+' BytesWaiting alone is a snapshot and it misleads. It is read at the top of the
+' scan and the two SerialInRecord calls empty the buffer immediately after, so by
+' the time anyone looks at the table it is back to 0 whether bytes arrived or not.
+' These two accumulate instead, so a burst that came and went is still visible.
+' MaxBytesWaiting above 0 is proof that bytes reached C2, even if nothing parsed.
+Public MaxBytesWaiting As Long
+Public BytesSeenTotal As Long
+
 Dim EventRowWritten As Boolean
 
 '=============================================================================
@@ -138,8 +152,8 @@ BeginProg
   MaxEnergyToday = 0
   StrikesToday = 0
 
-  SerialOpenOK = SerialOpen (Com1, 9600, 0, 0, 256)
-  SerialFlush (Com1)
+  SerialOpenOK = SerialOpen (ComC2_Rx, 9600, 0, 0, 256)
+  SerialFlush (ComC2_Rx)
 
   Scan (SCAN_MS, mSec, 0, 0)
 
@@ -149,15 +163,18 @@ BeginProg
     PulseCount (PulseCountScan, 1, P_SW, 2, 0, 1, 0)
     PulseCountTotal = PulseCountTotal + PulseCountScan
 
-    ' Buffer depth before either read consumes it.
-    BytesWaiting = SerialInChk (Com1)
+    ' Buffer depth before either read consumes it, plus a running record so a
+    ' burst is not invisible by the time the table is read.
+    BytesWaiting = SerialInChk (ComC2_Rx)
+    If BytesWaiting > MaxBytesWaiting Then MaxBytesWaiting = BytesWaiting
+    If BytesWaiting > 0 Then BytesSeenTotal = BytesSeenTotal + BytesWaiting
 
     ' Two reads on the one port, each keyed to a different first letter and each
     ' with its own read pointer, which is what option 110 selects. Without local
     ' pointers the two would compete for the same position in the buffer and one
     ' would swallow the other's records.
-    SerialInRecord (Com1, StrikeBody, BW_LIGHTNING, 0, CRLF, StrikeBytes, 110)
-    SerialInRecord (Com1, HealthBody, BW_HEALTH, 0, CRLF, HealthBytes, 110)
+    SerialInRecord (ComC2_Rx, StrikeBody, BW_LIGHTNING, 0, CRLF, StrikeBytes, 110)
+    SerialInRecord (ComC2_Rx, HealthBody, BW_HEALTH, 0, CRLF, HealthBytes, 110)
 
     If StrikeBytes > 0 Then
 
