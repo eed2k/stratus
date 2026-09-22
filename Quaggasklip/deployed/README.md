@@ -139,6 +139,75 @@ Record formats, CR LF terminated:
 - `L,<distance_km>,<energy>` where distance is -1 when the strike could not be ranged
 - `H,<cpu_temp_c>,<rssi_dbm>`
 
+## The CR300 serial receive is NOT yet working
+
+Read this before spending time on it, because a lot has already been eliminated
+and some of what was concluded along the way was wrong.
+
+### What is proven working
+
+- **The pulse path.** BCM 19 to `P_SW`, counted repeatedly, 8 and 16 in separate
+  runs. This proves the Pi reaches the logger, that the ground return is sound,
+  and that the logger is executing the program. It is also a genuine independent
+  strike count in service, emitted before the interference guard and the
+  validation buffer, so it survives both.
+- **The emitted waveform.** 105 us median bit period against 104.167 nominal for
+  9600, mean 104.20, measured by timestamping edges with pigpio. Baud is correct
+  and cumulative error by the stop bit is under 8% of a bit.
+- **The port opens.** `SerialOpenOK` reads true.
+
+### What is ruled out
+
+| Suspect | How it was eliminated |
+|---|---|
+| Baud mismatch | measured, 105 us per bit |
+| Logic levels | CR300 spec lists C1/C2 as 5.0 V output, **3.3 V input** |
+| `PortPairConfig` | does not exist on a CR300, the compiler rejects it |
+| `ComC1` | CR6/CR1000X spelling, does not compile here |
+| Ground | proven by the pulse path working |
+| Pi-side transmission | 84 edges per record, line idling high, readback confirmed |
+
+### Open, and the two candidates left
+
+1. **The receive framing.** `SerialInRecord` keyed on a BeginWord never matches,
+   so nothing parses and no error is raised either.
+2. **The copper between BCM 14 and C2.** Not yet proven, see the correction below.
+
+### Corrections to earlier conclusions, recorded deliberately
+
+- **`BytesWaiting` cannot distinguish "nothing arrived" from "arrived and was
+  consumed".** It is a snapshot read at the top of the scan and the two
+  `SerialInRecord` calls empty the buffer immediately after. Values of 9, 12 and
+  13 were read as proof that bytes were arriving, and a later 0 as proof they were
+  not. Neither claim was supportable. `MaxBytesWaiting` and `BytesSeenTotal` were
+  added for this reason and are the values to trust.
+- **`C2LowSamples` reaching 10659 did not prove continuity.** A floating input
+  drifting low for a long stretch gives the same reading. The value that mattered
+  was `C2Changes`, which showed 4 against 12 deliberately driven transitions.
+  Those do not match and it was called solved too early.
+- **`BytesWaiting` at 1 with `BytesSeenTotal` climbing while nothing transmits is
+  the signature of a floating receive line**, framing noise into single bytes. On
+  the evidence, C2 may have been floating for much of the diagnosis.
+
+### The two tests not yet run
+
+- **`qk_hwuart_send.sh`**, which sends the identical record through the Pi's
+  hardware UART on `/dev/ttyS0` instead of pigpio. Every test so far has used the
+  software bit-bang, so this is the first independent transmit path. It sets
+  GPIO 14 back to ALT0 first, because pigpio holds it as a plain output and
+  overrides the UART function.
+- **Bidirectional wiring.** Run the CR300's C1 back to the Pi's GPIO 15 and have
+  the logger transmit. If the Pi receives cleanly, the copper and grounds are
+  proven in one direction and the fault is cornered in the CR300's receive
+  configuration.
+
+### Method note
+
+The findings that held up were measurements: the GPIO 6 pin hunt and the bit
+timing. The ones that wasted time were inferences from symptoms, usually with more
+than one variable changed at once. Work one measurement at a time here, and state
+what result would falsify an idea before testing it.
+
 ## The CR300 read that stored nothing
 
 Worth recording because it cost a long afternoon and looks exactly like a cut
