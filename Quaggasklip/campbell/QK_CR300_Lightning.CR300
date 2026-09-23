@@ -1,89 +1,60 @@
 '=============================================================================
 '
 '  Stratus AS3935 Lightning Detection System
-'  Logging the lightning records sent by the Raspberry Pi LDS
+'  Site: QUAGGASKLIP
 '
 '  Property of METRON (PTY) LTD [Inteltronics]
 '  Developer: L.J. Esterhuizen
 '
 '=============================================================================
-' Site: QUAGGASKLIP. Requires CR300 OS 6.0 or later; this unit is on 7.04.
-' Commissioning history and the Pi-side detail are in ../deployed/README.md.
+' Stores distance, energy and the row timestamp. No health: the detector sends
+' none, and the admin panel is the system of record for whether a unit is alive.
+' The AS3935 cannot measure bearing, so there is no direction field.
 '
-' WHAT IS STORED
+' WIRING, Terminal 2 Click in socket 2 of the Pi 2 Click Shield
 '
-' Distance, energy, timestamp. One row per strike in LightningEvents; the
-' timestamp is the stamp CRBasic writes on every row, so it is not a field.
-' No daily summary, no totals, no health field. All of that is derivable from the
-' rows, and the admin panel is the system of record for whether a unit is alive.
-' So this logger cannot tell a quiet sky from a dead detector, deliberately.
+'   "INT"   Pi BCM 26   ->  C2      lightning records
+'   "RST"   Pi BCM 19   ->  P_SW    strike pulse
+'   "GND"   Pi GND      ->  G       required
 '
-' The AS3935 is single-antenna. It gives distance to the storm and energy, and it
-' cannot measure bearing, so there is no direction field and none can honestly be
-' added. Site position is not on the wire either.
+' Use INT and RST, NOT "TX". TX is BCM 14, shared with the USB HUB HAT's CP2102
+' bridge, and records sent there do not arrive. Land the cable screen at the
+' CR300 end only, on signal ground.
 '
-' WIRING, on the Terminal 2 Click in socket 2 of the Pi 2 Click Shield
+' C1/C2 use RS-232 logic, inverted with respect to TTL. The detector inverts in
+' software to match: lightning_config.json has campbell_uart_invert true.
+' Plain TTL will not be received. After editing that file:
+' sudo systemctl restart lightning-detector
 '
-'   "INT"   Pi BCM 26   ->  CR300  C2      lightning records in
-'   "RST"   Pi BCM 19   ->  CR300  P_SW    strike pulse
-'   "GND"   Pi GND      ->  CR300  G       required, else C2 samples noise
+' Record: L,<distance_km>,<energy> CR LF, 9600 baud 8N1. distance is -1 when the
+' strike could not be ranged.
 '
-' Use INT and RST, NOT "TX". "TX" is BCM 14, the Pi's hardware UART, shared with
-' the USB HUB HAT's CP2102 bridge; records sent there never arrived through three
-' separate transmit methods, while BCM 26 delivers every byte. The detector
-' bit-bangs the waveform with pigpio, so any free pin works.
+' SerialOpen format 3 is binary 8N1 with PakBus off. SerialIn TimeOut is 1, in
+' units of 0.01 s, not 0: zero waits indefinitely and stalls the scan.
 '
-' Land the cable screen at the CR300 end only, on signal ground, and cut it back
-' at the Pi end. The shield has no earth of its own, so grounding both ends would
-' make the screen a ground loop conductor.
-'
-' Pi side, /home/quaggasklip/lightning_config.json: campbell_uart_tx_pin 26 and
-' pulse_mirror_pin 19, then sudo systemctl restart lightning-detector
-'
-' ComC2_Rx is control terminal 2, receive-only. Com1 compiles but received nothing
-' here. ComC1 is the CR6 spelling and does not compile. There is no PortPairConfig
-' on the CR300; C1 and C2 are already 3.3 V inputs.
-'
-' RECORDS, 9600 baud 8N1, 3.3 V TTL, CR LF terminated
-'
-'   L,<distance_km>,<energy>     stored. distance is -1 when unrangeable
-'   H,<cpu_temp_c>,<rssi_dbm>    matched and discarded, uncounted, unstored
-'
+' Requires CR300 OS 6.0 or later for ComC2_Rx. This unit is on 7.04.
 '=============================================================================
 
 Const SCAN_MS = 200
-Const LF = 10                ' numeric, so the terminator is excluded
+Const LF = 10
 Const CR_CODE = 13
 Const MAX_CHARS = 48
 
-' Stored.
 Public LastDistanceKm As Float
 Public LastEnergy As Long
 
-' Live only, none of it sampled into a table. SerialOpenOK separates a port that
-' refused to open from a cut cable, BytesSeenTotal proves bytes reach C2,
-' RecordsRead proves they frame, and LPos with FirstRecord say what the bytes
-' actually were, which no counter can tell you.
-Public SerialOpenOK As Boolean
-Public BytesSeenTotal As Long
-Public RecordsRead As Long
 Public StrikeCount As Long
 Public ParseErrorCount As Long
 Public PulseCountTotal As Float
-Public LPos As Long
-Public RecLen As Long
+Public SerialOpenOK As Boolean
 Public LastRecord As String * 64
 
-' Latched on the first non-empty read and never cleared, because LastRecord is
-' wiped every scan and so reads empty almost always.
-Public FirstRecord As String * 64
-
-Dim BytesWaiting As Long
 Dim Parsed(2) As Float
 Dim Payload As String * 64
 Dim PulseScan As Float
+Dim RecLen As Long
+Dim LPos As Long
 
-' The timestamp and record number are written by CRBasic, so not declared here.
 DataTable (LightningEvents, True, -1)
   Sample (1, LastDistanceKm, FP2)
   Sample (1, LastEnergy, Long)
@@ -91,45 +62,33 @@ EndTable
 
 BeginProg
 
-  SerialOpenOK = SerialOpen (ComC2_Rx, 9600, 0, 0, 256)
+  SerialOpenOK = SerialOpen (ComC2_Rx, 9600, 3, 0, 256)
   SerialFlush (ComC2_Rx)
 
   Scan (SCAN_MS, mSec, 0, 0)
 
-    ' PConfig 2 = switch closure, POption 0 = counts. Live cross-check only.
     PulseCount (PulseScan, 1, P_SW, 2, 0, 1, 0)
     PulseCountTotal = PulseCountTotal + PulseScan
 
-    ' Accumulated, not just sampled: the read empties the buffer in the same scan,
-    ' so a snapshot cannot tell "nothing arrived" from "arrived and consumed".
-    BytesWaiting = SerialInChk (ComC2_Rx)
-    If BytesWaiting > 0 Then BytesSeenTotal = BytesSeenTotal + BytesWaiting
-
-    ' Cleared first: SerialIn leaves Dest alone when nothing arrives, so the
-    ' previous record would otherwise be reprocessed every scan.
     LastRecord = ""
     SerialIn (LastRecord, ComC2_Rx, 1, LF, MAX_CHARS)
     RecLen = Len (LastRecord)
 
     If RecLen > 1 Then
 
-      RecordsRead = RecordsRead + 1
-      If Len (FirstRecord) = 0 Then FirstRecord = LastRecord
-
-      ' SearchOption 2 matches the whole of "L,", so a bare "L" or a lone comma
-      ' will not trigger it. 0 means not found.
       LPos = InStr (1, LastRecord, "L,", 2)
 
+      ' A complete record ends in CR. Without this test a record split across
+      ' two scans would store as a genuine strike at the wrong energy.
       If LPos > 0 AND Mid (LastRecord, RecLen, 1) = CHR (CR_CODE) Then
 
-        ' Start after "L," so a digit in leading rubbish cannot become distance.
         Payload = Mid (LastRecord, LPos + 2, MAX_CHARS)
 
-        ' SplitOption 0 is NUMERIC: every character except + - . 0-9 and E is a
-        ' delimiter, so the trailing CR costs nothing. FilterString is ignored.
+        ' SplitOption 0 is numeric: every character except + - . 0-9 and E is a
+        ' delimiter, so the trailing CR costs no slot.
         SplitStr (Parsed(1), Payload, "", 2, 0)
 
-        ' x = x is false only for NAN, which catches a failed conversion.
+        ' x = x is false only for NAN.
         If Parsed(1) = Parsed(1) AND Parsed(2) = Parsed(2) Then
           LastDistanceKm = Parsed(1)
           LastEnergy = Parsed(2)
@@ -138,10 +97,6 @@ BeginProg
         Else
           ParseErrorCount = ParseErrorCount + 1
         EndIf
-
-      ElseIf Left (LastRecord, 2) = "H," Then
-        ' Matched and dropped, uncounted, so routine daily traffic cannot
-        ' accumulate in the fault counter and hide a real wiring problem.
 
       Else
         ParseErrorCount = ParseErrorCount + 1

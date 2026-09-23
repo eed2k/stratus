@@ -102,16 +102,14 @@ ck("a complete record is proved by its trailing CR",
    'without it a split record reads as "L,40,123" and stores as a real strike')
 ck("CR_CODE is 13", re.search(r'Const\s+CR_CODE\s*=\s*13', code) is not None)
 
-ck('an "H," record is still recognised explicitly',
-   re.search(r'Left\s*\(\s*LastRecord\s*,\s*2\s*\)\s*=\s*"H,"', code) is not None,
-   "so the Pi's daily health line does not look like a wiring fault")
-
-# Bound the search to the H branch. An unbounded scan runs into the final Else.
-_h = re.search(r'"H,"\s*Then(.*?)(?:\n\s*Else\b|\n\s*EndIf\b)', code, re.S)
-_h_branch = (_h.group(1) if _h else "").strip()
-ck("the H branch is empty: matched, dropped, never counted", _h_branch == "",
-   "counting it would put routine traffic in the fault counter; storing it "
-   "would put health in the data. Both are excluded: %r" % _h_branch)
+# The detector no longer transmits health at all: CAMPBELL_HEARTBEAT_ENABLED is
+# false, so no "H," record can ever arrive. Handling for it was removed rather
+# than left as dead code, which means an H record would now be counted as a parse
+# error. That is correct: if one appears, the detector is misconfigured and we
+# want to see it rather than have it silently absorbed.
+ck("no health handling remains in the logger",
+   '"H,"' not in code and "HealthRecordCount" not in code,
+   "the detector sends none, so the branch was dead code")
 ck("ParseErrorCount covers a bad parse and an unrecognised record",
    len(re.findall(r'ParseErrorCount\s*=\s*ParseErrorCount\s*\+\s*1', code)) == 2,
    "increments: %d (expect 2)"
@@ -187,10 +185,16 @@ ck("no pulse-only row", "EventRowWritten" not in code,
 
 print()
 print("=== port and pulse configuration ===")
-ck("ComC2_Rx at 9600, 8N1, 256 byte buffer",
-   re.search(r'SerialOpen\s*\(\s*ComC2_Rx\s*,\s*9600\s*,\s*0\s*,\s*0\s*,\s*256\s*\)',
+# Format 3 is binary 8N1 with PakBus off. Format 0 is also 8N1 but leaves PakBus
+# running on this same port and filters nulls and every character above 127, which
+# makes it both a contender for corruption and a destroyer of the evidence.
+ck("ComC2_Rx at 9600, format 3, 256 byte buffer",
+   re.search(r'SerialOpen\s*\(\s*ComC2_Rx\s*,\s*9600\s*,\s*3\s*,\s*0\s*,\s*256\s*\)',
              code) is not None,
    "measured: ComC2_Rx delivers, Com1 delivered nothing on this unit")
+ck("does not use format 0",
+   re.search(r'SerialOpen\s*\([^)]*,\s*0\s*,\s*0\s*,\s*256', code) is None,
+   "format 0 filters characters above 127 while hunting for PakBus frames")
 ck("buffer flushed at start", "SerialFlush (ComC2_Rx)" in code)
 ck("does not use the CR6 spelling ComC1", "ComC1" not in code,
    "CR300 compiler: ComC1 is not defined")
@@ -207,34 +211,37 @@ print("=== the link cannot fail silently ===")
 ck("the SerialOpen return value is captured",
    re.search(r'SerialOpenOK\s*=\s*SerialOpen\s*\(', code) is not None,
    "discarding it makes a refused port look identical to a cut wire")
-ck("buffer depth is read before it is consumed",
-   re.search(r'BytesWaiting\s*=\s*SerialInChk\s*\(\s*ComC2_Rx\s*\)', code) is not None)
-ck("SerialInChk is read before SerialIn consumes the buffer",
-   code.index("SerialInChk") < code.index("SerialIn ("))
-# A snapshot is emptied by the read in the same scan, so it cannot distinguish
-# "nothing arrived" from "arrived and was consumed". Accumulating it can, and that
-# is what proved the BCM 26 wiring delivering all 70 bytes of a burst.
-ck("buffer depth is accumulated, not just sampled",
-   re.search(r'BytesSeenTotal\s*=\s*BytesSeenTotal\s*\+', code) is not None,
-   "BytesSeenTotal above 0 proves bytes reached C2 even if nothing parsed")
-ck("BytesWaiting is not published as a bare snapshot",
-   re.search(r'Public\s+BytesWaiting', code) is None,
-   "it reads 0 by the time the table is looked at, whatever happened")
-# Counters alone could not answer why 5 of 5 records were rejected. These can.
-ck("framed records are counted separately from stored ones",
-   re.search(r'RecordsRead\s*=\s*RecordsRead\s*\+\s*1', code) is not None,
-   "RecordsRead up with StrikeCount flat isolates the fault to the content")
-ck("the first record received is latched for inspection",
-   re.search(r'If\s+Len\s*\(\s*FirstRecord\s*\)\s*=\s*0\s+Then\s+FirstRecord\s*=\s*LastRecord',
-             code) is not None,
-   "LastRecord is wiped every scan, so it reads empty almost always")
+ck("parse failures are counted",
+   re.search(r'Public\s+ParseErrorCount', code) is not None,
+   "a connected but garbled line must not look identical to a quiet sky")
+ck("accepted records are counted",
+   re.search(r'Public\s+StrikeCount', code) is not None)
+ck("the pulse mirror gives an independent witness",
+   re.search(r'Public\s+PulseCountTotal', code) is not None,
+   "it does not depend on the serial line at all")
 ck("no diagnostic is sampled into a table",
    not re.search(r'Sample\s*\([^)]*SerialOpenOK', code)
-   and not re.search(r'Sample\s*\([^)]*BytesWaiting', code)
-   and not re.search(r'Sample\s*\([^)]*BytesSeenTotal', code)
-   and not re.search(r'Sample\s*\([^)]*RecordsRead', code)
-   and not re.search(r'Sample\s*\([^)]*FirstRecord', code)
-   and not re.search(r'Sample\s*\([^)]*LPos', code))
+   and not re.search(r'Sample\s*\([^)]*ParseErrorCount', code)
+   and not re.search(r'Sample\s*\([^)]*StrikeCount', code)
+   and not re.search(r'Sample\s*\([^)]*PulseCount', code)
+   and not re.search(r'Sample\s*\([^)]*LastRecord', code))
+# The commissioning instrumentation is gone from the production program on
+# purpose. It lives in git history if it is ever needed again.
+for gone in ("RxCode", "BaudSet", "FmtSel", "ReArm", "FirstRecord",
+             "BytesSeenTotal", "RecordsRead", "MaxBytesWaiting", "RawLen"):
+    ck("no %s left in production" % gone, gone not in code)
+
+print()
+print("=== the wire needs inverted polarity, and the header must say so ===")
+# The CR300 control terminals use RS-232 logic. The detector inverts in software
+# to match; plain TTL is not received. This cost a long diagnosis, so it is
+# recorded where someone rewiring the unit will see it.
+ck("the header states the terminals use RS-232 logic",
+   re.search(r'(?i)RS-232 logic', src) is not None)
+ck("the header names the config flag that does the inverting",
+   "campbell_uart_invert" in src)
+ck("the header warns plain TTL will not work",
+   re.search(r'(?i)plain TTL will not be received', src) is not None)
 
 print()
 print("=== structure ===")
@@ -322,10 +329,22 @@ ck("tune_cap is 9, the swept optimum", cfg.get("tune_cap") == 9)
 ck("the broken daily antenna check is disabled",
    cfg.get("antenna_check_enabled") is False,
    "it reads 0 Hz and walks tune_cap down a step a day")
-ck("campbell heartbeat reduced to once a day",
+# No health on the wire to the logger at all. The interval is now irrelevant
+# while the flag is false, but it is left at the maximum as a second line of
+# defence if the flag is ever flipped by accident.
+ck("the detector sends NO health to the logger",
+   cfg.get("campbell_heartbeat_enabled") is False,
+   "health belongs to the admin panel")
+ck("and the interval is still at its maximum as a backstop",
    cfg.get("campbell_heartbeat_interval") == 86400)
 ck("the panel still gets an hourly heartbeat",
-   cfg.get("heartbeat_webhook_interval") == 3600)
+   cfg.get("heartbeat_webhook_interval") == 3600,
+   "this is the only liveness signal, so it must not be disabled")
+# The CR300 control terminals use RS-232 logic. This one flag is the difference
+# between a working link and bytes that arrive corrupt.
+ck("the detector inverts its serial output",
+   cfg.get("campbell_uart_invert") is True,
+   "plain TTL is not received by C2")
 ck("no secret committed",
    cfg.get("alert_webhook_token") == "REDACTED" and not cfg.get("stratus_api_key"))
 

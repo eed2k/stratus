@@ -176,35 +176,48 @@ is sampled into a table, and `tests/check_cr300.py` fails the build if any ever 
 
 ## The receive corruption
 
-Read this before spending time on it, because a lot has already been eliminated
-and some of what was concluded along the way was wrong.
+**RESOLVED on 23 September 2026. The cause was signal polarity.**
 
-**Current state: the bytes arrive and their values are corrupt.** A five record
-burst gave `BytesSeenTotal` 70 for 70 bytes sent, `RecordsRead` 5 and
-`ParseErrorCount` 5. The latched `FirstRecord` came back as high-bit rubbish where
-plain ASCII was transmitted, so the records were never merely misaligned: there is
-no `L,` anywhere in that stream to find.
+The CR300's C1/C2 control terminals use RS-232 logic, inverted with respect to
+TTL: idle low, start bit high, data bits complemented. The Pi was transmitting
+plain idle-high TTL, so every byte decoded wrongly while still framing at the
+correct rate.
 
-That rules out the framing theories, including the `InStr` change, which was made
-on the assumption of a leading offset and turned out to be treating the wrong
-disease. It stays because it is harmless and correct, but it is not the fix.
+The fix is in the detector, not the wiring. `CampbellUartTx._add_wave` builds the
+inverted waveform with pigpio `wave_add_generic`, because `wave_add_serial` only
+emits standard TTL, and the line idles low. It is controlled by
+`campbell_uart_invert` in `lightning_config.json`, and startup logs confirm it:
+`Campbell UART TX enabled on GPIO 26 @ 9600 baud (inverted)`.
 
-The shape of the fault points at timing or slew rather than wiring. The 50 ms
-pulse on BCM 19 to `P_SW` counts perfectly, so the cable and the ground return
-carry DC without trouble. A 9600 baud bit is 104 us, roughly 500 times faster. A
-line that passes DC and mangles fast edges is being low-passed, or is being
-sampled at the wrong instant. The transmit line idles high, confirmed by readback,
-so it is not inverted.
+How it was found, because the symptom is misleading: modelling an inverting
+receiver against the transmitted bit stream reproduced the observed bytes
+exactly, `214 218 217 118 235` for the first five of `L,40,1234567`. Five
+consecutive exact byte matches is not coincidence.
 
-`QK_CR300_RxProbe.CR300` exists to settle it by measurement instead of inference.
-It publishes `RxCode(1..16)`, the ASCII values of the received bytes as numbers,
-and makes `BaudSet` a live variable so the speed can be swept from the Public
-table without a recompile. `qk_send_at_baud.sh` is the matching Pi side.
+### Wrong turns, recorded so they are not repeated
 
-For `L,40,1234567` plus CR a healthy link reads
-`76 44 52 48 44 49 50 51 52 53 54 55 13`. Values above 127 confirm corruption, a
-consistent offset points at baud, and clean values would mean the fault was in the
-parse all along.
+- **`BytesSeenTotal` 70 for 70 bytes sent was read as proof of a healthy
+  physical link.** It is not. Every transmitted byte contains exactly one start
+  bit, so a receiver frames one byte per transmitted byte whether it decodes the
+  levels correctly or not. The matching count proved only that something arrived.
+- **Twelve clean `0x55` bytes were read as proof the line held levels.** A
+  back-to-back `0x55` stream is `0 1 0 1 0 1 0 1 0 1`, a perfect square wave, and
+  inverting a square wave maps it onto itself. `0x55` is the one byte pattern in
+  the whole space that cannot detect an inversion. It was the worst possible
+  choice of test.
+- **Bytes with long runs of identical bits failing while alternating bytes
+  survived** was read as a capacitance signature. It is equally the signature of
+  inverted polarity, and the latter was never tested until late.
+- **A DC hold test was used to conclude the conductor was open.** The test was
+  invalid: a UART receive line held low is a break condition, so the receiver
+  reports one or two framing errors and then waits for idle before re-syncing. It
+  produces a handful of bytes whether or not the wire is connected.
+- **The `InStr` change** was made on a theory of a leading byte offset. It is
+  harmless and stays, but it was not the fix.
+
+The lesson that held: measurements survived, inferences from symptoms did not.
+The transmit waveform capture, the GPIO 6 pin hunt and the receiver simulation
+all held up. Everything reasoned from counter values was wrong.
 
 ### What is proven working
 
@@ -218,58 +231,29 @@ parse all along.
   and cumulative error by the stop bit is under 8% of a bit.
 - **The port opens.** `SerialOpenOK` reads true.
 
-### What is ruled out
+### Genuinely eliminated
 
 | Suspect | How it was eliminated |
 |---|---|
-| Baud mismatch | measured, 105 us per bit |
-| Logic levels | CR300 spec lists C1/C2 as 5.0 V output, **3.3 V input** |
+| Baud mismatch | waveform captured at the pad, self-decodes byte for byte |
 | `PortPairConfig` | does not exist on a CR300, the compiler rejects it |
 | `ComC1` | CR6/CR1000X spelling, does not compile here |
-| Ground | proven by the pulse path working |
-| Pi-side transmission | 84 edges per record, line idling high, readback confirmed |
+| `Com1` | compiles, but received nothing on this unit. Use `ComC2_Rx` |
+| Ground | proven by the pulse path counting correctly |
+| Pi-side transmission | all 14 bytes decode, every start and stop bit valid, 46% sampling margin |
+| BCM 14 | shared with the USB HUB HAT's CP2102. Nothing arrives. Use BCM 26 |
 
-### Open, in the order worth testing
+### The false elimination that cost the most
 
-1. **Baud or slew.** Drop `BaudSet` to 1200 and send at 1200. Eight times the
-   timing margin. Clean at 1200 and corrupt at 9600 means slew, and the cable or
-   the drive is the target. Corrupt at both means it is not slew.
-2. **`SerialOpen` format 0.** Format 0 leaves PakBus running concurrently on the
-   same port and filters nulls and anything above 127 while it hunts for PakBus
-   frames, so it is both a contender and a destroyer of evidence. Campbell's own
-   note says to use format 3, binary with no PakBus, for anything that is not
-   plain ASCII. `FmtSel` switches it live in the probe.
-3. **Cable length and screening between the Click and the logger.** Not yet
-   measured. This is the mechanism a slew result would implicate.
+**Logic levels were ruled out early**, on the grounds that the CR300 datasheet
+lists C1/C2 as 5.0 V output and 3.3 V input, which matches what the Pi drives.
+That reasoning was about *voltage* and the fault was *polarity*. The voltage was
+never the problem and the levels table said nothing about idle state or sense.
 
-### Corrections to earlier conclusions, recorded deliberately
-
-- **`BytesWaiting` cannot distinguish "nothing arrived" from "arrived and was
-  consumed".** It is a snapshot read at the top of the scan and the two
-  `SerialInRecord` calls empty the buffer immediately after. Values of 9, 12 and
-  13 were read as proof that bytes were arriving, and a later 0 as proof they were
-  not. Neither claim was supportable. `MaxBytesWaiting` and `BytesSeenTotal` were
-  added for this reason and are the values to trust.
-- **`C2LowSamples` reaching 10659 did not prove continuity.** A floating input
-  drifting low for a long stretch gives the same reading. The value that mattered
-  was `C2Changes`, which showed 4 against 12 deliberately driven transitions.
-  Those do not match and it was called solved too early.
-- **`BytesWaiting` at 1 with `BytesSeenTotal` climbing while nothing transmits is
-  the signature of a floating receive line**, framing noise into single bytes. On
-  the evidence, C2 may have been floating for much of the diagnosis.
-
-### Tests still available if the baud sweep does not settle it
-
-- **A single-pattern send.** `qk_send_at_baud.sh 9600 1 u` transmits `0x55`
-  repeated, alternating bits, so every bit cell has an edge. `RxCode` should read
-  85 all the way along. Anything else localises the damage to a bit position
-  rather than leaving it as "garbage", and `ones` and `zeros` bracket it.
-- **Bidirectional wiring.** Run the CR300's C1 back to the Pi's GPIO 15 and have
-  the logger transmit. If the Pi receives cleanly, the copper and grounds are
-  proven in one direction and the fault is cornered in the CR300's receive path.
-- **`qk_hwuart_send.sh`** is now moot for BCM 14, which is abandoned, but the same
-  idea on another pin would give an independent transmit path to compare against
-  the pigpio bit-bang.
+Once a suspect is in a "ruled out" table it stops being reconsidered, which is
+why this one survived so long. If a fault resists every remaining explanation,
+re-read the eliminations and check what each one actually tested rather than what
+it appeared to cover.
 
 ### Method note
 

@@ -142,9 +142,10 @@ def logger_outcome(wire):
             return "parse_error", None, None
         return "stored", p[1], p[2]
 
-    if body[:2] == "H,":                  # ElseIf Left(LastRecord, 2) = "H,"
-        return "health", None, None
-
+    # No "H," branch. The detector's CAMPBELL_HEARTBEAT_ENABLED is false, so no
+    # health record can be transmitted, and handling for one was removed rather
+    # than left as dead code. An H record arriving now means the detector is
+    # misconfigured, and counting it as an error is how that becomes visible.
     return "parse_error", None, None
 
 
@@ -229,15 +230,20 @@ ck("the complete record it came from IS stored",
    logger_outcome("L,40,1234567\r\n")[0] == "stored")
 
 print()
-print("=== status records: dropped, and NOT counted as a fault ===")
-# Health goes to the admin panel. Counting it would put routine daily traffic in
-# the fault counter and hide a real wiring problem.
+print("=== status records are never stored, and should never be sent ===")
+# Health belongs to the admin panel. The detector no longer transmits it at all,
+# so an H record reaching the logger means a misconfigured detector. It is counted
+# as an error deliberately, so that shows up rather than being absorbed silently.
 for cpu, rssi, note in [(48.3, -62, "typical"), (0.0, 0, "zeros"),
                         (None, None, "fallbacks"), (float("nan"), -62, "nan cpu")]:
     wire = CampbellLink.format_heartbeat(cpu, rssi)
-    outcome, _, _ = logger_outcome(wire)
-    ck("H %-24s dropped uncounted" % note, outcome == "health",
+    outcome, d, e = logger_outcome(wire)
+    ck("H %-24s never stored" % note, outcome != "stored",
        "%s -> %s" % (repr(wire), outcome))
+    ck("H %-24s counted so it is visible" % note, outcome == "parse_error",
+       "%s -> %s" % (repr(wire), outcome))
+ck("the detector defaults to not sending health to the logger",
+   getattr(qk.Config(), "CAMPBELL_HEARTBEAT_ENABLED", None) is False)
 
 print()
 print("=== anything else on the wire is rejected and counted ===")
