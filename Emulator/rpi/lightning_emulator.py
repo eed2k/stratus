@@ -136,7 +136,7 @@ USAGE
   python3 lightning_emulator.py --probe-buttons    FIRST RUN: find the pins
   python3 lightning_emulator.py                    interactive, Click buttons live
   sudo python3 lightning_emulator.py               + SCHED_FIFO
-  python3 lightning_emulator.py --pins 4,18,17,5   CLOSE,MID,FAR,LED
+  python3 lightning_emulator.py --pins 22,18,17,4  CLOSE,MID,FAR,LED
   python3 lightning_emulator.py --fire close       one shot
   python3 lightning_emulator.py --pace loop        Arduino timing
   python3 lightning_emulator.py --storm-on-hold    hold FAR to run the storm

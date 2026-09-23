@@ -223,3 +223,7 @@ RPiZero SD Card/quaggasklip-deploy/*.bak-*
 # ESP32 beacon local secrets (WiFi password + panel token). Never commit.
 arduino_secrets.h
 Beacon/esp32/**/arduino_secrets.h
+
+# Quaggasklip card staging: contains the account password hash and WiFi PSK.
+Quaggasklip/boot/
+

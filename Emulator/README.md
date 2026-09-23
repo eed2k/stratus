@@ -179,9 +179,33 @@ It also takes `SCHED_FIFO` for the few milliseconds of a burst when run with
 
 ### It runs offline, and there is nothing to install
 
-The emulator is a bench instrument. It generates signals for testing LDS units
-and it talks to nothing: no WiFi, no panel, no cloud. So it has to work on a Pi
-that has never had a network, and it does.
+The emulator is a bench instrument. It generates signals for testing LDS units and
+it needs nothing from the network to do that: no panel, no cloud. It has to work
+on a Pi that has never had a network, and it does. Strikes are fired from the
+Click's own buttons, so a working rig needs no connectivity at all.
+
+**WiFi has since been added, and the reasoning for leaving it off did not
+survive contact with the bench.** The original position was that a bench
+instrument should talk to nothing. In practice this board has no display output
+available, its USB gadget never enumerated, and its logs live on an ext4 partition
+that Windows cannot read, so a fault left no way to observe the unit at all. WiFi
+is what turns it from a black box into something that can be diagnosed. The
+credentials go in a NetworkManager keyfile written by `firstrun.sh`, because
+Bookworm dropped `wpa_supplicant.conf` and Raspberry Pi OS does not use netplan.
+
+If you would rather ship it dark, delete the keyfile block from `firstrun.sh`. The
+emulator itself does not care either way.
+
+### Set VCC SEL to 3V3, not 5V
+
+The Click's `VCC SEL` jumper selects which rail powers the board, and the I2C
+pull-ups follow it. On 5V the Click presents 5V on SDA and SCL, which land on the
+Pi's GPIO2 and GPIO3. **Raspberry Pi GPIOs are not 5V tolerant.**
+
+There is a second reason. The MCP4725 swings rail to rail, so at 5V the coil is
+driven roughly 50% harder. That pushes the emitted field past what the AS3935 will
+accept as lightning and the detector logs `INT_NOISE_HIGH` instead of a strike,
+which reads as "the emulator does nothing" while it is in fact shouting.
 
 Both third-party imports are already on Raspberry Pi OS Lite. The image is built
 from pi-gen **stage2**, whose package list includes `python3-smbus2`,
@@ -199,8 +223,32 @@ change, and it is the single piece of setup that genuinely has to happen.
 ### Bench card
 
 The SD card is staged from Windows against the FAT32 boot partition, which the
-running Pi mounts at `/boot/firmware`. On first boot cloud-init runs the
-installer:
+running Pi mounts at `/boot/firmware`.
+
+**First boot provisioning is `firstrun.sh` via `systemd.run`, not cloud-init.**
+This was the single most expensive mistake in this rig's history, so it is worth
+stating plainly. cloud-init *is* present on the image (25.2) and it does create
+the `emulator1` user from the `user-data` block, but the `runcmd` that was
+supposed to run the installer never took effect, and its `network-config`
+rendered only `usb0` so `wlan0` was left unmanaged. The result was a Pi with no
+emulator service, no network and no console, which presented as a dead board: the
+thunder LED sat lit because GPIO4 was never claimed and BCM 0-8 default to a
+pull-up. Hours went into chasing an LED.
+
+The mechanism that works is the one Raspberry Pi Imager itself uses:
+
+- `userconf.txt` on the boot partition creates the user
+- an empty `ssh` file enables sshd
+- `systemd.run=/boot/firmware/firstrun.sh` in `cmdline.txt` runs everything else
+  once, then removes itself from `cmdline.txt`
+- `firstrun.sh` writes a full report to `/boot/firmware/diag/`, which is FAT32 and
+  therefore readable in a card reader with no screen and no network
+
+That last point is the thing to keep. On a board with no display and no network,
+a mechanism that records its own outcome to the FAT partition is the difference
+between diagnosing in one boot and guessing for an afternoon.
+
+Payload staged onto the card:
 
 ```
 /boot/firmware/emulator/install.sh          offline, idempotent
@@ -242,6 +290,29 @@ journalctl -u lightning-emulator -f
 
 The service holds the GPIO pins, so stop it before driving the emulator by hand
 or the pins will not be free.
+
+### The working directory must be writable, or no button will ever work
+
+`RuntimeDirectory=lightning-emulator` and `WorkingDirectory=/run/lightning-emulator`
+are load bearing. The lgpio C library creates its notification FIFOs, `.lgd-nfy*`,
+in the **process working directory**, not in `/tmp`. The unit originally pointed
+`WorkingDirectory` at `/opt/lightning-emulator`, which `install.sh` owns as root,
+while running as `emulator1`. lgpio could not create its pipe:
+
+```
+xCreatePipe: Can't set permissions (436) for /opt/lightning-emulator/.lgd-nfy0
+```
+
+gpiozero then fell through lgpio, rpigpio and pigpio to `NativeFactory`, which
+cannot service these reads, so all three button pins failed with `EINVAL`, the
+script concluded nothing could fire a strike, and exited 1 on a 15 second restart
+loop. The symptom was "the Click buttons do nothing" and the cause was a directory
+permission. The I2C bus, the Click and the DAC were healthy throughout, which the
+boot report confirmed with `DAC found at 0x60 on /dev/i2c-1`.
+
+If the buttons ever stop working again, check `ls -ld /run/lightning-emulator` and
+the journal for `PinFactoryFallback` before touching the pin map. `--probe-buttons`
+will not help with this fault and will send you looking in the wrong place.
 
 ### By hand
 

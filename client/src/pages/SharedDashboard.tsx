@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { safeFixed } from "@/lib/utils";
+import { buildAlignedCsv, downloadTextFile } from "@/lib/csvExport";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1443,14 +1444,14 @@ function SharedDashboardContent() {
       ];
     });
     const timeLabel = chartTimeRange <= 48 ? chartTimeRange + 'h' : Math.round(chartTimeRange / 24) + 'd';
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${stationName}_${timeLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    // Quoted to RFC 4180, padded so values sit under their headings, and prefixed
+    // with a BOM so Excel reads it as UTF-8. This export previously had none of
+    // the three: "Barometric Pressure (hPa)" is 25 characters over 4-character
+    // values, so nothing lined up. See lib/csvExport.ts.
+    downloadTextFile(
+      buildAlignedCsv(headers, rows),
+      `${stationName}_${timeLabel}_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
   };
 
   const handleExportTOA5 = () => {

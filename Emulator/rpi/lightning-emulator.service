@@ -36,7 +36,19 @@ Type=simple
 User=emulator1
 AmbientCapabilities=CAP_SYS_NICE
 
-WorkingDirectory=/opt/lightning-emulator
+# MUST be writable by emulator1. The lgpio C library creates its notification
+# FIFOs (.lgd-nfy*) in the PROCESS WORKING DIRECTORY, not in /tmp. Pointing this
+# at /opt/lightning-emulator, which install.sh owns as root, made lgpio fail with
+#   xCreatePipe: Can't set permissions (436) for .../.lgd-nfy0
+# gpiozero then fell through lgpio, rpigpio and pigpio to NativeFactory, which
+# cannot service the button reads, so all three pins failed with EINVAL, the
+# script concluded nothing could fire a strike and exited 1. The symptom was
+# "the Click buttons do nothing", and it was a directory permission the whole
+# time. RuntimeDirectory gives us /run/lightning-emulator owned by the service
+# user, created before ExecStart and cleaned up on stop.
+RuntimeDirectory=lightning-emulator
+WorkingDirectory=/run/lightning-emulator
+Environment=LG_WD=/run/lightning-emulator
 
 # Flags live in /etc/default/lightning-emulator so they can be changed without
 # editing a unit file. The leading "-" makes the file optional. Unbraced $EMU_ARGS
@@ -61,11 +73,13 @@ KillSignal=SIGINT
 TimeoutStopSec=20
 
 # Modest hardening only, and deliberately not ProtectSystem=strict. The script
-# writes nothing, so strict would buy very little, and this box has no network to
-# debug through: a sandbox rule quietly blocking lgpio would present as "the
-# buttons do nothing", which is the single most expensive symptom to chase here.
-# PrivateTmp is safe and worth keeping, because the lgpio C library puts its
-# notification FIFOs in /tmp.
+# writes nothing there, so strict would buy very little, and a sandbox rule
+# quietly blocking lgpio presents as "the buttons do nothing", which is the single
+# most expensive symptom to chase on a box with no console.
+#
+# Note on PrivateTmp: it is kept because it is harmless, NOT because lgpio needs
+# it. lgpio writes to the working directory, which is why RuntimeDirectory above
+# is the thing that actually matters.
 NoNewPrivileges=yes
 ProtectHome=yes
 PrivateTmp=yes

@@ -7,32 +7,21 @@
 '  Developer: L.J. Esterhuizen
 '
 '=============================================================================
-' Stores distance, energy and the row timestamp. No health: the detector sends
-' none, and the admin panel is the system of record for whether a unit is alive.
-' The AS3935 cannot measure bearing, so there is no direction field.
+' Stores distance, energy and the row timestamp.
 '
 ' WIRING, Terminal 2 Click in socket 2 of the Pi 2 Click Shield
 '
-'   "INT"   Pi BCM 26   ->  C2      lightning records
-'   "RST"   Pi BCM 19   ->  P_SW    strike pulse
-'   "GND"   Pi GND      ->  G       required
-'
-' Use INT and RST, NOT "TX". TX is BCM 14, shared with the USB HUB HAT's CP2102
-' bridge, and records sent there do not arrive. Land the cable screen at the
-' CR300 end only, on signal ground.
+'   Pi BCM 26   ->  C2      lightning records
+'   Pi BCM 19   ->  P_SW    strike pulse
+'   Pi GND      ->  G       
 '
 ' C1/C2 use RS-232 logic, inverted with respect to TTL. The detector inverts in
 ' software to match: lightning_config.json has campbell_uart_invert true.
 ' Plain TTL will not be received. After editing that file:
 ' sudo systemctl restart lightning-detector
 '
-' Record: L,<distance_km>,<energy> CR LF, 9600 baud 8N1. distance is -1 when the
+' Record: L,<distance_km>,<energy> CR LF, 9600 baud 8N1. distance -1 when the
 ' strike could not be ranged.
-'
-' SerialOpen format 3 is binary 8N1 with PakBus off. SerialIn TimeOut is 1, in
-' units of 0.01 s, not 0: zero waits indefinitely and stalls the scan.
-'
-' Requires CR300 OS 6.0 or later for ComC2_Rx. This unit is on 7.04.
 '=============================================================================
 
 Const SCAN_MS = 200

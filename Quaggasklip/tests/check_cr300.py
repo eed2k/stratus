@@ -122,8 +122,8 @@ print("=== no bearing and no position: the sensor cannot measure either ===")
 for bad in ("Bearing", "Azimuth", "Direction", "Heading",
             "Latitude", "Longitude", "SiteLat", "SiteLon"):
     ck("no %s variable" % bad, not re.search(r'\b%s\b' % bad, code))
-ck("the header says bearing cannot be measured",
-   re.search(r'(?i)cannot measure bearing', src) is not None)
+# The prose explaining why lives in deployed/README.md, asserted further down.
+# Here we only require that no bearing or position field exists in the code.
 
 print()
 print("=== what is stored: distance, energy, timestamp. Nothing else ===")
@@ -268,21 +268,46 @@ ck("names the config file that actually exists",
    "lightning_config.json" in src and "quaggasklip_config.json" not in src)
 
 print()
-print("=== wiring notes name the terminals that actually work ===")
-# Records on INT/BCM 26 and the pulse on RST/BCM 19. "TX" is BCM 14, shared with
-# the USB HUB HAT's CP2102, and records sent there never arrived through three
-# separate transmit methods.
+print("=== wiring facts the program header must carry ===")
+# The header was deliberately trimmed, so only the facts a field engineer needs
+# while looking at the program are required here. The rest is asserted against
+# deployed/README.md below, which is where the detail now lives.
 ck("records go from BCM 26 to C2",
    re.search(r'BCM\s*26[^\n]*C2', src) is not None)
 ck("the strike pulse goes from BCM 19 to P_SW",
    re.search(r'BCM\s*19[^\n]*P_SW', src) is not None)
-ck("names the INT and RST terminals",
-   '"INT"' in src and '"RST"' in src)
-ck("warns against the TX terminal and BCM 14",
-   re.search(r'NOT\s+"TX"', src) is not None and "BCM 14" in src,
-   "BCM 14 is shared with the HAT's CP2102 bridge and is contended")
 ck("no screw-block position claims", not re.search(r'TB[12]\s+pin\s+\d', src))
-ck("covers the cable screen", "screen" in src.lower())
+
+print()
+print("=== wiring detail lives in deployed/README.md ===")
+# These were in the program header and were trimmed out on purpose. They still
+# have to exist somewhere, because each one is a trap that has already cost time:
+# landing on the TX terminal, grounding the screen at both ends, or expecting a
+# bearing the sensor cannot produce.
+DOC = os.path.normpath(os.path.join(HERE, "..", "deployed", "README.md"))
+doc = open(DOC, encoding="utf-8").read()
+_flat = re.sub(r"\s+", " ", doc)
+
+ck("names the INT and RST terminals", "`INT`" in doc and "`RST`" in doc)
+ck("warns against the TX terminal and BCM 14",
+   "`TX`" in doc and "BCM 14" in doc,
+   "BCM 14 is shared with the HAT's CP2102 bridge and is contended")
+ck("covers the cable screen", "screen" in doc.lower())
+ck("says bearing cannot be measured",
+   re.search(r"(?i)cannot resolve direction", _flat) is not None,
+   "a single-antenna AS3935 gives distance and energy only")
+ck("records the inverted polarity and how it is set",
+   "RS-232 logic" in doc and "campbell_uart_invert" in doc)
+ck("records that wave_add_generic is used, not wave_add_serial",
+   "wave_add_generic" in doc)
+ck("does not still claim the link is broken",
+   "still wrong" not in doc and "NOT yet working" not in doc,
+   "the fault was resolved on 23 September 2026")
+ck("does not still advertise the H health record as sent",
+   re.search(r"(?i)no longer sent", _flat) is not None,
+   "campbell_heartbeat_enabled is false")
+for bad in ("GWLD1", "GLENCORE", "WONDERKOP", "Wonderkop"):
+    ck("README has no %s reference" % bad, bad not in doc)
 
 print()
 print("=== attribution and language ===")

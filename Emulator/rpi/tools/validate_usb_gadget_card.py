@@ -13,7 +13,7 @@ from pathlib import Path
 
 CARD = Path(sys.argv[1] if len(sys.argv) > 1 else "D:/")
 BENCH_KEY = "AAAAC3NzaC1lZDI1NTE5AAAAIK1cQ1n3+aa3AYpnUaraJgqeVG/keqbpuzyv1Qmij/ot"
-GWLD1_KEY = "AAAAC3NzaC1lZDI1NTE5AAAAIOxe24Ihqo4ZRqAOZAyWTdbEN2YfA0PZfFOxSwU1xUq6"
+EMULATOR_KEY = "AAAAC3NzaC1lZDI1NTE5AAAAIK1cQ1n3+aa3AYpnUaraJgqeVG/keqbpuzyv1Qmij/ot"
 
 passed = failed = 0
 
@@ -41,7 +41,7 @@ try:
     keys = (doc.get("user") or {}).get("ssh_authorized_keys") or []
     ck("exactly one authorised key", len(keys) == 1, "found %d" % len(keys))
     ck("it is the dedicated bench key", any(BENCH_KEY in k for k in keys))
-    ck("the GWLD1 key is gone", not any(GWLD1_KEY in k for k in keys))
+    ck("the emulator key is gone", not any(EMULATOR_KEY in k for k in keys))
     ck("password auth stays off over SSH", doc.get("ssh_pwauth") is False,
        "the password remains the console fallback")
     ck("the user is still emulator1",
@@ -74,7 +74,7 @@ except ImportError:
     ck("exactly one authorised key",
        len(re.findall(r"ssh-(?:ed25519|rsa) AAAA", ud)) == 1)
     ck("it is the dedicated bench key", BENCH_KEY in ud)
-    ck("the GWLD1 key is gone", GWLD1_KEY not in ud)
+    ck("the emulator key is gone", EMULATOR_KEY not in ud)
     ck("usb0 is defined", "usb0" in nc)
     ck("usb0 has a static address", "10.55.0.1/24" in nc)
     ck("no tab characters in the YAML",

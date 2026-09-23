@@ -120,16 +120,18 @@ anything else on this unit.
 **Do not use the Click's `TX` terminal.** Socket 2 routes `TX` to BCM 14, the Pi's
 hardware UART, which on this unit is shared with the USB HUB HAT's CP2102 bridge.
 Records transmitted on BCM 14 produced nothing at C2 at all, through three
-separate transmit methods. On BCM 26 the bytes do arrive: a five record burst of
-14 byte records gave `BytesSeenTotal` 70 for 70 bytes sent.
+separate transmit methods. Use BCM 26 on the `INT` terminal.
 
-**The byte values are still wrong, and that is the open fault.** See "The receive
-corruption" below. Do not read the 70 for 70 above as a working link.
+Land the cable screen at the CR300 end only, on signal ground, and cut it back at
+the Pi end. The shield has no earth of its own, so grounding both ends would make
+the screen a ground loop conductor.
 
-The detector does not use the UART peripheral. It builds the 9600 baud 8N1
-waveform in software with pigpio `wave_add_serial`, and pyserial is not installed
-on the unit at all, so any free GPIO works and the transmit pin is only a config
-value.
+The detector does not use the UART peripheral, and pyserial is not installed on
+the unit at all. It builds the 9600 baud 8N1 waveform in software with pigpio, so
+any free GPIO works and the transmit pin is only a config value. Note that it uses
+`wave_add_generic` rather than `wave_add_serial`, because the waveform has to be
+inverted and `wave_add_serial` only emits standard TTL. See "The receive
+corruption" below.
 
 Two boot changes were made while BCM 14 was still the candidate pin. Both were
 kept, because each is worth having on its own:
@@ -146,10 +148,14 @@ kept, because each is worth having on its own:
 Losing the serial console costs a last-resort way in, acceptable now that both
 Tailscale and WiFi SSH work.
 
-Record formats, CR LF terminated:
+Record format, CR LF terminated:
 
 - `L,<distance_km>,<energy>` where distance is -1 when the strike could not be ranged
-- `H,<cpu_temp_c>,<rssi_dbm>`
+
+There was also an `H,<cpu_temp_c>,<rssi_dbm>` health record. It is no longer sent:
+`campbell_heartbeat_enabled` is false and the handling has been removed from the
+logger program, so an `H` record arriving now counts as a parse error. That is
+deliberate, because it would mean the detector is misconfigured.
 
 There is no bearing field and no site position on the wire. The AS3935 is a
 single-antenna sensor: it measures distance to the storm and energy, and it cannot

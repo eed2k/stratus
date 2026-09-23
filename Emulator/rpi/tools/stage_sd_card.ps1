@@ -165,7 +165,7 @@ Ck 'config.txt did not gain a second i2c_arm=on' `
 $ud = [System.IO.File]::ReadAllText((Join-Path $card 'user-data'))
 Ck 'user-data starts with #cloud-config' ($ud.StartsWith('#cloud-config'))
 Ck 'user-data kept the password hash' ($ud.Contains('$y$jB5$9NHPHRa9LZnNodaRt7ZGb/'))
-Ck 'user-data kept the ssh key' ($ud.Contains('AAAAC3NzaC1lZDI1NTE5AAAAIOxe24Ihqo4ZRqAOZAyWTdbEN2YfA0PZfFOxSwU1xUq6'))
+Ck 'user-data kept the ssh key' ($ud.Contains('AAAAC3NzaC1lZDI1NTE5AAAAIK1cQ1n3+aa3AYpnUaraJgqeVG/keqbpuzyv1Qmij/ot'))
 Ck 'user-data drops the packages list' (-not ($ud -match '(?m)^packages:'))
 Ck 'user-data calls the installer' ($ud.Contains('bash /boot/firmware/emulator/install.sh'))
 Ck 'user-data has no CR' (-not $ud.Contains("`r"))

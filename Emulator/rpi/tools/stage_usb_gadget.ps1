@@ -195,7 +195,7 @@ if ($before -lt 1) { Fail 'Could not find an ssh_authorized_keys entry to replac
 
 # Replace every authorised key with exactly one: this card's own. cloud-init
 # appends to authorized_keys rather than replacing it, so leaving the old entry
-# here would keep the GWLD1 key valid on the unit.
+# here would keep the emulator key valid on the unit.
 $ud = [regex]::Replace($ud, '(?m)^(\s*)-\s+"ssh-(ed25519|rsa)[^"]*"\s*$', "`$1- `"$pub`"", 1)
 $ud = [regex]::Replace($ud, '(?m)^\s*-\s+"ssh-(ed25519|rsa)[^"]*"\s*\r?\n', '', [System.Text.RegularExpressions.RegexOptions]::None)
 
@@ -205,13 +205,13 @@ if ($ud -notmatch [regex]::Escape($pub)) {
 }
 $after = ([regex]::Matches($ud, 'ssh-(ed25519|rsa) AAAA')).Count
 if ($after -ne 1) { Fail "Expected exactly 1 authorised key after edit, found $after. Refusing to write." }
-if ($ud -match 'AAAAC3NzaC1lZDI1NTE5AAAAIOxe24Ihqo4ZRqAOZAyWTdbEN2YfA0PZfFOxSwU1xUq6') {
-  Fail 'The GWLD1 key is still present after the edit. Refusing to write.'
+if ($ud -match 'AAAAC3NzaC1lZDI1NTE5AAAAIK1cQ1n3+aa3AYpnUaraJgqeVG/keqbpuzyv1Qmij/ot') {
+  Fail 'The emulator key is still present after the edit. Refusing to write.'
 }
 
 Set-Content $udPath $ud -Encoding ascii -NoNewline
 Add-Content $udPath "`n" -NoNewline -Encoding ascii
-Step "replaced $before key(s) with 1 dedicated bench key, GWLD1 key gone"
+Step "replaced $before key(s) with 1 dedicated bench key, emulator key gone"
 
 Write-Host ''
 Write-Host '=== VERIFY ==='
@@ -219,7 +219,7 @@ Step "cmdline : $(Get-Content (Join-Path $Card 'cmdline.txt') -Raw)".Trim()
 Step "dwc2 in config.txt   : $([bool](Select-String -Path $cfgPath -Pattern 'dwc2,dr_mode=peripheral' -Quiet))"
 Step "usb0 in network-config: $([bool](Select-String -Path (Join-Path $Card 'network-config') -Pattern 'usb0' -Quiet))"
 Step "keys in user-data     : $after"
-Step "GWLD1 key present     : $([bool](Select-String -Path $udPath -Pattern 'AAAAIOxe24Ihqo4ZRqAOZAyWTdbEN2YfA0PZfFOxSwU1xUq6' -Quiet))"
+Step "emulator key present     : $([bool](Select-String -Path $udPath -Pattern 'AAAAIOxe24Ihqo4ZRqAOZAyWTdbEN2YfA0PZfFOxSwU1xUq6' -Quiet))"
 
 Write-Host ''
 Write-Host '=== NEXT ==='

@@ -49,7 +49,7 @@ user:
   lock_passwd: false
   passwd: "$y$jB5$9NHPHRa9LZnNodaRt7ZGb/$/2PcKIjuFz369VUhODvH81Ak5g7hSsjtBQQw/XJ.IM5"
   ssh_authorized_keys:
-    - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOxe24Ihqo4ZRqAOZAyWTdbEN2YfA0PZfFOxSwU1xUq6"
+    - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK1cQ1n3+aa3AYpnUaraJgqeVG/keqbpuzyv1Qmij/ot"
   sudo: null
 ssh_pwauth: false
 runcmd:

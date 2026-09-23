@@ -1,0 +1,72 @@
+﻿=== STOPPING lightning-detector (SPI and IRQ pin must be free) ===
+inactive
+
+=== PROBE ===
+SPI: bus 0 device 0, speed 1000000 Hz, mode 1
+
+=== REGISTER DUMP (sensor liveness) ===
+  0x00 = 0x5E  01011110
+  0x01 = 0x55  01010101
+  0x02 = 0xD2  11010010
+  0x03 = 0x20  00100000
+  0x04 = 0x00  00000000
+  0x05 = 0x00  00000000
+  0x06 = 0x00  00000000
+  0x07 = 0x01  00000001
+  0x08 = 0x09  00001001
+  tune_cap now  : 9
+  LCO_FDIV now  : 16
+  mask disturber: 1
+  SPI framing   : OK (0x01 = 0x55 as expected)
+
+=== PHASE 1: baseline, DISP_LCO OFF (1.0 s) ===
+  active pins: none, all quiet
+
+=== PHASE 2: LCO pin hunt, FDIV=128 (1.0 s) ===
+  GPIO     pin freq (Hz)  implied antenna (Hz)
+  GPIO 6   3937.0         503936
+
+=== PHASE 3: tune_cap sweep on GPIO 6 ===
+  target 500000 Hz, in-tolerance band 482500 to 517500 Hz
+
+  tune_cap  pF       antenna (Hz)  error (Hz)  verdict
+  0         0        516736        +16736      IN TOLERANCE
+  1         8        514688        +14688      IN TOLERANCE
+  2         16       513280        +13280      IN TOLERANCE
+  3         24       510976        +10976      IN TOLERANCE
+  4         32       509696        +9696       IN TOLERANCE
+  5         40       507776        +7776       IN TOLERANCE
+  6         48       507008        +7008       IN TOLERANCE
+  7         56       505216        +5216       IN TOLERANCE
+  8         64       503424        +3424       IN TOLERANCE
+  9         72       500480        +480        IN TOLERANCE
+  10        80       499456        -544        IN TOLERANCE
+  11        88       495616        -4384       IN TOLERANCE
+  12        96       496256        -3744       IN TOLERANCE
+  13        104      493568        -6432       IN TOLERANCE
+  14        112      492416        -7584       IN TOLERANCE
+  15        120      491520        -8480       IN TOLERANCE
+
+=== RESULT ===
+  LCO pin            : GPIO 6
+  configured irq_pin : 6
+  best tune_cap      : 9  (72 pF)
+  frequency there    : 500480 Hz  (error +480 Hz, 0.10%)
+  within 3.5%        : YES
+
+registers restored: 0x03=0x20 0x08=0x09
+
+=== RESTARTING lightning-detector ===
+active
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,067 [INFO]   Mask Disturber: True
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,074 [INFO]   IRQ Pin:        GPIO 6
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,079 [INFO]   Pulse Mirror:   enabled (GPIO 19, 50 ms pulse)
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,084 [INFO]   Campbell UART:  enabled (GPIO 26 @ 9600 baud)
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,088 [INFO]   Station ID:     QUAGGASKLIP
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,094 [INFO]   Stratus:        disabled
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,096 [INFO]   Log Directory:  /home/quaggasklip/lightning_data
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,098 [INFO]   Log Retention:  90 days
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,198 [INFO] Campbell UART TX enabled on GPIO 26 @ 9600 baud (inverted)
+Sep 23 09:47:20 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:20,203 [INFO] System ready - listening for lightning events...
+Sep 23 09:47:20 as3935Quaggasklip systemd[1]: Started lightning-detector.service - Lightning Detection System (AS3935) - Quaggasklip.
+Sep 23 09:47:22 as3935Quaggasklip python3[1830]: 2026-09-23 09:47:22,025 [INFO] Heartbeat webhook sent

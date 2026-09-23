@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
+import { buildAlignedCsv, downloadTextFile } from "@/lib/csvExport";
 import { safeFixed } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -130,15 +131,12 @@ export default function History({ canAccessStation, isAdmin }: HistoryProps) {
       d.chargerVoltage?.toString() || "",
     ]);
     
-    // BOM for Excel compatibility
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `weather_data_${activeStationId}_${startDate}_${endDate}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    // Quoted to RFC 4180 and padded so values sit under their headings. See
+    // lib/csvExport.ts for why padding goes on the right.
+    downloadTextFile(
+      buildAlignedCsv(headers, rows),
+      `weather_data_${activeStationId}_${startDate}_${endDate}.csv`,
+    );
   };
 
   const handleExportTOA5 = () => {
