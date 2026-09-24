@@ -23,6 +23,13 @@ LAST_ALERT_SENT_KEY = "last_alert_sent_at"
 # Hard ceiling so a typo can't silence alerts for days.
 MAX_COOLDOWN_MIN = 1440
 
+# Test mode never lasts longer than this, whatever is asked for. While a station
+# is in test mode no SMS is sent for its events, including a real strike, so the
+# window has to be short enough that it cannot be forgotten about across a shift
+# change. The detector applies the same ceiling to what the panel tells it, so
+# neither side alone can extend it.
+MAX_TEST_MODE_MIN = 60
+
 
 def _key(base: str, tenant_id) -> str:
     return f"t{int(tenant_id)}:{base}" if tenant_id is not None else base
@@ -159,6 +166,78 @@ def touch_unit(db: Session, station_id: str, kind: str = "heartbeat",
         except (TypeError, ValueError):
             pass
     db.commit()
+
+
+# --------------------------- Detector test mode ---------------------------
+# Stored as an expiry on the station's own UnitStatus row rather than in the
+# Setting table. Setting.key is VARCHAR(64) and would have to carry the tenant,
+# the key name and the station id, which a long station id overflows; and test
+# mode is a property of one detector, so it belongs on the detector's row.
+
+def set_test_mode(db: Session, station_id: str, minutes: int):
+    """Put one detector into test mode for `minutes`, or 0 to end it now.
+
+    Returns the expiry that was stored, or None when test mode was switched off.
+    Raises LookupError for an unknown station, so a caller cannot believe it has
+    armed a detector that does not exist.
+    """
+    station_id = (station_id or "").strip()
+    row = db.get(UnitStatus, station_id) if station_id else None
+    if row is None:
+        raise LookupError(station_id)
+    try:
+        minutes = int(minutes)
+    except (TypeError, ValueError):
+        minutes = 0
+    minutes = max(0, min(MAX_TEST_MODE_MIN, minutes))
+    if minutes == 0:
+        row.test_mode_until = None
+    else:
+        from datetime import timedelta
+        row.test_mode_until = now_sast() + timedelta(minutes=minutes)
+    db.commit()
+    return row.test_mode_until
+
+
+def test_mode_remaining_s(db: Session, station_id: str) -> int:
+    """Seconds of test mode left for this station, 0 when it is not in test mode.
+
+    An expiry in the past reads as 0 and is not cleared. Nothing needs to run for
+    test mode to end, which is the point: a missed cleanup job cannot leave a
+    detector silently suppressed.
+    """
+    station_id = (station_id or "").strip()
+    row = db.get(UnitStatus, station_id) if station_id else None
+    until = getattr(row, "test_mode_until", None) if row is not None else None
+    if until is None:
+        return 0
+    remaining = (until - now_sast()).total_seconds()
+    if remaining <= 0:
+        return 0
+    # Clamp on read as well as on write. A row edited directly in the database,
+    # or written before the ceiling was lowered, must not outrank the ceiling.
+    return int(min(remaining, MAX_TEST_MODE_MIN * 60))
+
+
+def test_mode_active(db: Session, station_id: str) -> bool:
+    return test_mode_remaining_s(db, station_id) > 0
+
+
+def test_mode_stations(db: Session, tenant_id=None):
+    """[(station_id, seconds_remaining), ...] for stations now in test mode.
+
+    Scoped to one client when tenant_id is given. Used by the banner, so an
+    operator opening the dashboard can see that a detector is not alerting.
+    """
+    q = db.query(UnitStatus).filter(UnitStatus.test_mode_until.isnot(None))
+    if tenant_id is not None:
+        q = q.filter(UnitStatus.tenant_id == tenant_id)
+    out = []
+    for row in q.order_by(UnitStatus.station_id).all():
+        left = test_mode_remaining_s(db, row.station_id)
+        if left > 0:
+            out.append((row.station_id, left))
+    return out
 
 
 def get_units(db: Session, active_threshold_s: int, tenant_id=None):

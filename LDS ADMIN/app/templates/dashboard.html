@@ -4,6 +4,29 @@
 <h1>Dashboard</h1>
 
 {#
+  Test mode banner.
+
+  A detector under test records its strikes and sends no SMS for them. Somebody
+  watching this page during a storm has to be told that, because everything else
+  here looks entirely normal: events keep arriving, the storm view keeps drawing,
+  and only the Sent column would ever hint that nothing went out.
+
+  Placed above the storm card, ahead of what the page is otherwise for.
+#}
+{% if testing %}
+<div class="error" role="alert">
+  <strong>Test mode is on.</strong>
+  {% for station, secs in testing %}
+    {{ station }} ({{ (secs / 60) | round(0, 'ceil') | int }} min left){% if not loop.last %}, {% endif %}
+  {% endfor %}.
+  Strikes are still being recorded, but <strong>no SMS is being sent</strong> for
+  {{ 'these detectors' if testing|length > 1 else 'this detector' }}, including
+  for a genuine strike. Test mode ends by itself; contact Stratus Weather if it
+  should not be on.
+</div>
+{% endif %}
+
+{#
   Alert delivery and Detector unit moved to the Settings page.
 
   This is the page people open when lightning is about, so it carries only the
@@ -39,7 +62,10 @@
     {% for e in events %}
     <tr>
       <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-      <td>{{ e.station_id }}</td>
+      {# An event recorded during a commissioning test is marked, so a zero in
+         the Sent column reads as "deliberately not sent" rather than as a
+         delivery failure. #}
+      <td>{{ e.station_id }}{% if e.is_test %} <strong>[test]</strong>{% endif %}</td>
       <td>{{ e.distance_km }}</td>
       <td>{{ e.energy }}</td>
       <td>{{ e.recipients_targeted }}</td>

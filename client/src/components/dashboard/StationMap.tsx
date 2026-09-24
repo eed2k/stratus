@@ -446,13 +446,35 @@ export function StationMap({
          * water, shadow and dark scrub. The white ring is what guarantees it
          * reads over whatever happens to be underneath, which on a mast site
          * could be dark bush, bright sand or a pale roof.
+         *
+         * ANCHOR. The tip has to sit on the coordinate, not near it, which takes
+         * a little geometry rather than the obvious value.
+         *
+         * The shape is the usual teardrop trick: a 32 px square with three
+         * corners rounded to 50% and the fourth left square, rotated -45deg so
+         * that square corner points down. Rotation is about the centre (16, 16)
+         * and the corner starts at (0, 32), so it is 16*sqrt(2) = 22.6 px from the
+         * centre and lands 22.6 px directly below it, at y = 38.6 - not at
+         * y = 32, the bottom of the box.
+         *
+         * iconAnchor was [16, 32], so the drawn tip fell 6.6 px below the
+         * position Leaflet had placed the marker at. At the default zoom of 14
+         * that is around 55 m on the ground, which is the width of the yard a pin
+         * is supposed to be identifying.
+         *
+         * box-sizing is stated explicitly rather than inherited from Tailwind's
+         * preflight. With content-box the 3 px border would sit outside the 32 px
+         * square, moving the centre and the tip with it, and the anchor below
+         * would be wrong again for a reason nothing in this file mentions.
          */
+        const PIN_PX = 32;
+        const PIN_TIP_Y = Math.round((PIN_PX / 2) * (1 + Math.SQRT2)); // 39
         const stationIcon = L.divIcon({
           className: "custom-station-marker",
-          html: `<div style="background:#ef4444;width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.45);border:3px solid white;"><svg style="transform:rotate(45deg);width:15px;height:15px;color:white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-          popupAnchor: [0, -32],
+          html: `<div style="box-sizing:border-box;background:#ef4444;width:${PIN_PX}px;height:${PIN_PX}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.45);border:3px solid white;"><svg style="transform:rotate(45deg);width:15px;height:15px;color:white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
+          iconSize: [PIN_PX, PIN_PX],
+          iconAnchor: [PIN_PX / 2, PIN_TIP_Y],
+          popupAnchor: [0, -PIN_TIP_Y],
         });
 
         const marker = L.marker([lat, lng], { icon: stationIcon }).addTo(map);

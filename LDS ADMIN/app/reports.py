@@ -16,6 +16,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 # `charts` is deliberately NOT imported any more. These reports are headings,
 # text and tables only. charts.py still exists and is still used by the live
 # dashboard for its no-JavaScript CPU fallback.
+from . import csvexport
 from .metrics import (sast_month_window, expected_hourly_samples, uptime_pct,
                       energy_bands_legend, distance_band_summary,
                       CPU_WARN_C, CPU_CRIT_C)
@@ -319,3 +320,194 @@ def build_report(db, tenant, station_id, year, month, report_type):
     data = gather_report_data(db, tenant, station_id, year, month)
     html = render_report_html(report_type, data)
     return build_report_pdf(html)
+
+
+# -------------------- CSV FORM OF A REPORT --------------------
+# Report types that also have a spreadsheet form. The calibration record is the
+# one a client or an auditor wants to work with rather than read: they filter the
+# check log, plot the frequency drift, or paste it beside their own maintenance
+# sheet. A PDF cannot be used that way.
+#
+# The technical and client reports are deliberately NOT here. Both are prose and
+# interpretation around a handful of figures, and a CSV of five numbers with the
+# sentences stripped out would be a worse document, not a more usable one.
+CSV_TYPES = ("calibration",)
+
+
+def _trigger_label(reason):
+    """Human label for an rc_recal trigger. Same wording as calibration.html."""
+    if reason == "temp_delta":
+        return "Enclosure temperature drift"
+    if reason == "interval":
+        return "Routine interval"
+    return reason or "not reported"
+
+
+def _verdict_label(in_tolerance):
+    """Antenna verdict, including the third state. Same wording as the report."""
+    if in_tolerance is None:
+        return "not reported"
+    return "in tolerance" if in_tolerance else "out of tolerance"
+
+
+def _num(value, places=0):
+    """Format a number for a CSV cell, or '-' when there is nothing to show.
+
+    Plain digits, no thousands separators. The certificate writes 500,000
+    because it is being read; here the same separator would force the field to
+    be quoted and stop a spreadsheet treating the column as numeric.
+    """
+    if value is None:
+        return "-"
+    try:
+        return f"{float(value):.{places}f}"
+    except (TypeError, ValueError):
+        return "-"
+
+
+def render_calibration_csv(data):
+    """The calibration record as an aligned CSV document.
+
+    Built from the same gather_report_data() dict the PDF certificate renders
+    from, so the two cannot drift: any figure that changes in one changes in the
+    other. That is the whole reason this lives beside the templates rather than
+    in the route.
+
+    Content follows the certificate section for section. Two presentation
+    differences, both because a spreadsheet is not a page:
+
+      - Summary blocks are written down the page as measure and value pairs
+        rather than across it. A horizontal one-row table is compact in print and
+        unreadable in a text editor, and it cannot be sorted or charted.
+      - The tuning capacitor is split into a before and an after column instead
+        of the certificate's "9 (unchanged)" phrasing. Same two numbers, but each
+        lands in its own cell where it can be compared.
+    """
+    cal = data["calibration"]
+    meta = data["meta"]
+    period = data["period"]
+    cpu = data["cpu"]
+
+    blocks = [[["Calibration record"]]]
+
+    head = [["Site", meta["site"]], ["Station", meta["station_id"]]]
+    # Omitted entirely when nothing is on record, exactly as the certificate
+    # omits the row: a "not set" placeholder reads like a failed measurement.
+    if meta.get("site_line"):
+        head.append(["Position", meta["site_line"]])
+    head.append(["Reporting period", f"{period['label']} (SAST)"])
+    head.append(["Generated",
+                 data["generated_at"].strftime("%Y-%m-%d %H:%M") + " SAST"])
+    blocks.append(head)
+
+    if cal["total"] == 0:
+        blocks.append([["No calibration activity was reported for "
+                        f"{period['label']}."]])
+        return csvexport.build_csv_document(blocks, notes=_CSV_NOTES_EMPTY)
+
+    checks = cal["antenna_checks"]
+    blocks.append([
+        ["Summary"],
+        ["Measure", "Value"],
+        ["Total events", cal["total"]],
+        ["Oscillator recalibrations", cal["rc_recal_count"]],
+        ["Antenna checks", len(checks)],
+        ["In tolerance", cal["antenna_pass"]],
+        ["Out of tolerance", cal["antenna_fail"]],
+        # Present in the certificate's check log but not its summary table.
+        # Stated here because in a flat file a reader adds the two columns above
+        # and needs to see why they may not reach the number of checks.
+        ["Verdict not reported", cal["antenna_unknown"]],
+    ])
+
+    blocks.append([
+        ["Antenna resonance"],
+        ["Measure", "Value"],
+        ["Specification (Hz)", cal["target_hz"]],
+        ["Permitted deviation (Hz)", f"+/-{cal['tolerance_hz']}"],
+        ["Lowest measured (Hz)", _num(cal["freq_min"])],
+        ["Highest measured (Hz)", _num(cal["freq_max"])],
+        ["Mean measured (Hz)", _num(cal["freq_avg"])],
+        ["Tuning adjustments", cal["tune_changes"]],
+    ])
+
+    if checks:
+        rows = [["Antenna check log"],
+                ["Date and time (SAST)", "Measured (Hz)", "Deviation (Hz)",
+                 "Verdict", "Tuning capacitor before", "Tuning capacitor after"]]
+        for c in checks:
+            dev = ("-" if c.freq_hz is None
+                   else f"{c.freq_hz - cal['target_hz']:+d}")
+            rows.append([
+                c.ts.strftime("%Y-%m-%d %H:%M"),
+                _num(c.freq_hz),
+                dev,
+                _verdict_label(c.in_tolerance),
+                "-" if c.tune_cap_before is None else c.tune_cap_before,
+                "-" if c.tune_cap_after is None else c.tune_cap_after,
+            ])
+        blocks.append(rows)
+
+    if cal["rc_recals"]:
+        rows = [["Oscillator recalibration by trigger"], ["Trigger", "Count"]]
+        for reason, count in cal["rc_reasons"]:
+            rows.append([_trigger_label(reason), count])
+        blocks.append(rows)
+
+        rows = [["Oscillator recalibration log"],
+                ["Date and time (SAST)", "Trigger",
+                 "CPU temperature (deg C)"]]
+        for c in cal["rc_recals"]:
+            rows.append([c.ts.strftime("%Y-%m-%d %H:%M"),
+                         _trigger_label(c.reason),
+                         _num(c.cpu_temp_c, 1)])
+        blocks.append(rows)
+
+    blocks.append([
+        ["Operating temperature"],
+        ["Measure", "Value"],
+        ["Samples", cpu["count"]],
+        ["Minimum (deg C)", _num(cpu["min"], 1)],
+        ["Maximum (deg C)", _num(cpu["max"], 1)],
+        ["Average (deg C)", _num(cpu["avg"], 1)],
+        [f"Readings at or above {int(cpu['warn'])} deg C", cpu["warn_count"]],
+        [f"Readings at or above {int(cpu['crit'])} deg C", cpu["crit_count"]],
+    ])
+
+    return csvexport.build_csv_document(blocks, notes=_CSV_NOTES)
+
+
+# The certificate's closing note, carried into the CSV. A spreadsheet stripped of
+# the caveat would be quoted as a conformity result, which is precisely what this
+# record is not.
+_CSV_NOTES = (
+    "This is a record of calibration activity reported by the detector, "
+    "compiled from data received by the panel. It is evidence of "
+    "self-calibration having taken place, not a certificate of conformity "
+    "issued by an accredited laboratory, and it does not establish "
+    "traceability to a national standard.",
+    "The frequency figures are the sensor's own measurements of its antenna, "
+    "reported by the sensor itself, so they are not independent of the "
+    "equipment under test. Absence of an event means nothing was reported, "
+    "which is not the same as nothing having happened.",
+    "Property of METRON (PTY) LTD | Inteltronics",
+)
+
+# Shown instead when the month is empty, matching the certificate's wording for
+# that case: an empty period is usually an offline unit, not skipped calibration.
+_CSV_NOTES_EMPTY = (
+    "The detector logged no oscillator recalibration and no antenna resonance "
+    "check in this period. For a unit that was online throughout, expect "
+    "roughly one antenna check per day. An empty period therefore usually "
+    "means the detector was offline or newly commissioned rather than that "
+    "calibration was skipped. Cross-check the availability figure in the "
+    "technical report.",
+) + _CSV_NOTES
+
+
+def build_report_csv(db, tenant, station_id, year, month, report_type):
+    """Full pipeline for the spreadsheet form: gather -> CSV text."""
+    if report_type not in CSV_TYPES:
+        raise ValueError(f"no CSV form for report type: {report_type}")
+    data = gather_report_data(db, tenant, station_id, year, month)
+    return render_calibration_csv(data)

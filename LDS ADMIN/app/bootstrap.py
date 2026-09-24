@@ -26,12 +26,19 @@ _ADDED_COLUMNS = {
               "username": "VARCHAR(64)"},
     "groups": {"tenant_id": "INTEGER"},
     "recipients": {"tenant_id": "INTEGER"},
-    "alert_events": {"tenant_id": "INTEGER"},
+    "alert_events": {"tenant_id": "INTEGER", "is_test": "BOOLEAN"},
     "unit_status": {"tenant_id": "INTEGER",
                     "site_label": "VARCHAR(120)",
                     "latitude": "FLOAT",
                     "longitude": "FLOAT",
-                    "altitude_m": "FLOAT"},
+                    "altitude_m": "FLOAT",
+                    # TIMESTAMP, not DATETIME: the live database may be Postgres
+                    # (see db.py, which rewrites a postgres:// URL onto psycopg),
+                    # and Postgres has no DATETIME type, so that DDL would raise
+                    # at startup and take the panel down on deploy. SQLite gives
+                    # both names NUMERIC affinity and stores the ISO string
+                    # either way.
+                    "test_mode_until": "TIMESTAMP"},
     "heartbeat_samples": {"tenant_id": "INTEGER"},
 }
 

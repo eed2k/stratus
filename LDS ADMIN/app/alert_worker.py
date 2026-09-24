@@ -153,6 +153,12 @@ def _dispatch(event_id: int, payload: Dict[str, Any]):
 
         alerts_on = get_alerts_enabled(db, tenant_id=tid)
 
+        # Test mode. Read from the event row, which was stamped at ingest, not
+        # re-evaluated here: the window may well have expired between the strike
+        # arriving and this thread running, and what matters is the state when
+        # the event was received.
+        is_test = bool(event.is_test)
+
         # Cooldown: after one batch goes out, suppress further batches for the
         # configured number of minutes. The slot is "claimed" up front so a rapid
         # burst of events only sends once.
@@ -166,7 +172,10 @@ def _dispatch(event_id: int, payload: Dict[str, Any]):
         if stage is not None and stage.cooldown_min is not None:
             cooldown_min = max(0, min(MAX_COOLDOWN_MIN, int(stage.cooldown_min)))
         cooldown_active = False
-        if alerts_on and cooldown_min > 0:
+        # A test event must not claim the cooldown slot. If it did, a bench test
+        # would silence the next real strike in that band for the whole cooldown
+        # period, which turns a harmless test into a missed warning.
+        if alerts_on and not is_test and cooldown_min > 0:
             last_sent = get_last_alert_sent(db, tenant_id=tid, stage_id=stage_id)
             if last_sent is not None:
                 elapsed = (now_sast() - last_sent).total_seconds()
@@ -183,6 +192,18 @@ def _dispatch(event_id: int, payload: Dict[str, Any]):
                              channel="sms", to_number=r.phone, body=body,
                              status="queued")
             db.add(row); db.flush()
+            if is_test:
+                # The station was in test mode when this arrived. Same treatment
+                # as the master switch: the event and the recipients it would
+                # have gone to are on record, nothing is sent.
+                #
+                # Checked first so the recorded reason names test mode rather
+                # than whichever other gate also happened to be shut. Whoever
+                # reads this row needs to know a person put the detector into
+                # test mode, which is the reason they can act on.
+                row.status = "skipped"
+                row.error = "Test mode"
+                continue
             if not alerts_on:
                 # Master switch is off: record the event + intended recipients
                 # for audit, but suppress actual SMS delivery.
@@ -211,7 +232,11 @@ def _dispatch(event_id: int, payload: Dict[str, Any]):
                             r.id, sms_gateway.mask_number(r.phone), e)
         stage_label = (f"stage '{stage.name}' (<={stage.distance_km} km)"
                        if stage is not None else "group thresholds")
-        if not alerts_on:
+        if is_test:
+            log.info("Test mode on %s - event %d recorded, %d message(s) "
+                     "suppressed [%s]", event.station_id, event.id,
+                     len(targets), stage_label)
+        elif not alerts_on:
             log.info("Alerts switched off - %d message(s) suppressed for event "
                      "%d [%s]", len(targets), event.id, stage_label)
         elif cooldown_active:
@@ -227,12 +252,18 @@ def _dispatch(event_id: int, payload: Dict[str, Any]):
         db.close()
 
 
-def dispatch_async(payload: Dict[str, Any], tenant_id=None) -> int:
+def dispatch_async(payload: Dict[str, Any], tenant_id=None,
+                   is_test: bool = False) -> int:
     """Persist the event row immediately, then fan out in a thread.
 
     `tenant_id` is normally left to the detector -> tenant mapping; pass it
     explicitly for operator-triggered test alerts, which belong to the panel
     the operator is signed in to.
+
+    `is_test` records that the station was in test mode when this event arrived,
+    which stores the event and suppresses every message for it. The caller
+    decides, from the station's own test-mode window; it is never read from the
+    detector's payload.
 
     Returns the new event ID.
     """
@@ -246,6 +277,7 @@ def dispatch_async(payload: Dict[str, Any], tenant_id=None) -> int:
             distance_km=payload["distance_km"],
             energy=payload["energy"],
             timestamp=now_sast(),
+            is_test=bool(is_test),
         )
         db.add(event); db.commit(); db.refresh(event)
         event_id = event.id

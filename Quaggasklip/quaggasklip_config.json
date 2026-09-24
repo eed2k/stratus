@@ -51,6 +51,11 @@
   "heartbeat_webhook_interval": 3600,
   "calibration_report_enabled": true,
 
+  "_comment_testmode": "Commissioning test mode, armed per detector by a Stratus Admin on the panel's /units page. While it is on this unit reports disturbers, fires on one event, and bypasses both filters, and the panel sends no SMS for it. test_mode_max_s is this unit's OWN ceiling on what the panel may ask for, capped at one hour: the panel enforces its own limit, and the lower of the two wins, so neither side alone can hold the unit in a state where it filters nothing. It is also held in memory only, so a restart always comes up filtering normally.",
+  "test_mode_poll_enabled": true,
+  "test_mode_poll_interval": 60,
+  "test_mode_max_s": 3600,
+
   "_comment_stratus": "Optional Stratus Weather ingest. Leave disabled until an endpoint exists.",
   "stratus_enabled": false,
   "stratus_endpoint": "",

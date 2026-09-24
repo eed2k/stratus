@@ -16,7 +16,10 @@
     {% for e in events %}
     <tr>
       <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-      <td>{{ e.station_id }}</td>
+      {# Recorded during a commissioning test: no SMS was sent for it by design.
+         Without this marker the row is indistinguishable from an alert that
+         reached nobody. #}
+      <td>{{ e.station_id }}{% if e.is_test %} <strong>[test]</strong>{% endif %}</td>
       <td>{{ e.distance_km }}</td>
       <td>{{ e.energy }}</td>
       <td>{{ e.recipients_targeted }}</td>

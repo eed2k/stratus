@@ -340,9 +340,21 @@ to prevent:
   corroborating storm context, logging `[FILTERED-EMI]`
 
 Never leave `min_strikes` at 1 or `validation_buffer_enabled` false on this unit
-outside a supervised bench session. `deployed/qk_bench_profile.sh` switches both
-ways and refuses to run if `irq_pin` or `tune_cap` have drifted from their
-measured values.
+outside a supervised bench session.
+
+`qk_emi_profile.py` is here to settle the threshold question with measurements
+rather than another guess. The conservative settings missed a real storm outright
+and the sensitive ones produced disturbers at about two a second, so it captures
+every interrupt with its timing and register set, writes a CSV, and reports the
+statistics that separate machinery from lightning: an autocorrelation over
+inter-arrival times, because site EMI is periodic and lightning is not, plus
+energy and distance dispersion. Run it at several `noise_floor` values, with and
+without weather, and pick from the data.
+
+There is no waveform to work with. The AS3935 is fully integrated, so nothing on
+the SPI bus carries RF: only an interrupt type, a 21-bit energy figure and a 6-bit
+distance estimate. No amount of filtering or FFT applied on the Pi can change
+that, which is why the discriminator has to be temporal.
 
 ## Behaviour on power up
 

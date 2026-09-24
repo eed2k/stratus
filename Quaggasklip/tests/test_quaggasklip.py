@@ -396,6 +396,9 @@ def _buffering_detector():
         config=cfg, logger=_NullLogger(),
         _validation_buffer=[], _validation_flush_time=0.0,
         _last_varied_distance_ts=0.0,
+        # Not testing. On the real class this is a property computed from the
+        # test-mode deadline; these stubs are namespaces, so it is set here.
+        _testing=False,
         sensor=types.SimpleNamespace(get_noise_floor=lambda: 4),
         data_logger=types.SimpleNamespace(log_event=lambda *a, **k: None))
     stub._alert_webhook = lambda d, e: forwarded.append((d, e))
@@ -466,7 +469,8 @@ def _guarded_detector():
     cfg = qd.Config()
     stub = types.SimpleNamespace(config=cfg, logger=_NullLogger(),
                                  _recent_strikes=deque(),
-                                 _interference_until=0.0)
+                                 _interference_until=0.0,
+                                 _testing=False)
     stub._interference_check = types.MethodType(
         qd.QuaggasklipDetector._interference_check, stub)
     return stub

@@ -9,7 +9,8 @@ from ..config import settings
 from ..models import AlertEvent, MessageLog, HeartbeatSample, CalibrationEvent
 from ..alert_worker import dispatch_async
 from ..runtime import (touch_unit, get_units, get_alerts_enabled,
-                       unit_tenant_id)
+                       unit_tenant_id, test_mode_active, test_mode_remaining_s,
+                       MAX_TEST_MODE_MIN)
 from ..bootstrap import platform_tenant_id
 
 router = APIRouter(prefix="/api/v1")
@@ -66,12 +67,21 @@ def verify_token(request: Request, x_auth_token: str = Header(default="")):
 @router.post("/lightning")
 def ingest_lightning(payload: LightningPayload, _=Depends(verify_token),
                      db: Session = Depends(get_db)):
+    # Is this station being tested right now? Decided here, from the panel's own
+    # record, and deliberately not a field on the payload. A detector able to
+    # label its own events could mark a real strike as a test, and a test event
+    # sends nobody an SMS - that is an alert suppressed by whatever can reach the
+    # ingest endpoint.
+    #
+    # Read before touch_unit so a detector that files itself on its very first
+    # strike cannot be in test mode: there was no row to arm.
+    testing = test_mode_active(db, payload.station_id)
     # New detectors are filed under the platform tenant and stay hidden from
     # every client panel until an admin assigns them.
     touch_unit(db, payload.station_id, kind="strike",
                tenant_id=platform_tenant_id(db))
-    event_id = dispatch_async(payload.model_dump())
-    return {"status": "queued", "event_id": event_id}
+    event_id = dispatch_async(payload.model_dump(), is_test=testing)
+    return {"status": "queued", "event_id": event_id, "test_mode": testing}
 
 
 @router.post("/heartbeat")
@@ -147,6 +157,45 @@ def ingest_calibration(payload: CalibrationPayload, _=Depends(verify_token),
 @router.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@router.get("/detector/config")
+def detector_config(station_id: str = "", _=Depends(verify_token),
+                    db: Session = Depends(get_db)):
+    """Runtime instructions a detector polls for. Read-only, token-authenticated.
+
+    Pull, not push. The panel never opens a connection to a detector: the unit
+    sits behind a mobile APN with no inbound route, the panel is not a node on
+    its tailnet, and giving a field safety device a listening socket to be told
+    what to do is not a trade worth making. The detector asks, on the same
+    outbound HTTPS it already uses to post strikes, so nothing new is exposed.
+
+    Today it carries one instruction: whether this station is in test mode, and
+    for how much longer. A detector in test mode may lower its thresholds and
+    accept disturbers so a technician can prove the signal path end to end.
+
+    `test_mode_s` is a REMAINING time, not an expiry timestamp. The detector
+    therefore needs no agreement with the panel about clocks or time zones, and a
+    unit whose clock is wrong still stops testing on schedule. It also means a
+    detector that stops being able to reach the panel simply runs the window
+    down and returns to normal, which is the direction a safety device should
+    fail in.
+
+    An unknown station answers "not testing" rather than 404. The reply is acted
+    on by an unattended process, and "off" is the safe reading of a question the
+    panel cannot answer.
+    """
+    from ..timeutil import now_sast
+    remaining = test_mode_remaining_s(db, station_id)
+    return {
+        "station_id": (station_id or "").strip(),
+        "test_mode": remaining > 0,
+        "test_mode_s": remaining,
+        # The panel's own ceiling, so a detector can log when its local limit is
+        # the stricter of the two rather than silently disagreeing.
+        "max_test_mode_s": MAX_TEST_MODE_MIN * 60,
+        "server_time": now_sast().isoformat(),
+    }
 
 
 @router.get("/beacon/state")

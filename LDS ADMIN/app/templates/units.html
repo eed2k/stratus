@@ -12,6 +12,22 @@
   is sent for it: an unclaimed unit has no recipient list to consult.
 </p>
 
+{# A detector in test mode is a detector that is not going to alert anyone. That
+   has to be visible before anything else on the page, not inferred from a
+   countdown in its own row. #}
+{% set testing = rows | selectattr('test_min_left') | list %}
+{% if testing %}
+<div class="error" role="alert">
+  <strong>Test mode is on.</strong>
+  {% for r in testing %}
+    {{ r.unit.station_id }} ({{ r.test_min_left }} min left){% if not loop.last %}, {% endif %}
+  {% endfor %}.
+  No SMS is sent for {{ 'these detectors' if testing|length > 1 else 'this detector' }}
+  while it is on, including for a genuine strike. End it below as soon as the
+  test is finished.
+</div>
+{% endif %}
+
 <table>
   <thead>
     <tr>
@@ -21,6 +37,7 @@
       <th>Events</th>
       <th>Belongs to</th>
       <th>Assign to</th>
+      <th>Test mode</th>
     </tr>
   </thead>
   <tbody>
@@ -53,13 +70,55 @@
           <button class="primary" type="submit">Assign</button>
         </form>
       </td>
+      <td>
+        {#
+          Commissioning control. While it is on, this detector accepts the
+          events it normally discards (disturbers, near-field interference) so
+          the signal path can be proved without waiting for a storm, its events
+          are recorded and tagged as tests, and no SMS is sent for it.
+
+          Capped at {{ max_test_min }} minutes and stored as an expiry, so it
+          ends on its own. The detector applies the same ceiling to what it is
+          told, so neither side alone can hold it open.
+        #}
+        {% if r.test_min_left %}
+        <form method="post" action="{{ base }}/units/{{ r.unit.station_id }}/test-mode"
+              class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="minutes" value="0">
+          <strong>ON</strong>, {{ r.test_min_left }} min left
+          <button class="primary" type="submit">End test</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ base }}/units/{{ r.unit.station_id }}/test-mode"
+              class="inline"
+              data-confirm="Put {{ r.unit.station_id }} into test mode? No SMS will be sent for this detector while it is on, including for a genuine strike.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          {# aria-label rather than a visually hidden label, matching the Assign
+             select above: this codebase has no sr-only class and adding one for a
+             single field is not worth a new convention. #}
+          <input type="number" name="minutes" min="0" max="{{ max_test_min }}"
+                 step="1" value="15" aria-describedby="tm-help"
+                 aria-label="Test minutes for {{ r.unit.station_id }}">
+          <button class="danger" type="submit">Start test</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
     {% if not rows %}
-    <tr><td colspan="6" class="center">
+    <tr><td colspan="7" class="center">
       No detector has reported yet. A unit appears here on its first heartbeat.
     </td></tr>
     {% endif %}
   </tbody>
 </table>
+
+<p class="muted" id="tm-help" style="text-align:left;padding:8px 0 0;">
+  Test mode lets a detector report the events it normally filters out, so a new
+  installation can be proved end to end without waiting for lightning. It runs
+  for up to {{ max_test_min }} minutes and then ends by itself, and it suppresses
+  every SMS for that detector while it is on. Use it during commissioning, and
+  end it as soon as the test is done.
+</p>
 {% endblock %}

@@ -16,6 +16,13 @@ ever sees your panel.
 - Per-message delivery log with provider message ID and error
 - Delivery-receipt callback endpoint (`POST /api/clickatell/dlr`)
 - Multi-user authentication with roles: admin, operator, viewer
+- Monthly reports per station: technical, client summary, calibration
+  certificate. The calibration record also downloads as an aligned CSV built
+  from the same figures as the PDF, so the two cannot disagree
+- **Detector test mode** (Stratus Admin only, per station, capped at 60
+  minutes): lets a detector being commissioned report the events it normally
+  filters out. Events are stored and tagged, and no SMS is sent for that
+  detector while it is on
 - All timestamps stored and displayed in SAST (South African time, UTC+2)
 - Security: CSRF protection, login throttling, hardened cookies, CSP/HSTS
 - Single-container Docker deploy
@@ -116,6 +123,51 @@ The Pi will POST JSON like:
   "timestamp":   "2026-05-09T12:34:56Z"
 }
 ```
+
+---
+
+## Detector test mode (commissioning)
+
+Proving a new installation means proving the whole path: sensor, interrupt, POST,
+event row. The AS3935 will not fire on a bench without a spark source, and waiting
+for a thunderstorm is not a commissioning plan, so the detector has to be allowed
+to report the events it normally discards.
+
+A **Stratus Admin only** switches it on per detector on the platform console's
+Detectors page (`/units`), for up to 60 minutes. A client login cannot see or use
+it, and the route answers 404 rather than 403 so its existence is not advertised.
+
+While it is on, for that one detector:
+
+- the unit reports disturbers and forwards each as a 0 km event, and stops
+  applying its interference guard and validation buffer
+- the panel records every event that arrives with `is_test` set, and marks it
+  `[test]` on the dashboard, the events list and the event page
+- **no SMS is sent, including for a genuine strike.** Each intended recipient is
+  still written to the message log as `skipped` with the reason `Test mode`, so
+  the audit trail shows who it would have gone to
+- the test does **not** claim the cooldown slot, so it cannot silence the next
+  real strike in that distance band
+
+Pull, not push. The panel never opens a connection to a detector: the unit sits
+behind a mobile APN with no inbound route, and giving a field safety device a
+listening socket is not a trade worth making. The detector polls
+`GET /api/v1/detector/config?station_id=...` on the same authenticated outbound
+HTTPS it already uses. The reply carries a remaining time rather than an expiry,
+so the two need no agreement about clocks.
+
+Four independent things end it, and none depends on anybody remembering:
+
+| Ends it | How |
+|---|---|
+| The panel's ceiling | `runtime.MAX_TEST_MODE_MIN`, and a request over it is refused rather than clamped |
+| The stored expiry | A timestamp on the station's row. Nothing has to run for it to lapse |
+| The detector's own ceiling | `test_mode_max_s`, enforced independently; the lower of the two wins |
+| A restart of the detector | The window is held in memory only, never on disk |
+
+Both the platform Detectors page and the client dashboard carry a banner while it
+is on, and starting or ending it is logged at warning level with the admin's
+e-mail and the duration.
 
 ---
 

@@ -7,12 +7,13 @@
 {% if success %}<div class="success">{{ success }}</div>{% endif %}
 
 <p class="muted" style="text-align:left;padding:0 0 6px;">
-  Monthly PDF reports per station, generated in South African Standard Time
-  (SAST). The <strong>technical</strong> report covers system health and
-  availability; the <strong>client summary</strong> presents uptime and lightning
-  activity; the <strong>calibration certificate</strong> is the full record of
-  the detector's oscillator recalibrations and antenna resonance checks for the
-  month.
+  Monthly reports per station, generated in South African Standard Time (SAST).
+  The <strong>technical</strong> report covers system health and availability;
+  the <strong>client summary</strong> presents uptime and lightning activity; the
+  <strong>calibration certificate</strong> is the full record of the detector's
+  oscillator recalibrations and antenna resonance checks for the month. The
+  calibration record is also available as a CSV spreadsheet carrying the same
+  figures, for filtering, plotting or pasting beside your own maintenance sheet.
 </p>
 
 {% if not units %}
@@ -65,7 +66,11 @@
         <td>{{ u.station_id }}{% if u.site_label %} <span class="muted">({{ u.site_label }})</span>{% endif %}</td>
         <td>{{ m.label }}</td>
         {% for rt in report_types %}
-        <td><a href="{{ base }}/reports/download?station={{ u.station_id }}&month={{ m.value }}&type={{ rt }}">Download</a></td>
+        {# Types listed in csv_types also offer a spreadsheet form of the same
+           figures. The link is only rendered where one exists, so a client is
+           never offered a CSV that answers with a 404. #}
+        <td><a href="{{ base }}/reports/download?station={{ u.station_id }}&month={{ m.value }}&type={{ rt }}">PDF</a>{% if rt in csv_types %}
+          <a href="{{ base }}/reports/download?station={{ u.station_id }}&month={{ m.value }}&type={{ rt }}&fmt=csv">CSV</a>{% endif %}</td>
         {% endfor %}
       </tr>
       {% endfor %}

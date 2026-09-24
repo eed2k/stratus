@@ -1,7 +1,7 @@
 import re
 import logging
 
-from fastapi import APIRouter, Request, Depends, HTTPException, Form
+from fastapi import APIRouter, Request, Depends, HTTPException, Form, Response
 from fastapi.responses import (RedirectResponse, HTMLResponse, JSONResponse,
                                FileResponse)
 from fastapi.templating import Jinja2Templates
@@ -25,7 +25,9 @@ from ..auth import (current_user, current_tenant, require_admin, require_writer,
 from ..alert_worker import dispatch_async, resolve_site_name
 from ..messages import build_lightning_sms
 from ..runtime import (get_alerts_enabled, set_alerts_enabled, get_units,
-                       get_alert_cooldown_min, set_alert_cooldown_min)
+                       get_alert_cooldown_min, set_alert_cooldown_min,
+                       set_test_mode, test_mode_remaining_s,
+                       test_mode_stations, MAX_TEST_MODE_MIN)
 from ..timeutil import now_sast
 from ..charts import cpu_chart_svg
 from ..security import (get_csrf_token, verify_csrf, login_allowed,
@@ -334,8 +336,12 @@ def dashboard(request: Request, user: User = Depends(current_user),
     # the cards that displayed them, so this page no longer builds them. That is
     # one query per detector plus an SVG render saved on the page people leave
     # open during a storm.
+    #
+    # Test mode is surfaced here, on the page somebody has open while lightning is
+    # about. A detector that is not going to send an SMS has to say so where it
+    # will be seen, not only on the platform console where it was switched on.
     return render(request, "dashboard.html", user=user, events=events,
-                  counts=counts)
+                  counts=counts, testing=test_mode_stations(db, tenant_id=tid))
 
 
 # -------------------- DASHBOARD DATA (JSON, tenant-scoped) --------------------
@@ -537,6 +543,7 @@ def reports_list(request: Request, user: User = Depends(current_user),
                   months=_available_months(db, tid),
                   report_types=reports_mod.REPORT_TYPES,
                   report_labels=reports_mod.REPORT_LABELS,
+                  csv_types=reports_mod.CSV_TYPES,
                   can_generate=user.role in ("admin", "operator"),
                   error=None, success=None)
 
@@ -569,12 +576,20 @@ def reports_generate(request: Request, station_id: str = Form(...),
 
 @router.get("/reports/download")
 def reports_download(request: Request, station: str, month: str,
-                     type: str = "technical",
+                     type: str = "technical", fmt: str = "pdf",
                      user: User = Depends(current_user),
                      tid: int = Depends(tenant_id),
                      tenant: Tenant = Depends(current_tenant),
                      db: Session = Depends(get_db)):
     if type not in reports_mod.REPORT_TYPES:
+        raise HTTPException(status_code=404, detail="Not found")
+    # Only some report types have a spreadsheet form, and an unknown fmt is a
+    # 404 rather than a silent fallback to PDF: a link asking for CSV that
+    # quietly returns a PDF is the kind of fault nobody reports, because the file
+    # downloads fine.
+    if fmt not in ("pdf", "csv"):
+        raise HTTPException(status_code=404, detail="Not found")
+    if fmt == "csv" and type not in reports_mod.CSV_TYPES:
         raise HTTPException(status_code=404, detail="Not found")
     if _is_viewer(user) and "demo" in (station or "").lower():
         raise HTTPException(status_code=404, detail="Not found")
@@ -584,13 +599,30 @@ def reports_download(request: Request, station: str, month: str,
         year, mo = reports_mod.parse_month(month)
     except ValueError:
         raise HTTPException(status_code=404, detail="Not found")
+
+    # The download filename is built from the station id, which is operator
+    # supplied. Reduced to the same safe set as the cache path: a quote in it
+    # would close the Content-Disposition string early.
+    stem = f"{_SAFE_PATH.sub('_', station)}-{year:04d}-{mo:02d}-{type}"
+
+    if fmt == "csv":
+        # Not cached on disk. The PDF cache exists because WeasyPrint is slow and
+        # its output is large; this is a few database rows turned into text, and a
+        # cache would only add a way for it to go stale.
+        text = reports_mod.build_report_csv(db, tenant, station, year, mo, type)
+        return Response(
+            content=text.encode("utf-8"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition":
+                     f'attachment; filename="{stem}.csv"'})
+
     path = _report_path(tenant.slug, station, year, mo, type)
     if not path.exists():
         pdf = reports_mod.build_report(db, tenant, station, year, mo, type)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(pdf)
     return FileResponse(str(path), media_type="application/pdf",
-                        filename=f"{station}-{year:04d}-{mo:02d}-{type}.pdf")
+                        filename=f"{stem}.pdf")
 
 
 # -------------------- ALERTS MASTER SWITCH --------------------
@@ -1293,6 +1325,10 @@ def _unit_rows(db):
             "events": db.query(func.count()).select_from(AlertEvent)
                         .filter(AlertEvent.station_id == u.station_id)
                         .scalar() or 0,
+            # Minutes of test mode left, 0 when the unit is alerting normally.
+            # Rounded up so a window with 30 seconds to run reads as 1 min rather
+            # than as 0, which would look like test mode was already over.
+            "test_min_left": -(-test_mode_remaining_s(db, u.station_id) // 60),
         })
     rows.sort(key=lambda r: (not r["unassigned"], r["unit"].station_id or ""))
     return rows
@@ -1306,7 +1342,8 @@ def units_list(request: Request, user: User = Depends(require_platform_admin),
                          Tenant.is_active == True)  # noqa: E712
                  .order_by(Tenant.name).all())
     return render(request, "units.html", user=user, rows=_unit_rows(db),
-                  clients=clients, error=None, success=None)
+                  clients=clients, max_test_min=MAX_TEST_MODE_MIN,
+                  error=None, success=None)
 
 
 @router.post("/units/{station_id}/assign")
@@ -1332,7 +1369,8 @@ def unit_assign(request: Request, station_id: str, tenant_id_form: str = Form(""
                              Tenant.is_active == True)  # noqa: E712
                      .order_by(Tenant.name).all())
         return render(request, "units.html", user=user, rows=_unit_rows(db),
-                      clients=clients, error=error, success=success)
+                      clients=clients, max_test_min=MAX_TEST_MODE_MIN,
+                      error=error, success=success)
 
     unit = db.get(UnitStatus, station_id)
     if unit is None:
@@ -1367,6 +1405,78 @@ def unit_assign(request: Request, station_id: str, tenant_id_form: str = Form(""
         f"/{target.slug}/. Moved {moved.get('AlertEvent', 0)} event(s), "
         f"{moved.get('HeartbeatSample', 0)} heartbeat sample(s) and "
         f"{moved.get('CalibrationEvent', 0)} calibration record(s) with it."))
+
+
+# -------------------- DETECTOR TEST MODE (platform admin only) --------------
+#
+# Commissioning a detector means proving the whole path: sensor, interrupt, the
+# POST to this panel, the event row. Waiting for a thunderstorm is not a
+# commissioning plan, and the AS3935 will not fire on a bench without a spark
+# source, so the unit has to be allowed to report the events it normally
+# discards - disturbers, and strikes it would otherwise filter as interference.
+#
+# Deliberately NOT a client-facing control, hence require_platform_admin:
+#   - while it is on, that station sends no SMS, including for a real strike.
+#     That is a warning system switched off for one detector, and it is not a
+#     decision to leave on a client's settings page next to the cooldown box.
+#   - a detector is instructed over an authenticated poll it makes itself, so the
+#     control has to sit where the detector inventory already is.
+#
+# Two safeguards, and each is on its own sufficient. The window is capped
+# (runtime.MAX_TEST_MODE_MIN) and stored as an expiry, so nothing has to run for
+# it to end and nobody has to remember to switch it back. And the detector
+# applies the same ceiling to whatever the panel tells it, so a panel-side
+# mistake cannot hold a unit in test mode either.
+
+@router.post("/units/{station_id}/test-mode")
+def unit_test_mode(request: Request, station_id: str, minutes: str = Form(""),
+                   _: None = Depends(verify_csrf),
+                   user: User = Depends(require_platform_admin),
+                   db: Session = Depends(get_db)):
+    def _reload(error=None, success=None):
+        clients = (db.query(Tenant)
+                     .filter(Tenant.slug != settings.PLATFORM_TENANT_SLUG,
+                             Tenant.is_active == True)  # noqa: E712
+                     .order_by(Tenant.name).all())
+        return render(request, "units.html", user=user, rows=_unit_rows(db),
+                      clients=clients, max_test_min=MAX_TEST_MODE_MIN,
+                      error=error, success=success)
+
+    raw = (minutes or "").strip()
+    try:
+        requested = int(raw)
+    except ValueError:
+        return _reload(error="Enter the number of minutes to test for, or 0 to "
+                             "end the test now.")
+    if requested < 0 or requested > MAX_TEST_MODE_MIN:
+        return _reload(error=(f"Test mode runs for 0 to {MAX_TEST_MODE_MIN} "
+                              "minutes. It suppresses every alert for that "
+                              "detector while it is on, so it is not allowed to "
+                              "run longer."))
+    try:
+        until = set_test_mode(db, station_id, requested)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Unknown detector")
+
+    # Audit. There is no audit table in this panel, so the log is the record, and
+    # this is an action that switches alerting off for a detector: who did it and
+    # for how long has to be recoverable afterwards.
+    if until is None:
+        log.warning("test mode ENDED for detector %r by %s", station_id,
+                    user.email)
+        return _reload(success=(f"{station_id} is out of test mode and is "
+                                "alerting normally again."))
+    log.warning("test mode STARTED for detector %r by %s for %d min (until %s) "
+                "- no SMS will be sent for this detector until then",
+                station_id, user.email, requested, until.isoformat())
+    return _reload(success=(
+        f"{station_id} is in test mode for {requested} minute"
+        f"{'' if requested == 1 else 's'}, until "
+        f"{until.strftime('%H:%M')} SAST. It will accept disturbers, its events "
+        "are recorded and tagged as tests, and NO SMS is sent for it during "
+        "this period, including for a genuine strike. The detector picks this up "
+        "on its next poll and ends the test on its own if it cannot reach the "
+        "panel."))
 
 
 @router.post("/tenants/create")

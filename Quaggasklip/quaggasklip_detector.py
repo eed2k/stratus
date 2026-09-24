@@ -86,6 +86,7 @@ except ImportError:
 
 import urllib.request
 import urllib.error
+import urllib.parse
 import socket
 
 # Hardware UART to the Campbell logger. Optional: a missing module disables the
@@ -278,6 +279,31 @@ class Config:
         #  has to stay comfortably under that.
         self.HEARTBEAT_WEBHOOK_INTERVAL = 3600
         self.CALIBRATION_REPORT_ENABLED = True
+
+        # ===============================================================
+        #  Test mode  -  commissioning, driven by the panel
+        # ===============================================================
+        #  During commissioning the whole path has to be proved: sensor,
+        #  interrupt, POST, event row. Waiting for a thunderstorm is not a
+        #  commissioning plan, and the AS3935 will not fire on a bench without a
+        #  spark source, so the detector needs to be able to report the events it
+        #  normally discards.
+        #
+        #  The panel is asked, never told. This unit polls an endpoint it already
+        #  reaches outbound; nothing new listens on the detector, which is the
+        #  only arrangement worth having on a field safety device.
+        #
+        #  While test mode is on this detector accepts disturbers, fires on a
+        #  single event, and bypasses the interference guard and the validation
+        #  buffer. The panel records what arrives, tags it as a test, and sends no
+        #  SMS for it.
+        self.TEST_MODE_POLL_ENABLED  = True
+        self.TEST_MODE_POLL_INTERVAL = 60    # seconds between polls
+        #  Local ceiling on what the panel can ask for. The panel enforces its own
+        #  limit; this one exists so a panel-side mistake, or anything else that
+        #  can answer that URL, cannot hold this unit in a state where it filters
+        #  nothing. Whichever ceiling is lower wins.
+        self.TEST_MODE_MAX_S         = 3600
 
         # ===============================================================
         #  Interference guard (RF false-trigger suppression)
@@ -1045,6 +1071,9 @@ class QuaggasklipDetector:
         "ALERT_MIN_DISTANCE_KM":       (int, 0, 40),
         "HEARTBEAT_WEBHOOK_INTERVAL":  (int, 60, 86400),
         "CALIBRATION_REPORT_ENABLED":  (bool, None, None),
+        "TEST_MODE_POLL_ENABLED":      (bool, None, None),
+        "TEST_MODE_POLL_INTERVAL":     (int, 15, 3600),
+        "TEST_MODE_MAX_S":             (int, 60, 3600),
         "INTERFERENCE_GUARD_ENABLED":  (bool, None, None),
         "INTERFERENCE_STRIKE_LIMIT":   (int, 3, 1000),
         "INTERFERENCE_WINDOW_S":       (int, 1, 600),
@@ -1105,6 +1134,18 @@ class QuaggasklipDetector:
         # Stratus connection state
         self._stratus_online = True
         self._stratus_last_retry = 0.0
+
+        # Test mode. A monotonic deadline, and deliberately nothing else:
+        #
+        #   - a deadline rather than a flag, so it ends on its own and nobody has
+        #     to remember to switch it back,
+        #   - monotonic rather than wall clock, so an NTP step or a wrong system
+        #     clock cannot extend it,
+        #   - in memory rather than on disk, so a restart or a power cycle comes
+        #     up filtering normally. A detector that could boot into test mode
+        #     after an unattended reboot is the one failure this must not have.
+        self._test_mode_until = 0.0
+        self._last_config_poll = 0.0
 
         self._load_config_file()
         self._setup_logging()
@@ -1398,6 +1439,32 @@ class QuaggasklipDetector:
             return ""
         return base.rsplit("/", 1)[0] + "/" + endpoint
 
+    def _get_panel(self, url, what):
+        """GET one JSON document from the panel. Returns a dict, or None.
+
+        None means "no answer", never "nothing to do". Every caller has to treat
+        the two differently: an unreachable panel must leave this detector doing
+        whatever it was already doing, not adopt a default.
+        """
+        try:
+            req = urllib.request.Request(url, method="GET")
+            if self.config.ALERT_WEBHOOK_TOKEN:
+                req.add_header("X-Auth-Token", self.config.ALERT_WEBHOOK_TOKEN)
+            with urllib.request.urlopen(
+                    req, timeout=self.config.ALERT_WEBHOOK_TIMEOUT) as resp:
+                if not 200 <= resp.status < 300:
+                    self.logger.warning("%s poll HTTP %d", what, resp.status)
+                    return None
+                body = json.loads(resp.read().decode("utf-8", "replace"))
+                return body if isinstance(body, dict) else None
+        except Exception as e:
+            # Debug, not warning. The unit is solar powered on a mobile APN and
+            # brief outages are routine; at warning level this would bury the log
+            # in noise that needs no action, because a failed poll changes
+            # nothing.
+            self.logger.debug("%s poll failed: %s", what, e)
+        return None
+
     def _post_panel(self, url, payload, what):
         """POST one JSON payload to the panel. Returns True on a 2xx."""
         try:
@@ -1501,6 +1568,121 @@ class QuaggasklipDetector:
 
 
     # ===================================================================
+    #  Test Mode
+    # ===================================================================
+    #  Commissioning aid, and nothing else. While it is on this detector stops
+    #  filtering: disturbers are reported, one event is enough to fire, and both
+    #  the interference guard and the validation buffer stand aside. That is a
+    #  detector deliberately made credulous, so every part of this is written to
+    #  end the state rather than to hold it.
+    #
+    #  Three independent things end it: the local deadline, the panel's own
+    #  ceiling, and a restart. None of them depends on the others, and none
+    #  depends on anybody remembering.
+
+    @property
+    def _testing(self):
+        """True while test mode is running. The single source for every bypass."""
+        return self._test_mode_until > time.monotonic()
+
+    def _poll_panel_config(self):
+        """Ask the panel whether this detector has been put into test mode.
+
+        Rate limited, and answered with a REMAINING time rather than an expiry, so
+        no agreement about clocks or time zones is needed between the two.
+
+        A poll that fails changes nothing. The deadline already held locally keeps
+        counting down, so losing the panel mid-test ends the test rather than
+        stranding the detector in it.
+        """
+        if not (self.config.TEST_MODE_POLL_ENABLED
+                and self.config.ALERT_WEBHOOK_ENABLED):
+            return
+        now = time.monotonic()
+        if now - self._last_config_poll < self.config.TEST_MODE_POLL_INTERVAL:
+            return
+        self._last_config_poll = now
+
+        url = self._panel_url("detector/config")
+        if not url:
+            return
+        body = self._get_panel(
+            f"{url}?station_id={urllib.parse.quote(self.config.STATION_ID)}",
+            "Detector config")
+        if body is None:
+            return
+
+        try:
+            remaining = int(body.get("test_mode_s") or 0)
+        except (TypeError, ValueError):
+            remaining = 0
+        # Clamp to the local ceiling whatever the panel says. The two limits are
+        # independent on purpose: neither side alone can hold this unit open.
+        capped = max(0, min(remaining, self.config.TEST_MODE_MAX_S))
+        if capped < remaining:
+            self.logger.warning(
+                "Panel asked for %ds of test mode, local ceiling is %ds - "
+                "using the ceiling", remaining, self.config.TEST_MODE_MAX_S)
+        if capped > 0:
+            self._enter_test_mode(capped)
+        elif self._testing:
+            self._exit_test_mode("ended by the panel")
+
+    def _enter_test_mode(self, seconds):
+        """Start or extend test mode, and make the sensor credulous."""
+        first = not self._testing
+        self._test_mode_until = time.monotonic() + seconds
+        if not first:
+            return
+        self.logger.warning(
+            "TEST MODE ON for %ds - disturbers will be reported, min_strikes "
+            "drops to 1, and the interference guard and validation buffer are "
+            "bypassed. This detector is not filtering. It ends by itself.",
+            seconds)
+        self._apply_test_registers()
+
+    def _apply_test_registers(self):
+        """Sensor settings that make a bench test possible.
+
+        Only the two that decide whether an event is reported at all. The noise
+        floor and watchdog threshold are left alone: they are what the daily
+        register check verifies (AS3935.verify_registers), and moving them here
+        would make that check report drift on a unit that is working correctly.
+        """
+        try:
+            self.sensor.set_mask_disturber(False)
+            self.sensor.set_min_strikes(1)
+        except Exception as e:
+            self.logger.error("Could not apply test-mode registers: %s", e)
+
+    def _exit_test_mode(self, why):
+        """End test mode and put the configured filtering back."""
+        self._test_mode_until = 0.0
+        try:
+            self.sensor.set_mask_disturber(self.config.MASK_DISTURBER)
+            self.sensor.set_min_strikes(self.config.MIN_STRIKES)
+        except Exception as e:
+            # Worth a restart rather than a quiet log: the sensor is left more
+            # sensitive than configured, which produces false alerts.
+            self.logger.error(
+                "Could not restore registers after test mode (%s) - restart the "
+                "service to re-apply the configuration: %s", why, e)
+            return
+        self.logger.warning(
+            "TEST MODE OFF (%s) - filtering restored: mask_disturber=%s, "
+            "min_strikes=%d", why, self.config.MASK_DISTURBER,
+            self.config.MIN_STRIKES)
+
+    def _service_test_mode(self):
+        """End test mode once its deadline has passed.
+
+        Called from the main loop rather than trusted to the next poll, so the
+        window closes on time even if the panel has become unreachable.
+        """
+        if self._test_mode_until and not self._testing:
+            self._exit_test_mode("window expired")
+
+    # ===================================================================
     #  Daily Stats
     # ===================================================================
 
@@ -1561,6 +1743,13 @@ class QuaggasklipDetector:
         """
         if not self.config.INTERFERENCE_GUARD_ENABLED:
             return False
+        # Under test the guard stands aside, and the strike is not recorded in the
+        # rate window either. Counting bench events would leave the window primed
+        # when the test finishes, so the first genuine strike afterwards would be
+        # muted as interference - the test would have created the failure it was
+        # meant to rule out.
+        if self._testing:
+            return False
         now = time.monotonic()
         self._recent_strikes.append(now)
         window = self.config.INTERFERENCE_WINDOW_S
@@ -1587,6 +1776,12 @@ class QuaggasklipDetector:
     def _buffer_strike(self, distance_km, energy):
         """Hold a strike for evaluation. True when the caller must not post."""
         if not self.config.VALIDATION_BUFFER_ENABLED:
+            return False
+        # Under test, post immediately. The buffer exists to discard bench-like
+        # patterns - a run of events all in the 1 km bin with no storm geometry
+        # around them - which is exactly what a bench test looks like, so leaving
+        # it in the path would filter out the very events being tested.
+        if self._testing:
             return False
         now = time.monotonic()
         self._validation_buffer.append((now, distance_km, energy))
@@ -1889,6 +2084,20 @@ class QuaggasklipDetector:
                                        self.sensor.get_noise_floor(),
                                        self.config.WATCHDOG_THRESH,
                                        self.config.SPIKE_REJECT)
+            if self._testing:
+                # Forwarded only under test, and this is the whole point of the
+                # mode: a disturber is something a technician can produce on
+                # demand, so it is what proves sensor to interrupt to POST to
+                # event row without waiting for a storm.
+                #
+                # Reported at 0 km with no energy. A disturber has no distance -
+                # the AS3935's distance register is only meaningful for a
+                # lightning interrupt - and inventing a plausible-looking one
+                # would put a figure in the client's event history that nothing
+                # measured. 0 also exercises the most severe alert path, which is
+                # the one worth proving. No SMS results: the panel knows this
+                # station is under test and suppresses delivery.
+                self._alert_webhook(0, 0)
 
         elif int_type == INT_NOISE_HIGH:
             noise = self.sensor.get_noise_floor()
@@ -1960,6 +2169,12 @@ class QuaggasklipDetector:
         if not self.sensor.verify_registers(self.config):
             self.logger.warning("Register drift detected - re-initializing AS3935")
             self.sensor.initialize(self.config)
+            # initialize() writes the configured values, which undoes test mode
+            # mid-test. Re-apply, so a drift repair during a commissioning check
+            # does not silently turn the filtering back on while somebody is
+            # standing at the unit wondering why it stopped responding.
+            if self._testing:
+                self._apply_test_registers()
 
 
     # ===================================================================
@@ -2017,6 +2232,13 @@ class QuaggasklipDetector:
                          if self.campbell.active else "not available")
         self.logger.info("  Panel:          %s",
                          self.config.ALERT_WEBHOOK_URL or "disabled")
+        # Stated at boot so the log shows this unit comes up filtering normally.
+        # Test mode is held in memory only, so a restart always lands here.
+        self.logger.info("  Test mode:      off (poll %s, ceiling %d min)",
+                         "every %ds" % self.config.TEST_MODE_POLL_INTERVAL
+                         if (self.config.TEST_MODE_POLL_ENABLED
+                             and self.config.ALERT_WEBHOOK_ENABLED) else "disabled",
+                         self.config.TEST_MODE_MAX_S // 60)
 
         # Arm the interrupt only now that everything it touches exists.
         GPIO.add_event_detect(self.config.IRQ_PIN, GPIO.RISING,
@@ -2046,7 +2268,11 @@ class QuaggasklipDetector:
 
                 self._service_pulse_mirror()
                 self._flush_validation_buffer()
+                # Before the heartbeat, so the window is closed by its own
+                # deadline rather than waiting on the next poll.
+                self._service_test_mode()
                 self._heartbeat()
+                self._poll_panel_config()
                 self._temperature_compensation()
                 self._antenna_frequency_check()
                 self._check_sensor_registers()
@@ -2091,6 +2317,16 @@ class QuaggasklipDetector:
         self._stopped = True
         self._running = False
         self.logger.info("Shutting down...")
+
+        # Test mode does not survive this, and the log has to say so: whoever
+        # reads it later needs to know the unit came back up filtering. No SPI
+        # write here on purpose - the sensor is about to be closed, and start()
+        # re-applies the whole configuration through initialize() anyway.
+        if self._testing:
+            self.logger.warning("Test mode was on - it does not survive a "
+                                "restart, so this unit comes back filtering "
+                                "normally")
+            self._test_mode_until = 0.0
 
         # Flush anything still held, so a clean stop does not silently discard
         # strikes the buffer was still evaluating.

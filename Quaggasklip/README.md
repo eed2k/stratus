@@ -243,8 +243,8 @@ The settings most likely to need attention:
 
 | Key | Default | Notes |
 |---|---|---|
-| `irq_pin` | `12` | **Confirm with `find_irq_pin.py`.** 19 on a Pi 2 shield |
-| `spi_device` | `1` | CE1 = socket 2. Use 0 only if the sensor moves to socket 1 |
+| `irq_pin` | `6` | **Confirm with `find_irq_pin.py`.** Never 12: GPIO12 reaches neither socket |
+| `spi_device` | `0` | CE0 = socket 1, where the Thunder Click sits. 1 only if it moves to socket 2 |
 | `station_id` | `QUAGGASKLIP` | Must match the panel exactly |
 | `alert_webhook_token` | `""` | Per-site secret, never shared |
 | `tune_cap` | `0` | Antenna tuning, 0-15, 8 pF per step |
@@ -252,6 +252,9 @@ The settings most likely to need attention:
 | `watchdog_thresh` | `4` | Raise if it fills with DISTURBER events |
 | `campbell_transport` | `serial` | `bitbang` only if the UART cannot be freed |
 | `pulse_mirror_enabled` | `false` | Enable if the logger counts pulses on P_SW |
+| `test_mode_poll_enabled` | `true` | Whether the unit asks the panel about test mode |
+| `test_mode_poll_interval` | `60` | Seconds between polls |
+| `test_mode_max_s` | `3600` | Local ceiling on a test window, 60 min. Cannot be raised past an hour |
 
 Sensitivity is set slightly higher here than at GWLD1 (4 rather than 5 for noise
 floor, watchdog and spike rejection). GWLD1 is a smelter site and needs the
@@ -291,6 +294,61 @@ regardless, because the local file is the durable record.
 `alert_min_distance_km` exists but defaults to 0 (off) and should stay there.
 Raising it discards near strikes, which on a safety system means hiding the
 lightning that matters most.
+
+---
+
+## Test mode (commissioning)
+
+Commissioning means proving the whole path: sensor, interrupt, POST, event row on
+the panel. Waiting for a thunderstorm is not a commissioning plan, and the AS3935
+will not fire on a bench without a spark source. Test mode is how that gets done.
+
+A Stratus Admin switches it on **per detector** on the platform console's
+Detectors page (`/units`), for up to 60 minutes. Client logins cannot see or use
+it.
+
+While it is on, this unit:
+
+- reports disturbers instead of discarding them, and forwards each one to the
+  panel as a 0 km event. A disturber is something a technician can produce on
+  demand, so it is what proves the path. 0 km because a disturber genuinely has
+  no distance, and inventing a plausible one would put a figure in the client's
+  history that nothing measured
+- drops `min_strikes` to 1, so a single event fires
+- bypasses the interference guard and the validation buffer, which would
+  otherwise discard exactly the pattern a bench test produces
+
+The panel records everything that arrives, tags it as a test, and **sends no SMS
+for that detector while the window is open, including for a genuine strike**. That
+is why the window is short and why it is not a client-facing control.
+
+Four independent things end it:
+
+| Ends it | How |
+|---|---|
+| The local deadline | A monotonic deadline inside the process. Nothing has to run for it to expire |
+| The panel | Its own ceiling, and its own stored expiry |
+| A restart | The deadline is in memory only, never written to disk |
+| An unreachable panel | A failed poll changes nothing, so the deadline runs down and the test ends |
+
+The unit **asks**; the panel never tells. It polls
+`GET .../api/v1/detector/config?station_id=...` once a minute over the same
+outbound HTTPS it already uses, so nothing new listens on the detector. The reply
+carries a remaining time, not an expiry, so no agreement about clocks or time
+zones is needed and a unit with a wrong clock still stops on schedule.
+
+Both ceilings are enforced independently and the lower one wins, so neither a
+panel-side mistake nor anything else able to answer that URL can hold the unit in
+a state where it filters nothing.
+
+The log says exactly what is happening, at warning level in both directions:
+
+```bash
+journalctl -u quaggasklip | grep "TEST MODE"
+```
+
+Every unit logs `Test mode: off` at boot, because the state cannot survive a
+restart.
 
 ---
 
@@ -404,6 +462,8 @@ way to break something that was working.
 | Constant NOISE events | Raise `noise_floor` toward 6 |
 | Constant DISTURBER events | Raise `watchdog_thresh` and `spike_reject` |
 | Strikes logged locally, never on the panel | Being filtered - grep for `FILTERED-EMI` and `interference` |
+| Events arriving on the panel but no SMS sent | Test mode may be on. Check `/units`, or `grep "TEST MODE"` in the log |
+| Disturbers suddenly appearing as 0 km events | Test mode is on. It ends by itself; end it sooner from `/units` |
 
 `find_irq_pin.py` also proves the sensor answers over SPI, so it is the right
 first call for almost any "it sees nothing" report.
@@ -427,19 +487,26 @@ campbell/QK_CR300_Lightning.CR300   logger program
 tests/                        off-target tests, no hardware needed
 tests/check_cr300.py          static review of the logger program
 tests/test_cr300_parse.py     Pi to CR300 record contract
+tests/test_test_mode.py       every way the commissioning test window can end
 ```
 
 ## Tests
 
 ```bash
 cd Quaggasklip
-python3 -m pytest tests -q
+python3 -m pytest tests/test_quaggasklip.py tests/test_test_mode.py -q
+
+# The other two are standalone scripts, not pytest modules:
+python3 tests/check_cr300.py            # static review of the logger program
+python3 tests/test_cr300_parse.py       # Pi to CR300 record contract
+python3 tests/test_antenna_guard.py     # the antenna retune guard
 ```
 
-60 tests, no hardware required: `spidev`, `RPi.GPIO`, `serial` and `pigpio` are
-stubbed in `tests/conftest.py`, the same approach the GWLD1 detector's tests use.
-They cover the on-wire record format the CR300 parses, the socket-2 pin defaults,
-config validation, panel URL derivation, alert gating and both filters.
+86 pytest tests plus 211 checks in the three scripts, none needing hardware:
+`spidev`, `RPi.GPIO`, `serial` and `pigpio` are stubbed in `tests/conftest.py`,
+the same approach the GWLD1 detector's tests use. They cover the on-wire record
+format the CR300 parses, the socket-2 pin defaults, config validation, panel URL
+derivation, alert gating, both filters, and every way test mode can end.
 
 ---
 

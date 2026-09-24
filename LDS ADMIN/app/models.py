@@ -141,6 +141,17 @@ class AlertEvent(Base):
     recipients_targeted = Column(Integer, default=0)
     messages_sent = Column(Integer, default=0)
     messages_failed = Column(Integer, default=0)
+    # True when the detector's station was in test mode at the moment this event
+    # arrived, so the event was recorded but no SMS was sent for it.
+    #
+    # Decided panel-side at ingest, never taken from the detector's payload. A
+    # detector that could label its own events would be able to mark a real
+    # strike as a test, and that suppresses an alert on a safety system.
+    #
+    # Nullable with no default because bootstrap.add_missing_columns can only add
+    # nullable columns to a populated table: every row that predates the column
+    # reads NULL, which is treated as not a test.
+    is_test = Column(Boolean, nullable=True)
 
 
 class MessageLog(Base):
@@ -190,6 +201,17 @@ class UnitStatus(Base):
     # carry the same three figures as a Stratus report, which already prints
     # latitude, longitude and altitude for every weather station.
     altitude_m = Column(Float, nullable=True)
+    # Test mode: when set and in the future, this detector is being commissioned
+    # or bench-checked. The detector polls the panel, learns it may accept
+    # disturbers, and the panel records the resulting events with is_test set and
+    # sends no SMS for them.
+    #
+    # An expiry rather than a boolean, on purpose. A flag can be left on: whoever
+    # switched it would have to remember to switch it back, and a detector whose
+    # alerts are silently suppressed is the one failure mode a lightning warning
+    # system cannot have. A timestamp in the past reads as off with nothing
+    # needing to run, so the mode cannot outlive the person testing it.
+    test_mode_until = Column(DateTime, nullable=True)
 
 
 class HeartbeatSample(Base):

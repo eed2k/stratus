@@ -17,6 +17,16 @@
 </p>
 <p>Targeted {{ event.recipients_targeted }} &middot; Sent {{ event.messages_sent }} &middot; Failed {{ event.messages_failed }}</p>
 
+{# Stated plainly rather than left to be worked out from "skipped" rows below.
+   This event was received while the detector was under test, so the recipients
+   listed are the ones it WOULD have gone to. #}
+{% if event.is_test %}
+<div class="error" role="alert">
+  Recorded during a commissioning test. No SMS was sent for this event by design.
+  The recipients below are the ones it would have gone to.
+</div>
+{% endif %}
+
 <table>
   <thead><tr><th>Channel</th><th>To</th><th>Status</th><th>Message ID</th><th>Error</th></tr></thead>
   <tbody>
